@@ -117,6 +117,25 @@ function AdmissionsPage() {
     onError: () => toast.error("Failed to accept applicant"),
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => api.admissions.reject(schoolId, id),
+    onSuccess: (_: any, id: string) => {
+      qc.invalidateQueries({ queryKey: ["admissions", schoolId] });
+      setLocalStages((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      toast.success("Applicant rejected");
+    },
+    onError: () => toast.error("Failed to reject applicant"),
+  });
+
+  const advanceStageMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.admissions.update(schoolId, id, { status }),
+    onSuccess: (_: any, vars: any) => {
+      qc.invalidateQueries({ queryKey: ["admissions", schoolId] });
+    },
+    onError: () => { /* stage already updated locally */ },
+  });
+
   const rawApplicants = applicantsData as any[];
 
   function mapStage(applicant: any): ApplicantStage {
@@ -124,6 +143,7 @@ function AdmissionsPage() {
     if (override) return override;
     const status = (applicant.status ?? applicant.stage ?? "").toUpperCase();
     if (status === "ACCEPTED") return "Enrolled";
+    if (status === "OFFERED") return "Offer";
     if (status === "REVIEWING") return "Assessment";
     if (status === "PENDING") return "Inquiry";
     return (applicant.stage ?? "Inquiry") as ApplicantStage;
@@ -151,6 +171,11 @@ function AdmissionsPage() {
     [applicants],
   );
 
+  const stageToStatus: Record<string, string> = {
+    Assessment: "REVIEWING",
+    Offer: "OFFERED",
+  };
+
   const advanceApplicant = (id: string) => {
     const applicant = applicants.find((item) => item.id === id);
     if (!applicant) return;
@@ -162,6 +187,8 @@ function AdmissionsPage() {
     } else {
       setLocalStages((prev) => ({ ...prev, [id]: nextStage }));
       toast.success(`${applicant.learner} moved to ${nextStage}`);
+      const status = stageToStatus[nextStage];
+      if (status) advanceStageMutation.mutate({ id, status });
     }
   };
 
@@ -478,9 +505,14 @@ function AdmissionsPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {applicant.stage !== "Enrolled" ? (
-                            <Button size="sm" variant="outline" onClick={() => advanceApplicant(applicant.id)} disabled={acceptMutation.isPending}>
-                              Advance
-                            </Button>
+                            <>
+                              <Button size="sm" variant="outline" onClick={() => advanceApplicant(applicant.id)} disabled={acceptMutation.isPending || advanceStageMutation.isPending}>
+                                Advance
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => rejectMutation.mutate(applicant.id)} disabled={rejectMutation.isPending}>
+                                Reject
+                              </Button>
+                            </>
                           ) : applicant.studentId ? (
                             <Button size="sm" asChild>
                               <Link to="/students/$studentId" params={{ studentId: applicant.studentId }}>

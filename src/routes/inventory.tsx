@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({ meta: [{ title: "Inventory & Procurement — SRMS" }] }),
@@ -54,6 +55,21 @@ function InventoryPage() {
   const { data: itemsData = [], isLoading } = useQuery({
     queryKey: ["inventory", schoolId],
     queryFn: () => api.inventory.items(schoolId),
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: (item: any) => api.inventory.recordMovement(schoolId, {
+      itemId: item.id,
+      itemCode: item.code ?? item.itemCode,
+      itemName: item.name,
+      movementType: "REORDER",
+      quantity: item.min ?? item.reorderLevel ?? 10,
+      notes: "Reorder request triggered from stock register",
+    }),
+    onSuccess: (_: any, item: any) => {
+      toast.success(`Reorder request logged for ${item.name}`);
+    },
+    onError: () => toast.error("Failed to log reorder request"),
   });
 
   const createMutation = useMutation({
@@ -125,7 +141,23 @@ function InventoryPage() {
         description="Stock control, suppliers, purchase orders and goods-received notes."
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("Stock take exported")}>Stock take</Button>
+            <Button variant="outline" onClick={() => {
+              if (stockItems.length === 0) { toast.error("No items to export"); return; }
+              downloadCsv(stockItems.map((i: any) => ({
+                Code: i.code ?? i.itemCode ?? "",
+                Name: i.name ?? "",
+                Category: i.category ?? "",
+                Quantity: i.qty ?? i.quantityInStock ?? 0,
+                Unit: i.unit ?? "",
+                "Min Reorder": i.min ?? i.reorderLevel ?? 0,
+                Location: i.location ?? "",
+                "Unit Cost": i.cost ?? i.unitCost ?? 0,
+                Condition: i.condition ?? "",
+                Status: i.status ?? "",
+                Supplier: i.supplierName ?? "",
+                "Last Restocked": i.lastRestockedDate ?? "",
+              })), `stock-take-${new Date().toISOString().slice(0, 10)}`);
+            }}>Stock take</Button>
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" />Add item</Button>
@@ -284,7 +316,9 @@ function InventoryPage() {
                       <TableCell className="text-muted-foreground">{i.location}</TableCell>
                       <TableCell>K {(i.cost ?? i.unitCost ?? 0).toLocaleString()}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => toast.success(`Reorder draft for ${i.name}`)}>Reorder</Button>
+                        <Button size="sm" variant="ghost" disabled={reorderMutation.isPending} onClick={() => reorderMutation.mutate(i)}>
+                          Reorder
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

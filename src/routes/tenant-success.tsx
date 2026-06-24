@@ -26,7 +26,7 @@ type SuccessOverride = {
 };
 
 const csmOwners = ["Portfolio Desk", "CSM team", "Platform desk"];
-const defaultReviews = ["28 May 2026", "04 Jun 2026", "11 Jun 2026", "18 Jun 2026"];
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function riskTone(risk: Risk) {
   if (risk === "Low") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
@@ -43,6 +43,34 @@ function daysUntil(value: string) {
   const parsed = parseDate(value);
   if (!parsed) return Number.POSITIVE_INFINITY;
   return Math.ceil((parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+function formatDateLabel(date: Date) {
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function deriveNextReviewDate(renewalDate: string, index: number) {
+  const renewal = parseDate(renewalDate);
+  if (renewal) {
+    return formatDateLabel(addDays(renewal, -(14 - Math.min(index, 3) * 2)));
+  }
+  return formatDateLabel(addDays(new Date(), 7 + index * 7));
+}
+
+function deriveLastTouchpoint(nextReview: string) {
+  const review = parseDate(nextReview);
+  if (review) {
+    return formatDateLabel(addDays(review, -7));
+  }
+  return formatDateLabel(addDays(new Date(), -3));
 }
 
 export const Route = createFileRoute("/tenant-success")({
@@ -96,8 +124,8 @@ function TenantSuccessPage() {
     return {
       tenant,
       owner: override.owner ?? csmOwners[index % csmOwners.length],
-      nextReview: override.nextReview ?? defaultReviews[index % defaultReviews.length],
-      lastTouchpoint: override.lastTouchpoint ?? "21 May 2026",
+      nextReview: override.nextReview ?? deriveNextReviewDate(tenant.subscription.renewalDate, index),
+      lastTouchpoint: override.lastTouchpoint ?? deriveLastTouchpoint(override.nextReview ?? deriveNextReviewDate(tenant.subscription.renewalDate, index)),
       escalated: override.escalated ?? false,
       trialExtensions: override.trialExtensions ?? 0,
       healthScore: clampedHealth,
@@ -151,13 +179,15 @@ function TenantSuccessPage() {
   const scheduleReview = (tenantId: string) => {
     const tenant = tenants.find((record) => record.id === tenantId);
     if (!tenant) return;
+    const nextReview = formatDateLabel(addDays(new Date(), 7));
+    const lastTouchpoint = formatDateLabel(new Date());
     saveWorkspace.mutate({
       tenantSuccessOverrides: {
         ...overrides,
         [tenantId]: {
           ...overrides[tenantId],
-          nextReview: "30 May 2026",
-          lastTouchpoint: "23 May 2026",
+          nextReview,
+          lastTouchpoint,
         },
       },
       tenantHandoffs: appendTenantHandoff(workspace, {
@@ -192,7 +222,11 @@ function TenantSuccessPage() {
       toast.info("Trial extension is only available for trial schools");
       return;
     }
-    updateTenant(tenantId, { subscription: { renewalDate: "15 Jul 2026" } });
+    const now = new Date();
+    const currentRenewal = parseDate(tenant.subscription.renewalDate);
+    const anchor = currentRenewal && currentRenewal.getTime() > now.getTime() ? currentRenewal : now;
+    const extendedRenewal = formatDateLabel(addDays(anchor, 21));
+    updateTenant(tenantId, { subscription: { renewalDate: extendedRenewal } });
     const currentExtensions = overrides[tenantId]?.trialExtensions ?? 0;
     saveWorkspace.mutate({
       tenantSuccessOverrides: {
@@ -232,10 +266,10 @@ function TenantSuccessPage() {
         actor: user?.name ?? "System Administrator",
         tenant: tenant.name,
         area: "Billing",
-        action: "Extended trial renewal date to 15 Jul 2026",
+        action: `Extended trial renewal date to ${extendedRenewal}`,
       }),
     });
-    toast.success("Trial extended to 15 Jul 2026");
+    toast.success(`Trial extended to ${extendedRenewal}`);
   };
 
   const escalateAccount = (tenantId: string) => {

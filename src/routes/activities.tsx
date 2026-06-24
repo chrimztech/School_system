@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Trophy, Users, Star, CalendarDays, Plus, Loader2 } from "lucide-react";
+import { Trophy, Users, Star, CalendarDays, Plus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -83,6 +83,25 @@ function ActivitiesPage() {
       setClubOpen(false);
     },
     onError: () => toast.error("Failed to create club"),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.activities.update(schoolId, id, data),
+    onSuccess: (updated: any) => {
+      void qc.invalidateQueries({ queryKey: ["activities", schoolId] });
+      const active = String(updated.status).toUpperCase() === "ACTIVE";
+      toast.success(`${updated.name} ${active ? "activated" : "deactivated"}`);
+    },
+    onError: () => toast.error("Failed to update club status"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.activities.delete(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["activities", schoolId] });
+      toast.success("Club removed");
+    },
+    onError: () => toast.error("Failed to remove club"),
   });
 
   const clubs = (clubsData as any[]).map((club: any) => {
@@ -302,9 +321,26 @@ function ActivitiesPage() {
                         <Badge variant={isActive ? "default" : "secondary"}>{club.status}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => toast.success(`${club.name} ${isActive ? "deactivated" : "activated"}`)}>
-                          {isActive ? "Deactivate" : "Activate"}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={toggleMutation.isPending}
+                            onClick={() => toggleMutation.mutate({ id: club.id, data: { ...club, status: isActive ? "INACTIVE" : "ACTIVE" } })}
+                          >
+                            {isActive ? "Deactivate" : "Activate"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-destructive hover:text-destructive"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => { if (window.confirm(`Remove ${club.name}?`)) deleteMutation.mutate(club.id); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/fees")({
   head: () => ({ meta: [{ title: "Fees & Payments — SRMS" }] }),
@@ -70,6 +71,22 @@ function FeesPage() {
     queryFn: () => api.bursaries.list(schoolId),
   });
   const activeBursaryCount = (bursaries as any[]).filter((b: any) => (b.status ?? "").toLowerCase() === "active").length;
+
+  const reminderMutation = useMutation({
+    mutationFn: () => api.communication.createAnnouncement(schoolId, {
+      title: "Fee payment reminder",
+      body: `This is a reminder that outstanding fee balances are due for Term ${active.currentTerm} ${active.currentYear}. Please make payment promptly to avoid disruption to your child's education. Contact the finance office for assistance.`,
+      audience: "All parents",
+      channels: "SMS, WhatsApp",
+      publishDate: new Date().toISOString().slice(0, 10),
+      active: true,
+    }),
+    onSuccess: () => {
+      toast.success("Fee reminders queued — parents with outstanding balances will be notified");
+      setReminderOpen(false);
+    },
+    onError: () => toast.error("Failed to queue reminders"),
+  });
 
   const payMutation = useMutation({
     mutationFn: (data: any) => api.fees.recordPayment(schoolId, data),
@@ -151,7 +168,8 @@ function FeesPage() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setReminderOpen(false)}>Cancel</Button>
-                  <Button onClick={() => { toast.success("Fee reminders queued"); setReminderOpen(false); }}>
+                  <Button onClick={() => reminderMutation.mutate()} disabled={reminderMutation.isPending}>
+                    {reminderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <Send className="mr-2 h-4 w-4" />Send now
                   </Button>
                 </DialogFooter>
@@ -251,7 +269,21 @@ function FeesPage() {
               </DialogContent>
             </Dialog>
 
-            <Button variant="outline" onClick={() => toast.success("Fee ledger exported")}>
+            <Button variant="outline" onClick={() => {
+              const rows = (payments as any[]);
+              if (rows.length === 0) { toast.error("No payments to export"); return; }
+              downloadCsv(rows.map((p: any) => ({
+                Student: p.studentName ?? p.student ?? "",
+                Grade: p.grade ?? "",
+                Amount: p.amount ?? 0,
+                Method: p.method ?? "",
+                Category: p.feeCategory ?? "",
+                "Term Period": p.termPeriod ?? "",
+                "Payment Date": (p.paymentDate ?? p.date ?? "").slice(0, 10),
+                Reference: p.referenceNumber ?? "",
+                Status: p.status ?? "completed",
+              })), `fee-ledger-${new Date().toISOString().slice(0, 10)}`);
+            }}>
               <Download className="mr-2 h-4 w-4" />Export
             </Button>
           </>

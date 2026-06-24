@@ -3,6 +3,7 @@ import { Bus, Plus, MapPin, Users, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -53,10 +54,17 @@ function TransportPage() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(createInitialForm);
+  const [ridersRoute, setRidersRoute] = useState<any | null>(null);
 
   const { data: routes = [], isLoading } = useQuery({
     queryKey: ["transport-routes", schoolId],
     queryFn: () => api.transport.routes(schoolId),
+  });
+
+  const { data: enrolments = [] } = useQuery({
+    queryKey: ["transport-enrolments", schoolId],
+    queryFn: () => api.transport.enrolments(schoolId),
+    enabled: !!ridersRoute,
   });
 
   const createMutation = useMutation({
@@ -252,7 +260,7 @@ function TransportPage() {
                   </div>
                 </div>
                 <div className="mt-3 flex justify-end gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => toast.info(`Rider list for ${route.name}`)}>Riders</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setRidersRoute(route)}>Riders</Button>
                 </div>
               </div>
             );
@@ -264,6 +272,37 @@ function TransportPage() {
           )}
         </div>
       )}
+
+      <Dialog open={!!ridersRoute} onOpenChange={(v) => { if (!v) setRidersRoute(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Riders — {ridersRoute?.name}</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const routeEnrolments = (enrolments as any[]).filter((e: any) => e.routeId === ridersRoute?.id || e.routeName === ridersRoute?.name);
+            return routeEnrolments.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No riders enrolled on this route.</p>
+            ) : (
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Grade</TableHead>
+                  <TableHead>Stop</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {routeEnrolments.map((e: any) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-medium">{e.studentName ?? e.student}</TableCell>
+                      <TableCell>{e.grade ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{e.stop ?? e.pickupStop ?? "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

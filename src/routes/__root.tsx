@@ -260,18 +260,36 @@ function SubscriptionBanner({ tenant }: { tenant: Tenant }) {
   return null;
 }
 
+function hexLuminance(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+function buildShellStyle(primaryColor: string): React.CSSProperties | undefined {
+  if (!primaryColor || !/^#[0-9a-fA-F]{6}$/i.test(primaryColor)) return undefined;
+  const lum = hexLuminance(primaryColor);
+  const fg = lum > 0.35 ? "oklch(0.15 0 0)" : "oklch(0.99 0 0)";
+  return {
+    "--primary": primaryColor,
+    "--primary-foreground": fg,
+    "--ring": primaryColor,
+    "--sidebar-primary": primaryColor,
+    "--sidebar-primary-foreground": fg,
+    "--sidebar-ring": primaryColor,
+    // Active nav item bg — primary tinted into the dark sidebar base
+    "--sidebar-accent": `color-mix(in srgb, ${primaryColor} 14%, #0e1423)`,
+    "--sidebar-accent-foreground": "oklch(0.94 0.005 245)",
+  } as React.CSSProperties;
+}
+
 function AppShell() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { user, isSystemAdmin, loadingSession } = useAuth();
   const { active } = useTenant();
-  const shellStyle = active.primaryColor && active.primaryColor !== "#1e40af"
-    ? ({
-        "--primary": active.primaryColor,
-        "--ring": active.primaryColor,
-        "--sidebar-primary": active.primaryColor,
-        "--sidebar-ring": active.primaryColor,
-      } as React.CSSProperties)
-    : undefined;
+  const shellStyle = isSystemAdmin ? undefined : buildShellStyle(active.primaryColor);
 
   // Ensure SSR and first client render produce identical HTML.
   // Auth state reads from localStorage (client-only), so delay auth-dependent
@@ -326,6 +344,12 @@ function AppShell() {
         <WorkspaceSidebar />
         <SidebarInset className="workspace-frame min-w-0 overflow-hidden bg-background/90">
           <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+            {!isSystemAdmin && active.primaryColor && (
+              <div
+                className="absolute top-0 left-0 right-0 h-[2px]"
+                style={{ background: `linear-gradient(90deg, transparent, ${active.primaryColor}, transparent)` }}
+              />
+            )}
             <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
               <SidebarTrigger />
               <div className="hidden min-w-0 items-center gap-3 lg:flex">

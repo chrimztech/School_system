@@ -79,8 +79,12 @@ function FeeStructurePage() {
     onError: () => toast.error("Failed to add levy"),
   });
   const deleteLevyMutation = useMutation({
-    mutationFn: (id: string) => api.fees.deleteLevy(schoolId, id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["fee-levies", schoolId] }),
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.fees.deleteLevy(schoolId, id),
+    onSuccess: (_: any, { name }: { id: string; name: string }) => {
+      void qc.invalidateQueries({ queryKey: ["fee-levies", schoolId] });
+      toast.success(`${name} removed`);
+    },
+    onError: () => toast.error("Failed to remove levy"),
   });
   const createDiscountMutation = useMutation({
     mutationFn: (data: any) => api.fees.createDiscount(schoolId, data),
@@ -512,7 +516,7 @@ function FeeStructurePage() {
                     <Badge variant={l.mandatory ? "default" : "secondary"}>{l.mandatory ? "Mandatory" : "Optional"}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => { deleteLevyMutation.mutate(l.id); toast.success(`${l.name} removed`); }}>Remove</Button>
+                    <Button size="sm" variant="ghost" onClick={() => deleteLevyMutation.mutate({ id: l.id, name: l.name })}>Remove</Button>
                   </TableCell>
                 </TableRow>
               ))}

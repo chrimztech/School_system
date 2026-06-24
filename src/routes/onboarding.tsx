@@ -372,6 +372,24 @@ function OnboardingPage() {
                 className="mt-1"
               />
             </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="slug">URL slug</Label>
+              <div className="mt-1 flex items-center gap-0">
+                <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
+                  srms.com/
+                </span>
+                <Input
+                  id="slug"
+                  value={form.slug ?? ""}
+                  onChange={(e) => update("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") || undefined)}
+                  placeholder="mongu-trust-academy"
+                  className="mt-0 rounded-l-none font-mono text-sm"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Unique subdomain for this school's portal. Auto-generated from the short code if left blank.
+              </p>
+            </div>
             <div>
               <Label htmlFor="yearFounded">Year founded</Label>
               <Input

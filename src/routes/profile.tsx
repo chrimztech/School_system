@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shield, Smartphone, Key, Loader2 } from "lucide-react";
+import { Shield, Smartphone, Key, Loader2, Eye, EyeOff } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -25,6 +26,23 @@ function ProfilePage() {
   const [emailNotif, setEmailNotif] = useState(true);
   const [smsNotif, setSmsNotif] = useState(false);
 
+  const [pwOpen, setPwOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNext, setShowNext] = useState(false);
+
+  const changePwMutation = useMutation({
+    mutationFn: () => api.auth.changePassword(current, next),
+    onSuccess: () => {
+      toast.success("Password changed successfully");
+      setPwOpen(false);
+      setCurrent(""); setNext(""); setConfirm("");
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to change password"),
+  });
+
   const updatePhoneMutation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error("Not logged in");
@@ -34,6 +52,18 @@ function ProfilePage() {
     },
     onSuccess: () => toast.success("Profile updated"),
     onError: () => toast.error("Failed to save profile"),
+  });
+
+  const saveNotifMutation = useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error("Not logged in");
+      const payload = { notifyEmail: String(emailNotif), notifySms: String(smsNotif) };
+      return isSystemAdmin
+        ? api.users.update(user.id, payload as any)
+        : api.users.updateForSchool(user.tenantId ?? active.id, user.id, payload as any);
+    },
+    onSuccess: () => toast.success("Notification preferences saved"),
+    onError: () => toast.error("Failed to save preferences"),
   });
 
   if (!user) return null;
@@ -101,10 +131,51 @@ function ProfilePage() {
               <p className="flex items-center gap-2 font-medium"><Key className="h-4 w-4" />Password</p>
               <p className="text-xs text-muted-foreground">Update your account password.</p>
             </div>
-            <Button variant="outline" onClick={() => toast.info("Contact your administrator to reset your password")}>Change password</Button>
+            <Button variant="outline" onClick={() => setPwOpen(true)}>Change password</Button>
           </div>
         </div>
       </section>
+
+      <Dialog open={pwOpen} onOpenChange={(v) => { setPwOpen(v); if (!v) { setCurrent(""); setNext(""); setConfirm(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Change password</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Current password</Label>
+              <div className="relative">
+                <Input type={showCurrent ? "text" : "password"} value={current} onChange={(e) => setCurrent(e.target.value)} className="pr-9" />
+                <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowCurrent((v) => !v)}>
+                  {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>New password</Label>
+              <div className="relative">
+                <Input type={showNext ? "text" : "password"} value={next} onChange={(e) => setNext(e.target.value)} className="pr-9" />
+                <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowNext((v) => !v)}>
+                  {showNext ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Confirm new password</Label>
+              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setPwOpen(false)}>Cancel</Button>
+            <Button
+              disabled={changePwMutation.isPending || !current || next.length < 8 || next !== confirm}
+              onClick={() => changePwMutation.mutate()}
+            >
+              {changePwMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-base font-semibold">Notification preferences</h2>
@@ -119,7 +190,10 @@ function ProfilePage() {
           </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <Button variant="outline" onClick={() => toast.success("Preferences saved")}>Save</Button>
+          <Button variant="outline" disabled={saveNotifMutation.isPending} onClick={() => saveNotifMutation.mutate()}>
+            {saveNotifMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
         </div>
       </section>
     </div>

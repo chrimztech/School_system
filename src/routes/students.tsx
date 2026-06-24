@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/students")({
   head: () => ({ meta: [{ title: "Students - SRMS" }] }),
@@ -112,6 +113,15 @@ function StudentsPage() {
     queryFn: () => api.students.list(schoolId),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.students.delete(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      toast.success("Student record removed");
+    },
+    onError: () => toast.error("Failed to remove student record"),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: any) => api.students.create(schoolId, data),
     onSuccess: (student: any) => {
@@ -182,7 +192,20 @@ function StudentsPage() {
         description="Admitted student register. To enrol a student into a class, open the Classes page and use Enrol pupils."
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("Student register exported")}>
+            <Button variant="outline" onClick={() => {
+              if (filtered.length === 0) { toast.error("No students to export"); return; }
+              downloadCsv(filtered.map((s: any) => ({
+                "Admission No": s.admissionNumber ?? "",
+                "First Name": s.firstName ?? "",
+                "Last Name": s.lastName ?? "",
+                Grade: s.grade ?? "",
+                Section: s.section ?? "",
+                Gender: s.gender ?? "",
+                Guardian: s.guardian ?? "",
+                "Guardian Phone": s.guardianPhone ?? "",
+                Status: s.status ?? "active",
+              })), `students-${new Date().toISOString().slice(0, 10)}`);
+            }}>
               <Download className="mr-2 h-4 w-4" /> Export
             </Button>
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(createInitialForm()); setStep(1); } }}>
@@ -490,6 +513,7 @@ function StudentsPage() {
                 <TableHead>Phone</TableHead>
                 <TableHead>Fee balance</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -528,11 +552,26 @@ function StudentsPage() {
                       {(student.status ?? "").toLowerCase()}
                     </Badge>
                   </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => {
+                        const name = fullStudentName(student);
+                        if (window.confirm(`Remove ${name} (${student.admissionNumber}) from student records? This cannot be undone.`))
+                          deleteMutation.mutate(student.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                     No students match the current filters.
                   </TableCell>
                 </TableRow>

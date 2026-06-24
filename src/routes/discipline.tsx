@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, ShieldAlert, Loader2 } from "lucide-react";
+import { Plus, ShieldAlert, Loader2, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -54,6 +54,15 @@ function DisciplinePage() {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["discipline", schoolId],
     queryFn: () => api.discipline.list(schoolId),
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: (id: string) => api.discipline.resolve(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["discipline", schoolId] });
+      toast.success("Case resolved");
+    },
+    onError: () => toast.error("Failed to resolve case"),
   });
 
   const createMutation = useMutation({
@@ -251,6 +260,7 @@ function DisciplinePage() {
                 <TableHead>Action</TableHead>
                 <TableHead>Repeats</TableHead>
                 <TableHead>Parent notified</TableHead>
+                <TableHead className="text-right">Resolve</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -262,7 +272,7 @@ function DisciplinePage() {
                     <TableCell>
                       <div>{d.offense}</div>
                       <div className="text-xs text-muted-foreground">
-                        [d.offenseCategory ?? extractNoteValue(d.notes, "Category"), d.severity ?? extractNoteValue(d.notes, "Severity")].filter(Boolean).join(" - ")
+                        {[d.offenseCategory ?? extractNoteValue(d.notes, "Category"), d.severity ?? extractNoteValue(d.notes, "Severity")].filter(Boolean).join(" · ")}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -272,11 +282,20 @@ function DisciplinePage() {
                   <TableCell>
                     {(d.notified ?? d.parentNotified) ? <Badge variant="secondary">Sent</Badge> : <Badge variant="destructive">Pending</Badge>}
                   </TableCell>
+                  <TableCell className="text-right">
+                    {(d.status ?? "Open") === "Resolved" ? (
+                      <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success" />Resolved</span>
+                    ) : (
+                      <Button size="sm" variant="ghost" disabled={resolveMutation.isPending} onClick={() => resolveMutation.mutate(d.id)}>
+                        {resolveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Resolve"}
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
               {recs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No disciplinary records.</TableCell>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">No disciplinary records.</TableCell>
                 </TableRow>
               )}
             </TableBody>

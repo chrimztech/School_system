@@ -89,7 +89,7 @@ function HostelPage() {
     house: a.hostelName ?? "",
     room: a.roomNumber ?? "",
     grade: a.grade ?? "",
-    statusLabel: (a.status ?? "ACTIVE") === "VACATED" ? "Out" : "In",
+    statusLabel: (a.signInStatus ?? "IN") === "OUT" ? "Out" : "In",
   }));
 
   const leaves = (leavesData as any[]);
@@ -153,6 +153,15 @@ function HostelPage() {
       setLeaveOpen(false);
     },
     onError: () => toast.error("Failed to submit leave request"),
+  });
+
+  const signInMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.hostel.updateSignIn(schoolId, id, status),
+    onSuccess: (_, { status }) => {
+      void qc.invalidateQueries({ queryKey: ["hostel-allocations", schoolId] });
+      toast.success(status === "OUT" ? "Boarder marked Out" : "Boarder marked In");
+    },
+    onError: () => toast.error("Failed to update sign-in status"),
   });
 
   const leaveStatusMut = useMutation({
@@ -473,7 +482,12 @@ function HostelPage() {
                       <Badge variant="outline" className={b.statusLabel === "In" ? "text-green-600" : "text-amber-600"}>{b.statusLabel}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => toast.success(`${b.name} marked ${b.statusLabel === "In" ? "Out" : "In"}`)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={signInMut.isPending}
+                        onClick={() => signInMut.mutate({ id: b.id, status: b.statusLabel === "In" ? "OUT" : "IN" })}
+                      >
                         Mark {b.statusLabel === "In" ? "Out" : "In"}
                       </Button>
                     </TableCell>

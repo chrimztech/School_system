@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { CreditCard, CheckCircle2, Lock, Zap, ArrowRight, RefreshCw } from "lucide-react";
+import { CreditCard, CheckCircle2, Lock, Zap, ArrowRight, RefreshCw, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import {
   planIncludesFeature, type PlanId, type BillingCycle,
 } from "@/lib/tenant";
 import { PLAN_UI, STATUS_UI } from "@/lib/subscription";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/billing")({
   head: () => ({ meta: [{ title: "Billing & Subscription — SRMS" }] }),
@@ -37,14 +39,27 @@ type Invoice = {
 
 function BillingPage() {
   const { active, activePlan, changePlan, isFeatureIncluded } = useTenant();
+  const schoolId = active.id;
   const sub = active.subscription;
   const planUi = PLAN_UI[activePlan.id];
   const statusUi = STATUS_UI[sub.status];
+  const qc = useQueryClient();
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [targetPlan, setTargetPlan] = useState<PlanId>(activePlan.id);
   const [targetCycle, setTargetCycle] = useState<BillingCycle>(sub.billingCycle);
-  const invoices: Invoice[] = [];
+
+  const { data: invoicesData = [], isLoading: invoicesLoading } = useQuery({
+    queryKey: ["billing-invoices", schoolId],
+    queryFn: () => api.billingInvoices.list(schoolId),
+  });
+  const invoices = invoicesData as Invoice[];
+
+  const markPaidMutation = useMutation({
+    mutationFn: (id: string) => api.billingInvoices.markPaid(schoolId, id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["billing-invoices", schoolId] }); toast.success("Invoice marked as paid"); },
+    onError: () => toast.error("Failed to update invoice"),
+  });
 
   const smsPct = sub.smsQuota > 0 ? Math.round((sub.smsUsed / sub.smsQuota) * 100) : 0;
   const campusPct = sub.campusLimit > 0 ? Math.round((active.campuses.length / sub.campusLimit) * 100) : 0;
@@ -318,50 +333,64 @@ function BillingPage() {
 
         {/* INVOICES */}
         <TabsContent value="invoices" className="rounded-xl border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invoices.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell className="font-mono text-xs">{inv.id}</TableCell>
-                  <TableCell className="text-muted-foreground">{inv.date}</TableCell>
-                  <TableCell>{inv.description}</TableCell>
-                  <TableCell className="font-medium">K{inv.amount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge className={{
-                      paid: "bg-success/15 text-success",
-                      open: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-                      overdue: "bg-destructive/15 text-destructive",
-                    }[inv.status]}>
-                      {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" variant="outline"
-                      onClick={() => toast.success(`${inv.id} downloaded`)}>
-                      Download PDF
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {invoices.length === 0 && (
+          {invoicesLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading invoices…</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                    No billing invoices are available from the backend yet.
-                  </TableCell>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Due</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {invoices.map((inv: any) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-mono text-xs">{inv.invoiceNumber ?? inv.id}</TableCell>
+                    <TableCell className="text-muted-foreground">{(inv.createdAt ?? inv.date ?? "").slice(0, 10)}</TableCell>
+                    <TableCell>{inv.description}</TableCell>
+                    <TableCell className="font-medium">K{(inv.amount ?? 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-muted-foreground">{inv.dueDate ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge className={{
+                        paid: "bg-success/15 text-success",
+                        open: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+                        overdue: "bg-destructive/15 text-destructive",
+                      }[(inv.status ?? "open") as "paid" | "open" | "overdue"] ?? "bg-muted text-muted-foreground"}>
+                        {(inv.status ?? "open").charAt(0).toUpperCase() + (inv.status ?? "open").slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {inv.status !== "paid" && (
+                          <Button size="sm" variant="outline" disabled={markPaidMutation.isPending} onClick={() => markPaidMutation.mutate(inv.id)}>
+                            Mark paid
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => toast.info("PDF download requires a billing integration. Contact support.")}>
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {invoices.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                      No invoices yet. Invoices are created when a subscription payment is due.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </TabsContent>
       </Tabs>
     </div>

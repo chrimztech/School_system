@@ -81,6 +81,7 @@ function SettingsPage() {
   const [secondaryColor, setSecondaryColor] = useState(school.secondaryColor ?? "#134e4a");
   const [accentColor, setAccentColor] = useState(school.accentColor ?? "#7c3aed");
   const [logoUrl, setLogoUrl] = useState(school.logoUrl ?? "");
+  const [slug, setSlug] = useState(school.slug ?? "");
 
   useEffect(() => {
     setSelectedType(school.type);
@@ -96,6 +97,7 @@ function SettingsPage() {
     setSecondaryColor(school.secondaryColor ?? "#134e4a");
     setAccentColor(school.accentColor ?? "#7c3aed");
     setLogoUrl(school.logoUrl ?? "");
+    setSlug(school.slug ?? "");
   }, [school]);
 
   const saveChanges = () => {
@@ -131,6 +133,7 @@ function SettingsPage() {
       secondaryColor,
       accentColor,
       logoUrl: logoUrl.trim() || undefined,
+      slug: slug.trim() ? slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") : undefined,
       features: {
         ...school.features,
         ...featureValues,
@@ -477,6 +480,24 @@ function SettingsPage() {
             <div>
               <Label htmlFor="motto">Motto</Label>
               <Input id="motto" value={motto} onChange={(e) => setMotto(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="slug">URL slug</Label>
+              <div className="mt-1 flex items-center gap-0">
+                <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
+                  srms.com/
+                </span>
+                <Input
+                  id="slug"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                  placeholder="greenfields-secondary"
+                  className="mt-0 rounded-l-none font-mono text-sm"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                School's unique subdomain — auto-generated from the school code if left blank.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

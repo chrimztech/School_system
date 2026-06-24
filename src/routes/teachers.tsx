@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, Search, Mail, Phone, Loader2 } from "lucide-react";
+import { Plus, Search, Mail, Phone, Loader2, Trash2 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,6 +68,15 @@ function TeachersPage() {
   useEffect(() => {
     if (firstDept) setForm((prev) => prev.department === "" ? { ...prev, department: firstDept } : prev);
   }, [firstDept]);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.teachers.delete(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["teachers", schoolId] });
+      toast.success("Staff record removed");
+    },
+    onError: () => toast.error("Failed to remove staff record"),
+  });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.teachers.create(schoolId, data),
@@ -309,6 +318,7 @@ function TeachersPage() {
                 <TableHead>Department</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -335,11 +345,25 @@ function TeachersPage() {
                       {(t.status ?? "").toLowerCase() === "on_leave" ? "On leave" : (t.status ?? "").toLowerCase() === "active" ? "On duty" : "Inactive"}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm(`Remove ${t.firstName} ${t.lastName} from staff records? This cannot be undone.`))
+                          deleteMutation.mutate(t.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">No staff found.</TableCell>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No staff found.</TableCell>
                 </TableRow>
               )}
             </TableBody>

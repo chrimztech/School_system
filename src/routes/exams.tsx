@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ClipboardCheck, MapPin, Users, FileSpreadsheet, Plus } from "lucide-react";
+import { ClipboardCheck, MapPin, Users, FileSpreadsheet, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, StatCard } from "@/components/page-header";
@@ -129,6 +129,12 @@ function ExamsPage() {
     mutationFn: (data: any) => api.exams.create(active.id, data),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["exams", active.id] }); toast.success("Exam paper scheduled"); setOpen(false); },
     onError: () => toast.error("Failed to schedule paper"),
+  });
+
+  const confirmMut = useMutation({
+    mutationFn: (id: string) => api.exams.update(active.id, id, { status: "CONFIRMED" }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["exams", active.id] }); toast.success("Invigilator confirmed"); },
+    onError: () => toast.error("Failed to confirm invigilator"),
   });
 
   const schedulePaper = () => {
@@ -311,7 +317,13 @@ function ExamsPage() {
                   <TableCell>{p.invigilator}</TableCell>
                   <TableCell className="text-muted-foreground">{p.assistants || "—"}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => toast.success(`${p.invigilator} confirmed`)}>Confirm</Button>
+                    {p.status === "CONFIRMED" ? (
+                      <span className="text-xs text-muted-foreground">Confirmed</span>
+                    ) : (
+                      <Button size="sm" variant="ghost" disabled={confirmMut.isPending} onClick={() => confirmMut.mutate(p.id)}>
+                        {confirmMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm"}
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

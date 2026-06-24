@@ -145,6 +145,7 @@ export type Tenant = {
   fontFamily?: string;
   reportFooter?: string;
   offlineMode?: boolean;
+  slug?: string;
   subscription: TenantSubscription;
   features: TenantFeatureFlags;
 };
@@ -622,6 +623,7 @@ function toSchoolDto(tenant: Tenant): BackendSchoolDto {
     billingContact: tenant.subscription.billingContact,
     notes: tenant.subscription.notes,
     offlineMode: tenant.offlineMode,
+    slug: tenant.slug,
     subscriptionStatus: tenant.subscription.status,
     levels: tenant.levels,
     campuses: tenant.campuses.map((campus) => ({
@@ -749,6 +751,7 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
       termStart: school.termStart ?? undefined,
       termEnd: school.termEnd ?? undefined,
       offlineMode: Boolean(school.offlineMode),
+      slug: school.slug ?? undefined,
       subscription: baseSubscription,
       features: buildFeatureFlags(planId, featureOverrides),
     }),
@@ -816,6 +819,7 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
     termStart: school.termStart ?? existing?.termStart,
     termEnd: school.termEnd ?? existing?.termEnd,
     offlineMode: school.offlineMode ?? existing?.offlineMode ?? false,
+    slug: school.slug ?? existing?.slug,
     subscription: createTenantSubscription(planId, {
       ...baseSubscription,
       billingCycle,
@@ -854,6 +858,15 @@ type TenantContextValue = {
   isFeatureEnabled: (feature: FeatureKey, tenant?: Tenant) => boolean;
   isModuleEnabled: (module: string, tenant?: Tenant) => boolean;
 };
+
+function detectSubdomainSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  const parts = window.location.hostname.split(".");
+  if (parts.length < 3) return null;
+  const sub = parts[0].toLowerCase();
+  if (["www", "app", "portal", "admin", "api", "mail", "smtp"].includes(sub)) return null;
+  return sub;
+}
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
@@ -914,10 +927,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           return [...merged, ...localOnly];
         });
 
+        const subSlug = detectSubdomainSlug();
+        const slugMatch = subSlug ? schools.find((s) => s.slug === subSlug) : undefined;
         const storedId = window.localStorage.getItem(SCHOOL_STORAGE_KEY);
-        const nextActiveId = storedId && schools.some((school) => school.id === storedId)
-          ? storedId
-          : schools[0].id;
+        const nextActiveId = slugMatch
+          ? slugMatch.id
+          : storedId && schools.some((school) => school.id === storedId)
+            ? storedId
+            : schools[0].id;
         setActiveId(nextActiveId);
         window.localStorage.setItem(SCHOOL_STORAGE_KEY, nextActiveId);
       } catch (error) {

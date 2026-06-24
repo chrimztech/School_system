@@ -14,6 +14,26 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+type SchoolBranding = {
+  name: string;
+  shortCode: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  motto?: string;
+  district?: string;
+  province?: string;
+};
+
+function detectSubdomainSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  const parts = window.location.hostname.split(".");
+  if (parts.length < 3) return null;
+  const sub = parts[0].toLowerCase();
+  if (["www", "app", "portal", "admin", "api", "mail"].includes(sub)) return null;
+  return sub;
+}
+
 const STATS = [
   { value: "15+", label: "Modules" },
   { value: "ECZ", label: "Aligned" },
@@ -42,10 +62,21 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
+  const [schoolBranding, setSchoolBranding] = useState<SchoolBranding | null>(null);
 
   useEffect(() => {
     if (user) navigate({ to: "/" });
   }, [user, navigate]);
+
+  useEffect(() => {
+    const slug = detectSubdomainSlug();
+    if (!slug) return;
+    api.public.schoolBySlug(slug)
+      .then((data: any) => {
+        if (data?.id) setSchoolBranding(data as SchoolBranding);
+      })
+      .catch(() => { /* ignore — not on a school subdomain */ });
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,14 +99,17 @@ function LoginPage() {
     }
   };
 
+  const brandPrimary = schoolBranding?.primaryColor ?? "#1e3a8a";
+
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* ── Left branding panel ──────────────────────────────────────── */}
       <div
         className="relative hidden lg:flex flex-col justify-between p-14 overflow-hidden select-none"
         style={{
-          background:
-            "linear-gradient(145deg, #03071a 0%, #060e2b 45%, #04091f 100%)",
+          background: schoolBranding
+            ? `linear-gradient(145deg, color-mix(in srgb, ${brandPrimary} 95%, black) 0%, color-mix(in srgb, ${brandPrimary} 80%, black) 45%, color-mix(in srgb, ${brandPrimary} 90%, black) 100%)`
+            : "linear-gradient(145deg, #03071a 0%, #060e2b 45%, #04091f 100%)",
         }}
       >
         {/* Dot-grid texture */}
@@ -99,13 +133,25 @@ function LoginPage() {
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-white/[0.07] ring-1 ring-white/10">
-            <GraduationCap className="h-5 w-5 text-white" />
-          </div>
+          {schoolBranding?.logoUrl ? (
+            <img
+              src={schoolBranding.logoUrl}
+              alt={schoolBranding.name}
+              className="h-10 w-10 rounded-[10px] object-contain bg-white/10 p-1 ring-1 ring-white/10"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-white/[0.07] ring-1 ring-white/10">
+              <GraduationCap className="h-5 w-5 text-white" />
+            </div>
+          )}
           <div className="leading-none">
-            <p className="text-[15px] font-bold text-white tracking-tight">SRMS</p>
+            <p className="text-[15px] font-bold text-white tracking-tight">
+              {schoolBranding ? schoolBranding.name : "SRMS"}
+            </p>
             <p className="text-[10px] text-white/35 tracking-[0.18em] uppercase mt-0.5">
-              Platform
+              {schoolBranding
+                ? `${schoolBranding.district ?? ""} · ${schoolBranding.province ?? ""}`.replace(/^ · | · $/, "").replace(/^ · $/, "")
+                : "Platform"}
             </p>
           </div>
         </div>
@@ -122,26 +168,44 @@ function LoginPage() {
             </div>
 
             {/* Headline */}
-            <h1 className="text-[52px] font-bold leading-[1.05] tracking-[-0.02em] text-white">
-              The complete<br />
-              <span
-                className="text-transparent bg-clip-text"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(90deg, #93c5fd 0%, #a5b4fc 50%, #c4b5fd 100%)",
-                }}
-              >
-                school management
-              </span>
-              <br />
-              platform.
-            </h1>
+            {schoolBranding ? (
+              <div className="space-y-3">
+                <h1 className="text-[46px] font-bold leading-[1.08] tracking-[-0.02em] text-white">
+                  {schoolBranding.name}
+                </h1>
+                {schoolBranding.motto && (
+                  <p className="text-[16px] text-white/60 italic leading-relaxed max-w-[320px]">
+                    "{schoolBranding.motto}"
+                  </p>
+                )}
+                <p className="text-[14px] text-white/35 leading-relaxed max-w-[300px]">
+                  Powered by SRMS — the complete school management platform for Zambian institutions.
+                </p>
+              </div>
+            ) : (
+              <h1 className="text-[52px] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+                The complete<br />
+                <span
+                  className="text-transparent bg-clip-text"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, #93c5fd 0%, #a5b4fc 50%, #c4b5fd 100%)",
+                  }}
+                >
+                  school management
+                </span>
+                <br />
+                platform.
+              </h1>
+            )}
 
-            <p className="text-[15px] text-white/40 leading-relaxed max-w-[320px]">
-              Purpose-built for Zambian institutions — ECE through Form 6,
-              aligned to the 2025 MoE curriculum.
-              single campus to multi-site.
-            </p>
+            {!schoolBranding && (
+              <p className="text-[15px] text-white/40 leading-relaxed max-w-[320px]">
+                Purpose-built for Zambian institutions — ECE through Form 6,
+                aligned to the 2025 MoE curriculum.
+                single campus to multi-site.
+              </p>
+            )}
           </div>
 
           {/* Stats grid */}
@@ -162,24 +226,26 @@ function LoginPage() {
           </div>
 
           {/* Testimonial */}
-          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] backdrop-blur-sm p-5 space-y-4">
-            <StarRating />
-            <p className="text-[13px] text-white/55 leading-relaxed italic">
-              "SRMS transformed how we manage our 800+ learners. Attendance, fees, and report
-              cards — everything lives in one place now. I would not go back to the old way."
-            </p>
-            <div className="flex items-center gap-3 pt-0.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-[11px] font-bold text-blue-300 ring-1 ring-blue-500/20">
-                BN
-              </div>
-              <div className="leading-none">
-                <p className="text-[12px] font-semibold text-white/65">Beatrice N.</p>
-                <p className="text-[10px] text-white/30 mt-0.5">
-                  Head Teacher · Combined School, Lusaka
-                </p>
+          {!schoolBranding && (
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] backdrop-blur-sm p-5 space-y-4">
+              <StarRating />
+              <p className="text-[13px] text-white/55 leading-relaxed italic">
+                "SRMS transformed how we manage our 800+ learners. Attendance, fees, and report
+                cards — everything lives in one place now. I would not go back to the old way."
+              </p>
+              <div className="flex items-center gap-3 pt-0.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-[11px] font-bold text-blue-300 ring-1 ring-blue-500/20">
+                  BN
+                </div>
+                <div className="leading-none">
+                  <p className="text-[12px] font-semibold text-white/65">Beatrice N.</p>
+                  <p className="text-[10px] text-white/30 mt-0.5">
+                    Head Teacher · Combined School, Lusaka
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -199,13 +265,24 @@ function LoginPage() {
         <div className="flex flex-1 flex-col justify-center px-10 py-16 sm:px-16 xl:px-24">
           {/* Mobile logo */}
           <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <GraduationCap className="h-5 w-5" />
-            </div>
+            {schoolBranding?.logoUrl ? (
+              <img
+                src={schoolBranding.logoUrl}
+                alt={schoolBranding.name}
+                className="h-10 w-10 rounded-xl object-contain"
+                style={{ background: brandPrimary + "22" }}
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+            )}
             <div className="leading-none">
-              <p className="text-base font-bold">SRMS</p>
+              <p className="text-base font-bold">{schoolBranding?.name ?? "SRMS"}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                School Records Management
+                {schoolBranding
+                  ? (schoolBranding.district ?? "School Management")
+                  : "School Records Management"}
               </p>
             </div>
           </div>
@@ -217,7 +294,9 @@ function LoginPage() {
                 Welcome back
               </h2>
               <p className="text-sm text-muted-foreground leading-snug">
-                Sign in to access your school's management platform.
+                {schoolBranding
+                  ? `Sign in to ${schoolBranding.name}'s management platform.`
+                  : "Sign in to access your school's management platform."}
               </p>
             </div>
 
@@ -325,7 +404,7 @@ function LoginPage() {
                     Signing in…
                   </span>
                 ) : (
-                  "Sign in to SRMS"
+                  `Sign in${schoolBranding ? ` to ${schoolBranding.shortCode}` : " to SRMS"}`
                 )}
               </Button>
             </form>

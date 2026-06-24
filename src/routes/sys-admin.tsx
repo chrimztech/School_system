@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import {
   School, TrendingUp, Users, CreditCard, Plus, Search,
@@ -75,7 +75,8 @@ type EditForm = {
 
 function SysAdminPage() {
   const { user } = useAuth();
-  const { tenants, updateTenant } = useTenant();
+  const { tenants, updateTenant, setActive } = useTenant();
+  const navigate = useNavigate();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
 
@@ -215,6 +216,11 @@ function SysAdminPage() {
       }),
     });
     toast.success("Portfolio export queued");
+  };
+
+  const openTenantWorkspace = (tenantId: string, destination: "/" | "/billing" | "/access") => {
+    setActive(tenantId);
+    navigate({ to: destination });
   };
 
   // Revenue per plan
@@ -465,6 +471,10 @@ function SysAdminPage() {
                         <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openTenantWorkspace(t.id, "/")}>Open workspace</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openTenantWorkspace(t.id, "/billing")}>Open billing</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openTenantWorkspace(t.id, "/access")}>Manage users</DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => openEdit(t.id)}>Edit subscription</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {t.subscription.status !== "active" && (

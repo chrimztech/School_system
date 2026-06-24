@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/payroll")({
   head: () => ({ meta: [{ title: "Payroll — SRMS" }] }),
@@ -118,8 +119,34 @@ function PayrollPage() {
     }), { gross: 0, net: 0, paye: 0, napsa: 0, nhima: 0 });
   }, [activeStaff]);
 
-  const notifyUnavailable = (feature: string) => {
-    toast.error(`${feature} is not available from the backend yet`);
+  const sendPayslipMutation = useMutation({
+    mutationFn: (employee: any) => api.communication.createAnnouncement(schoolId, {
+      title: `Payslip for ${new Date().toLocaleString("en", { month: "long", year: "numeric" })}`,
+      body: `Dear ${employee.name}, please find your payslip details: Gross K${(employee.basic ?? employee.basicSalary ?? 0) + (employee.allow ?? employee.allowances ?? 0)}, Net K${payslip(employee.basic ?? employee.basicSalary ?? employee.salary ?? 0, employee.allow ?? employee.allowances ?? 0).net}. For queries contact the HR office.`,
+      audience: employee.email ?? employee.name,
+      channels: "SMS",
+      publishDate: new Date().toISOString().slice(0, 10),
+      active: true,
+    }),
+    onSuccess: (_: any, employee: any) => toast.success(`Payslip sent to ${employee.name}`),
+    onError: () => toast.error("Failed to send payslip"),
+  });
+
+  const downloadBankFile = () => {
+    if (activeStaff.length === 0) { toast.error("No active employees"); return; }
+    downloadCsv(activeStaff.map((s: any) => {
+      const p = payslip(s.basic ?? s.basicSalary ?? s.salary ?? 0, s.allow ?? s.allowances ?? 0);
+      return {
+        Name: s.name ?? "",
+        Bank: s.bank ?? s.bankAccount ?? "",
+        "Account Number": s.accountNumber ?? "",
+        "Payment Method": s.paymentMethod ?? "Bank transfer",
+        "Net Pay (K)": p.net,
+        "TPIN": s.tpin ?? "",
+        "NRC": s.nrc ?? "",
+      };
+    }), `bank-file-${new Date().toISOString().slice(0, 10)}`);
+    toast.success("Bank file downloaded");
   };
 
   const runPayroll = () => {
@@ -166,7 +193,7 @@ function PayrollPage() {
         actions={
           <>
             <Button variant="outline" asChild><Link to="/accounting"><Calculator className="mr-2 h-4 w-4" />Accounting</Link></Button>
-            <Button variant="outline" onClick={() => notifyUnavailable("Bank file export")}>
+            <Button variant="outline" onClick={downloadBankFile}>
               <Download className="mr-2 h-4 w-4" />Bank file
             </Button>
             <Dialog open={openHire} onOpenChange={setOpenHire}>
@@ -385,7 +412,7 @@ function PayrollPage() {
                       <TableCell className="text-right font-mono">{k(p.nhima)}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">{k(p.net)}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => notifyUnavailable("Payslip delivery")}>
+                        <Button size="sm" variant="ghost" disabled={sendPayslipMutation.isPending} onClick={() => sendPayslipMutation.mutate(s)}>
                           <FileText className="mr-1 h-3 w-3" />Send
                         </Button>
                       </TableCell>
@@ -447,8 +474,15 @@ function PayrollPage() {
               <p className="mt-3 text-2xl font-semibold font-mono">{k(s.amount)}</p>
               <p className="mt-1 text-xs text-muted-foreground">Due {s.due}</p>
               <div className="mt-3 flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => notifyUnavailable("Statutory schedule export")}>Schedule</Button>
-                <Button size="sm" className="flex-1" onClick={() => notifyUnavailable("Statutory filing")}>File</Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => downloadCsv([{
+                  "Statutory Body": s.body,
+                  "Return Type": s.name,
+                  "Amount (K)": s.amount,
+                  "Due Date": s.due,
+                  "Period": new Date().toLocaleString("en", { month: "long", year: "numeric" }),
+                  "Status": "Pending",
+                }], `statutory-${s.name.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 7)}`)}>Schedule</Button>
+                <Button size="sm" className="flex-1" onClick={() => toast.info("Direct ZRA/NAPSA/NHIMA online filing is not supported. Please file via the respective authority's web portal.")}>File</Button>
               </div>
             </div>
           ))}

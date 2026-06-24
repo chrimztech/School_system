@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, CalendarCheck, Wallet, GraduationCap, TrendingUp, AlertCircle, ShieldAlert, ClipboardList, Truck, Download, Plus, UserPlus, Receipt, Wrench, Award, ShieldCheck, BookText, HandCoins, Heart, Building2, Activity, Layers, LifeBuoy, FileCog, FileText, CreditCard, HardDrive, Loader2 } from "lucide-react";
+import { Users, CalendarCheck, Wallet, GraduationCap, TrendingUp, AlertCircle, ShieldAlert, ClipboardList, Truck, Download, Plus, UserPlus, Receipt, Wrench, Award, ShieldCheck, BookText, HandCoins, Heart, Building2, Activity, Layers, LifeBuoy, FileCog, FileText, CreditCard, HardDrive, Loader2, BookOpen, ChevronRight, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,10 +12,13 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,10 +30,336 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
+// Grade colour helper
+function gradeColor(grade: string | null | undefined) {
+  if (!grade) return "text-muted-foreground";
+  const g = grade.trim().toUpperCase();
+  if (["A", "A+", "A-", "DISTINCTION"].includes(g)) return "text-emerald-600 dark:text-emerald-400 font-semibold";
+  if (["B", "B+", "B-", "MERIT"].includes(g)) return "text-sky-600 dark:text-sky-400 font-semibold";
+  if (["C", "C+", "C-", "PASS"].includes(g)) return "text-amber-600 dark:text-amber-400";
+  if (["D", "D+", "D-"].includes(g)) return "text-orange-600 dark:text-orange-400";
+  return "text-destructive font-semibold";
+}
+
+function pct(score: number, max: number) {
+  if (!max) return "—";
+  return `${Math.round((score / max) * 100)}%`;
+}
+
+function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; color: string }) {
+  const [tab, setTab] = useState("overview");
+
+  const { data: rawResults = [], isLoading: resultsLoading } = useQuery({
+    queryKey: ["parent-results", schoolId, child.id],
+    queryFn: () => api.assessments.studentResultsEnriched(schoolId, child.id),
+  });
+
+  const { data: rawDiscipline = [], isLoading: disciplineLoading } = useQuery({
+    queryKey: ["parent-discipline", schoolId, child.id],
+    queryFn: () => api.discipline.byStudent(schoolId, child.id),
+  });
+
+  const { data: rawAttendance = [], isLoading: attendanceLoading } = useQuery({
+    queryKey: ["parent-attendance", schoolId, child.id],
+    queryFn: () => api.attendance.byStudent(schoolId, child.id),
+  });
+
+  const results = rawResults as any[];
+  const disciplineCases = rawDiscipline as any[];
+  const attendanceHistory = rawAttendance as any[];
+
+  const feeBalance = Number(child.feeBalance ?? 0);
+  const fullName = [child.firstName, child.lastName].filter(Boolean).join(" ");
+
+  // Attendance stats
+  const totalDays = attendanceHistory.length;
+  const presentDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "present").length;
+  const absentDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "absent").length;
+  const lateDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "late").length;
+  const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : (child.attendanceRate ?? null);
+
+  // Performance stats
+  const scoredResults = results.filter((r: any) => !r.absent && r.maxScore > 0);
+  const avgPct = scoredResults.length > 0
+    ? Math.round(scoredResults.reduce((s: number, r: any) => s + (r.score / r.maxScore) * 100, 0) / scoredResults.length)
+    : null;
+
+  // Discipline stats
+  const openCases = disciplineCases.filter((d: any) => (d.status ?? "").toUpperCase() === "OPEN").length;
+
+  return (
+    <div className="space-y-4">
+      {/* Child header card */}
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm" style={{ background: `linear-gradient(135deg, ${color}0a, transparent)` }}>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white" style={{ backgroundColor: color }}>
+            {child.firstName?.[0]}{child.lastName?.[0]}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold">{fullName}</h2>
+            <p className="text-sm text-muted-foreground">{child.admissionNumber} · Grade {child.grade}{child.section ? ` · Section ${child.section}` : ""}</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${(child.status ?? "").toLowerCase() === "active" ? "border-transparent bg-secondary text-secondary-foreground" : "border-border text-muted-foreground"}`}>
+                {child.status ?? "Active"}
+              </span>
+              {openCases > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                  <AlertCircle className="h-3 w-3" />{openCases} open discipline {openCases === 1 ? "case" : "cases"}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold">{attendanceRate != null ? `${attendanceRate}%` : "—"}</p>
+              <p className="text-[10px] text-muted-foreground">Attendance</p>
+            </div>
+            <div>
+              <p className={`text-2xl font-bold ${avgPct != null ? (avgPct >= 75 ? "text-emerald-600" : avgPct >= 50 ? "text-amber-600" : "text-destructive") : ""}`}>
+                {avgPct != null ? `${avgPct}%` : "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Avg score</p>
+            </div>
+            <div>
+              <p className={`text-2xl font-bold ${feeBalance > 0 ? "text-destructive" : "text-emerald-600"}`}>
+                {feeBalance > 0 ? `K${feeBalance.toLocaleString()}` : "Paid"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Fee balance</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabbed detail */}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="performance">
+            Performance
+            {results.length > 0 && <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">{results.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="discipline">
+            Discipline
+            {openCases > 0 && <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[10px] font-semibold text-destructive">{openCases}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+        </TabsList>
+
+        {/* OVERVIEW */}
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarCheck className="h-4 w-4" />Attendance rate</div>
+              <p className="mt-2 text-2xl font-semibold">{attendanceRate != null ? `${attendanceRate}%` : "—"}</p>
+              <p className="text-xs text-muted-foreground">{totalDays > 0 ? `${presentDays} present · ${absentDays} absent · ${lateDays} late` : "No data yet"}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground"><Wallet className="h-4 w-4" />Fee balance</div>
+              <p className={`mt-2 text-2xl font-semibold ${feeBalance > 0 ? "text-destructive" : "text-emerald-600"}`}>
+                {feeBalance > 0 ? `K ${feeBalance.toLocaleString()}` : "Cleared"}
+              </p>
+              <p className="text-xs text-muted-foreground">Current term</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground"><BookOpen className="h-4 w-4" />Avg performance</div>
+              <p className={`mt-2 text-2xl font-semibold ${avgPct == null ? "" : avgPct >= 75 ? "text-emerald-600" : avgPct >= 50 ? "text-amber-600" : "text-destructive"}`}>
+                {avgPct != null ? `${avgPct}%` : "—"}
+              </p>
+              <p className="text-xs text-muted-foreground">{scoredResults.length} assessments scored</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldAlert className="h-4 w-4" />Discipline</div>
+              <p className={`mt-2 text-2xl font-semibold ${openCases > 0 ? "text-destructive" : "text-emerald-600"}`}>
+                {openCases > 0 ? openCases : disciplineCases.length === 0 ? "None" : "Resolved"}
+              </p>
+              <p className="text-xs text-muted-foreground">{disciplineCases.length} total {disciplineCases.length === 1 ? "case" : "cases"}</p>
+            </div>
+          </div>
+          {child.medicalConditions || child.allergies || child.bloodGroup ? (
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Medical on file</p>
+              <div className="flex flex-wrap gap-4 text-sm">
+                {child.bloodGroup && <span><span className="text-muted-foreground">Blood group: </span>{child.bloodGroup}</span>}
+                {child.medicalConditions && <span><span className="text-muted-foreground">Conditions: </span>{child.medicalConditions}</span>}
+                {child.allergies && <span><span className="text-muted-foreground">Allergies: </span>{child.allergies}</span>}
+              </div>
+            </div>
+          ) : null}
+        </TabsContent>
+
+        {/* PERFORMANCE */}
+        <TabsContent value="performance" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {resultsLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading results…</span>
+            </div>
+          ) : results.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              <BookOpen className="mx-auto mb-3 h-8 w-8 opacity-40" />
+              No assessment results recorded yet.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Assessment</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Score</TableHead>
+                  <TableHead className="text-right">Grade</TableHead>
+                  <TableHead>Remarks</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {results.map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.title ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.subjectName ?? "—"}</TableCell>
+                    <TableCell>
+                      {r.type && (
+                        <Badge variant="outline" className="capitalize text-[10px]">{r.type}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{r.date ?? "—"}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {r.absent ? (
+                        <span className="text-destructive text-xs">Absent</span>
+                      ) : (
+                        <span>{r.score}<span className="text-muted-foreground text-xs">/{r.maxScore}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">({pct(r.score, r.maxScore)})</span>
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className={gradeColor(r.grade)}>{r.grade ?? "—"}</span>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{r.remarks ?? ""}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        {/* DISCIPLINE */}
+        <TabsContent value="discipline" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {disciplineLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading records…</span>
+            </div>
+          ) : disciplineCases.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-emerald-500 opacity-60" />
+              No discipline records — great behaviour!
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Offense</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Action taken</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Notes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {disciplineCases.map((d: any) => {
+                  const status = (d.status ?? "OPEN").toUpperCase();
+                  return (
+                    <TableRow key={d.id}>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{d.incidentDate ?? (d.createdAt ?? "").slice(0, 10)}</TableCell>
+                      <TableCell className="font-medium">{d.offense ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{d.offenseCategory ?? "—"}</TableCell>
+                      <TableCell>
+                        {d.severity && (
+                          <Badge variant="outline" className={`text-[10px] ${d.severity.toLowerCase() === "high" || d.severity.toLowerCase() === "severe" ? "border-destructive/40 text-destructive" : d.severity.toLowerCase() === "medium" ? "border-amber-400/40 text-amber-600" : "border-border text-muted-foreground"}`}>
+                            {d.severity}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">{(d.action ?? "—").replace(/_/g, " ")}</TableCell>
+                      <TableCell>
+                        <Badge className={`text-[10px] ${status === "RESOLVED" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : status === "ESCALATED" ? "bg-destructive/15 text-destructive" : "bg-amber-500/15 text-amber-700 dark:text-amber-400"}`}>
+                          {status === "RESOLVED" ? <CheckCircle2 className="mr-1 h-3 w-3" /> : status === "ESCALATED" ? <XCircle className="mr-1 h-3 w-3" /> : <Clock className="mr-1 h-3 w-3" />}
+                          {status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{d.notes ?? ""}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        {/* ATTENDANCE */}
+        <TabsContent value="attendance" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {attendanceLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading attendance…</span>
+            </div>
+          ) : attendanceHistory.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              <CalendarCheck className="mx-auto mb-3 h-8 w-8 opacity-40" />
+              No attendance records found.
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-6 border-b border-border px-4 py-3 text-sm">
+                <span className="text-muted-foreground">Total: <strong className="text-foreground">{totalDays}</strong></span>
+                <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" />Present: <strong>{presentDays}</strong></span>
+                <span className="flex items-center gap-1 text-destructive"><XCircle className="h-3.5 w-3.5" />Absent: <strong>{absentDays}</strong></span>
+                <span className="flex items-center gap-1 text-amber-600"><Clock className="h-3.5 w-3.5" />Late: <strong>{lateDays}</strong></span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Subject / Class</TableHead>
+                    <TableHead>Remarks</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attendanceHistory.slice(0, 60).map((a: any) => {
+                    const status = (a.status ?? "present").toLowerCase();
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{a.date ?? (a.createdAt ?? "").slice(0, 10)}</TableCell>
+                        <TableCell>
+                          <Badge className={`text-[10px] ${status === "present" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : status === "late" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-destructive/15 text-destructive"}`}>
+                            {status === "present" ? <CheckCircle2 className="mr-1 h-3 w-3" /> : status === "late" ? <Clock className="mr-1 h-3 w-3" /> : <XCircle className="mr-1 h-3 w-3" />}
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{a.subjectName ?? a.className ?? a.classId ?? "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{a.remarks ?? a.notes ?? ""}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {attendanceHistory.length > 60 && (
+                <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">Showing 60 most recent of {attendanceHistory.length} records</p>
+              )}
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 function ParentDashboard() {
   const { user } = useAuth();
   const { active } = useTenant();
   const schoolId = active.id;
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
   const { data: children = [], isLoading } = useQuery({
     queryKey: ["guardian-children", schoolId, user?.email],
@@ -46,6 +375,7 @@ function ParentDashboard() {
 
   const childList = children as any[];
   const announcementList = announcements as any[];
+  const activeChild = childList.find((c: any) => c.id === selectedChildId) ?? childList[0] ?? null;
 
   if (isLoading) {
     return (
@@ -73,54 +403,34 @@ function ParentDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader title="Parent Portal" description={`Welcome, ${user?.name} · ${active.name}`} />
-      {childList.map((child: any) => {
-        const fullName = [child.firstName, child.lastName].filter(Boolean).join(" ");
-        const feeBalance = Number(child.feeBalance ?? 0);
-        return (
-          <div key={child.id} className="space-y-4">
-            <div className="rounded-xl border border-border bg-card p-5 shadow-sm" style={{ background: `linear-gradient(135deg, ${active.primaryColor}08, transparent)` }}>
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white" style={{ backgroundColor: active.primaryColor }}>
-                  {child.firstName?.[0]}{child.lastName?.[0]}
+
+      {/* Child selector — only shown when more than one child */}
+      {childList.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {childList.map((c: any) => {
+            const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
+            const isSel = c.id === (activeChild?.id);
+            return (
+              <button
+                key={c.id}
+                onClick={() => setSelectedChildId(c.id)}
+                className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${isSel ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"}`}
+              >
+                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: isSel ? "rgba(255,255,255,0.3)" : active.primaryColor, color: "white" }}>
+                  {c.firstName?.[0]}{c.lastName?.[0]}
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold">{fullName}</h2>
-                  <p className="text-sm text-muted-foreground">{child.admissionNumber} · Grade {child.grade}{child.section ? ` · ${child.section}` : ""}</p>
-                  <div className="mt-1 flex gap-2">
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${(child.status ?? "").toLowerCase() === "active" ? "border-transparent bg-secondary text-secondary-foreground" : "border-border text-muted-foreground"}`}>
-                      {child.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarCheck className="h-4 w-4" />Attendance</div>
-                <p className="mt-2 text-2xl font-semibold">{child.attendanceRate != null ? `${child.attendanceRate}%` : "—"}</p>
-                <p className="text-xs text-muted-foreground">This term</p>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground"><Wallet className="h-4 w-4" />Fee balance</div>
-                <p className={`mt-2 text-2xl font-semibold ${feeBalance > 0 ? "text-destructive" : "text-green-600"}`}>
-                  {feeBalance > 0 ? `K ${feeBalance.toLocaleString()}` : "Cleared"}
-                </p>
-                <p className="text-xs text-muted-foreground">Current term</p>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground"><GraduationCap className="h-4 w-4" />Class</div>
-                <p className="mt-2 text-lg font-semibold">Grade {child.grade}</p>
-                <p className="text-xs text-muted-foreground">Section {child.section || "—"}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldAlert className="h-4 w-4" />Medical</div>
-                <p className="mt-2 text-sm font-semibold">{child.medicalConditions || child.allergies ? "On file" : "None on file"}</p>
-                <p className="text-xs text-muted-foreground">{child.bloodGroup || "Blood group not captured"}</p>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+                {name}
+                <span className="text-xs opacity-70">Gr.{c.grade}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {activeChild && (
+        <ChildPanel key={activeChild.id} child={activeChild} schoolId={schoolId} color={active.primaryColor} />
+      )}
+
       {announcementList.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold">School announcements</h2>
@@ -151,10 +461,10 @@ function Dashboard() {
   const platformMrr = tenants.filter((t) => t.subscription.status === "active").reduce((s, t) => s + t.subscription.amount, 0);
 
   const schoolId = school.id;
-  const { data: dash } = useQuery({ queryKey: ["dashboard", schoolId], queryFn: () => api.dashboard(schoolId), retry: false });
-  const { data: attendanceSummary } = useQuery({ queryKey: ["attendance-summary", schoolId], queryFn: () => api.attendance.summary(schoolId), retry: false });
-  const { data: feesCollected } = useQuery({ queryKey: ["fees-collected", schoolId], queryFn: () => api.fees.collected(schoolId), retry: false });
-  const { data: announcements = [] } = useQuery({ queryKey: ["announcements", schoolId], queryFn: () => api.communication.announcements(schoolId), retry: false });
+  const { data: dash } = useQuery({ queryKey: ["dashboard", schoolId], queryFn: () => api.dashboard(schoolId), retry: false, enabled: !isSystemAdmin });
+  const { data: attendanceSummary } = useQuery({ queryKey: ["attendance-summary", schoolId], queryFn: () => api.attendance.summary(schoolId), retry: false, enabled: !isSystemAdmin });
+  const { data: feesCollected } = useQuery({ queryKey: ["fees-collected", schoolId], queryFn: () => api.fees.collected(schoolId), retry: false, enabled: !isSystemAdmin });
+  const { data: announcements = [] } = useQuery({ queryKey: ["announcements", schoolId], queryFn: () => api.communication.announcements(schoolId), retry: false, enabled: !isSystemAdmin });
 
   const attendanceToday = attendanceSummary ?? (dash as any)?.attendanceToday ?? { present: 0, absent: 0, late: 0, rate: 0 };
   const fees = feesCollected ?? (dash as any)?.fees ?? { collected: 0, outstanding: 0, collectionRate: 0 };
@@ -386,7 +696,24 @@ function Dashboard() {
         description={`Term ${school.currentTerm}, ${school.currentYear} · ${school.type} school configuration`}
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("Snapshot exported")}><Download className="mr-1 h-4 w-4" />Export snapshot</Button>
+            <Button variant="outline" onClick={() => {
+              downloadCsv([{
+                School: school.name,
+                Type: school.type ?? "",
+                District: school.district ?? "",
+                Province: school.province ?? "",
+                "Total Students": school.totalStudents,
+                "Attendance Rate (%)": attendanceToday.rate,
+                "Present Today": attendanceToday.present,
+                "Absent Today": attendanceToday.absent,
+                "Fees Collected (K)": fees.collected,
+                "Outstanding Fees (K)": fees.outstanding,
+                "Collection Rate (%)": fees.collectionRate,
+                "Current Term": school.currentTerm ?? "",
+                "Current Year": school.currentYear ?? "",
+                "Snapshot Date": new Date().toISOString().slice(0, 10),
+              }], `dashboard-snapshot-${new Date().toISOString().slice(0, 10)}`);
+            }}><Download className="mr-1 h-4 w-4" />Export snapshot</Button>
             <Button asChild><Link to="/students"><Plus className="mr-1 h-4 w-4" />Enrol student</Link></Button>
           </>
         }

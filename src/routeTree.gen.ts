@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VisitorLogRouteImport } from './routes/visitor-log'
 import { Route as VendorManagementRouteImport } from './routes/vendor-management'
+import { Route as UserManagementRouteImport } from './routes/user-management'
 import { Route as TransportRouteImport } from './routes/transport'
 import { Route as TimetableRouteImport } from './routes/timetable'
 import { Route as TenantWorkbenchRouteImport } from './routes/tenant-workbench'
@@ -29,6 +30,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as RiskRegisterRouteImport } from './routes/risk-register'
 import { Route as RevenueOpsRouteImport } from './routes/revenue-ops'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReportingRouteImport } from './routes/reporting'
 import { Route as ReportCardRouteImport } from './routes/report-card'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -96,6 +98,11 @@ const VisitorLogRoute = VisitorLogRouteImport.update({
 const VendorManagementRoute = VendorManagementRouteImport.update({
   id: '/vendor-management',
   path: '/vendor-management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserManagementRoute = UserManagementRouteImport.update({
+  id: '/user-management',
+  path: '/user-management',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TransportRoute = TransportRouteImport.update({
@@ -186,6 +193,11 @@ const RiskRegisterRoute = RiskRegisterRouteImport.update({
 const RevenueOpsRoute = RevenueOpsRouteImport.update({
   id: '/revenue-ops',
   path: '/revenue-ops',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportingRoute = ReportingRouteImport.update({
@@ -536,6 +548,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
+  '/reports': typeof ReportsRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -554,6 +567,7 @@ export interface FileRoutesByFullPath {
   '/tenant-workbench': typeof TenantWorkbenchRoute
   '/timetable': typeof TimetableRoute
   '/transport': typeof TransportRoute
+  '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
@@ -616,6 +630,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
+  '/reports': typeof ReportsRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -634,6 +649,7 @@ export interface FileRoutesByTo {
   '/tenant-workbench': typeof TenantWorkbenchRoute
   '/timetable': typeof TimetableRoute
   '/transport': typeof TransportRoute
+  '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
@@ -697,6 +713,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
+  '/reports': typeof ReportsRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -715,6 +732,7 @@ export interface FileRoutesById {
   '/tenant-workbench': typeof TenantWorkbenchRoute
   '/timetable': typeof TimetableRoute
   '/transport': typeof TransportRoute
+  '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
@@ -779,6 +797,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/report-card'
     | '/reporting'
+    | '/reports'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -797,6 +816,7 @@ export interface FileRouteTypes {
     | '/tenant-workbench'
     | '/timetable'
     | '/transport'
+    | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
     | '/students/$studentId'
@@ -859,6 +879,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/report-card'
     | '/reporting'
+    | '/reports'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -877,6 +898,7 @@ export interface FileRouteTypes {
     | '/tenant-workbench'
     | '/timetable'
     | '/transport'
+    | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
     | '/students/$studentId'
@@ -939,6 +961,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/report-card'
     | '/reporting'
+    | '/reports'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -957,6 +980,7 @@ export interface FileRouteTypes {
     | '/tenant-workbench'
     | '/timetable'
     | '/transport'
+    | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
     | '/students/$studentId'
@@ -1020,6 +1044,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   ReportCardRoute: typeof ReportCardRoute
   ReportingRoute: typeof ReportingRoute
+  ReportsRoute: typeof ReportsRoute
   RevenueOpsRoute: typeof RevenueOpsRoute
   RiskRegisterRoute: typeof RiskRegisterRoute
   SecurityRoute: typeof SecurityRoute
@@ -1038,6 +1063,7 @@ export interface RootRouteChildren {
   TenantWorkbenchRoute: typeof TenantWorkbenchRoute
   TimetableRoute: typeof TimetableRoute
   TransportRoute: typeof TransportRoute
+  UserManagementRoute: typeof UserManagementRoute
   VendorManagementRoute: typeof VendorManagementRoute
   VisitorLogRoute: typeof VisitorLogRoute
 }
@@ -1056,6 +1082,13 @@ declare module '@tanstack/react-router' {
       path: '/vendor-management'
       fullPath: '/vendor-management'
       preLoaderRoute: typeof VendorManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user-management': {
+      id: '/user-management'
+      path: '/user-management'
+      fullPath: '/user-management'
+      preLoaderRoute: typeof UserManagementRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/transport': {
@@ -1182,6 +1215,13 @@ declare module '@tanstack/react-router' {
       path: '/revenue-ops'
       fullPath: '/revenue-ops'
       preLoaderRoute: typeof RevenueOpsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reporting': {
@@ -1674,6 +1714,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   ReportCardRoute: ReportCardRoute,
   ReportingRoute: ReportingRoute,
+  ReportsRoute: ReportsRoute,
   RevenueOpsRoute: RevenueOpsRoute,
   RiskRegisterRoute: RiskRegisterRoute,
   SecurityRoute: SecurityRoute,
@@ -1692,6 +1733,7 @@ const rootRouteChildren: RootRouteChildren = {
   TenantWorkbenchRoute: TenantWorkbenchRoute,
   TimetableRoute: TimetableRoute,
   TransportRoute: TransportRoute,
+  UserManagementRoute: UserManagementRoute,
   VendorManagementRoute: VendorManagementRoute,
   VisitorLogRoute: VisitorLogRoute,
 }
