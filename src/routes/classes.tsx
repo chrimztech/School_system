@@ -497,6 +497,7 @@ function ClassesPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl">
               <DialogHeader><DialogTitle>Create new class</DialogTitle></DialogHeader>
+              <div className="overflow-y-auto flex-1 pr-1">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Class name *</Label>
@@ -592,6 +593,7 @@ function ClassesPage() {
                   <Label>Notes</Label>
                   <Input className="mt-1" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Double period Tuesdays, shared lab Thursdays…" maxLength={200} />
                 </div>
+              </div>
               </div>
               <DialogFooter className="mt-2">
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>

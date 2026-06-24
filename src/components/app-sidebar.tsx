@@ -7,8 +7,16 @@ import {
   Calculator, HeartPulse, BedDouble, ClipboardCheck, Package, Briefcase, Award,
   Building2, AlertTriangle, Truck, TrendingUp, UserPlus, Wrench, Receipt, ShieldCheck, BookText,
   Heart, Layers, Shield, Trophy, ContactRound, HandCoins, UtensilsCrossed, Target, PackageSearch,
-  Activity, FileCog, Globe,
+  Activity, FileCog, Globe, LogOut, Lock, Eye, EyeOff, Loader2,
 } from "lucide-react";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { api } from "@/lib/api";
 
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -257,11 +265,134 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="rounded-md bg-sidebar-accent px-3 py-2 text-xs text-sidebar-accent-foreground">
+        <div className="rounded-md bg-sidebar-accent px-3 py-2 text-xs text-sidebar-accent-foreground mb-1">
           <p className="font-medium">Term {schoolTenant.currentTerm} · {schoolTenant.currentYear}</p>
           <p className="text-sidebar-foreground/70">{activePlan.name} plan · {schoolTenant.province}</p>
         </div>
+        <UserFooter />
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+function UserFooter() {
+  const { user, signOut } = useAuth();
+  const [pwOpen, setPwOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNext, setShowNext] = useState(false);
+
+  const changePwMutation = useMutation({
+    mutationFn: () => api.auth.changePassword(current, next),
+    onSuccess: () => {
+      toast.success("Password changed successfully");
+      setPwOpen(false);
+      setCurrent(""); setNext(""); setConfirm("");
+    },
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message ?? "Failed to change password"),
+  });
+
+  const submit = () => {
+    if (!current || !next || !confirm) return toast.error("All fields are required");
+    if (next.length < 8) return toast.error("New password must be at least 8 characters");
+    if (next !== confirm) return toast.error("Passwords do not match");
+    changePwMutation.mutate();
+  };
+
+  if (!user) return null;
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition hover:bg-sidebar-accent">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+              {user.initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-sidebar-foreground">{user.name}</p>
+              <p className="truncate text-[10px] text-sidebar-foreground/60">{user.email}</p>
+            </div>
+            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/50" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="top" className="w-56 mb-1">
+          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+            Signed in as <span className="font-semibold text-foreground">{user.name}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setPwOpen(true)} className="gap-2 cursor-pointer">
+            <Lock className="h-4 w-4" />
+            Change password
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={pwOpen} onOpenChange={(v) => { setPwOpen(v); if (!v) { setCurrent(""); setNext(""); setConfirm(""); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Change password</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-1">
+            <div>
+              <Label className="text-xs">Current password</Label>
+              <div className="relative mt-1">
+                <Input
+                  type={showCurrent ? "text" : "password"}
+                  value={current}
+                  onChange={(e) => setCurrent(e.target.value)}
+                  placeholder="••••••••"
+                  className="pr-9"
+                />
+                <button type="button" tabIndex={-1} onClick={() => setShowCurrent(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">New password</Label>
+              <div className="relative mt-1">
+                <Input
+                  type={showNext ? "text" : "password"}
+                  value={next}
+                  onChange={(e) => setNext(e.target.value)}
+                  placeholder="Min. 8 characters"
+                  className="pr-9"
+                />
+                <button type="button" tabIndex={-1} onClick={() => setShowNext(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showNext ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Confirm new password</Label>
+              <Input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1"
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPwOpen(false)}>Cancel</Button>
+            <Button onClick={submit} disabled={changePwMutation.isPending}>
+              {changePwMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -105,6 +105,7 @@ function AssessmentsPage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader><DialogTitle>New assessment</DialogTitle></DialogHeader>
+                <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <Label>Title *</Label>
@@ -206,6 +207,7 @@ function AssessmentsPage() {
                     <Label>Rubric / marking scheme description</Label>
                     <Input className="mt-1" value={form.rubricDescription} onChange={(e) => setForm({ ...form, rubricDescription: e.target.value })} placeholder="e.g. Section A: 20 marks (MCQ), Section B: 20 marks (structured)" maxLength={250} />
                   </div>
+                </div>
                 </div>
                 <DialogFooter className="mt-2">
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

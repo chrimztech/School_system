@@ -421,6 +421,7 @@ function SubjectsPage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader><DialogTitle>Add subject</DialogTitle></DialogHeader>
+                <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -468,6 +469,7 @@ function SubjectsPage() {
                       <Input className="mt-1" type="number" min={1} max={15} value={form.periods} onChange={(e) => setForm({ ...form, periods: e.target.value })} />
                     </div>
                   </div>
+                </div>
                 </div>
                 <DialogFooter className="mt-2">
                   <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
@@ -518,6 +520,7 @@ function SubjectsPage() {
           <DialogHeader>
             <DialogTitle>Edit — {editTarget?.name}</DialogTitle>
           </DialogHeader>
+          <div className="overflow-y-auto flex-1 pr-1">
           <div className="grid gap-3">
             <div>
               <Label>Subject name *</Label>
@@ -576,6 +579,7 @@ function SubjectsPage() {
                 maxLength={500}
               />
             </div>
+          </div>
           </div>
           <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>

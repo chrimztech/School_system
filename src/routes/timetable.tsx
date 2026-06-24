@@ -171,6 +171,7 @@ function TimetablePage() {
               <DialogTrigger asChild><Button><Plus className="mr-1 h-4 w-4" />Add slot</Button></DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader><DialogTitle>Add timetable slot</DialogTitle></DialogHeader>
+                <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -234,6 +235,7 @@ function TimetablePage() {
                     <Label>Room</Label>
                     <Input className="mt-1" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} placeholder="Room 101" />
                   </div>
+                </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setNewSlotOpen(false)}>Cancel</Button>

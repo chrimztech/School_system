@@ -63,12 +63,29 @@ function todayStr() {
 function ParentsPage() {
   const { active } = useTenant();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [selectedParent, setSelectedParent] = useState<GuardianRecord | null>(null);
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ["students", active.id],
     queryFn: () => api.students.list(active.id),
+  });
+
+  const { data: appUsers = [] } = useQuery({
+    queryKey: ["school-users", active.id],
+    queryFn: () => api.users.list(active.id),
+  });
+  const userEmails = new Set((appUsers as any[]).map((u: any) => (u.email ?? "").toLowerCase()));
+
+  const createLoginMutation = useMutation({
+    mutationFn: ({ name, email }: { name: string; email: string }) =>
+      api.users.create(active.id, { name, email, role: "PARENT" }),
+    onSuccess: (_, vars) => {
+      void qc.invalidateQueries({ queryKey: ["school-users", active.id] });
+      toast.success(`Login created — ${vars.email} / password123`);
+    },
+    onError: () => toast.error("Could not create login — email may already be registered"),
   });
 
   const { data: structures = [] } = useQuery({
@@ -170,9 +187,25 @@ function ParentsPage() {
                 </TableCell>
                 <TableCell><Badge variant="secondary">{parent.email ? "Email + phone" : "Phone"}</Badge></TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="sm" onClick={() => toast.success(`Message draft opened for ${parent.name}`)}>
-                    <MessageSquare className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    {parent.email && !userEmails.has(parent.email.toLowerCase()) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={createLoginMutation.isPending}
+                        onClick={() => createLoginMutation.mutate({ name: parent.name, email: parent.email })}
+                      >
+                        Create login
+                      </Button>
+                    )}
+                    {parent.email && userEmails.has(parent.email.toLowerCase()) && (
+                      <Badge variant="secondary" className="text-xs">Has login</Badge>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => toast.success(`Message draft opened for ${parent.name}`)}>
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -551,11 +584,11 @@ function InvoiceDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Invoice · {invoiceNo}</DialogTitle>
         </DialogHeader>
-
+        <div className="overflow-y-auto flex-1 pr-1">
         <div className="space-y-4 text-sm print:text-black">
           {/* School header */}
           <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
@@ -620,6 +653,7 @@ function InvoiceDialog({
             Thank you for your continued support of {school.name}.
           </p>
         </div>
+        </div>
 
         <DialogFooter className="mt-2">
           <Button variant="outline" onClick={onClose}>Close</Button>
@@ -648,7 +682,7 @@ function ReceiptDialog({
         <DialogHeader>
           <DialogTitle>Receipt · {payment.receiptNumber || "—"}</DialogTitle>
         </DialogHeader>
-
+        <div className="overflow-y-auto flex-1 pr-1">
         <div className="space-y-4 text-sm">
           {/* Header */}
           <div className="rounded-lg bg-muted/50 p-4 text-center">
@@ -710,6 +744,7 @@ function ReceiptDialog({
           <p className="text-center text-xs text-muted-foreground">
             {school.name} · {school.district}, {school.province}
           </p>
+        </div>
         </div>
 
         <DialogFooter className="mt-2">

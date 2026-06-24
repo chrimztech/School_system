@@ -116,7 +116,22 @@ function StudentsPage() {
     mutationFn: (data: any) => api.students.create(schoolId, data),
     onSuccess: (student: any) => {
       qc.invalidateQueries({ queryKey: ["students", schoolId] });
-      toast.success(`${student.firstName} ${student.lastName} admitted (${student.admissionNumber})  -  now enrol them in a class`);
+      toast.success(`${student.firstName} ${student.lastName} admitted (${student.admissionNumber}) — enrol them in a class on the Classes page`);
+
+      // Auto-create parent/guardian login if email is provided
+      const guardianEmail = (student.guardianEmail ?? "").trim();
+      const guardianName = (student.guardian ?? student.guardianName ?? "").trim();
+      if (guardianEmail) {
+        void api.users.create(schoolId, {
+          name: guardianName || "Guardian",
+          email: guardianEmail,
+          role: "PARENT",
+        }).then(() => {
+          void qc.invalidateQueries({ queryKey: ["school-users", schoolId] });
+          toast.info(`Parent login created — email: ${guardianEmail} · password: password123`);
+        }).catch(() => { /* login already exists for this guardian */ });
+      }
+
       setForm(createInitialForm());
       setStep(1);
       setOpen(false);
@@ -179,6 +194,7 @@ function StudentsPage() {
                   <DialogTitle>Register new student</DialogTitle>
                   <p className="text-sm text-muted-foreground">Records the student's personal details. Class enrolment is done separately on the Classes page.</p>
                 </DialogHeader>
+                <div className="overflow-y-auto flex-1 pr-1">
 
                 {/* Step indicator */}
                 <div className="flex items-center gap-0">
@@ -381,6 +397,7 @@ function StudentsPage() {
                     </div>
                   </div>
                 )}
+                </div>
 
                 <DialogFooter className="mt-4 flex items-center justify-between sm:justify-between">
                   <div>

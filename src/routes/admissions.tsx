@@ -208,6 +208,7 @@ function AdmissionsPage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-4xl">
                 <DialogHeader><DialogTitle>Add applicant</DialogTitle></DialogHeader>
+                <div className="overflow-y-auto flex-1 pr-1">
                 <Tabs value={formTab} onValueChange={setFormTab} className="space-y-4">
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="learner">Learner profile</TabsTrigger>
@@ -405,6 +406,7 @@ function AdmissionsPage() {
                     </div>
                   </TabsContent>
                 </Tabs>
+                </div>
                 <DialogFooter className="mt-2">
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                   <Button onClick={addApplicant} disabled={createMutation.isPending}>

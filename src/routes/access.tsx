@@ -86,6 +86,21 @@ function AccessPage() {
   const [createLoginPassword, setCreateLoginPassword] = useState("");
   const [creatingLogin, setCreatingLogin] = useState(false);
 
+  // ── Reset-password dialog state ────────────────────────────────────────────
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+
+  const resetPasswordMut = useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) =>
+      api.users.updateForSchool(schoolId, userId, { password } as any),
+    onSuccess: (_, vars) => {
+      toast.success(`Password reset — share the new temporary password with ${resetTarget?.name}`);
+      setResetTarget(null);
+      setResetPassword("");
+    },
+    onError: () => toast.error("Failed to reset password"),
+  });
+
   // ── Custom role dialogs ────────────────────────────────────────────────────
   const [createRoleOpen, setCreateRoleOpen] = useState(false);
   const [roleForm, setRoleForm] = useState({ name: "", description: "" });
@@ -415,26 +430,39 @@ function AccessPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {u.hasLogin ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveUser(u.id, u.name)}
-                            disabled={u.id === user?.id}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
-                            onClick={() => setCreateLoginTarget({ id: u.id, name: u.name, email: u.email, phone: u.phone })}
-                          >
-                            <KeyRound className="h-3.5 w-3.5" />
-                            Create login
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {u.hasLogin ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1 text-xs"
+                                onClick={() => { setResetTarget({ id: u.id, name: u.name, email: u.email }); setResetPassword(""); }}
+                              >
+                                <KeyRound className="h-3 w-3" />
+                                Reset password
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveUser(u.id, u.name)}
+                                disabled={u.id === user?.id}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                              onClick={() => setCreateLoginTarget({ id: u.id, name: u.name, email: u.email, phone: u.phone })}
+                            >
+                              <KeyRound className="h-3.5 w-3.5" />
+                              Create login
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                 ))}
@@ -712,6 +740,41 @@ function AccessPage() {
             <Button onClick={handleCreateLogin} disabled={creatingLogin}>
               {creatingLogin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create login
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reset password dialog ─────────────────────────────────────────── */}
+      <Dialog open={!!resetTarget} onOpenChange={(v) => { if (!v) { setResetTarget(null); setResetPassword(""); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Reset password — {resetTarget?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-1">
+            <div>
+              <Label>Email</Label>
+              <Input value={resetTarget?.email ?? ""} disabled className="mt-1 bg-muted" />
+            </div>
+            <div>
+              <Label>New temporary password <span className="text-destructive">*</span></Label>
+              <Input
+                className="mt-1"
+                type="text"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                placeholder="e.g. Welcome2026!"
+                maxLength={60}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">Share this with the user — they should change it after signing in.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setResetTarget(null); setResetPassword(""); }}>Cancel</Button>
+            <Button
+              disabled={resetPasswordMut.isPending || !resetPassword.trim() || resetPassword.length < 6}
+              onClick={() => resetTarget && resetPasswordMut.mutate({ userId: resetTarget.id, password: resetPassword.trim() })}
+            >
+              {resetPasswordMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reset password
             </Button>
           </DialogFooter>
         </DialogContent>

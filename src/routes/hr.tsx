@@ -164,6 +164,7 @@ function HRPage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-3xl">
                 <DialogHeader><DialogTitle>Add staff member</DialogTitle></DialogHeader>
+                <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Full name *</Label>
@@ -281,6 +282,7 @@ function HRPage() {
                     <Label>Bank account number</Label>
                     <Input className="mt-1" value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} placeholder="Account number" maxLength={30} />
                   </div>
+                </div>
                 </div>
                 <DialogFooter className="mt-2">
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

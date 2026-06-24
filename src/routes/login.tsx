@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { GraduationCap, Eye, EyeOff, AlertCircle, ShieldCheck } from "lucide-react";
+import { GraduationCap, Eye, EyeOff, AlertCircle, ShieldCheck, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgot, setShowForgot] = useState(false);
 
   useEffect(() => {
     if (user) navigate({ to: "/" });
@@ -291,6 +292,27 @@ function LoginPage() {
                   </button>
                 </div>
               </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowForgot(v => !v)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              {showForgot && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/30 px-4 py-3">
+                  <HelpCircle className="mt-px h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="font-medium text-foreground mb-0.5">Password reset</p>
+                    Contact your school administrator to reset your password. They can set a new temporary password for you from the user management panel.
+                    <br />Once reset, sign in with the temporary password and then change it from your account menu.
+                  </div>
+                </div>
+              )}
 
               <Button
                 type="submit"

@@ -68,6 +68,7 @@ export type BackendSchool = {
   accentColor?: string | null;
   fontFamily?: string | null;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
   reportFooter?: string | null;
   registrationNo?: string | null;
   tpinNo?: string | null;
@@ -138,6 +139,7 @@ export type BackendSchoolDto = {
   accentColor?: string;
   fontFamily?: string;
   logoUrl?: string;
+  faviconUrl?: string;
   reportFooter?: string;
   registrationNo?: string;
   tpinNo?: string;
@@ -265,6 +267,8 @@ export const api = {
     ),
   auth: {
     me: () => unwrap<BackendAppUser>(apiClient.get("/api/auth/me")),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      unwrap<void>(apiClient.post("/api/auth/change-password", { currentPassword, newPassword })),
   },
 
   // Platform workspace
@@ -287,7 +291,7 @@ export const api = {
     list: (schoolId: string) => unwrap<BackendAppUser[]>(apiClient.get(`/api/schools/${schoolId}/users`)),
     create: (schoolId: string, data: { name: string; email: string; role: string; password?: string; phone?: string }) =>
       unwrap<BackendAppUser>(apiClient.post(`/api/schools/${schoolId}/users`, data)),
-    updateForSchool: (schoolId: string, userId: string, data: { role?: string; phone?: string; active?: boolean }) =>
+    updateForSchool: (schoolId: string, userId: string, data: { role?: string; phone?: string; active?: boolean; password?: string }) =>
       unwrap<BackendAppUser>(apiClient.patch(`/api/schools/${schoolId}/users/${userId}`, data)),
     deleteForSchool: (schoolId: string, userId: string) => apiClient.delete(`/api/schools/${schoolId}/users/${userId}`),
     all: () => unwrap<BackendAppUser[]>(apiClient.get("/api/admin/users")),

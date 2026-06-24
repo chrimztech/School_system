@@ -279,6 +279,18 @@ function AppShell() {
   const [clientReady, setClientReady] = useState(false);
   useEffect(() => { setClientReady(true); }, []);
 
+  // Apply school favicon to the browser tab
+  useEffect(() => {
+    if (!active.faviconUrl) return;
+    let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = active.faviconUrl;
+  }, [active.faviconUrl]);
+
   if (!clientReady) {
     return <div className="min-h-screen w-full bg-background" />;
   }

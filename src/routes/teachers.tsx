@@ -79,8 +79,10 @@ function TeachersPage() {
           name: `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim(),
           email: t.email,
           role: "teacher",
-        }).then(() => void qc.invalidateQueries({ queryKey: ["school-users", schoolId] }))
-          .catch(() => { /* login may already exist */ });
+        }).then(() => {
+          void qc.invalidateQueries({ queryKey: ["school-users", schoolId] });
+          toast.info(`Teacher login created — email: ${t.email} · password: password123`);
+        }).catch(() => { /* login already exists */ });
       }
       setForm({
         firstName: "",
@@ -162,6 +164,7 @@ function TeachersPage() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
               <DialogHeader><DialogTitle>Add new teacher</DialogTitle></DialogHeader>
+              <div className="overflow-y-auto flex-1 pr-1">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>First name *</Label>
@@ -264,6 +267,7 @@ function TeachersPage() {
                   <Label>Residential address</Label>
                   <Input className="mt-1" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="House no., street, area, city" maxLength={200} />
                 </div>
+              </div>
               </div>
               <DialogFooter className="mt-2">
                 <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
