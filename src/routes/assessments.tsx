@@ -34,6 +34,7 @@ const typeColor: Record<string, "secondary" | "outline" | "destructive"> = {
 const TYPES = ["cat", "exam", "project", "homework"] as const;
 const TERMS = ["Term 1", "Term 2", "Term 3"] as const;
 const SUBJECTS = ["Mathematics", "English Language", "Science", "Social Studies", "Civic Education", "Religious Education", "Physical Education", "French", "History", "Geography", "Biology", "Chemistry", "Physics", "Computer Studies", "Commerce", "Accounts", "Literature", "Art", "Music"];
+const EMPTY_ITEMS: any[] = [];
 
 function computeGrade(score: number, maxScore: number): string {
   const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -77,17 +78,21 @@ function ResultsSheet({
   const qc = useQueryClient();
   const [rows, setRows] = useState<ResultRow[]>([]);
 
-  const { data: allStudents = [], isLoading: studentsLoading } = useQuery({
+  const studentsQuery = useQuery({
     queryKey: ["students", schoolId],
     queryFn: () => api.students.list(schoolId),
     enabled: open,
   });
 
-  const { data: existingResults = [], isLoading: resultsLoading } = useQuery({
+  const resultsQuery = useQuery({
     queryKey: ["assessment-results", schoolId, assessment?.id],
     queryFn: () => api.assessments.results(schoolId, assessment.id),
     enabled: open && !!assessment?.id,
   });
+  const allStudents = (studentsQuery.data ?? EMPTY_ITEMS) as any[];
+  const existingResults = (resultsQuery.data ?? EMPTY_ITEMS) as any[];
+  const studentsLoading = studentsQuery.isLoading;
+  const resultsLoading = resultsQuery.isLoading;
 
   // Filter students in this class and build rows
   useEffect(() => {
