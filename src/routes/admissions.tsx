@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/admissions")({
   head: () => ({ meta: [{ title: "Admissions - SRMS" }] }),
@@ -220,7 +221,8 @@ function AdmissionsPage() {
     : Math.round((applicants.filter((applicant) => applicant.stage === "Enrolled").length / applicants.length) * 100);
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="admissions">
+      <div className="space-y-6">
       <PageHeader
         title="Admissions Hub"
         description="Manage applicant flow, offers, and the final handoff into active learner records."
@@ -421,7 +423,7 @@ function AdmissionsPage() {
                     </div>
                     <div className="col-span-2">
                       <Label>Siblings currently at school</Label>
-                      <Input className="mt-1" value={form.siblingsAtSchool} onChange={(e) => setForm({ ...form, siblingsAtSchool: e.target.value })} placeholder="e.g. Chanda Tembo — Grade 10A" maxLength={120} />
+                      <Input className="mt-1" value={form.siblingsAtSchool} onChange={(e) => setForm({ ...form, siblingsAtSchool: e.target.value })} placeholder="e.g. Chanda Tembo — Form 3A" maxLength={120} />
                     </div>
                     <div className="col-span-2">
                       <Label>Medical or support notes</Label>
@@ -627,5 +629,6 @@ function AdmissionsPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

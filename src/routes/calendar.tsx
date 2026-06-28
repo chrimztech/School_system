@@ -214,7 +214,7 @@ function CalendarPage() {
                 </div>
                 <div>
                   <Label>Attendees / target group</Label>
-                  <Input className="mt-1" value={form.attendees} onChange={(event) => setForm({ ...form, attendees: event.target.value })} placeholder="All, Grade 10-12, Parents, Board members" maxLength={100} />
+                  <Input className="mt-1" value={form.attendees} onChange={(event) => setForm({ ...form, attendees: event.target.value })} placeholder="All, Form 3-6, Parents, Board members" maxLength={100} />
                 </div>
                 <div>
                   <Label>Event owner</Label>

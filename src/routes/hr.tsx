@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/hr")({
   head: () => ({ meta: [{ title: "HR — SRMS" }] }),
@@ -146,7 +147,8 @@ function HRPage() {
   }).length;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="hr">
+      <div className="space-y-6">
       <PageHeader
         title="Human Resources"
         description="Staff records, leave management, appraisals and recruitment."
@@ -407,5 +409,6 @@ function HRPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

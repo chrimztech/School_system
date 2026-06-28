@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/health")({
   head: () => ({ meta: [{ title: "Health & Clinic — SRMS" }] }),
@@ -99,7 +100,8 @@ function HealthPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="health">
+      <div className="space-y-6">
       <PageHeader
         title="Health & Clinic"
         description="School clinic visits, immunisation records, allergies, and medical alerts."
@@ -124,7 +126,7 @@ function HealthPage() {
                   </div>
                   <div>
                     <Label>Class / grade</Label>
-                    <Input className="mt-1" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="e.g. Grade 7A" maxLength={30} />
+                    <Input className="mt-1" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="e.g. Form 1A" maxLength={30} />
                   </div>
                   <div>
                     <Label>Visit date</Label>
@@ -267,7 +269,7 @@ function HealthPage() {
                 </div>
                 <div>
                   <Label>Class / grade</Label>
-                  <Input className="mt-1" value={recForm.grade} onChange={(e) => setRecForm({ ...recForm, grade: e.target.value })} placeholder="e.g. Grade 9A" maxLength={30} />
+                  <Input className="mt-1" value={recForm.grade} onChange={(e) => setRecForm({ ...recForm, grade: e.target.value })} placeholder="e.g. Form 2A" maxLength={30} />
                 </div>
                 <div>
                   <Label>Blood group</Label>
@@ -423,5 +425,6 @@ function HealthPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

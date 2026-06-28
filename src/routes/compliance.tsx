@@ -24,7 +24,7 @@ function CompliancePage() {
 
   const compliantCount = (items as any[]).filter((i: any) => i.status === "Compliant").length;
   const totalCount = (items as any[]).length;
-  const healthPct = totalCount ? Math.round((compliantCount / totalCount) * 100) : 87;
+  const healthPct = totalCount ? Math.round((compliantCount / totalCount) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -40,15 +40,19 @@ function CompliancePage() {
             <ShieldCheck className="h-4 w-4" />
             Compliance health
           </div>
-          <p className="mt-3 text-sm text-muted-foreground">{healthPct}% of compliance controls are meeting their target schedule.</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {totalCount > 0
+              ? `${healthPct}% of compliance controls are meeting their target schedule.`
+              : "No compliance data loaded yet. Start by adding compliance items."}
+          </p>
           <div className="mt-5 space-y-3">
             <div className="flex items-center justify-between rounded-xl bg-muted/70 px-4 py-3">
               <p className="text-sm font-medium">Audit readiness</p>
-              <Badge variant="secondary">Ready</Badge>
+              <Badge variant={totalCount > 0 ? (compliantCount / totalCount >= 0.8 ? "success" : "warning") : "secondary"}>{totalCount > 0 ? (compliantCount / totalCount >= 0.8 ? "Ready" : "Review needed") : "Pending"}</Badge>
             </div>
             <div className="flex items-center justify-between rounded-xl bg-muted/70 px-4 py-3">
               <p className="text-sm font-medium">Policy coverage</p>
-              <Badge variant="success">Strong</Badge>
+              <Badge variant={totalCount > 0 ? "success" : "secondary"}>{totalCount > 0 ? `Strong (${totalCount} items)` : "Pending"}</Badge>
             </div>
           </div>
         </div>

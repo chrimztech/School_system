@@ -15,7 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/activities")({
   head: () => ({ meta: [{ title: "Activities & Clubs - SRMS" }] }),
@@ -64,6 +66,9 @@ function parseClubDescription(description: string | null | undefined) {
 function ActivitiesPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const isTeacher = user?.role === "teacher";
+  const isHOD = user?.role === "hod";
   const qc = useQueryClient();
 
   const [clubOpen, setClubOpen] = useState(false);
@@ -152,7 +157,8 @@ function ActivitiesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="activities">
+      <div className="space-y-6">
       <PageHeader
         title="Activities & Clubs"
         description="Co-curricular clubs, sports teams, memberships, and fixture calendar."
@@ -176,7 +182,7 @@ function ActivitiesPage() {
 
         <TabsContent value="clubs" className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Dialog open={clubOpen} onOpenChange={setClubOpen}>
+            {!isTeacher && !isHOD && <Dialog open={clubOpen} onOpenChange={setClubOpen}>
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />New club</Button>
               </DialogTrigger>
@@ -236,7 +242,7 @@ function ActivitiesPage() {
                     </div>
                     <div>
                       <Label>Target group</Label>
-                      <Input className="mt-1" value={clubForm.targetGroup} onChange={(event) => setClubForm({ ...clubForm, targetGroup: event.target.value })} placeholder="Grade 8-10, girls only, open to all" maxLength={100} />
+                      <Input className="mt-1" value={clubForm.targetGroup} onChange={(event) => setClubForm({ ...clubForm, targetGroup: event.target.value })} placeholder="Form 1-3, girls only, open to all" maxLength={100} />
                     </div>
                   </div>
 
@@ -290,7 +296,7 @@ function ActivitiesPage() {
                   </Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
           </div>
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
@@ -320,7 +326,7 @@ function ActivitiesPage() {
                       <TableCell>
                         <Badge variant={isActive ? "default" : "secondary"}>{club.status}</Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      {!isTeacher && !isHOD && <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             size="sm"
@@ -341,7 +347,7 @@ function ActivitiesPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </TableCell>
+                      </TableCell>}
                     </TableRow>
                   );
                 })}
@@ -366,5 +372,6 @@ function ActivitiesPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

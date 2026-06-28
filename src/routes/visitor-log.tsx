@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/visitor-log")({
   head: () => ({ meta: [{ title: "Visitor Log - SRMS" }] }),
@@ -126,7 +127,8 @@ function VisitorLogPage() {
   }, [visitorList, q]);
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="visitor-log">
+      <div className="space-y-6">
       <PageHeader
         title="Visitor Log"
         description="Gate visitor sign-in and sign-out register for campus security."
@@ -345,5 +347,6 @@ function VisitorLogPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

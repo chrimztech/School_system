@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/library")({
   head: () => ({ meta: [{ title: "Library — SRMS" }] }),
@@ -136,7 +137,8 @@ function LibraryPage() {
   const overdueCount = loanList.filter((l: any) => l.overdue || (l.status ?? "").toLowerCase() === "overdue").length;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="library">
+      <div className="space-y-6">
       <PageHeader
         title="School Library"
         description={`Catalogue and lending · ${active.shortCode}`}
@@ -189,7 +191,7 @@ function LibraryPage() {
                 </div>
                 <div>
                   <Label>Reading level / grade range</Label>
-                  <Input className="mt-1" value={form.readingLevel} onChange={(e) => setForm({ ...form, readingLevel: e.target.value })} placeholder="e.g. Grade 9–12, Junior" maxLength={40} />
+                  <Input className="mt-1" value={form.readingLevel} onChange={(e) => setForm({ ...form, readingLevel: e.target.value })} placeholder="e.g. Form 2–6, Junior" maxLength={40} />
                 </div>
                 <div>
                   <Label>Condition</Label>
@@ -328,5 +330,6 @@ function LibraryPage() {
         )}
       </div>
     </div>
+    </AccessGuard>
   );
 }

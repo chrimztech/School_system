@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check, Trash2 } from "lucide-react";
+import { createFileRoute, Link, useNavigate, Outlet, useChildMatches } from "@tanstack/react-router";
+import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check, Trash2, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,8 +14,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/utils";
+import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 
 export const Route = createFileRoute("/students")({
   head: () => ({ meta: [{ title: "Students - SRMS" }] }),
@@ -74,9 +76,14 @@ function fullStudentName(student: Record<string, unknown>) {
   return [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ");
 }
 
-function StudentsPage() {
+function StudentsListPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isTeacher = user?.role === "teacher";
+  const isHOD = user?.role === "hod";
+  const teacherEmail = isTeacher ? user.email : undefined;
   const qc = useQueryClient();
 
   const isSecondary = ["SECONDARY", "COMBINED", "FULL"].includes(active.type);
@@ -105,18 +112,19 @@ function StudentsPage() {
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(createInitialForm);
 
   const { data: students = [], isLoading } = useQuery({
-    queryKey: ["students", schoolId],
-    queryFn: () => api.students.list(schoolId),
+    queryKey: ["students", schoolId, teacherEmail],
+    queryFn: () => api.students.list(schoolId, teacherEmail),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.students.delete(schoolId, id),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      void qc.invalidateQueries({ queryKey: ["students", schoolId, teacherEmail] });
       toast.success("Student record removed");
     },
     onError: () => toast.error("Failed to remove student record"),
@@ -125,7 +133,7 @@ function StudentsPage() {
   const createMutation = useMutation({
     mutationFn: (data: any) => api.students.create(schoolId, data),
     onSuccess: (student: any) => {
-      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      qc.invalidateQueries({ queryKey: ["students", schoolId, teacherEmail] });
       toast.success(`${student.firstName} ${student.lastName} admitted (${student.admissionNumber}) — enrol them in a class on the Classes page`);
 
       // Auto-create parent/guardian login if email is provided
@@ -197,18 +205,48 @@ function StudentsPage() {
               downloadCsv(filtered.map((s: any) => ({
                 "Admission No": s.admissionNumber ?? "",
                 "First Name": s.firstName ?? "",
+                "Middle Name": s.middleName ?? "",
                 "Last Name": s.lastName ?? "",
+                "Preferred Name": s.preferredName ?? "",
                 Grade: s.grade ?? "",
                 Section: s.section ?? "",
                 Gender: s.gender ?? "",
-                Guardian: s.guardian ?? "",
-                "Guardian Phone": s.guardianPhone ?? "",
+                "Date of Birth": s.dateOfBirth ?? "",
+                Nationality: s.nationality ?? "",
+                "National ID": s.nationalId ?? "",
+                "Birth Certificate No": s.birthCertificateNo ?? "",
+                Religion: s.religion ?? "",
+                "Blood Group": s.bloodGroup ?? "",
+                "Medical Conditions": s.medicalConditions ?? "",
+                Allergies: s.allergies ?? "",
+                "Student Phone": s.studentPhone ?? "",
+                "Student Email": s.studentEmail ?? "",
+                Address: s.address ?? "",
+                City: s.city ?? "",
+                "Admission Date": s.admissionDate ?? "",
                 Status: s.status ?? "active",
+                "Guardian Name": s.guardian ?? s.guardianName ?? "",
+                "Guardian Relationship": s.guardianRelationship ?? "",
+                "Guardian Phone": s.guardianPhone ?? "",
+                "Guardian Alt Phone": s.guardianAltPhone ?? "",
+                "Guardian Email": s.guardianEmail ?? "",
+                "Guardian Occupation": s.guardianOccupation ?? "",
+                "Guardian Workplace": s.guardianWorkplace ?? "",
+                "Guardian National ID": s.guardianNationalId ?? "",
+                "Guardian Address": s.guardianAddress ?? "",
+                "Emergency Contact Name": s.emergencyContactName ?? "",
+                "Emergency Contact Relationship": s.emergencyContactRelationship ?? "",
+                "Emergency Contact Phone": s.emergencyContactPhone ?? "",
               })), `students-${new Date().toISOString().slice(0, 10)}`);
             }}>
-              <Download className="mr-2 h-4 w-4" /> Export
+              <Download className="mr-2 h-4 w-4" />Export
             </Button>
-            <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(createInitialForm()); setStep(1); } }}>
+            {!isTeacher && !isHOD && (
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />Import
+              </Button>
+            )}
+            {!isTeacher && !isHOD && <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(createInitialForm()); setStep(1); } }}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> New admission</Button>
               </DialogTrigger>
@@ -445,7 +483,7 @@ function StudentsPage() {
                   </div>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
           </>
         }
       />
@@ -511,23 +549,21 @@ function StudentsPage() {
                 <TableHead>Class</TableHead>
                 <TableHead>Parent / guardian</TableHead>
                 <TableHead>Phone</TableHead>
-                <TableHead>Fee balance</TableHead>
+                {!isTeacher && !isHOD && <TableHead>Fee balance</TableHead>}
                 <TableHead>Status</TableHead>
-                <TableHead />
+                {!isTeacher && !isHOD && <TableHead />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((student: any) => (
-                <TableRow key={student.id} className="cursor-pointer hover:bg-muted/30">
-                  <TableCell className="font-mono text-xs">
-                    <Link to="/students/$studentId" params={{ studentId: student.id }} className="hover:underline">
-                      {student.admissionNumber}
-                    </Link>
-                  </TableCell>
+                <TableRow
+                  key={student.id}
+                  className="cursor-pointer hover:bg-muted/30"
+                  onClick={() => void navigate({ to: "/students/$studentId", params: { studentId: student.id } })}
+                >
+                  <TableCell className="font-mono text-xs">{student.admissionNumber}</TableCell>
                   <TableCell className="font-medium">
-                    <Link to="/students/$studentId" params={{ studentId: student.id }} className="hover:underline">
-                      {fullStudentName(student)}
-                    </Link>
+                    {fullStudentName(student)}
                     {student.preferredName && (
                       <p className="text-xs text-muted-foreground">Prefers {student.preferredName}</p>
                     )}
@@ -540,19 +576,19 @@ function StudentsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{student.guardianPhone ?? student.studentPhone ?? "-"}</TableCell>
-                  <TableCell>
+                  {!isTeacher && !isHOD && <TableCell>
                     {student.feeBalance > 0 ? (
                       <span className="text-destructive">K {Number(student.feeBalance).toLocaleString()}</span>
                     ) : (
                       <span className="text-success">Cleared</span>
                     )}
-                  </TableCell>
+                  </TableCell>}
                   <TableCell>
                     <Badge variant={(student.status ?? "").toLowerCase() === "active" ? "secondary" : "outline"}>
                       {(student.status ?? "").toLowerCase()}
                     </Badge>
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  {!isTeacher && !isHOD && <TableCell onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -566,7 +602,7 @@ function StudentsPage() {
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </TableCell>
+                  </TableCell>}
                 </TableRow>
               ))}
               {filtered.length === 0 && (
@@ -580,6 +616,96 @@ function StudentsPage() {
           </Table>
         )}
       </div>
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import students"
+        entityName="student"
+        columns={[
+          { key: "firstName", label: "First Name", required: true, example: "Mwansa" },
+          { key: "lastName", label: "Last Name", required: true, example: "Tembo" },
+          { key: "middleName", label: "Middle Name", example: "Joseph" },
+          { key: "grade", label: "Grade", required: true, example: "8" },
+          { key: "section", label: "Section", example: "A" },
+          { key: "gender", label: "Gender", required: true, example: "Male" },
+          { key: "dateOfBirth", label: "Date of Birth", example: "2010-06-15" },
+          { key: "admissionDate", label: "Admission Date", example: "2025-01-10" },
+          { key: "nationality", label: "Nationality", example: "Zambian" },
+          { key: "bloodGroup", label: "Blood Group", example: "O+" },
+          { key: "medicalConditions", label: "Medical Conditions", example: "Asthma" },
+          { key: "allergies", label: "Allergies", example: "Peanuts" },
+          { key: "studentPhone", label: "Student Phone", example: "+260 977 000001" },
+          { key: "studentEmail", label: "Student Email", example: "mwansa@example.com" },
+          { key: "address", label: "Address", example: "12 Kalingalinga, Lusaka" },
+          { key: "guardian", label: "Guardian Name", required: true, example: "Chanda Tembo" },
+          { key: "guardianRelationship", label: "Guardian Relationship", example: "Father" },
+          { key: "guardianPhone", label: "Guardian Phone", required: true, example: "+260 966 000001" },
+          { key: "guardianAltPhone", label: "Guardian Alt Phone", example: "+260 955 000001" },
+          { key: "guardianEmail", label: "Guardian Email", example: "chanda@example.com" },
+          { key: "guardianOccupation", label: "Guardian Occupation", example: "Teacher" },
+          { key: "emergencyContactName", label: "Emergency Contact Name", example: "Bwalya Tembo" },
+          { key: "emergencyContactPhone", label: "Emergency Contact Phone", example: "+260 978 000001" },
+          { key: "status", label: "Status", example: "active" },
+        ]}
+        onDone={() => void qc.invalidateQueries({ queryKey: ["students", schoolId, teacherEmail] })}
+        onImport={async (rows) => {
+          const result: ImportResult = { imported: 0, errors: [] };
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row["First Name"]?.trim() || !row["Last Name"]?.trim()) {
+              result.errors.push({ row: i + 2, error: "First Name and Last Name are required" });
+              continue;
+            }
+            if (!row["Grade"]?.trim()) {
+              result.errors.push({ row: i + 2, error: "Grade is required" });
+              continue;
+            }
+            if (!row["Guardian Name"]?.trim() || !row["Guardian Phone"]?.trim()) {
+              result.errors.push({ row: i + 2, error: "Guardian Name and Guardian Phone are required" });
+              continue;
+            }
+            try {
+              await api.students.create(schoolId, {
+                firstName: row["First Name"].trim(),
+                middleName: row["Middle Name"]?.trim() || null,
+                lastName: row["Last Name"].trim(),
+                grade: Number(row["Grade"]) || 1,
+                section: row["Section"]?.trim() || "A",
+                gender: row["Gender"]?.trim() || "Male",
+                dateOfBirth: row["Date of Birth"]?.trim() || null,
+                admissionDate: row["Admission Date"]?.trim() || new Date().toISOString().slice(0, 10),
+                nationality: row["Nationality"]?.trim() || "Zambian",
+                bloodGroup: row["Blood Group"]?.trim() || null,
+                medicalConditions: row["Medical Conditions"]?.trim() || null,
+                allergies: row["Allergies"]?.trim() || null,
+                studentPhone: row["Student Phone"]?.trim() || null,
+                studentEmail: row["Student Email"]?.trim() || null,
+                address: row["Address"]?.trim() || null,
+                guardian: row["Guardian Name"].trim(),
+                guardianRelationship: row["Guardian Relationship"]?.trim() || null,
+                guardianPhone: row["Guardian Phone"].trim(),
+                guardianAltPhone: row["Guardian Alt Phone"]?.trim() || null,
+                guardianEmail: row["Guardian Email"]?.trim() || null,
+                guardianOccupation: row["Guardian Occupation"]?.trim() || null,
+                emergencyContactName: row["Emergency Contact Name"]?.trim() || null,
+                emergencyContactPhone: row["Emergency Contact Phone"]?.trim() || null,
+                status: row["Status"]?.trim() || "active",
+              });
+              result.imported++;
+            } catch (e: any) {
+              result.errors.push({ row: i + 2, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" });
+            }
+          }
+          return result;
+        }}
+      />
     </div>
   );
+}
+
+function StudentsPage() {
+  const children = useChildMatches();
+  if (children.length > 0) return <Outlet />;
+  return <StudentsListPage />;
 }

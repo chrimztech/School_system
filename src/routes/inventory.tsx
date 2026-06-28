@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/inventory")({
@@ -135,7 +136,8 @@ function InventoryPage() {
   const visible = lowOnly ? stockItems.filter((i: any) => i.qty < i.min) : stockItems;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="inventory">
+      <div className="space-y-6">
       <PageHeader
         title="Inventory & Procurement"
         description="Stock control, suppliers, purchase orders and goods-received notes."
@@ -344,5 +346,6 @@ function InventoryPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

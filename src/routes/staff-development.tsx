@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/staff-development")({
   head: () => ({ meta: [{ title: "Staff Development — SRMS" }] }),
@@ -165,7 +166,8 @@ function StaffDevelopmentPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="staff-development">
+      <div className="space-y-6">
       <PageHeader
         title="Staff Development"
         description="Appraisals, lesson observations, CPD training log, and personal development plans."
@@ -309,7 +311,7 @@ function StaffDevelopmentPage() {
                     </div>
                     <div>
                       <Label>Class</Label>
-                      <Input className="mt-1" value={obsForm.grade} onChange={(e) => setObsForm({ ...obsForm, grade: e.target.value })} placeholder="Grade 10A" maxLength={30} />
+                      <Input className="mt-1" value={obsForm.grade} onChange={(e) => setObsForm({ ...obsForm, grade: e.target.value })} placeholder="Form 3A" maxLength={30} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -555,5 +557,6 @@ function StaffDevelopmentPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

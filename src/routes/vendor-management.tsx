@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/vendor-management")({
   head: () => ({ meta: [{ title: "Vendor Management — SRMS" }] }),
@@ -102,7 +103,8 @@ function VendorManagementPage() {
   const expiringCount = (vendors as any[]).filter((v: any) => v.status !== "Active").length;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="vendor-management">
+      <div className="space-y-6">
       <PageHeader
         title="Vendor management"
         description="Manage suppliers, contracts, service level compliance and procurement efficiency for enterprise operations."
@@ -285,5 +287,6 @@ function VendorManagementPage() {
         </div>
       </div>
     </div>
+    </AccessGuard>
   );
 }

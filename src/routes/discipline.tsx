@@ -14,7 +14,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/discipline")({
   head: () => ({ meta: [{ title: "Discipline — SRMS" }] }),
@@ -37,9 +39,16 @@ function extractNoteValue(notes: string | null | undefined, label: string) {
 function DisciplinePage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const isTeacher = user?.role === "teacher";
+  const teacherEmail = isTeacher ? user.email : undefined;
+  // Teachers can log incidents but cannot escalate to expulsion/long suspension or resolve cases
+  const availableActions = isTeacher
+    ? ACTIONS.filter((a) => !["Expulsion", "1-week suspension", "3-day suspension"].includes(a))
+    : ACTIONS;
   const qc = useQueryClient();
 
-  const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId], queryFn: () => api.classes.list(schoolId) });
+  const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId, teacherEmail], queryFn: () => api.classes.list(schoolId, teacherEmail) });
   const classList = (classesData as any[]).map((c: any) => c.name || c.className || c.id).filter(Boolean);
 
   const [open, setOpen] = useState(false);
@@ -121,7 +130,8 @@ function DisciplinePage() {
   const repeats = recs.filter((r) => (r.repeats ?? r.repeatCount ?? 0) > 1).length;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="discipline">
+      <div className="space-y-6">
       <PageHeader
         title="Discipline"
         description="Log offences, take action, notify parents and track repeats"
@@ -178,7 +188,7 @@ function DisciplinePage() {
                     <Label>Action taken</Label>
                     <Select value={form.action} onValueChange={(v) => setForm({ ...form, action: v })}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{ACTIONS.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                      <SelectContent>{availableActions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="col-span-2">
@@ -260,7 +270,7 @@ function DisciplinePage() {
                 <TableHead>Action</TableHead>
                 <TableHead>Repeats</TableHead>
                 <TableHead>Parent notified</TableHead>
-                <TableHead className="text-right">Resolve</TableHead>
+                {!isTeacher && <TableHead className="text-right">Resolve</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -282,7 +292,7 @@ function DisciplinePage() {
                   <TableCell>
                     {(d.notified ?? d.parentNotified) ? <Badge variant="secondary">Sent</Badge> : <Badge variant="destructive">Pending</Badge>}
                   </TableCell>
-                  <TableCell className="text-right">
+                  {!isTeacher && <TableCell className="text-right">
                     {(d.status ?? "Open") === "Resolved" ? (
                       <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success" />Resolved</span>
                     ) : (
@@ -290,7 +300,7 @@ function DisciplinePage() {
                         {resolveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Resolve"}
                       </Button>
                     )}
-                  </TableCell>
+                  </TableCell>}
                 </TableRow>
               ))}
               {recs.length === 0 && (
@@ -303,5 +313,6 @@ function DisciplinePage() {
         )}
       </div>
     </div>
+    </AccessGuard>
   );
 }

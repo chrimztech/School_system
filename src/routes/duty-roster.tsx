@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/duty-roster")({
   head: () => ({ meta: [{ title: "Duty Roster — SRMS" }] }),
@@ -95,7 +96,8 @@ function DutyRosterPage() {
   const unassignedSlots = Math.max(0, DAYS.length * 2 - normalizedDuties.filter((d) => ["Gate", "Assembly"].includes(d.type)).length);
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="duty-roster">
+      <div className="space-y-6">
       <PageHeader
         title="Duty Roster"
         description="Weekly staff duty assignments — gate, assembly, break supervision, prep and evening."
@@ -370,5 +372,6 @@ function DutyRosterPage() {
         </Table>
       </div>
     </div>
+    </AccessGuard>
   );
 }

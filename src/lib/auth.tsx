@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { api, type BackendAppUser, type BackendAuthSession } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
 
-export type Role = "super_admin" | "school_admin" | "teacher" | "finance" | "parent";
+export type Role = "super_admin" | "school_admin" | "teacher" | "hod" | "finance" | "parent";
 
 export type AppUser = {
   id: string;
@@ -37,6 +37,11 @@ export const ROLE_META: Record<Role, { label: string; tone: string; description:
     tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
     description: "Attendance, assessments, welfare follow-up, and communication.",
   },
+  hod: {
+    label: "Head of Department",
+    tone: "bg-teal-500/15 text-teal-700 dark:text-teal-300",
+    description: "Oversees a department — assigns teachers to classes and periods, monitors record completeness.",
+  },
   finance: {
     label: "Finance Officer",
     tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
@@ -68,6 +73,7 @@ export const ACCESS: Record<Role, Record<string, Access>> = {
   super_admin: { dashboard: true, students: true, teachers: true, timetable: true, attendance: true, assessments: true, "report-card": true, fees: true, communication: true, discipline: true, library: true, transport: true, calendar: true, reports: true, settings: true, access: true, onboarding: true, accounting: true, health: true, hostel: true, inventory: true, hr: true, alumni: true, admissions: true, procurement: true, facilities: true, "enterprise-analytics": true, security: true, compliance: true, "vendor-management": true, "district-management": true, reporting: true, "incident-management": true, "user-management": true, "policy-library": true, "risk-register": true, "staff-development": true, "student-welfare": true, "fee-structure": true, bursaries: true, "duty-roster": true, activities: true, "visitor-log": true, canteen: true, "strategic-plan": true, "lost-found": true, "platform-ops": true, "tenant-success": true, "plan-catalog": true, "support-desk": true, "platform-config": true, "tenant-lifecycle": true, "platform-audit": true, "revenue-ops": true, "data-governance": true, "partner-management": true, "contract-center": true, "status-center": true, "approval-center": true, "developer-console": true, "tenant-workbench": true },
   school_admin: { dashboard: true, students: true, teachers: true, timetable: true, attendance: true, assessments: true, "report-card": true, fees: true, communication: true, discipline: true, library: true, transport: true, calendar: true, reports: true, settings: true, access: true, onboarding: false, accounting: true, health: true, hostel: true, inventory: true, hr: true, alumni: true, admissions: true, procurement: true, facilities: true, "enterprise-analytics": true, security: true, compliance: true, "vendor-management": true, "district-management": false, reporting: true, "incident-management": true, "user-management": true, "policy-library": true, "risk-register": true, "staff-development": true, "student-welfare": true, "fee-structure": true, bursaries: true, "duty-roster": true, activities: true, "visitor-log": true, canteen: true, "strategic-plan": true, "lost-found": true, "platform-ops": false, "tenant-success": false, "plan-catalog": false, "support-desk": false, "platform-config": false, "tenant-lifecycle": false, "platform-audit": false, "revenue-ops": false, "data-governance": false, "partner-management": false, "contract-center": false, "status-center": false, "approval-center": false, "developer-console": false, "tenant-workbench": false },
   teacher: { dashboard: true, students: "read", teachers: "read", timetable: "read", attendance: true, assessments: true, "report-card": true, fees: false, communication: true, discipline: true, library: "read", transport: false, calendar: "read", reports: "read", settings: false, access: false, onboarding: false, accounting: false, health: "read", hostel: "read", inventory: false, hr: false, alumni: "read", admissions: false, procurement: false, facilities: "read", "enterprise-analytics": false, security: false, compliance: "read", "vendor-management": false, "district-management": false, reporting: "read", "incident-management": "read", "user-management": false, "policy-library": "read", "risk-register": "read", "staff-development": "read", "student-welfare": true, "fee-structure": false, bursaries: false, "duty-roster": "read", activities: true, "visitor-log": false, canteen: "read", "strategic-plan": "read", "lost-found": true, "platform-ops": false, "tenant-success": false, "plan-catalog": false, "support-desk": false, "platform-config": false, "tenant-lifecycle": false, "platform-audit": false, "revenue-ops": false, "data-governance": false, "partner-management": false, "contract-center": false, "status-center": false, "approval-center": false, "developer-console": false, "tenant-workbench": false },
+  hod: { dashboard: true, students: true, teachers: "read", timetable: true, attendance: "read", assessments: "read", "report-card": "read", fees: false, communication: true, discipline: true, library: "read", transport: false, calendar: "read", reports: "read", settings: false, access: false, onboarding: false, accounting: false, health: "read", hostel: "read", inventory: false, hr: false, alumni: "read", admissions: false, procurement: false, facilities: "read", "enterprise-analytics": false, security: false, compliance: "read", "vendor-management": false, "district-management": false, reporting: "read", "incident-management": "read", "user-management": false, "policy-library": "read", "risk-register": false, "staff-development": "read", "student-welfare": true, "fee-structure": false, bursaries: false, "duty-roster": "read", activities: "read", "visitor-log": false, canteen: false, "strategic-plan": false, "lost-found": true, "platform-ops": false, "tenant-success": false, "plan-catalog": false, "support-desk": false, "platform-config": false, "tenant-lifecycle": false, "platform-audit": false, "revenue-ops": false, "data-governance": false, "partner-management": false, "contract-center": false, "status-center": false, "approval-center": false, "developer-console": false, "tenant-workbench": false },
   finance: { dashboard: true, students: "read", teachers: false, timetable: false, attendance: "read", assessments: false, "report-card": false, fees: true, communication: "read", discipline: false, library: false, transport: true, calendar: "read", reports: true, settings: false, access: false, onboarding: false, accounting: true, health: false, hostel: false, inventory: true, hr: true, alumni: "read", admissions: "read", procurement: true, facilities: "read", "enterprise-analytics": true, security: true, compliance: "read", "vendor-management": true, "district-management": false, reporting: true, "incident-management": false, "user-management": false, "policy-library": "read", "risk-register": true, "staff-development": false, "student-welfare": false, "fee-structure": true, bursaries: true, "duty-roster": false, activities: false, "visitor-log": false, canteen: true, "strategic-plan": "read", "lost-found": false, "platform-ops": false, "tenant-success": false, "plan-catalog": false, "support-desk": false, "platform-config": false, "tenant-lifecycle": false, "platform-audit": false, "revenue-ops": false, "data-governance": false, "partner-management": false, "contract-center": false, "status-center": false, "approval-center": false, "developer-console": false, "tenant-workbench": false },
   parent: { dashboard: true, students: false, teachers: false, timetable: "read", attendance: "read", assessments: "read", "report-card": "read", fees: "read", communication: true, discipline: "read", library: false, transport: "read", calendar: "read", reports: false, settings: false, access: false, onboarding: false, accounting: false, health: "read", hostel: "read", inventory: false, hr: false, alumni: false, admissions: false, procurement: false, facilities: false, "enterprise-analytics": false, security: false, compliance: false, "vendor-management": false, "district-management": false, reporting: false, "incident-management": false, "user-management": false, "policy-library": false, "risk-register": false, "staff-development": false, "student-welfare": false, "fee-structure": "read", bursaries: false, "duty-roster": false, activities: "read", "visitor-log": false, canteen: false, "strategic-plan": false, "lost-found": false, "platform-ops": false, "tenant-success": false, "plan-catalog": false, "support-desk": false, "platform-config": false, "tenant-lifecycle": false, "platform-audit": false, "revenue-ops": false, "data-governance": false, "partner-management": false, "contract-center": false, "status-center": false, "approval-center": false, "developer-console": false, "tenant-workbench": false },
 };
@@ -104,6 +110,10 @@ function normaliseRole(role: string | null | undefined): Role {
       return "school_admin";
     case "teacher":
       return "teacher";
+    case "hod":
+    case "head_of_department":
+    case "head of department":
+      return "hod";
     case "finance":
     case "finance_officer":
     case "finance officer":
@@ -275,8 +285,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? allUsers
         : allUsers.filter((record) => record.tenantId === (user.tenantId ?? active.id));
     const assignableRoles: Role[] = isSystemAdmin
-      ? ["super_admin", "school_admin", "teacher", "finance", "parent"]
-      : ["school_admin", "teacher", "finance", "parent"];
+      ? ["super_admin", "school_admin", "teacher", "hod", "finance", "parent"]
+      : ["school_admin", "teacher", "hod", "finance", "parent"];
 
     return {
       user,

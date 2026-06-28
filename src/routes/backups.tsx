@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { HardDrive, Download, Upload } from "lucide-react";
+import { HardDrive, Download, Upload, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/backups")({
 });
 
 function BackupsPage() {
+  const { user } = useAuth();
   const [exports, setExports] = useState<Array<{ id: string; scope: string; rows: number; when: string }>>([]);
   const [auto, setAuto] = useState(true);
   const [encrypt, setEncrypt] = useState(true);
@@ -55,6 +57,17 @@ function BackupsPage() {
     setExportForm({ dataset: "Student register", format: "CSV", rows: "842" });
     setExportOpen(false);
   };
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">Backups and data management are restricted to System Administrators.</p>
+        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

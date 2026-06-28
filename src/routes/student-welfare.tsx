@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/student-welfare")({
   head: () => ({ meta: [{ title: "Student Welfare — SRMS" }] }),
@@ -80,7 +81,8 @@ function StudentWelfarePage() {
   const highRisk = 0;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="student-welfare">
+      <div className="space-y-6">
       <PageHeader
         title="Student Welfare"
         description="Pastoral care cases, counseling sessions, and at-risk student monitoring."
@@ -250,5 +252,6 @@ function StudentWelfarePage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

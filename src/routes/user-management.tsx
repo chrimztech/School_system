@@ -53,6 +53,7 @@ import {
 import { api, type BackendAppUser } from "@/lib/api";
 import { ROLE_META, type Role, useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/user-management")({
   head: () => ({ meta: [{ title: "User Management - SRMS" }] }),
@@ -346,7 +347,8 @@ function UserManagementPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="user-management">
+      <div className="space-y-6">
       <PageHeader
         title="User Management"
         description="Manage platform administrators and school accounts across every active tenant."
@@ -738,5 +740,6 @@ function UserManagementPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AccessGuard>
   );
 }

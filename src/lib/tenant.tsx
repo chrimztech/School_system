@@ -161,9 +161,9 @@ export const CAMPUS_STATUS_OPTIONS: CampusStatus[] = ["active", "setup", "planne
 
 export const ACADEMIC_LEVEL_META: Record<AcademicLevel, { label: string; grades: string }> = {
   ECE: { label: "ECE", grades: "Baby Class - Reception" },
-  PRIMARY: { label: "Primary", grades: "Grade 1 - Grade 7" },
-  JUNIOR_SECONDARY: { label: "Junior Secondary", grades: "Grade 8 - Grade 9" },
-  SENIOR_SECONDARY: { label: "Senior Secondary", grades: "Grade 10 - Grade 12" },
+  PRIMARY: { label: "Primary", grades: "Grade 1 - Grade 6" },
+  JUNIOR_SECONDARY: { label: "Junior Secondary", grades: "Form 1 - Form 2 (O-Level)" },
+  SENIOR_SECONDARY: { label: "Senior Secondary", grades: "Form 3 - Form 6 (O & A-Level)" },
 };
 
 export const FEATURE_META: Record<FeatureKey, FeatureMeta> = {

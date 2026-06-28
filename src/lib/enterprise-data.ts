@@ -17,7 +17,7 @@ export const admissionsApplicants: Applicant[] = [
   {
     id: "A-204",
     learner: "Mwaka Tembo",
-    applyingFor: "Grade 8",
+    applyingFor: "Form 1",
     guardian: "Joseph Tembo",
     contact: "+260 977 445 222",
     source: "Website",
@@ -28,7 +28,7 @@ export const admissionsApplicants: Applicant[] = [
   {
     id: "A-198",
     learner: "Brian Chibesa",
-    applyingFor: "Grade 10",
+    applyingFor: "Form 3",
     guardian: "Martha Chibesa",
     contact: "+260 966 312 019",
     source: "Referral",
@@ -50,7 +50,7 @@ export const admissionsApplicants: Applicant[] = [
   {
     id: "A-189",
     learner: "Daniel Mwila",
-    applyingFor: "Grade 12",
+    applyingFor: "Form 6",
     guardian: "Ruth Mwila",
     contact: "+260 977 889 611",
     source: "Scholarship partner",
@@ -148,7 +148,7 @@ export const facilityWorkOrders: WorkOrder[] = [
   {
     id: "WO-514",
     title: "Repair leaking roof panel",
-    location: "Grade 9 Block",
+    location: "Form 2 Block",
     owner: "Maintenance",
     priority: "High",
     status: "In progress",

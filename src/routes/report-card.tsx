@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, Printer, GraduationCap, Check, Pencil } from "lucide-react";
+import { Download, Printer, Check, Pencil } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
@@ -12,7 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/report-card")({
   head: () => ({ meta: [{ title: "Report Card — SRMS" }] }),
@@ -144,7 +147,7 @@ function CommentSection({
       </div>
     </div>
   );
-}
+}   // CommentSection
 
 function deriveGrade(total: number): string {
   if (total >= 90) return "A+";
@@ -159,6 +162,8 @@ const CA_TYPES = new Set(["cat", "project", "homework", "quiz", "practical"]);
 
 function ReportCardPage() {
   const { active } = useTenant();
+  const { user } = useAuth();
+  const teacherEmail = user?.role === "teacher" ? user.email : undefined;
   const qc = useQueryClient();
   const { studentId: initialStudentId } = Route.useSearch();
   const [selectedId, setSelectedId] = useState(initialStudentId || "");
@@ -166,25 +171,27 @@ function ReportCardPage() {
   const year = String(active.currentYear ?? new Date().getFullYear());
 
   const { data: students = [], isLoading } = useQuery({
-    queryKey: ["students", active.id],
-    queryFn: () => api.students.list(active.id),
+    queryKey: ["students", active.id, teacherEmail],
+    queryFn: () => api.students.list(active.id, teacherEmail),
+    enabled: !!active.id,
   });
 
   const { data: allAssessments = [] } = useQuery({
     queryKey: ["assessments", active.id],
     queryFn: () => api.assessments.list(active.id),
+    enabled: !!active.id,
   });
 
   const { data: studentResults = [] } = useQuery({
     queryKey: ["student-results", active.id, selectedId],
     queryFn: () => api.assessments.studentResults(active.id, selectedId),
-    enabled: !!selectedId,
+    enabled: !!active.id && !!selectedId,
   });
 
   const { data: savedComment } = useQuery({
     queryKey: ["report-comment", active.id, selectedId, term, year],
     queryFn: () => api.reportComments.get(active.id, selectedId, term, year),
-    enabled: !!selectedId,
+    enabled: !!active.id && !!selectedId,
   });
 
   const commentMut = useMutation({
@@ -262,7 +269,8 @@ function ReportCardPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="report-card">
+      <div className="space-y-6">
       <PageHeader
         title="Student Report Card"
         description={`Term ${active.currentTerm} · ${active.currentYear}`}
@@ -287,25 +295,10 @@ function ReportCardPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card shadow-sm">
-        <div
-          className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-6"
-          style={{ background: `linear-gradient(135deg, ${active.primaryColor}10, transparent)` }}
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-lg text-white" style={{ backgroundColor: active.primaryColor }}>
-              <GraduationCap className="h-7 w-7" />
-            </div>
-            <div>
-              <p className="text-lg font-semibold">{active.name}</p>
-              <p className="text-xs italic text-muted-foreground">"{active.motto}"</p>
-              <p className="text-xs text-muted-foreground">{active.district}, {active.province}</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Term {active.currentTerm}, {active.currentYear}</p>
-            <p className="text-sm font-medium">Academic Assessment</p>
-          </div>
-        </div>
+        <SchoolDocumentHeader
+          title="Academic Report Card"
+          subtitle={`Term ${active.currentTerm} · ${active.currentYear}`}
+        />
 
         <div className="grid grid-cols-2 gap-4 border-b border-border p-6 text-sm sm:grid-cols-4">
           <div>
@@ -384,5 +377,6 @@ function ReportCardPage() {
         )}
       </div>
     </div>
+    </AccessGuard>
   );
 }

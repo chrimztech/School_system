@@ -22,7 +22,6 @@ import {
   ClipboardCheck,
   ClipboardList,
   ContactRound,
-  CreditCard,
   FileCog,
   FileText,
   Globe,
@@ -157,10 +156,7 @@ const schoolEnterprise: NavItem[] = [
 
 const schoolAdmin: NavItem[] = [
   { title: "Users & Roles", url: "/access", icon: KeyRound, module: "access" },
-  { title: "Integrations", url: "/integrations", icon: Plug, module: "settings" },
   { title: "Audit Log", url: "/audit", icon: History, module: "settings" },
-  { title: "Backups & Data", url: "/backups", icon: HardDrive, module: "settings" },
-  { title: "Billing", url: "/billing", icon: CreditCard, module: "settings" },
   { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
   { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
   { title: "Settings", url: "/settings", icon: Settings, module: "settings" },
@@ -176,8 +172,8 @@ const platformCore: NavItem[] = [
 ];
 
 const platformBusiness: NavItem[] = [
-  { title: "Revenue Ops", url: "/revenue-ops", icon: CreditCard, module: "revenue-ops" },
-  { title: "Plan Catalog", url: "/plan-catalog", icon: Layers, module: "plan-catalog" },
+  // { title: "Revenue Ops", url: "/revenue-ops", icon: CreditCard, module: "revenue-ops" }, // hidden
+  // { title: "Plan Catalog", url: "/plan-catalog", icon: Layers, module: "plan-catalog" }, // hidden
   { title: "Contract Center", url: "/contract-center", icon: FileText, module: "contract-center" },
   { title: "Partner Management", url: "/partner-management", icon: Users2, module: "partner-management" },
   { title: "Approval Center", url: "/approval-center", icon: ClipboardCheck, module: "approval-center" },
@@ -257,7 +253,7 @@ function SidebarIdentityCard({
 
 export function WorkspaceSidebar() {
   const path = useRouterState({ select: (router) => router.location.pathname });
-  const { tenants, active, activePlan, setActive } = useTenant();
+  const { tenants, active, setActive } = useTenant();
   const { can, isSystemAdmin, user } = useAuth();
 
   const isActive = (url: string) => (url === "/" ? path === "/" : path.startsWith(url));
@@ -329,7 +325,7 @@ export function WorkspaceSidebar() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm">{tenant.name}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {tenant.district} · {tenant.subscription.planId}
+                      {tenant.district}
                     </p>
                   </div>
                   {tenant.id === active.id ? <Check className="h-4 w-4" /> : null}
@@ -396,7 +392,6 @@ export function WorkspaceSidebar() {
         />
         <div className="flex flex-wrap gap-1.5 px-1 group-data-[collapsible=icon]:hidden">
           <Badge variant="outline">Term {schoolTenant.currentTerm}</Badge>
-          <Badge variant="outline">{activePlan.name} plan</Badge>
         </div>
       </SidebarHeader>
 
@@ -413,6 +408,76 @@ export function WorkspaceSidebar() {
             { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
             { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
           ])
+        ) : user?.role === "hod" ? (
+          <>
+            {renderGroup("My Department", [
+              { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
+              { title: "Departments", url: "/departments", icon: Building2, module: "assessments" },
+              { title: "Classes", url: "/classes", icon: School, module: "students" },
+              { title: "Timetable", url: "/timetable", icon: CalendarDays, module: "timetable" },
+              { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
+            ])}
+            {renderGroup("Teaching Records", [
+              { title: "Teachers", url: "/teachers", icon: UserCog, module: "teachers" },
+              { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
+              { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
+              { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
+              { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
+            ])}
+            {renderGroup("Students", [
+              { title: "Students", url: "/students", icon: Users, module: "students" },
+              { title: "Discipline", url: "/discipline", icon: ShieldAlert, module: "discipline" },
+              { title: "Student Welfare", url: "/student-welfare", icon: Heart, module: "student-welfare" },
+            ])}
+            {renderGroup("Resources", [
+              { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
+              { title: "Library", url: "/library", icon: BookOpen, module: "library" },
+              { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
+              { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
+            ])}
+          </>
+        ) : user?.role === "teacher" ? (
+          <>
+            {renderGroup("My Workspace", [
+              { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
+              { title: "Timetable", url: "/timetable", icon: CalendarDays, module: "timetable" },
+              { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
+              { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
+              { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
+              { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
+              { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
+            ])}
+            {renderGroup("Students", [
+              { title: "Students", url: "/students", icon: Users, module: "students" },
+              { title: "Classes", url: "/classes", icon: School, module: "students" },
+              { title: "Discipline", url: "/discipline", icon: ShieldAlert, module: "discipline" },
+              { title: "Student Welfare", url: "/student-welfare", icon: Heart, module: "student-welfare" },
+              { title: "Activities & Clubs", url: "/activities", icon: Trophy, module: "activities" },
+              { title: "Lost & Found", url: "/lost-found", icon: PackageSearch, module: "lost-found" },
+            ])}
+            {renderGroup("Resources", [
+              { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
+              { title: "Library", url: "/library", icon: BookOpen, module: "library" },
+              { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
+              { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
+            ])}
+          </>
+        ) : user?.role === "finance" ? (
+          <>
+            {renderGroup("Overview", [
+              { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
+            ])}
+            {renderGroup("Finance", schoolFinance)}
+            {renderGroup("Reports", [
+              { title: "Enterprise Analytics", url: "/enterprise-analytics", icon: TrendingUp, module: "enterprise-analytics" },
+              { title: "Reporting", url: "/reporting", icon: BarChart3, module: "reporting" },
+              { title: "Risk Register", url: "/risk-register", icon: ShieldCheck, module: "risk-register" },
+            ])}
+            {renderGroup("Resources", [
+              { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
+              { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
+            ])}
+          </>
         ) : (
           <>
             {renderGroup("Overview", schoolOverview)}
@@ -441,7 +506,7 @@ export function WorkspaceSidebar() {
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 group-data-[collapsible=icon]:hidden">
-            <Badge className={cn("border-transparent px-2 py-0.5 text-[10px]", userRole?.tone)}>{activePlan.name}</Badge>
+            <Badge className={cn("border-transparent px-2 py-0.5 text-[10px]", userRole?.tone)}>{userRole?.label ?? "User"}</Badge>
             <Badge variant="outline">{schoolTenant.currentYear}</Badge>
           </div>
         </div>

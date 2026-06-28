@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/communication")({
@@ -24,6 +25,9 @@ export const Route = createFileRoute("/communication")({
 function CommunicationPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const isTeacher = user?.role === "teacher";
+  const isHOD = user?.role === "hod";
   const qc = useQueryClient();
 
   const hash = useRouterState({ select: (router) => router.location.hash });
@@ -142,14 +146,14 @@ function CommunicationPage() {
       <PageHeader
         title="Communication"
         description="SMS · WhatsApp · Email · USSD fallback for parents without smartphones"
-        actions={<Button onClick={() => setTab("broadcast")}><Send className="mr-2 h-4 w-4" />New broadcast</Button>}
+        actions={!isTeacher && !isHOD && <Button onClick={() => setTab("broadcast")}><Send className="mr-2 h-4 w-4" />New broadcast</Button>}
       />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />Parent messages</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
-          <TabsTrigger value="broadcast">Send broadcast</TabsTrigger>
+          {!isTeacher && !isHOD && <TabsTrigger value="broadcast">Send broadcast</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="messages" className="mt-4 space-y-2">
@@ -184,7 +188,7 @@ function CommunicationPage() {
 
         <TabsContent value="announcements" className="mt-4 space-y-3">
           <div className="flex justify-end">
-            <Dialog open={annoOpen} onOpenChange={setAnnoOpen}>
+            {!isTeacher && !isHOD && <Dialog open={annoOpen} onOpenChange={setAnnoOpen}>
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="mr-1 h-4 w-4" />New announcement</Button>
               </DialogTrigger>
@@ -223,7 +227,7 @@ function CommunicationPage() {
                   </Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
           </div>
 
           {annoLoading ? (

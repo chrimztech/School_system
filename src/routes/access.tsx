@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth, ACCESS, MODULE_MATRIX, ROLE_META, type Role } from "@/lib/auth";
+import { AccessGuard } from "@/components/access-guard";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
 
@@ -310,7 +311,13 @@ function AccessPage() {
     );
   }
 
-  const counts = (Object.keys(ROLE_META) as Role[]).map((r) => ({
+  // School admins don't manage platform-level roles
+  const isSystemAdmin = user.role === "super_admin";
+  const visibleSystemRoles = (Object.keys(ROLE_META) as Role[]).filter(
+    (r) => isSystemAdmin || r !== "super_admin"
+  );
+
+  const counts = visibleSystemRoles.map((r) => ({
     role: r,
     count: users.filter((u) => {
       const normalised = (u.role ?? "").toLowerCase().replace(/[_ ]/g, "_");
@@ -319,6 +326,7 @@ function AccessPage() {
   }));
 
   return (
+    <AccessGuard module="access">
     <div className="space-y-6">
       <PageHeader
         title="Users & Roles"
@@ -489,7 +497,7 @@ function AccessPage() {
                     Module
                   </th>
                   {/* System role columns — read-only */}
-                  {(Object.keys(ROLE_META) as Role[]).map((r) => (
+                  {visibleSystemRoles.map((r) => (
                     <th key={r} className="p-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                       {ROLE_META[r].label}
                     </th>
@@ -512,7 +520,7 @@ function AccessPage() {
                       {m.replace(/-/g, " ")}
                     </td>
                     {/* System roles — read-only badges */}
-                    {(Object.keys(ROLE_META) as Role[]).map((r) => {
+                    {visibleSystemRoles.map((r) => {
                       const a = ACCESS[r][m];
                       return (
                         <td key={r} className="p-3 text-center">
@@ -595,7 +603,7 @@ function AccessPage() {
           <div className="mb-6">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">System roles</p>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {(Object.keys(ROLE_META) as Role[]).map((r) => (
+              {visibleSystemRoles.map((r) => (
                 <div key={r} className="rounded-xl border border-border bg-card p-5 shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className={`rounded px-2 py-1 text-xs font-semibold ${ROLE_META[r].tone}`}>{ROLE_META[r].label}</span>
@@ -820,5 +828,6 @@ function AccessPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AccessGuard>
   );
 }

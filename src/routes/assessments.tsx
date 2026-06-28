@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, FileText, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Plus, FileText, Loader2, ClipboardList, Users, CheckCircle2, X, ChevronRight } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -11,9 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/assessments")({
   head: () => ({ meta: [{ title: "Assessments — SRMS" }] }),
@@ -31,29 +35,283 @@ const TYPES = ["cat", "exam", "project", "homework"] as const;
 const TERMS = ["Term 1", "Term 2", "Term 3"] as const;
 const SUBJECTS = ["Mathematics", "English Language", "Science", "Social Studies", "Civic Education", "Religious Education", "Physical Education", "French", "History", "Geography", "Biology", "Chemistry", "Physics", "Computer Studies", "Commerce", "Accounts", "Literature", "Art", "Music"];
 
+function computeGrade(score: number, maxScore: number): string {
+  const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+  if (pct >= 80) return "A";
+  if (pct >= 70) return "B";
+  if (pct >= 60) return "C";
+  if (pct >= 50) return "D";
+  if (pct >= 40) return "E";
+  return "F";
+}
+
+function gradeColor(grade: string) {
+  if (grade === "A") return "text-emerald-600";
+  if (grade === "B") return "text-blue-600";
+  if (grade === "C") return "text-amber-600";
+  if (grade === "D") return "text-orange-500";
+  return "text-destructive";
+}
+
+// ---------- Results Recording Sheet ----------
+
+interface ResultRow {
+  studentId: string;
+  studentName: string;
+  score: string;
+  absent: boolean;
+  grade: string;
+}
+
+function ResultsSheet({
+  assessment,
+  schoolId,
+  open,
+  onClose,
+}: {
+  assessment: any;
+  schoolId: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [rows, setRows] = useState<ResultRow[]>([]);
+
+  const { data: allStudents = [], isLoading: studentsLoading } = useQuery({
+    queryKey: ["students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: open,
+  });
+
+  const { data: existingResults = [], isLoading: resultsLoading } = useQuery({
+    queryKey: ["assessment-results", schoolId, assessment?.id],
+    queryFn: () => api.assessments.results(schoolId, assessment.id),
+    enabled: open && !!assessment?.id,
+  });
+
+  // Filter students in this class and build rows
+  useEffect(() => {
+    if (!open || !assessment) return;
+    const classStudents = (allStudents as any[]).filter((s: any) => {
+      const cls = s.classId || s.class || s.currentClass || "";
+      return cls === assessment.classId || cls === assessment.className || cls === assessment.class;
+    });
+
+    const resultsMap: Record<string, any> = {};
+    (existingResults as any[]).forEach((r: any) => { resultsMap[r.studentId] = r; });
+
+    setRows(classStudents.map((s: any) => {
+      const existing = resultsMap[s.id];
+      const score = existing ? String(existing.score ?? "") : "";
+      const absent = existing?.absent ?? false;
+      const grade = absent ? "—" : existing?.grade ?? (score !== "" ? computeGrade(Number(score), assessment.maxScore) : "");
+      return {
+        studentId: s.id,
+        studentName: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.name || s.id,
+        score,
+        absent,
+        grade,
+      };
+    }));
+  }, [open, assessment, allStudents, existingResults]);
+
+  const updateRow = (studentId: string, field: "score" | "absent", value: string | boolean) => {
+    setRows((prev) => prev.map((r) => {
+      if (r.studentId !== studentId) return r;
+      if (field === "absent") {
+        return { ...r, absent: value as boolean, score: value ? "" : r.score, grade: value ? "—" : r.score !== "" ? computeGrade(Number(r.score), assessment.maxScore) : "" };
+      }
+      const score = value as string;
+      const grade = score !== "" ? computeGrade(Number(score), assessment.maxScore) : "";
+      return { ...r, score, grade };
+    }));
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: any[]) => api.assessments.saveResults(schoolId, assessment.id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assessment-results", schoolId, assessment?.id] });
+      qc.invalidateQueries({ queryKey: ["assessments", schoolId] });
+      toast.success("Results saved successfully");
+      onClose();
+    },
+    onError: () => toast.error("Failed to save results"),
+  });
+
+  const handleSave = () => {
+    const payload = rows.map((r) => ({
+      studentId: r.studentId,
+      studentName: r.studentName,
+      score: r.absent ? 0 : Number(r.score) || 0,
+      absent: r.absent,
+      grade: r.absent ? "ABS" : r.grade,
+      remarks: "",
+    }));
+    saveMutation.mutate(payload);
+  };
+
+  // Stats derived from current rows
+  const stats = useMemo(() => {
+    const marked = rows.filter((r) => r.absent || r.score !== "");
+    const scored = rows.filter((r) => !r.absent && r.score !== "");
+    const avg = scored.length > 0 ? scored.reduce((s, r) => s + Number(r.score), 0) / scored.length : 0;
+    const passCount = scored.filter((r) => r.grade !== "F" && r.grade !== "").length;
+    const passRate = scored.length > 0 ? Math.round((passCount / scored.length) * 100) : 0;
+
+    const byGrade: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
+    scored.forEach((r) => { if (r.grade && r.grade !== "—") byGrade[r.grade] = (byGrade[r.grade] ?? 0) + 1; });
+
+    return { marked: marked.length, total: rows.length, avg, passRate, byGrade };
+  }, [rows]);
+
+  const isLoading = studentsLoading || resultsLoading;
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="right" className="w-full max-w-2xl flex flex-col p-0 gap-0">
+        <SheetHeader className="px-6 py-4 border-b border-border shrink-0">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <SheetTitle className="text-base leading-snug">{assessment?.title}</SheetTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {assessment?.classId ?? assessment?.class} · {assessment?.subjectName ?? assessment?.subject} · Max {assessment?.maxScore} marks
+              </p>
+            </div>
+            <button onClick={onClose} className="rounded-md p-1 hover:bg-muted transition-colors shrink-0"><X className="h-4 w-4" /></button>
+          </div>
+          {rows.length > 0 && (
+            <div className="flex gap-5 mt-3 pt-3 border-t border-border">
+              <div>
+                <p className="text-lg font-bold">{stats.marked}/{stats.total}</p>
+                <p className="text-[11px] text-muted-foreground">Marked</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-emerald-600">{stats.avg > 0 ? stats.avg.toFixed(1) : "—"}</p>
+                <p className="text-[11px] text-muted-foreground">Avg score</p>
+              </div>
+              <div>
+                <p className={`text-lg font-bold ${stats.passRate >= 70 ? "text-emerald-600" : stats.passRate >= 50 ? "text-amber-600" : "text-destructive"}`}>{stats.marked > 0 ? `${stats.passRate}%` : "—"}</p>
+                <p className="text-[11px] text-muted-foreground">Pass rate</p>
+              </div>
+              {stats.marked > 0 && (
+                <div className="ml-auto flex items-end gap-1">
+                  {Object.entries(stats.byGrade).map(([g, count]) => count > 0 && (
+                    <div key={g} className="text-center">
+                      <div className="text-xs font-bold">{count}</div>
+                      <div className={`text-[10px] font-semibold ${gradeColor(g)}`}>{g}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading students…</span>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-2 text-muted-foreground">
+              <Users className="h-8 w-8 opacity-30" />
+              <p className="text-sm">No students found for class "{assessment?.classId ?? assessment?.class}"</p>
+              <p className="text-xs opacity-60">Make sure students are enrolled in this class</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8 text-center">#</TableHead>
+                  <TableHead>Student</TableHead>
+                  <TableHead className="w-28">Score /{assessment?.maxScore}</TableHead>
+                  <TableHead className="w-16 text-center">Grade</TableHead>
+                  <TableHead className="w-16 text-center">Absent</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r, i) => (
+                  <TableRow key={r.studentId} className={r.absent ? "opacity-40" : ""}>
+                    <TableCell className="text-center text-muted-foreground text-xs">{i + 1}</TableCell>
+                    <TableCell className="font-medium text-sm">{r.studentName}</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={assessment?.maxScore}
+                        value={r.score}
+                        disabled={r.absent}
+                        onChange={(e) => updateRow(r.studentId, "score", e.target.value)}
+                        className="h-8 w-24 text-sm"
+                        placeholder="0"
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className={`text-sm font-bold ${gradeColor(r.grade)}`}>{r.grade || "—"}</span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={r.absent}
+                        onCheckedChange={(checked) => updateRow(r.studentId, "absent", !!checked)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {rows.length > 0 && (
+          <div className="px-6 py-4 border-t border-border flex justify-end gap-3 shrink-0">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Save results
+            </Button>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ---------- Main Page ----------
+
 function AssessmentsPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const isTeacher = user?.role === "teacher";
+  const isHOD = user?.role === "hod";
+  const teacherEmail = isTeacher ? user.email : undefined;
+  const loggedInTeacherName = (isTeacher || isHOD) ? (user?.name ?? "") : "";
   const qc = useQueryClient();
 
-  const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId], queryFn: () => api.classes.list(schoolId) });
+  const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId, teacherEmail], queryFn: () => api.classes.list(schoolId, teacherEmail) });
   const classList = (classesData as any[]).map((c: any) => c.name || c.className || c.id).filter(Boolean);
 
   const [open, setOpen] = useState(false);
+  const [selectedAssessment, setSelectedAssessment] = useState<any>(null);
 
-  const firstClass = classList[0] as string | undefined;
-  useEffect(() => {
-    if (firstClass) setForm((prev) => prev.classId === "" ? { ...prev, classId: firstClass } : prev);
-  }, [firstClass]);
   const [form, setForm] = useState({
     title: "", classId: "", type: "cat" as typeof TYPES[number],
-    subject: SUBJECTS[0], teacherAssigned: "", term: "Term 1" as typeof TERMS[number],
+    subject: SUBJECTS[0], teacherAssigned: loggedInTeacherName, term: "Term 1" as typeof TERMS[number],
     maxScore: "40", passMark: "20", weight: "10",
     date: new Date().toISOString().slice(0, 10), totalStudents: "32",
     rubricDescription: "", submissionMode: "Written",
     durationMinutes: "60", syllabusReference: "", gradingScheme: "Points",
     retakeAllowed: "no", markingCompletedBy: "",
   });
+
+  const firstClass = classList[0] as string | undefined;
+  useEffect(() => {
+    if (firstClass) setForm((prev) => prev.classId === "" ? { ...prev, classId: firstClass } : prev);
+  }, [firstClass]);
+  useEffect(() => {
+    if (loggedInTeacherName) setForm((prev) => prev.teacherAssigned === "" ? { ...prev, teacherAssigned: loggedInTeacherName } : prev);
+  }, [loggedInTeacherName]);
 
   const { data: assessments = [], isLoading } = useQuery({
     queryKey: ["assessments", schoolId],
@@ -65,7 +323,7 @@ function AssessmentsPage() {
     onSuccess: (a: any) => {
       qc.invalidateQueries({ queryKey: ["assessments", schoolId] });
       toast.success(`Assessment "${a.title}" created`);
-      setForm({ title: "", classId: "", type: "cat", subject: SUBJECTS[0], teacherAssigned: "", term: "Term 1", maxScore: "40", passMark: "20", weight: "10", date: new Date().toISOString().slice(0, 10), totalStudents: "32", rubricDescription: "", submissionMode: "Written", durationMinutes: "60", syllabusReference: "", gradingScheme: "Points", retakeAllowed: "no", markingCompletedBy: "" });
+      setForm({ title: "", classId: firstClass ?? "", type: "cat", subject: SUBJECTS[0], teacherAssigned: loggedInTeacherName, term: "Term 1", maxScore: "40", passMark: "20", weight: "10", date: new Date().toISOString().slice(0, 10), totalStudents: "32", rubricDescription: "", submissionMode: "Written", durationMinutes: "60", syllabusReference: "", gradingScheme: "Points", retakeAllowed: "no", markingCompletedBy: "" });
       setOpen(false);
     },
     onError: () => toast.error("Failed to create assessment"),
@@ -89,11 +347,14 @@ function AssessmentsPage() {
     });
   };
 
+  const assessmentList = assessments as any[];
+
   return (
-    <div className="space-y-6">
+    <AccessGuard module="assessments">
+      <div className="space-y-6">
       <PageHeader
         title="Assessments"
-        description="CATs, homework, projects and exams · grading scale auto-applied per phase"
+        description="CATs, homework, projects and exams · click a row to record results"
         actions={
           <>
             <Button variant="outline" asChild>
@@ -101,21 +362,27 @@ function AssessmentsPage() {
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> New assessment</Button>
+                <Button><Plus className="mr-2 h-4 w-4" /> Add assessment</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>New assessment</DialogTitle></DialogHeader>
-                <div className="overflow-y-auto flex-1 pr-1">
-                <div className="grid grid-cols-2 gap-3">
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Create assessment</DialogTitle></DialogHeader>
+                <div className="grid grid-cols-2 gap-4 mt-2">
                   <div className="col-span-2">
-                    <Label>Title *</Label>
-                    <Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Mid-term Mathematics CAT" maxLength={100} />
+                    <Label>Assessment title *</Label>
+                    <Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Form 3A — Term 1 Maths CAT" maxLength={120} />
                   </div>
                   <div>
                     <Label>Class</Label>
                     <Select value={form.classId} onValueChange={(v) => setForm({ ...form, classId: v })}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select class" /></SelectTrigger>
+                      <SelectContent>{classList.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Type</Label>
+                    <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as any })}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{classList.length === 0 ? <SelectItem value="__empty__" disabled>No classes yet</SelectItem> : classList.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                      <SelectContent>{TYPES.map((t) => <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
@@ -126,55 +393,43 @@ function AssessmentsPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Type</Label>
-                    <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as typeof TYPES[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{TYPES.map((t) => <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
                     <Label>Term</Label>
-                    <Select value={form.term} onValueChange={(v) => setForm({ ...form, term: v as typeof TERMS[number] })}>
+                    <Select value={form.term} onValueChange={(v) => setForm({ ...form, term: v as any })}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>{TERMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Date</Label>
-                    <Input type="date" className="mt-1" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                    <Label>Teacher assigned</Label>
+                    <Input
+                      className="mt-1"
+                      value={form.teacherAssigned}
+                      onChange={(e) => setForm({ ...form, teacherAssigned: e.target.value })}
+                      placeholder="Teacher name"
+                      readOnly={isTeacher}
+                      title={isTeacher ? "Auto-filled from your account" : undefined}
+                      maxLength={80}
+                    />
                   </div>
                   <div>
-                    <Label>Teacher assigned</Label>
-                    <Input className="mt-1" value={form.teacherAssigned} onChange={(e) => setForm({ ...form, teacherAssigned: e.target.value })} placeholder="Mr. Phiri" maxLength={80} />
+                    <Label>Date</Label>
+                    <Input className="mt-1" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
                   </div>
                   <div>
                     <Label>Max score</Label>
-                    <Input type="number" className="mt-1" value={form.maxScore} onChange={(e) => setForm({ ...form, maxScore: e.target.value })} min={1} />
+                    <Input className="mt-1" type="number" value={form.maxScore} onChange={(e) => setForm({ ...form, maxScore: e.target.value })} min={1} max={200} />
                   </div>
                   <div>
                     <Label>Pass mark</Label>
-                    <Input type="number" className="mt-1" value={form.passMark} onChange={(e) => setForm({ ...form, passMark: e.target.value })} min={0} />
+                    <Input className="mt-1" type="number" value={form.passMark} onChange={(e) => setForm({ ...form, passMark: e.target.value })} min={0} />
                   </div>
                   <div>
-                    <Label>Weight %</Label>
-                    <Input type="number" className="mt-1" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} min={1} max={100} />
+                    <Label>Weight (%)</Label>
+                    <Input className="mt-1" type="number" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} min={0} max={100} />
                   </div>
                   <div>
-                    <Label>Total pupils</Label>
-                    <Input type="number" className="mt-1" value={form.totalStudents} onChange={(e) => setForm({ ...form, totalStudents: e.target.value })} min={1} />
-                  </div>
-                  <div>
-                    <Label>Submission mode</Label>
-                    <Select value={form.submissionMode} onValueChange={(v) => setForm({ ...form, submissionMode: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Written", "Oral", "Practical", "Portfolio", "Online"].map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Duration (minutes)</Label>
-                    <Input type="number" className="mt-1" value={form.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })} min={5} placeholder="60" />
+                    <Label>Duration (min)</Label>
+                    <Input className="mt-1" type="number" value={form.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })} min={0} />
                   </div>
                   <div>
                     <Label>Grading scheme</Label>
@@ -208,7 +463,6 @@ function AssessmentsPage() {
                     <Input className="mt-1" value={form.rubricDescription} onChange={(e) => setForm({ ...form, rubricDescription: e.target.value })} placeholder="e.g. Section A: 20 marks (MCQ), Section B: 20 marks (structured)" maxLength={250} />
                   </div>
                 </div>
-                </div>
                 <DialogFooter className="mt-2">
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                   <Button onClick={addAssessment} disabled={createMutation.isPending}>
@@ -222,6 +476,7 @@ function AssessmentsPage() {
         }
       />
 
+      {/* Grading scale cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <p className="text-xs uppercase text-muted-foreground">Primary scale</p>
@@ -240,6 +495,7 @@ function AssessmentsPage() {
         </div>
       </div>
 
+      {/* Assessment list */}
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
@@ -252,40 +508,72 @@ function AssessmentsPage() {
                 <TableHead>Title</TableHead>
                 <TableHead>Class</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Subject</TableHead>
                 <TableHead>Max</TableHead>
                 <TableHead>Weight</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Submitted</TableHead>
+                <TableHead>Results</TableHead>
+                <TableHead className="w-8"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(assessments as any[]).map((a: any) => (
-                <TableRow key={a.id}>
-                  <TableCell className="font-medium">{a.title}</TableCell>
-                  <TableCell>{a.classId ?? a.class}</TableCell>
-                  <TableCell><Badge variant={typeColor[a.type] ?? "outline"}>{a.type}</Badge></TableCell>
-                  <TableCell>{a.maxScore}</TableCell>
-                  <TableCell>{a.weight}%</TableCell>
-                  <TableCell className="text-muted-foreground">{(a.date ?? "").slice(0, 10)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{a.submittedCount ?? a.submitted ?? 0}/{a.totalStudents ?? a.total ?? 0}</span>
-                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full bg-accent" style={{ width: `${((a.submittedCount ?? a.submitted ?? 0) / Math.max(a.totalStudents ?? a.total ?? 1, 1)) * 100}%` }} />
+              {assessmentList.map((a: any) => {
+                const submitted = a.submittedCount ?? a.submitted ?? 0;
+                const total = a.totalStudents ?? a.total ?? 0;
+                const hasResults = submitted > 0;
+                return (
+                  <TableRow
+                    key={a.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setSelectedAssessment(a)}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {a.title}
+                        {hasResults && <ClipboardList className="h-3 w-3 text-muted-foreground shrink-0" />}
                       </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {(assessments as any[]).length === 0 && (
+                    </TableCell>
+                    <TableCell>{a.classId ?? a.class}</TableCell>
+                    <TableCell><Badge variant={typeColor[a.type] ?? "outline"}>{a.type}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{a.subjectName ?? a.subject}</TableCell>
+                    <TableCell>{a.maxScore}</TableCell>
+                    <TableCell>{a.weight}%</TableCell>
+                    <TableCell className="text-muted-foreground">{(a.date ?? "").slice(0, 10)}</TableCell>
+                    <TableCell>
+                      {hasResults ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{submitted}/{total || submitted}</span>
+                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                            <div className="h-full bg-emerald-500" style={{ width: `${total > 0 ? Math.min((submitted / total) * 100, 100) : 100}%` }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Not recorded</span>
+                      )}
+                    </TableCell>
+                    <TableCell><ChevronRight className="h-4 w-4 text-muted-foreground" /></TableCell>
+                  </TableRow>
+                );
+              })}
+              {assessmentList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No assessments created yet.</TableCell>
+                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">No assessments created yet.</TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         )}
       </div>
-    </div>
+      </div>
+
+      {selectedAssessment && (
+        <ResultsSheet
+          assessment={selectedAssessment}
+          schoolId={schoolId}
+          open={!!selectedAssessment}
+          onClose={() => setSelectedAssessment(null)}
+        />
+      )}
+    </AccessGuard>
   );
 }

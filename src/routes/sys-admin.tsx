@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import {
@@ -76,9 +78,20 @@ type EditForm = {
 function SysAdminPage() {
   const { user } = useAuth();
   const { tenants, updateTenant, setActive } = useTenant();
+  const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
+
+  const deleteSchool = useMutation({
+    mutationFn: (id: string) => api.schools.delete(id),
+    onSuccess: (_, id) => {
+      void qc.invalidateQueries({ queryKey: ["platform-workspace"] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("School deactivated");
+    },
+    onError: () => toast.error("Failed to deactivate school"),
+  });
 
   const [q, setQ] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -488,6 +501,18 @@ function SysAdminPage() {
                         ) : (
                           <DropdownMenuItem onClick={() => quickStatus(t.id, "active")}>Reactivate</DropdownMenuItem>
                         )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          disabled={deleteSchool.isPending}
+                          onClick={() => {
+                            if (window.confirm(`Deactivate school "${t.name}"? This action can be reversed by a platform admin.`)) {
+                              deleteSchool.mutate(t.id);
+                            }
+                          }}
+                        >
+                          Deactivate school
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { LifeBuoy, BookOpen, MessageCircle, Mail, Phone, Send } from "lucide-react";
+import { LifeBuoy, BookOpen, Mail, Phone, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -57,13 +57,13 @@ function HelpPage() {
           </div>
         </Link>
 
-        <button onClick={() => toast.success("Live chat connected")} className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
+        <Link to="/support-desk" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><MessageCircle className="h-5 w-5" /></div>
           <div>
-            <p className="font-semibold">Live chat</p>
-            <p className="text-xs text-muted-foreground">Avg response 3 min</p>
+            <p className="font-semibold">Support desk</p>
+            <p className="text-xs text-muted-foreground">Open tickets, live chat, and knowledge base</p>
           </div>
-        </button>
+        </Link>
 
         <a href="tel:+260211555200" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Phone className="h-5 w-5" /></div>

@@ -330,10 +330,10 @@ function AppShell() {
     );
   }
 
-  // Suspension wall — block access for non-system-admins when tenant is suspended
-  if (active.subscription.status === "suspended" && !isSystemAdmin) {
-    return <SuspensionWall tenant={active} />;
-  }
+  // Subscription/suspension features hidden — uncomment to re-enable
+  // if (active.subscription.status === "suspended" && !isSystemAdmin) {
+  //   return <SuspensionWall tenant={active} />;
+  // }
 
   return (
     <SidebarProvider>
@@ -381,7 +381,7 @@ function AppShell() {
               </div>
             </div>
           </header>
-          {!isSystemAdmin && <SubscriptionBanner tenant={active} />}
+          {/* SubscriptionBanner hidden — {!isSystemAdmin && <SubscriptionBanner tenant={active} />} */}
           <main className="flex-1 overflow-x-hidden px-4 py-5 lg:px-6 lg:py-7">
             <div className="mx-auto w-full max-w-[1600px]">
               <Outlet />

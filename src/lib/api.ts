@@ -294,6 +294,7 @@ export const api = {
     get: (id: string) => unwrap<BackendSchool>(apiClient.get(`/api/schools/${id}`)),
     create: (data: BackendSchoolDto) => unwrap<BackendSchool>(apiClient.post("/api/schools", data)),
     update: (id: string, data: BackendSchoolDto) => unwrap<BackendSchool>(apiClient.put(`/api/schools/${id}`, data)),
+    delete: (id: string) => unwrap<void>(apiClient.delete(`/api/schools/${id}`)),
   },
 
   // School users
@@ -318,7 +319,8 @@ export const api = {
 
   // Students
   students: {
-    list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "students"))),
+    list: (schoolId: string, teacherEmail?: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "students"), { params: teacherEmail ? { teacherEmail } : undefined })),
     get: (schoolId: string, id: string) => unwrap<any>(apiClient.get(schoolPath(schoolId, `students/${id}`))),
     listByGuardian: (schoolId: string, email: string) =>
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "students/by-guardian"), { params: { email } })),
@@ -338,7 +340,8 @@ export const api = {
 
   // Classes
   classes: {
-    list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "classes"))),
+    list: (schoolId: string, teacherEmail?: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "classes"), { params: teacherEmail ? { teacherEmail } : undefined })),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "classes"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `classes/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `classes/${id}`)),
@@ -396,6 +399,7 @@ export const api = {
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `assessments/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `assessments/${id}`)),
     results: (schoolId: string, id: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `assessments/${id}/results`))),
+    saveResults: (schoolId: string, id: string, data: any[]) => unwrap<any[]>(apiClient.post(schoolPath(schoolId, `assessments/${id}/results/bulk`), data)),
     studentResults: (schoolId: string, studentId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `assessments/student/${studentId}`))),
     studentResultsEnriched: (schoolId: string, studentId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `assessments/student/${studentId}/enriched`))),
   },
@@ -456,10 +460,10 @@ export const api = {
   // Discipline
   discipline: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "discipline"))),
-    byStudent: (schoolId: string, studentId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `discipline/student/${studentId}`))),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "discipline"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `discipline/${id}`), data)),
     resolve: (schoolId: string, id: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `discipline/${id}/resolve`), {})),
+    byStudent: (schoolId: string, studentId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `discipline/student/${studentId}`))),
   },
 
   // Library

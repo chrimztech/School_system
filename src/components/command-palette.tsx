@@ -88,17 +88,17 @@ const admin: Item[] = [
   { label: "Tenant Workbench", url: "/tenant-workbench", icon: Building2, module: "tenant-workbench" },
   { label: "Tenant Lifecycle", url: "/tenant-lifecycle", icon: Wrench, module: "tenant-lifecycle" },
   { label: "Tenant Success", url: "/tenant-success", icon: TrendingUp, module: "tenant-success" },
-  { label: "Revenue Ops", url: "/revenue-ops", icon: CreditCard, module: "revenue-ops" },
+  // { label: "Revenue Ops", url: "/revenue-ops", icon: CreditCard, module: "revenue-ops" }, // hidden
   { label: "Data Governance", url: "/data-governance", icon: HardDrive, module: "data-governance" },
   { label: "Partner Management", url: "/partner-management", icon: Users2, module: "partner-management" },
   { label: "Contract Center", url: "/contract-center", icon: FileText, module: "contract-center" },
   { label: "Status Center", url: "/status-center", icon: AlertTriangle, module: "status-center" },
-  { label: "Plan Catalog", url: "/plan-catalog", icon: Layers, module: "plan-catalog" },
+  // { label: "Plan Catalog", url: "/plan-catalog", icon: Layers, module: "plan-catalog" }, // hidden
   { label: "Support Desk", url: "/support-desk", icon: LifeBuoy, module: "support-desk" },
   { label: "Audit Log", url: "/audit", icon: History, module: "settings" },
-  { label: "Integrations", url: "/integrations", icon: Plug, module: "settings" },
-  { label: "Backups & Data", url: "/backups", icon: HardDrive, module: "settings" },
-  { label: "Billing", url: "/billing", icon: CreditCard, module: "settings" },
+  // { label: "Integrations", url: "/integrations", icon: Plug, module: "settings" }, // sys-admin only
+  // { label: "Backups & Data", url: "/backups", icon: HardDrive, module: "settings" }, // sys-admin only
+  // { label: "Billing", url: "/billing", icon: CreditCard, module: "settings" }, // hidden
   { label: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
   { label: "Notifications", url: "/notifications", icon: Bell },
   { label: "Profile", url: "/profile", icon: UserCircle },

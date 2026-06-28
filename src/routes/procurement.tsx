@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/procurement")({
   head: () => ({ meta: [{ title: "Procurement - SRMS" }] }),
@@ -107,7 +108,8 @@ function ProcurementPage() {
   const committedSpend = (requests as any[]).reduce((sum: number, request: any) => sum + (Number(request.amount) || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="procurement">
+      <div className="space-y-6">
       <PageHeader
         title="Procurement Hub"
         description="Run requisitions, approvals, and contract oversight from a single enterprise workflow."
@@ -260,5 +262,6 @@ function ProcurementPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

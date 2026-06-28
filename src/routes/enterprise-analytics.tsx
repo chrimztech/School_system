@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
@@ -40,7 +40,11 @@ function EnterpriseAnalyticsPage() {
       <PageHeader
         title="Enterprise analytics"
         description="Executive scorecards, spend management, risk signals and operational efficiency across your campus network."
-        actions={<Button onClick={() => toast.success("Executive brief export queued")}>Export executive brief</Button>}
+        actions={
+          <Button variant="outline" asChild>
+            <Link to="/reporting">View saved reports</Link>
+          </Button>
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

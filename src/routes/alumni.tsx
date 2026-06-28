@@ -179,7 +179,7 @@ function AlumniPage() {
                     </div>
                     <div>
                       <Label>Qualifications achieved at school</Label>
-                      <Input className="mt-1" value={form.qualificationsAchieved} onChange={(e) => setForm({ ...form, qualificationsAchieved: e.target.value })} placeholder="e.g. SSCE Grade 12 · 7 points" maxLength={100} />
+                      <Input className="mt-1" value={form.qualificationsAchieved} onChange={(e) => setForm({ ...form, qualificationsAchieved: e.target.value })} placeholder="e.g. ECZ Form 6 · 7 points" maxLength={100} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">

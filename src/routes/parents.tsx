@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import {
   Search, Mail, Phone, MessageSquare, CreditCard,
-  FileText, Receipt, GraduationCap, Printer,
+  FileText, Receipt, GraduationCap, Printer, Download,
+  AlertCircle, CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +21,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Separator } from "@/components/ui/separator";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/parents")({
   head: () => ({ meta: [{ title: "Parents — SRMS" }] }),
@@ -125,9 +127,25 @@ function ParentsPage() {
         title="Parents & Guardians"
         description="Contacts, fee balances, payments, invoices and report card access"
         actions={
-          <Button onClick={() => toast.success("Communication hub coming soon")}>
-            <MessageSquare className="mr-1 h-4 w-4" />Send message
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => {
+              if (parents.length === 0) { toast.error("No guardian records to export"); return; }
+              downloadCsv(parents.map((p) => ({
+                "Guardian Name": p.name,
+                Relationship: p.relationship,
+                Phone: p.phone,
+                "Alt Phone": p.altPhone,
+                Email: p.email,
+                "Number of Children": p.children.length,
+                Children: p.children.map((c: any) => `${c.firstName} ${c.lastName} (${c.className || c.grade || ""})`).join("; "),
+              })), `guardians-${new Date().toISOString().slice(0, 10)}`);
+            }}>
+              <Download className="mr-1 h-4 w-4" />Export contacts
+            </Button>
+            <Button onClick={() => toast.success("Communication hub coming soon")}>
+              <MessageSquare className="mr-1 h-4 w-4" />Send message
+            </Button>
+          </>
         }
       />
 
@@ -251,25 +269,13 @@ function ParentPortalSheet({
   });
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState<any | null>(null);
+  const [paymentCleared, setPaymentCleared] = useState<{ studentName: string; amount: number } | null>(null);
 
   const paymentQueries = useQueries({
     queries: parent.children.map((child) => ({
       queryKey: ["student-payments", active.id, child.id],
       queryFn: () => api.fees.studentPayments(active.id, child.id),
     })),
-  });
-
-  const payMut = useMutation({
-    mutationFn: (data: any) => api.fees.recordPayment(active.id, data),
-    onSuccess: (payment: any) => {
-      parent.children.forEach((c) => {
-        void qc.invalidateQueries({ queryKey: ["student-payments", active.id, c.id] });
-      });
-      toast.success("Payment recorded");
-      setActiveTab("history");
-      setReceiptPayment(payment);
-    },
-    onError: () => toast.error("Failed to record payment"),
   });
 
   const childBalances: ChildBalance[] = parent.children.map((child, idx) => {
@@ -287,6 +293,33 @@ function ParentPortalSheet({
 
   const totalOutstanding = childBalances.reduce((s, b) => s + b.outstanding, 0);
   const isLoadingPayments = paymentQueries.some((q) => q.isLoading);
+
+  const payMut = useMutation({
+    mutationFn: (data: any) => api.fees.recordPayment(active.id, data),
+    onSuccess: (payment: any, vars: any) => {
+      parent.children.forEach((c) => {
+        void qc.invalidateQueries({ queryKey: ["student-payments", active.id, c.id] });
+      });
+      void qc.invalidateQueries({ queryKey: ["students", active.id] });
+      const child = parent.children.find((c) => c.id === vars.studentId);
+      const childBalance = childBalances.find((b) => b.child.id === vars.studentId);
+      const remaining = childBalance ? Math.max(0, childBalance.outstanding - Number(vars.amount)) : null;
+      if (remaining === 0) {
+        setPaymentCleared({ studentName: `${child?.firstName ?? ""} ${child?.lastName ?? ""}`.trim(), amount: Number(vars.amount) });
+        toast.success(`Account cleared — K ${Number(vars.amount).toLocaleString()} received`, { duration: 6000 });
+      } else {
+        toast.success(
+          remaining != null
+            ? `Payment of K ${Number(vars.amount).toLocaleString()} recorded · Remaining: K ${remaining.toLocaleString()}`
+            : "Payment recorded",
+          { duration: 5000 }
+        );
+      }
+      setActiveTab("history");
+      setReceiptPayment(payment);
+    },
+    onError: () => toast.error("Failed to record payment"),
+  });
 
   const submitPayment = () => {
     if (!payForm.studentId) { toast.error("Select a student"); return; }
@@ -336,6 +369,27 @@ function ParentPortalSheet({
               {parent.altPhone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{parent.altPhone} (alt)</span>}
               {parent.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{parent.email}</span>}
             </div>
+            {!isLoadingPayments && totalOutstanding > 0 && (
+              <div className="mt-3 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-destructive">Fee balance outstanding</p>
+                  <p className="text-xs text-destructive/80 mt-0.5">
+                    {fmtK(totalOutstanding)} is due for Term {school.currentTerm}, {school.currentYear}.
+                    {childBalances.filter((b) => b.outstanding > 0).map((b) => ` ${b.child.firstName}: ${fmtK(b.outstanding)}`).join(" ·")}
+                  </p>
+                </div>
+                <Button size="sm" className="h-7 shrink-0 text-xs" onClick={() => setActiveTab("pay")}>
+                  Pay now
+                </Button>
+              </div>
+            )}
+            {!isLoadingPayments && totalOutstanding === 0 && childBalances.length > 0 && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">All fee accounts are cleared for this term</p>
+              </div>
+            )}
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto">
@@ -411,13 +465,30 @@ function ParentPortalSheet({
                     <Select value={payForm.studentId} onValueChange={(v) => setPayForm((f) => ({ ...f, studentId: v }))}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select student" /></SelectTrigger>
                       <SelectContent>
-                        {parent.children.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.firstName} {c.lastName} ({c.className || c.grade || ""})
-                          </SelectItem>
-                        ))}
+                        {parent.children.map((c) => {
+                          const bal = childBalances.find((b) => b.child.id === c.id);
+                          return (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.firstName} {c.lastName} ({c.className || c.grade || ""})
+                              {bal && bal.outstanding > 0 ? ` — owes ${fmtK(bal.outstanding)}` : ""}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
+                    {payForm.studentId && (() => {
+                      const bal = childBalances.find((b) => b.child.id === payForm.studentId);
+                      if (!bal) return null;
+                      return bal.outstanding > 0 ? (
+                        <p className="mt-1.5 text-xs font-medium text-destructive">
+                          Outstanding: {fmtK(bal.outstanding)} · Due {bal.structure?.dueDate || `Term ${school.currentTerm}`}
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-600">
+                          <CheckCircle2 className="h-3 w-3" />Account is cleared for this term
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -470,6 +541,18 @@ function ParentPortalSheet({
 
               {/* PAYMENT HISTORY */}
               <TabsContent value="history" className="pb-6 space-y-4">
+                {paymentCleared && (
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Account cleared!</p>
+                      <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+                        K {paymentCleared.amount.toLocaleString()} received for {paymentCleared.studentName} — balance is fully settled for this term.
+                      </p>
+                    </div>
+                    <button className="text-emerald-600 text-sm hover:text-emerald-800" onClick={() => setPaymentCleared(null)}>✕</button>
+                  </div>
+                )}
                 {isLoadingPayments ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
                 ) : childBalances.map(({ child, payments }) => (

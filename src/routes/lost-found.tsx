@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/lost-found")({
   head: () => ({ meta: [{ title: "Lost & Found — SRMS" }] }),
@@ -142,7 +143,8 @@ function LostFoundPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="lost-found">
+      <div className="space-y-6">
       <PageHeader
         title="Lost & Found"
         description="Register of lost items found on campus, claims, and disposal records."
@@ -245,7 +247,7 @@ function LostFoundPage() {
               <p className="rounded-md bg-muted px-3 py-2 text-sm">{selectedItem.description}</p>
               <div>
                 <Label>Claimed by (name + class/role) *</Label>
-                <Input className="mt-1" value={claimForm.claimedBy} onChange={(e) => setClaimForm({ ...claimForm, claimedBy: e.target.value })} placeholder="Chanda Mwale (Grade 10B)" maxLength={100} />
+                <Input className="mt-1" value={claimForm.claimedBy} onChange={(e) => setClaimForm({ ...claimForm, claimedBy: e.target.value })} placeholder="Chanda Mwale (Form 3B)" maxLength={100} />
               </div>
               <div>
                 <Label>Notes</Label>
@@ -374,5 +376,6 @@ function LostFoundPage() {
         </Tabs>
       )}
     </div>
+    </AccessGuard>
   );
 }

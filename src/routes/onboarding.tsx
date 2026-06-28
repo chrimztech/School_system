@@ -27,11 +27,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  useTenant, gradeRangeForType, buildFeatureFlags, createTenantSubscription, PLAN_CATALOG,
+  useTenant, gradeRangeForType, buildFeatureFlags, createTenantSubscription,
   ACADEMIC_LEVEL_META, ACADEMIC_LEVEL_ORDER, CAMPUS_STATUS_OPTIONS, createCampusDraft, defaultLevelsForType,
-  type SchoolType, type Tenant, type PlanId, type BillingCycle, type AcademicLevel, type Campus, type CampusStatus,
+  type SchoolType, type Tenant, type AcademicLevel, type Campus, type CampusStatus,
 } from "@/lib/tenant";
-import { PLAN_UI } from "@/lib/subscription";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/onboarding")({
@@ -49,11 +48,9 @@ const steps = [
   "Finance",
   "Branding",
   "Modules",
-  "Subscription",
   "Review",
 ] as const;
 
-const PLAN_IDS: PlanId[] = ["core", "growth", "advanced", "enterprise"];
 
 const types: { code: SchoolType; name: string; desc: string }[] = [
   { code: "NURSERY", name: "Nursery / ECD", desc: "Baby Class to Reception" },
@@ -192,10 +189,6 @@ function OnboardingPage() {
 
   const addCampus = () => {
     setForm((current) => {
-      if (current.campuses.length >= current.subscription.campusLimit) {
-        toast.error(`The ${PLAN_CATALOG[current.subscription.planId].name} plan supports up to ${current.subscription.campusLimit} campus${current.subscription.campusLimit === 1 ? "" : "es"}.`);
-        return current;
-      }
       return {
         ...current,
         campuses: [
@@ -240,18 +233,6 @@ function OnboardingPage() {
             : campus.levels,
         };
       }),
-    }));
-  };
-
-  const onPlanChange = (planId: PlanId, cycle: BillingCycle) => {
-    setForm((f) => ({
-      ...f,
-      subscription: createTenantSubscription(planId, {
-        billingCycle: cycle,
-        billingContact: f.subscription.billingContact,
-        status: "trial",
-      }),
-      features: buildFeatureFlags(planId),
     }));
   };
 
@@ -830,7 +811,7 @@ function OnboardingPage() {
                 <div>
                   <p className="text-sm font-semibold">Campus structure</p>
                   <p className="text-xs text-muted-foreground">
-                    Configure one or more campuses under the same school subscription.
+                    Configure one or more campuses under this school.
                   </p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={addCampus}>
@@ -1186,110 +1167,8 @@ function OnboardingPage() {
           </div>
         )}
 
-        {/* STEP 9 — Subscription */}
+        {/* STEP 9 — Review */}
         {step === 9 && (
-          <div className="space-y-6">
-            <div>
-              <p className="text-sm font-semibold mb-1">Choose a subscription plan</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                The plan determines which modules are available and the learner capacity. You can upgrade later.
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {PLAN_IDS.map((planId) => {
-                  const plan = PLAN_CATALOG[planId];
-                  const planUi = PLAN_UI[planId];
-                  const isSelected = form.subscription.planId === planId;
-                  return (
-                    <button
-                      key={planId}
-                      onClick={() => onPlanChange(planId, form.subscription.billingCycle)}
-                      className={`rounded-xl border-2 p-4 text-left transition ${
-                        isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge className={`${planUi.badgeClass} text-[11px]`}>{plan.name}</Badge>
-                        {isSelected && <Check className="h-4 w-4 text-primary" />}
-                      </div>
-                      <p className="text-xl font-bold">
-                        K{(form.subscription.billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice).toLocaleString()}
-                        <span className="text-xs font-normal text-muted-foreground">
-                          /{form.subscription.billingCycle === "annual" ? "yr" : "mo"}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{plan.description}</p>
-                      <div className="mt-3 text-xs text-muted-foreground space-y-0.5 border-t border-border pt-2">
-                        <p>Up to {plan.campusLimit} campus{plan.campusLimit === 1 ? "" : "es"}</p>
-                        <p>Up to {plan.learnerLimit.toLocaleString()} learners</p>
-                        <p>{plan.smsQuota.toLocaleString()} SMS / month</p>
-                        <p>{plan.supportLevel} support</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-semibold mb-3">Billing cycle</p>
-              <div className="grid grid-cols-2 gap-3">
-                {(["monthly", "annual"] as BillingCycle[]).map((cycle) => {
-                  const isSelected = form.subscription.billingCycle === cycle;
-                  const price = cycle === "annual"
-                    ? PLAN_CATALOG[form.subscription.planId].annualPrice
-                    : PLAN_CATALOG[form.subscription.planId].monthlyPrice;
-                  return (
-                    <button
-                      key={cycle}
-                      onClick={() => onPlanChange(form.subscription.planId, cycle)}
-                      className={`rounded-xl border-2 p-4 text-left transition ${
-                        isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold capitalize">{cycle}</p>
-                        {cycle === "annual" && (
-                          <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">Save 17%</span>
-                        )}
-                        {isSelected && <Check className="h-4 w-4 text-primary" />}
-                      </div>
-                      <p className="text-lg font-bold mt-1">K{price.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {cycle === "annual" ? "Billed once per year" : "Billed each month"}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-semibold mb-2">Billing contact email</p>
-              <input
-                type="email"
-                value={form.subscription.billingContact}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, subscription: { ...f.subscription, billingContact: e.target.value } }))
-                }
-                placeholder="bursar@school.zm"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-
-            <div className="rounded-lg bg-muted/50 border border-border p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold">{PLAN_CATALOG[form.subscription.planId].name} · {form.subscription.billingCycle}</p>
-                <p className="text-xs text-muted-foreground">
-                  Trial starts immediately. First invoice on {form.subscription.nextInvoiceDate}. Campus allowance: {form.subscription.campusLimit}.
-                </p>
-              </div>
-              <p className="text-2xl font-bold">K{form.subscription.amount.toLocaleString()}</p>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 10 — Review */}
-        {step === 10 && (
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-lg bg-accent/10 p-4">
               <Sparkles className="h-5 w-5 text-accent-foreground" />
@@ -1318,9 +1197,6 @@ function OnboardingPage() {
                 ["Currency", form.currency],
                 ["Pass mark", `${form.passMark}%`],
                 ["Brand", form.primaryColor],
-                ["Plan", `${PLAN_CATALOG[form.subscription.planId].name} · ${form.subscription.billingCycle}`],
-                ["First invoice", `K${form.subscription.amount.toLocaleString()}`],
-                ["Billing contact", form.subscription.billingContact || "—"],
               ].map(([k, v]) => (
                 <div key={k as string} className="rounded-lg border border-border p-3">
                   <dt className="text-xs uppercase text-muted-foreground">{k}</dt>

@@ -95,7 +95,7 @@ function FacilitiesPage() {
                   </div>
                   <div>
                     <Label>Location *</Label>
-                    <Input className="mt-1" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Grade 9 Block, Lab 2" maxLength={80} />
+                    <Input className="mt-1" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Form 2 Block, Lab 2" maxLength={80} />
                   </div>
                   <div>
                     <Label>Work order type</Label>

@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, Lock, Palette, Save } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Check, Palette, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
-import { PLAN_UI, STATUS_UI } from "@/lib/subscription";
+import { AccessGuard } from "@/components/access-guard";
 import {
   ACADEMIC_LEVEL_META,
   ACADEMIC_LEVEL_ORDER,
@@ -67,7 +67,7 @@ function currentFeatureState(features: Record<FeatureKey, boolean>): FeatureStat
 
 function SettingsPage() {
   const { user, isSystemAdmin } = useAuth();
-  const { active: school, activePlan, updateActive, isFeatureIncluded } = useTenant();
+  const { active: school, updateActive } = useTenant();
   const [selectedType, setSelectedType] = useState(school.type);
   const [levels, setLevels] = useState<AcademicLevel[]>(school.levels);
   const [campuses, setCampuses] = useState<Campus[]>(school.campuses);
@@ -143,7 +143,6 @@ function SettingsPage() {
   };
 
   const toggleFeature = (feature: ManagedFeature, enabled: boolean) => {
-    if (!isFeatureIncluded(feature)) return;
     setFeatureValues((current) => ({ ...current, [feature]: enabled }));
     if (feature === "multiCurrency" && !enabled) {
       setDefaultCurrency("ZMW");
@@ -168,10 +167,6 @@ function SettingsPage() {
 
   const addCampus = () => {
     setCampuses((current) => {
-      if (current.length >= school.subscription.campusLimit) {
-        toast.error(`Your current plan supports up to ${school.subscription.campusLimit} campus${school.subscription.campusLimit === 1 ? "" : "es"}.`);
-        return current;
-      }
       return [
         ...current,
         createCampusDraft(
@@ -215,11 +210,9 @@ function SettingsPage() {
     }));
   };
 
-  const planUi = PLAN_UI[activePlan.id];
-  const statusUi = STATUS_UI[school.subscription.status];
-
   return (
-    <div className="space-y-6">
+    <AccessGuard module="settings">
+      <div className="space-y-6">
       <PageHeader
         title="School Settings"
         description="Manage school profile, plan-governed features, and operational defaults for the active tenant."
@@ -235,91 +228,9 @@ function SettingsPage() {
           <p className="text-sm font-semibold">Platform admin context</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {user?.name} is editing school settings on behalf of <span className="font-medium text-foreground">{school.name}</span>.
-            Subscription changes still flow through Billing or System Administration.
           </p>
         </div>
       )}
-
-      <div className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">Subscription & entitlements</p>
-              <p className="text-xs text-muted-foreground">
-                School admins can enable included modules here. Locked capabilities require a plan upgrade.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={planUi.badgeClass}>{activePlan.name}</Badge>
-              <Badge className={statusUi.badgeClass}>{statusUi.label}</Badge>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs uppercase text-muted-foreground">Billing</p>
-              <p className="mt-1 text-lg font-semibold">
-                K{school.subscription.amount.toLocaleString()}
-                <span className="text-xs font-normal text-muted-foreground"> / {school.subscription.billingCycle}</span>
-              </p>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs uppercase text-muted-foreground">Campuses</p>
-              <p className="mt-1 text-lg font-semibold">{school.campuses.length} / {school.subscription.campusLimit}</p>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs uppercase text-muted-foreground">Learner cap</p>
-              <p className="mt-1 text-lg font-semibold">{school.subscription.learnerLimit.toLocaleString()}</p>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs uppercase text-muted-foreground">Support</p>
-              <p className="mt-1 text-lg font-semibold">{school.subscription.supportLevel}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <Link to="/billing">Open billing</Link>
-            </Button>
-            {isSystemAdmin && (
-              <Button asChild variant="ghost">
-                <Link to="/sys-admin">Open system admin</Link>
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-semibold">Billing defaults</h2>
-          <div className="mt-4 space-y-4">
-            <div>
-              <Label>Default currency</Label>
-              <Select value={defaultCurrency} onValueChange={(v) => setDefaultCurrency(v as "ZMW" | "USD")}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ZMW">Zambian Kwacha (ZMW)</SelectItem>
-                  <SelectItem value="USD" disabled={!featureValues.multiCurrency}>
-                    US Dollar (USD)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {!featureValues.multiCurrency && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  USD becomes available once multi-currency is enabled in the current plan.
-                </p>
-              )}
-            </div>
-            <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-              Next invoice: <span className="font-medium text-foreground">{school.subscription.nextInvoiceDate}</span>
-            </div>
-            <div className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-              Renewal date: <span className="font-medium text-foreground">{school.subscription.renewalDate}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h2 className="text-sm font-semibold">School type</h2>
@@ -577,47 +488,27 @@ function SettingsPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-semibold">Included feature controls</h2>
+          <h2 className="text-sm font-semibold">Feature controls</h2>
           <div className="mt-4 space-y-4">
             {managedFeatures.map((feature) => {
               const meta = FEATURE_META[feature];
-              const included = isFeatureIncluded(feature);
-              const lockedPlan = FEATURE_META[feature].availableFrom;
-
               return (
                 <div key={feature} className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{meta.label}</p>
-                      {included ? (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Included
-                        </Badge>
-                      ) : (
-                        <Badge className={`${PLAN_UI[lockedPlan].badgeClass} text-[10px]`}>
-                          {lockedPlan.charAt(0).toUpperCase() + lockedPlan.slice(1)}+
-                        </Badge>
-                      )}
-                    </div>
+                    <p className="text-sm font-medium">{meta.label}</p>
                     <p className="text-xs text-muted-foreground">{meta.description}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!included && <Lock className="h-4 w-4 text-muted-foreground" />}
-                    <Switch
-                      checked={included ? featureValues[feature] : false}
-                      onCheckedChange={(enabled) => toggleFeature(feature, enabled)}
-                      disabled={!included}
-                    />
-                  </div>
+                  <Switch
+                    checked={featureValues[feature]}
+                    onCheckedChange={(enabled) => toggleFeature(feature, enabled)}
+                  />
                 </div>
               );
             })}
           </div>
-          <div className="mt-4 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-            Locked items are controlled by the active plan. Upgrade in Billing to unlock more modules for this school.
-          </div>
         </div>
       </div>
     </div>
+    </AccessGuard>
   );
 }

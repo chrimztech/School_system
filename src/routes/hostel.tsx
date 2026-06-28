@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/hostel")({
   head: () => ({ meta: [{ title: "Hostel & Boarding — SRMS" }] }),
@@ -235,7 +236,8 @@ function HostelPage() {
 
   // ── Render ────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <AccessGuard module="hostel">
+      <div className="space-y-6">
       <PageHeader
         title="Hostel & Boarding"
         description="House allocation, sign in/out register, leave of absence and prep oversight."
@@ -312,7 +314,7 @@ function HostelPage() {
                   </div>
                   <div>
                     <Label>Grade *</Label>
-                    <Input className="mt-1" value={allocForm.grade} onChange={(e) => setAllocForm({ ...allocForm, grade: e.target.value })} placeholder="Grade 10A" maxLength={30} />
+                    <Input className="mt-1" value={allocForm.grade} onChange={(e) => setAllocForm({ ...allocForm, grade: e.target.value })} placeholder="Form 3A" maxLength={30} />
                   </div>
                   <div className="col-span-2">
                     <Label>Room *</Label>
@@ -616,5 +618,6 @@ function HostelPage() {
       {/* Suppress unused HOUSES variable lint warning — derived but used conditionally */}
       {HOUSES.length === 0 && null}
     </div>
+    </AccessGuard>
   );
 }

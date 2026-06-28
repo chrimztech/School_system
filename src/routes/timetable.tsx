@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/timetable")({
   head: () => ({ meta: [{ title: "Timetable - SRMS" }] }),
@@ -39,6 +41,8 @@ const subjectColors: Record<string, string> = {
 
 function TimetablePage() {
   const { active } = useTenant();
+  const { user } = useAuth();
+  const teacherEmail = user?.role === "teacher" ? user.email : undefined;
   const [klass, setKlass] = useState<string>("");
   const [teacher, setTeacher] = useState<string>("");
   const [newSlotOpen, setNewSlotOpen] = useState(false);
@@ -49,7 +53,7 @@ function TimetablePage() {
     queryFn: () => api.timetable.list(active.id),
   });
 
-  const { data: classesData = [] } = useQuery({ queryKey: ["classes", active.id], queryFn: () => api.classes.list(active.id) });
+  const { data: classesData = [] } = useQuery({ queryKey: ["classes", active.id, teacherEmail], queryFn: () => api.classes.list(active.id, teacherEmail) });
   const { data: teachersData = [] } = useQuery({ queryKey: ["teachers", active.id], queryFn: () => api.teachers.list(active.id) });
   const { data: subjectsData = [] } = useQuery({ queryKey: ["subjects", active.id], queryFn: () => api.subjects.list(active.id) });
 
@@ -160,7 +164,8 @@ function TimetablePage() {
   );
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="timetable">
+      <div className="space-y-6">
       <PageHeader
         title="Class Timetable"
         description={`Weekly schedule · ${active.name}`}
@@ -182,7 +187,7 @@ function TimetablePage() {
                           <SelectContent>{allClassNames.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                         </Select>
                       ) : (
-                        <Input className="mt-1" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} placeholder="Grade 8 A" />
+                        <Input className="mt-1" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} placeholder="Form 1 A" />
                       )}
                     </div>
                     <div>
@@ -280,5 +285,6 @@ function TimetablePage() {
         </Tabs>
       )}
     </div>
+    </AccessGuard>
   );
 }

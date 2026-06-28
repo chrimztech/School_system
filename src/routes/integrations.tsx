@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plug, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plug, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 
 type Integration = {
@@ -50,8 +51,20 @@ export const Route = createFileRoute("/integrations")({
 });
 
 function IntegrationsPage() {
+  const { user } = useAuth();
   const { active } = useTenant();
   const schoolId = active.id;
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">Integration settings are managed by System Administrators.</p>
+        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+      </div>
+    );
+  }
   const qc = useQueryClient();
   const [tab, setTab] = useState("installed");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);

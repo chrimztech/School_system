@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/attendance")({
@@ -27,9 +28,11 @@ type AttendanceEntry = { id: string; student: string; status: EntryStatus };
 function AttendancePage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const teacherEmail = user?.role === "teacher" ? user.email : undefined;
   const qc = useQueryClient();
 
-  const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId], queryFn: () => api.classes.list(schoolId) });
+  const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId, teacherEmail], queryFn: () => api.classes.list(schoolId, teacherEmail) });
   const classList = (classesData as any[]).map((c: any) => c.name || c.className || c.id).filter(Boolean);
 
   const [open, setOpen] = useState(false);
@@ -40,11 +43,13 @@ function AttendancePage() {
   const { data: summary = { present: 0, absent: 0, late: 0, rate: 0 } } = useQuery({
     queryKey: ["attendance-summary", schoolId],
     queryFn: () => api.attendance.summary(schoolId),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: students = [] } = useQuery({
-    queryKey: ["students", schoolId],
-    queryFn: () => api.students.list(schoolId),
+    queryKey: ["students", schoolId, teacherEmail],
+    queryFn: () => api.students.list(schoolId, teacherEmail),
     select: (data: any[]) => data.map((s: any) => ({
       id: s.id,
       student: `${s.firstName} ${s.lastName}`,
@@ -55,32 +60,53 @@ function AttendancePage() {
   const { data: recentRecords = [] } = useQuery({
     queryKey: ["attendance-list", schoolId],
     queryFn: () => api.attendance.list(schoolId),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const markMutation = useMutation({
     mutationFn: (data: any) => api.attendance.mark(schoolId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["attendance-summary", schoolId] });
-      qc.invalidateQueries({ queryKey: ["attendance-list", schoolId] });
+    onSuccess: (saved: any) => {
+      const records: any[] = Array.isArray(saved) ? saved : [];
+      const present = records.filter((r) => r.status === "present").length;
+      const absent = records.filter((r) => r.status === "absent").length;
+      toast.success(`Register submitted — ${present} present, ${absent} absent · parent SMS queued`);
+      // Immediately patch the cache (upsert by studentId to avoid duplicates)
+      qc.setQueryData(["attendance-list", schoolId], (old: any) => {
+        const existing: any[] = Array.isArray(old) ? old : [];
+        const updatedIds = new Set(records.map((r: any) => r.studentId ?? r.id));
+        return [...existing.filter((r: any) => !updatedIds.has(r.studentId ?? r.id)), ...records];
+      });
+      // Force fresh fetch for both list and summary
+      void qc.refetchQueries({ queryKey: ["attendance-list", schoolId] });
+      void qc.refetchQueries({ queryKey: ["attendance-summary", schoolId] });
     },
+    onError: () => toast.error("Failed to submit register — please try again"),
   });
 
-  const classEntries = entries.length > 0 ? entries : (students as AttendanceEntry[]);
+  // Records already submitted today for the selected class
+  const todayClassRecords = (recentRecords as any[]).filter(
+    (r) => (r.className ?? r.class) === selectedClass
+  );
+  const alreadySubmitted = todayClassRecords.length > 0;
+
+  // Build entries: prefer today's saved statuses over defaults
+  const savedStatusMap = new Map<string, EntryStatus>(
+    todayClassRecords.map((r: any) => [r.studentId, r.status as EntryStatus])
+  );
+  const baseStudents = (students as AttendanceEntry[]).map((s) =>
+    savedStatusMap.has(s.id) ? { ...s, status: savedStatusMap.get(s.id)! } : s
+  );
+  const classEntries = entries.length > 0 ? entries : baseStudents;
 
   const toggleStatus = (id: string, status: EntryStatus) => {
-    if (entries.length === 0) {
-      setEntries((students as AttendanceEntry[]).map((e) => e.id === id ? { ...e, status } : e));
-    } else {
-      setEntries((prev) => prev.map((e) => e.id === id ? { ...e, status } : e));
-    }
+    const base = entries.length === 0 ? baseStudents : entries;
+    setEntries(base.map((e) => e.id === id ? { ...e, status } : e));
   };
 
   const submitRegister = () => {
-    const present = classEntries.filter((e) => e.status === "present").length;
-    const absent = classEntries.filter((e) => e.status === "absent").length;
-    const records = classEntries.map((e) => ({ studentName: e.student, status: e.status, className: selectedClass }));
-    markMutation.mutate({ date: new Date().toISOString().slice(0, 10), className: selectedClass, records });
-    toast.success(`Register submitted — ${present} present, ${absent} absent · parent SMS queued`);
+    const entries = classEntries.map((e) => ({ studentId: e.id, studentName: e.student, status: e.status }));
+    markMutation.mutate({ date: new Date().toISOString().slice(0, 10), classId: selectedClass, className: selectedClass, entries });
     setEntries([]);
     setOpen(false);
   };
@@ -111,6 +137,12 @@ function AttendancePage() {
                       <SelectContent>{classList.length === 0 ? <SelectItem value="__empty__" disabled>No classes yet</SelectItem> : classList.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
+                  {alreadySubmitted && (
+                    <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                      <CalendarCheck className="h-3.5 w-3.5 shrink-0" />
+                      Register already submitted for {selectedClass} today — changes will update existing records.
+                    </div>
+                  )}
                   <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 bg-muted/80">
@@ -154,7 +186,7 @@ function AttendancePage() {
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                   <Button onClick={submitRegister} disabled={markMutation.isPending}>
                     {markMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Submit register
+                    {alreadySubmitted ? "Update register" : "Submit register"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -198,18 +230,51 @@ function AttendancePage() {
           <TabsTrigger value="alerts">Absence alerts</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="today" className="mt-4">
+        <TabsContent value="today" className="mt-4 space-y-4">
+          {/* Per-class statistics */}
+          {(recentRecords as any[]).length > 0 && (() => {
+            const byClass = new Map<string, { present: number; absent: number; late: number; total: number }>();
+            for (const r of recentRecords as any[]) {
+              const cls = r.className ?? r.class ?? "Unknown";
+              if (!byClass.has(cls)) byClass.set(cls, { present: 0, absent: 0, late: 0, total: 0 });
+              const c = byClass.get(cls)!;
+              c.total++;
+              if (r.status === "present") c.present++;
+              else if (r.status === "absent") c.absent++;
+              else if (r.status === "late") c.late++;
+            }
+            return (
+              <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                <h2 className="mb-3 text-sm font-semibold">Class statistics · today</h2>
+                <div className="space-y-2">
+                  {Array.from(byClass.entries()).map(([cls, stats]) => (
+                    <div key={cls} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+                      <p className="w-28 shrink-0 text-sm font-medium">{cls}</p>
+                      <div className="flex flex-1 items-center gap-4 text-xs">
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />{stats.present} present</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{stats.absent} absent</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />{stats.late} late</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{stats.total} students · {stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Individual records */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold">Recent attendance records</h2>
+            <h2 className="mb-4 text-sm font-semibold">Attendance records · {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</h2>
             {(recentRecords as any[]).length === 0 ? (
               <p className="text-sm text-muted-foreground">No attendance records for today. Use "Mark attendance" to submit a class register.</p>
             ) : (
               <div className="space-y-2">
-                {(recentRecords as any[]).slice(0, 10).map((r: any, i) => (
+                {(recentRecords as any[]).map((r: any, i) => (
                   <div key={r.id ?? i} className="flex items-center justify-between rounded-md border border-border px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium">{r.studentName ?? r.student}</p>
-                      <p className="text-xs text-muted-foreground">{r.className ?? r.class} · {(r.date ?? "").slice(0, 10)}</p>
+                      <p className="text-sm font-medium">{r.studentName ?? r.student ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{r.className ?? r.class ?? "—"} · {String(r.date ?? "").slice(0, 10)}</p>
                     </div>
                     <Badge variant={r.status === "present" ? "secondary" : r.status === "late" ? "outline" : "destructive"}>
                       {r.status}

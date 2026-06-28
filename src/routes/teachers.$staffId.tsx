@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Mail, Phone, BookOpen, CalendarCheck, Users, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -12,15 +15,74 @@ export const Route = createFileRoute("/teachers/$staffId")({
   component: TeacherProfilePage,
 });
 
+type ClassAssignment = {
+  id: string;
+  name: string;
+  grade: string;
+  section: string;
+  subjectId?: string;
+  subjectName?: string;
+};
+
 function TeacherProfilePage() {
   const { staffId } = Route.useParams();
   const { active } = useTenant();
   const schoolId = active.id;
+  const qc = useQueryClient();
+  const [tab, setTab] = useState("classes");
 
   const { data: teacher, isLoading } = useQuery({
     queryKey: ["teacher", schoolId, staffId],
     queryFn: () => api.teachers.get(schoolId, staffId),
   });
+
+  const { data: rawAssignments = [] } = useQuery({
+    queryKey: ["class-teachers-all", schoolId, staffId],
+    queryFn: () => {
+      const classes = api.classes.list(schoolId);
+      return classes.then((allClasses: any[]) => {
+        const classIds = (allClasses as any[]).map((c: any) => c.id);
+        return Promise.all(
+          classIds.map((cid: string) =>
+            api.classes.classTeachers(schoolId, cid).then((teachers: any[]) => ({
+              classId: cid,
+              className: (allClasses as any[]).find((c: any) => c.id === cid)?.name ?? "",
+              classGrade: (allClasses as any[]).find((c: any) => c.id === cid)?.grade ?? "",
+              classSection: (allClasses as any[]).find((c: any) => c.id === cid)?.section ?? "",
+              teachers,
+            }))
+          )
+        ).then((results: any[]) => {
+          const assigned: ClassAssignment[] = [];
+          for (const r of results) {
+            const match = (r.teachers as any[]).find(
+              (t: any) => t.teacherId === staffId || t.teacherId === teacher?.id
+            );
+            if (match) {
+              assigned.push({
+                id: r.classId,
+                name: r.className,
+                grade: r.classGrade,
+                section: r.classSection,
+                subjectName: match.subjectName,
+              });
+            }
+          }
+          return assigned;
+        });
+      });
+    },
+    enabled: !!staffId && !!teacher,
+    retry: false,
+  });
+
+  const { data: attendanceHistory = [] } = useQuery({
+    queryKey: ["teacher-attendance", schoolId, staffId],
+    queryFn: () => api.attendance.byDate(schoolId, new Date().toISOString().slice(0, 10)),
+    retry: false,
+  });
+
+  const assignments = rawAssignments as ClassAssignment[];
 
   if (isLoading) {
     return (
@@ -58,7 +120,7 @@ function TeacherProfilePage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-bold text-white" style={{ backgroundColor: active.primaryColor }}>
-              {teacherName.split(" ").slice(-1)[0]?.[0] ?? "T"}
+              {teacherName.split(" ").map((n: string) => n[0]).slice(-1)[0] ?? "T"}
             </div>
             <div>
               <h1 className="text-xl font-semibold">{teacherName}</h1>
@@ -79,81 +141,147 @@ function TeacherProfilePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Users className="h-4 w-4" />Classes assigned</div>
-          <p className="mt-2 text-2xl font-semibold">—</p>
-          <p className="text-xs text-muted-foreground">{record.department ?? "General"}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Users className="h-4 w-4" />Total students</div>
-          <p className="mt-2 text-2xl font-semibold">—</p>
-          <p className="text-xs text-muted-foreground">Across visible timetable blocks</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarCheck className="h-4 w-4" />Attendance rate</div>
-          <p className="mt-2 text-2xl font-semibold">95%</p>
-          <p className="text-xs text-muted-foreground">This term</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><BookOpen className="h-4 w-4" />Assessments set</div>
-          <p className="mt-2 text-2xl font-semibold">—</p>
-          <p className="text-xs text-muted-foreground">This term</p>
-        </div>
-      </div>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="classes">Classes</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+        </TabsList>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold">Staff details</h2>
-          <dl className="space-y-3 text-sm">
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Staff no.</dt>
-              <dd className="font-mono font-medium">{record.staffNumber}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Qualification</dt>
-              <dd className="font-medium text-right">{record.qualification}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Department</dt>
-              <dd className="font-medium">{record.department ?? "General"}</dd>
-            </div>
-            <div>
-              <dt className="mb-1 text-muted-foreground">Subjects</dt>
-              <dd className="flex flex-wrap gap-1">
-                {subjects.length > 0 ? subjects.map((subject) => (
-                  <Badge key={subject} variant="secondary">{subject}</Badge>
-                )) : <span className="text-muted-foreground">No subject allocation</span>}
-              </dd>
-            </div>
-            <div className="border-t border-border pt-3 space-y-1.5">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Mail className="h-3.5 w-3.5" />
-                <span>{record.email || "No email"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-3.5 w-3.5" />
-                <span>{record.phone || "No phone"}</span>
-              </div>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
+        <TabsContent value="classes" className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold">Class assignments · Term {active.currentTerm}</h2>
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
-        </div>
-      </div>
+          {assignments.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">No class assignments recorded yet.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Grade</TableHead>
+                  <TableHead>Section</TableHead>
+                  <TableHead>Subject</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assignments.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell className="font-medium">{a.name}</TableCell>
+                    <TableCell>{a.grade ? `Grade ${a.grade}` : "—"}</TableCell>
+                    <TableCell>{a.section || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{a.subjectName || "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        <TabsContent value="details">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Personal & professional */}
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3 text-sm">
+              <h2 className="font-semibold">Personal & professional</h2>
+              {[
+                ["Staff no.", record.staffNumber],
+                ["Qualification", record.qualification],
+                ["Department", record.department ?? "General"],
+                ["Date joined", record.dateJoined],
+                ["Gender", record.gender],
+                ["National ID", record.nationalId],
+                ["Professional licence", record.professionalLicenseNo],
+                ["Teaching experience", record.teachingExperienceYears != null ? `${record.teachingExperienceYears} year${record.teachingExperienceYears !== 1 ? "s" : ""}` : null],
+              ].map(([label, value]) => value ? (
+                <div key={label as string} className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-medium text-right">{value}</span>
+                </div>
+              ) : null)}
+              <div>
+                <p className="text-muted-foreground mb-1">Subjects</p>
+                <div className="flex flex-wrap gap-1">
+                  {subjects.length > 0 ? subjects.map((s) => (
+                    <Badge key={s} variant="secondary">{s}</Badge>
+                  )) : <span className="text-muted-foreground">No subject allocation</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3 text-sm">
+              <h2 className="font-semibold">Contact details</h2>
+              <div className="space-y-2">
+                {record.email && <p className="flex items-center gap-2 text-muted-foreground"><Mail className="h-3.5 w-3.5 shrink-0" />{record.email}</p>}
+                {record.phone && <p className="flex items-center gap-2 text-muted-foreground"><Phone className="h-3.5 w-3.5 shrink-0" />{record.phone}</p>}
+                {record.address && <p className="text-muted-foreground pt-1">{record.address}</p>}
+              </div>
+              {(record.emergencyContactName || record.emergencyContactPhone) && (
+                <div className="rounded-lg border border-border/70 bg-muted/30 p-3 space-y-1">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">Emergency contact</p>
+                  <p className="font-medium">{record.emergencyContactName || "—"}</p>
+                  {record.emergencyContactPhone && <p className="flex items-center gap-2 text-muted-foreground"><Phone className="h-3.5 w-3.5" />{record.emergencyContactPhone}</p>}
+                </div>
+              )}
+            </div>
+
+            {/* Bank / payroll */}
+            {(record.bankName || record.bankAccount || record.salary) && (
+              <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3 text-sm">
+                <h2 className="font-semibold">Payroll</h2>
+                {[
+                  ["Salary (K)", record.salary != null ? Number(record.salary).toLocaleString() : null],
+                  ["Bank", record.bankName],
+                  ["Account no.", record.bankAccount],
+                ].map(([label, value]) => value ? (
+                  <div key={label as string} className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-medium font-mono">{value}</span>
+                  </div>
+                ) : null)}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="attendance" className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold">Attendance history</h2>
+          {attendanceHistory.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">No attendance records found.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Remarks</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(attendanceHistory as any[]).slice(0, 30).map((a: any) => {
+                  const status = (a.status ?? "present").toLowerCase();
+                  return (
+                    <TableRow key={a.id}>
+                      <TableCell className="text-xs text-muted-foreground">{a.date ?? (a.createdAt ?? "").slice(0, 10)}</TableCell>
+                      <TableCell>
+                        <Badge className={`text-[10px] ${status === "present" ? "bg-emerald-500/15 text-emerald-700" : status === "late" ? "bg-amber-500/15 text-amber-700" : "bg-destructive/15 text-destructive"}`}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{a.className ?? a.classId ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{a.remarks ?? ""}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold">Attendance history</h2>
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold">Recent assessments</h2>
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <div className="py-12 text-center text-muted-foreground text-sm">No assessment records yet.</div>
         </div>
       </div>
     </div>

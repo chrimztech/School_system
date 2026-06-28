@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/incident-management")({
   head: () => ({ meta: [{ title: "Incident Management — SRMS" }] }),
@@ -96,7 +97,8 @@ function IncidentManagementPage() {
   const resolvedCount = (incidents as any[]).filter((i: any) => i.status === "Resolved").length;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="incident-management">
+      <div className="space-y-6">
       <PageHeader
         title="Incident management"
         description="Track incidents, coordinate response, and keep audit-ready records for school safety and operations."
@@ -276,5 +278,6 @@ function IncidentManagementPage() {
         </div>
       </div>
     </div>
+    </AccessGuard>
   );
 }

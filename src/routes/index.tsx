@@ -175,6 +175,20 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
               <p className="text-xs text-muted-foreground">{disciplineCases.length} total {disciplineCases.length === 1 ? "case" : "cases"}</p>
             </div>
           </div>
+          {feeBalance > 0 && (
+            <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 shadow-sm">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-destructive">Fee balance due</p>
+                <p className="mt-0.5 text-xs text-destructive/80">
+                  K {feeBalance.toLocaleString()} is outstanding for {fullName} this term. Please contact the school bursar or visit the parent portal to make a payment.
+                </p>
+              </div>
+              <Link to="/parents" className="shrink-0 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90">
+                Pay now
+              </Link>
+            </div>
+          )}
           {child.medicalConditions || child.allergies || child.bloodGroup ? (
             <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Medical on file</p>
@@ -450,15 +464,15 @@ function ParentDashboard() {
 }
 
 function Dashboard() {
-  const { active: school, tenants, activePlan } = useTenant();
+  const { active: school, tenants } = useTenant();
   const { user, isSystemAdmin } = useAuth();
   const qc = useQueryClient();
 
   if (user?.role === "parent") return <ParentDashboard />;
+  const isTeacher = user?.role === "teacher";
+  const isHOD = user?.role === "hod";
   const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [annForm, setAnnForm] = useState({ title: "", body: "", channels: "SMS" });
-  const activeSubscribers = tenants.filter((t) => ["active", "trial"].includes(t.subscription.status)).length;
-  const platformMrr = tenants.filter((t) => t.subscription.status === "active").reduce((s, t) => s + t.subscription.amount, 0);
 
   const schoolId = school.id;
   const { data: dash } = useQuery({ queryKey: ["dashboard", schoolId], queryFn: () => api.dashboard(schoolId), retry: false, enabled: !isSystemAdmin });
@@ -503,8 +517,7 @@ function Dashboard() {
                 <p className="text-sm font-semibold">System admin mode</p>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                You are viewing the shared platform workspace across {tenants.length} schools, with {activeSubscribers} active or trial subscriptions
-                and K {platformMrr.toLocaleString()} in active monthly revenue.
+                You are viewing the shared platform workspace across {tenants.length} connected schools.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -541,11 +554,11 @@ function Dashboard() {
             </div>
           </Link>
 
-          <Link to="/plan-catalog" className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-amber-500/70 hover:bg-amber-500/5">
+          <Link to="/tenant-workbench" className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-amber-500/70 hover:bg-amber-500/5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-foreground">Plan catalog</p>
-                <p className="mt-1 text-xs text-muted-foreground">Commercial packaging, add-ons, and promotions.</p>
+                <p className="text-sm font-semibold text-foreground">Tenant workbench</p>
+                <p className="mt-1 text-xs text-muted-foreground">School configuration, onboarding, and workspace setup.</p>
               </div>
               <Layers className="h-5 w-5 text-amber-600" />
             </div>
@@ -599,11 +612,11 @@ function Dashboard() {
 
       {isSystemAdmin && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Link to="/revenue-ops" className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-emerald-500/70 hover:bg-emerald-500/5">
+          <Link to="/contract-center" className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-emerald-500/70 hover:bg-emerald-500/5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-foreground">Revenue ops</p>
-                <p className="mt-1 text-xs text-muted-foreground">MRR, renewals, collections, and expansion signals across tenants.</p>
+                <p className="text-sm font-semibold text-foreground">Contract center</p>
+                <p className="mt-1 text-xs text-muted-foreground">School agreements, renewals, and documentation.</p>
               </div>
               <CreditCard className="h-5 w-5 text-emerald-600" />
             </div>
@@ -714,7 +727,7 @@ function Dashboard() {
                 "Snapshot Date": new Date().toISOString().slice(0, 10),
               }], `dashboard-snapshot-${new Date().toISOString().slice(0, 10)}`);
             }}><Download className="mr-1 h-4 w-4" />Export snapshot</Button>
-            <Button asChild><Link to="/students"><Plus className="mr-1 h-4 w-4" />Enrol student</Link></Button>
+            {!isTeacher && !isHOD && <Button asChild><Link to="/students"><Plus className="mr-1 h-4 w-4" />Enrol student</Link></Button>}
           </>
         }
       />
@@ -730,7 +743,7 @@ function Dashboard() {
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
             {school.campuses.length} campus{school.campuses.length === 1 ? "" : "es"}, {school.totalTeachers.toLocaleString()} teachers,
-            and {school.totalClasses.toLocaleString()} classes running on the {activePlan.name} plan.
+            and {school.totalClasses.toLocaleString()} classes.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge variant="outline">{school.curriculum ?? "ECZ"} curriculum</Badge>
@@ -750,7 +763,7 @@ function Dashboard() {
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Campuses live</p>
               <p className="mt-2 text-2xl font-semibold text-foreground">
-                {school.campuses.length}/{school.subscription.campusLimit}
+                {school.campuses.length}
               </p>
             </div>
           </div>
@@ -774,14 +787,6 @@ function Dashboard() {
                 label: "Fee collection",
                 value: `K ${fees.collected.toLocaleString()} received`,
               },
-              {
-                label: "Support tier",
-                value: school.subscription.supportLevel,
-              },
-              {
-                label: "Renewal",
-                value: school.subscription.renewalDate || "Not scheduled",
-              },
             ].map((item) => (
               <div key={item.label} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 last:border-b-0 last:pb-0">
                 <p className="text-sm text-muted-foreground">{item.label}</p>
@@ -792,11 +797,11 @@ function Dashboard() {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isTeacher || isHOD ? "lg:grid-cols-2" : "lg:grid-cols-4"}`}>
         <StatCard label="Total Students" value={school.totalStudents} hint="+12 this term" accent="primary" icon={<Users className="h-4 w-4" />} />
         <StatCard label="Attendance Today" value={`${attendanceToday.rate}%`} hint={`${attendanceToday.present} present · ${attendanceToday.absent} absent`} accent="success" icon={<CalendarCheck className="h-4 w-4" />} />
-        <StatCard label="Fees Collected" value={`K ${fees.collected.toLocaleString()}`} hint={`${fees.collectionRate}% of term target`} accent="accent" icon={<Wallet className="h-4 w-4" />} />
-        <StatCard label="Outstanding" value={`K ${fees.outstanding.toLocaleString()}`} hint="Across 87 students" accent="warning" icon={<AlertCircle className="h-4 w-4" />} />
+        {!isTeacher && !isHOD && <StatCard label="Fees Collected" value={`K ${fees.collected.toLocaleString()}`} hint={`${fees.collectionRate}% of term target`} accent="accent" icon={<Wallet className="h-4 w-4" />} />}
+        {!isTeacher && !isHOD && <StatCard label="Outstanding" value={`K ${fees.outstanding.toLocaleString()}`} hint="Current term" accent="warning" icon={<AlertCircle className="h-4 w-4" />} />}
       </div>
 
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -808,7 +813,7 @@ function Dashboard() {
             </p>
           </div>
           <Badge variant="outline">
-            {school.campuses.length}/{school.subscription.campusLimit} campuses on plan
+            {school.campuses.length} campus{school.campuses.length === 1 ? "" : "es"}
           </Badge>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
@@ -840,7 +845,7 @@ function Dashboard() {
               <h2 className="text-sm font-semibold text-foreground">Fee collection trend</h2>
               <p className="text-xs text-muted-foreground">Last 5 months · Zambian Kwacha</p>
             </div>
-            <Badge variant="secondary" className="gap-1"><TrendingUp className="h-3 w-3" /> +8.2%</Badge>
+            <Badge variant="secondary" className="gap-1"><TrendingUp className="h-3 w-3" /> Fee trend</Badge>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

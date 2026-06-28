@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Banknote, Users, Receipt, Plus, Download, Play, FileText, Calculator, Loader2 } from "lucide-react";
+import { Banknote, Users, Receipt, Plus, Download, Play, FileText, Calculator, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/utils";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/payroll")({
   head: () => ({ meta: [{ title: "Payroll — SRMS" }] }),
@@ -64,6 +65,7 @@ function PayrollPage() {
   const [tab, setTab] = useState("staff");
   const [openHire, setOpenHire] = useState(false);
   const [openRun, setOpenRun] = useState(false);
+  const [printSlip, setPrintSlip] = useState<any | null>(null);
 
   const { data: rawDepts = [] } = useQuery({
     queryKey: ["departments", schoolId],
@@ -412,9 +414,14 @@ function PayrollPage() {
                       <TableCell className="text-right font-mono">{k(p.nhima)}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">{k(p.net)}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" disabled={sendPayslipMutation.isPending} onClick={() => sendPayslipMutation.mutate(s)}>
-                          <FileText className="mr-1 h-3 w-3" />Send
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setPrintSlip({ employee: s, slip: p })}>
+                            <Printer className="mr-1 h-3 w-3" />Print
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={sendPayslipMutation.isPending} onClick={() => sendPayslipMutation.mutate(s)}>
+                            <FileText className="mr-1 h-3 w-3" />Send
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -488,6 +495,83 @@ function PayrollPage() {
           ))}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!printSlip} onOpenChange={(o) => { if (!o) setPrintSlip(null); }}>
+        <DialogContent className="sm:max-w-md">
+          {printSlip && (
+            <div className="divide-y divide-border text-sm">
+              <SchoolDocumentHeader
+                title="Employee Payslip"
+                subtitle={new Date().toLocaleString("en", { month: "long", year: "numeric" })}
+              />
+              <div className="grid grid-cols-2 gap-3 p-6">
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Employee</p>
+                  <p className="mt-0.5 font-semibold">{printSlip.employee.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Role</p>
+                  <p className="mt-0.5">{printSlip.employee.role ?? printSlip.employee.position ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Department</p>
+                  <p className="mt-0.5">{printSlip.employee.dept ?? printSlip.employee.department ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">NRC</p>
+                  <p className="mt-0.5 font-mono">{printSlip.employee.nrc ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Bank</p>
+                  <p className="mt-0.5">{printSlip.employee.bank ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Account no.</p>
+                  <p className="mt-0.5 font-mono">{printSlip.employee.accountNumber ?? "—"}</p>
+                </div>
+              </div>
+              <div className="p-6 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Basic salary</span>
+                  <span className="font-mono">{k(printSlip.employee.basic ?? printSlip.employee.basicSalary ?? 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Allowances</span>
+                  <span className="font-mono">{k(printSlip.employee.allow ?? printSlip.employee.allowances ?? 0)}</span>
+                </div>
+                <div className="flex justify-between font-semibold border-t border-border pt-2">
+                  <span>Gross pay</span>
+                  <span className="font-mono">{k(printSlip.slip.gross)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>PAYE (ZRA)</span>
+                  <span className="font-mono text-destructive">- {k(printSlip.slip.paye)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>NAPSA (5%)</span>
+                  <span className="font-mono text-destructive">- {k(printSlip.slip.napsa)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>NHIMA (1%)</span>
+                  <span className="font-mono text-destructive">- {k(printSlip.slip.nhima)}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold border-t border-border pt-2">
+                  <span>Net pay</span>
+                  <span className="font-mono text-emerald-600">{k(printSlip.slip.net)}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 p-6 pt-8">
+                <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">Employee signature</div>
+                <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">Authorized signatory</div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintSlip(null)}>Close</Button>
+            <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

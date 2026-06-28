@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -287,7 +288,8 @@ function FeeStructurePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="fee-structure">
+      <div className="space-y-6">
       <PageHeader
         title="Fee Structure"
         description="Configure tuition tariffs, levies, discount rules, and term billing schedules."
@@ -714,5 +716,6 @@ function FeeStructurePage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

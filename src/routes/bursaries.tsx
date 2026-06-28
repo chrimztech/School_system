@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/bursaries")({
   head: () => ({ meta: [{ title: "Bursaries - SRMS" }] }),
@@ -150,7 +151,8 @@ function BursariesPage() {
   const renewalsDue = renewals.filter((r) => r.status !== "Approved").length;
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="bursaries">
+      <div className="space-y-6">
       <PageHeader
         title="Bursaries & Scholarships"
         description="Manage financial aid awards, application reviews, renewals, and sponsor-backed scholarship coverage."
@@ -388,5 +390,6 @@ function BursariesPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }

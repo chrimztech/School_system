@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Wallet, AlertCircle, TrendingUp, Plus, Download, Send, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { Wallet, AlertCircle, TrendingUp, Plus, Download, Send, Loader2, Bell, CheckCircle2, Users, Printer } from "lucide-react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -15,7 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 import { downloadCsv } from "@/lib/utils";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/fees")({
   head: () => ({ meta: [{ title: "Fees & Payments — SRMS" }] }),
@@ -33,6 +35,7 @@ function FeesPage() {
 
   const [open, setOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
   const [form, setForm] = useState({
     studentId: "",
     studentName: "",
@@ -72,28 +75,78 @@ function FeesPage() {
   });
   const activeBursaryCount = (bursaries as any[]).filter((b: any) => (b.status ?? "").toLowerCase() === "active").length;
 
+  const debtors = useMemo(() =>
+    (students as any[])
+      .filter((s: any) => Number(s.feeBalance ?? 0) > 0)
+      .sort((a: any, b: any) => Number(b.feeBalance) - Number(a.feeBalance)),
+    [students]
+  );
+
+  const sendIndividualReminder = async (student: any) => {
+    setSendingReminderId(student.id);
+    try {
+      await api.communication.createAnnouncement(schoolId, {
+        title: "Fee payment reminder",
+        body: `Dear parent/guardian of ${student.firstName} ${student.lastName}, this is a reminder that a fee balance of K ${Number(student.feeBalance).toLocaleString()} is outstanding for Term ${active.currentTerm} ${active.currentYear}. Please settle this balance promptly to avoid disruption to your child's education. Contact the finance office for assistance or payment plans.`,
+        audience: "All parents",
+        channels: "SMS, WhatsApp",
+        publishDate: new Date().toISOString().slice(0, 10),
+        active: true,
+      });
+      toast.success(`Reminder sent for ${student.firstName} ${student.lastName}`);
+    } catch {
+      toast.error("Failed to send reminder");
+    } finally {
+      setSendingReminderId(null);
+    }
+  };
+
   const reminderMutation = useMutation({
     mutationFn: () => api.communication.createAnnouncement(schoolId, {
       title: "Fee payment reminder",
-      body: `This is a reminder that outstanding fee balances are due for Term ${active.currentTerm} ${active.currentYear}. Please make payment promptly to avoid disruption to your child's education. Contact the finance office for assistance.`,
+      body: debtors.length > 0
+        ? `Fee payment reminder — Term ${active.currentTerm} ${active.currentYear}: The following pupils have outstanding balances: ${debtors.map((s: any) => `${s.firstName} ${s.lastName} (K ${Number(s.feeBalance).toLocaleString()})`).join(", ")}. Please settle promptly. Contact the finance office for assistance.`
+        : `This is a reminder that fee payments are now due for Term ${active.currentTerm} ${active.currentYear}. Please ensure all balances are settled promptly.`,
       audience: "All parents",
       channels: "SMS, WhatsApp",
       publishDate: new Date().toISOString().slice(0, 10),
       active: true,
     }),
     onSuccess: () => {
-      toast.success("Fee reminders queued — parents with outstanding balances will be notified");
+      toast.success(`Reminders sent to ${debtors.length} parent${debtors.length !== 1 ? "s" : ""} with outstanding balances`);
       setReminderOpen(false);
     },
     onError: () => toast.error("Failed to queue reminders"),
   });
 
+  const [lastPayment, setLastPayment] = useState<{
+    studentName: string; amount: number; newBalance: number;
+    receiptNumber: string; referenceNumber: string; method: string;
+    feeCategory: string; termPeriod: string; paymentDate: string;
+    collectedBy: string; grade: string;
+  } | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+
   const payMutation = useMutation({
     mutationFn: (data: any) => api.fees.recordPayment(schoolId, data),
-    onSuccess: () => {
+    onSuccess: (_result, vars) => {
       qc.invalidateQueries({ queryKey: ["fees-payments", schoolId] });
       qc.invalidateQueries({ queryKey: ["fees-collected", schoolId] });
-      toast.success(`Payment of K ${Number(form.amount).toLocaleString()} recorded`);
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      const student = (students as any[]).find((s: any) => s.id === vars.studentId);
+      const prevBalance = Number(student?.feeBalance ?? 0);
+      const newBalance = Math.max(0, prevBalance - Number(vars.amount));
+      setLastPayment({
+        studentName: vars.studentName, amount: Number(vars.amount), newBalance,
+        receiptNumber: vars.receiptNumber ?? "", referenceNumber: vars.referenceNumber ?? "",
+        method: vars.method ?? "", feeCategory: vars.feeCategory ?? "",
+        termPeriod: vars.termPeriod ?? "", paymentDate: vars.paymentDate ?? "",
+        collectedBy: vars.collectedBy ?? "", grade: vars.grade ?? "",
+      });
+      const msg = newBalance === 0
+        ? `Account cleared — K ${Number(vars.amount).toLocaleString()} received from ${vars.studentName}`
+        : `Payment of K ${Number(vars.amount).toLocaleString()} recorded · Remaining balance: K ${newBalance.toLocaleString()}`;
+      toast.success(msg, { duration: 6000 });
       setForm({
         studentId: "",
         studentName: "",
@@ -139,7 +192,8 @@ function FeesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="fees">
+      <div className="space-y-6">
       <PageHeader
         title="Fees & Payments"
         description="Multi-currency (ZMW, USD) · MoMo, Airtel Money, Zamtel Kwacha and bank"
@@ -155,22 +209,51 @@ function FeesPage() {
               <DialogTrigger asChild>
                 <Button variant="outline"><Send className="mr-2 h-4 w-4" />Send reminders</Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-lg">
                 <DialogHeader><DialogTitle>Send fee reminders</DialogTitle></DialogHeader>
-                <div className="space-y-3 text-sm text-muted-foreground">
-                  <p>This will send SMS/WhatsApp reminders to all guardians with outstanding fee balances via the configured integration channels.</p>
-                  <div className="rounded-lg border border-border p-3 space-y-1">
-                    <p className="font-medium text-foreground">Channels</p>
-                    <p>• WhatsApp (if integration active)</p>
-                    <p>• SMS fallback for non-smartphone guardians</p>
-                    <p>• USSD for offline households</p>
-                  </div>
+                <div className="space-y-4">
+                  {debtors.length === 0 ? (
+                    <div className="rounded-lg bg-muted/40 p-4 text-center text-sm text-muted-foreground">
+                      No students with outstanding balances.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span>Reminders will be sent to <strong>{debtors.length}</strong> parent{debtors.length !== 1 ? "s" : ""} via SMS and WhatsApp.</span>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto rounded-xl border border-border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Student</TableHead>
+                              <TableHead className="text-right">Balance</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {debtors.map((s: any) => (
+                              <TableRow key={s.id}>
+                                <TableCell className="text-sm">{s.firstName} {s.lastName}</TableCell>
+                                <TableCell className="text-right font-semibold text-destructive text-sm">K {Number(s.feeBalance).toLocaleString()}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                        <p className="font-medium text-foreground">Channels</p>
+                        <p>• WhatsApp (if integration active)</p>
+                        <p>• SMS fallback for non-smartphone guardians</p>
+                        <p>• USSD for offline households</p>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setReminderOpen(false)}>Cancel</Button>
-                  <Button onClick={() => reminderMutation.mutate()} disabled={reminderMutation.isPending}>
+                  <Button onClick={() => reminderMutation.mutate()} disabled={reminderMutation.isPending || debtors.length === 0}>
                     {reminderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <Send className="mr-2 h-4 w-4" />Send now
+                    <Send className="mr-2 h-4 w-4" />Send to {debtors.length} parent{debtors.length !== 1 ? "s" : ""}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -187,15 +270,27 @@ function FeesPage() {
                     <Label>Student</Label>
                     <Select value={form.studentId} onValueChange={(v) => {
                       const s = (students as any[]).find((st: any) => st.id === v);
-                      setForm({ ...form, studentId: v, studentName: s ? `${s.firstName} ${s.lastName}` : "", grade: s ? `Grade ${s.grade} ${s.section}` : "" });
+                      setForm({ ...form, studentId: v, studentName: s ? `${s.firstName} ${s.lastName}` : "", grade: s ? `Form ${s.grade} ${s.section ?? ""}`.trim() : "" });
                     }}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select student" /></SelectTrigger>
                       <SelectContent>
                         {(students as any[]).map((s: any) => (
-                          <SelectItem key={s.id} value={s.id}>{s.firstName} {s.lastName}</SelectItem>
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.firstName} {s.lastName}
+                            {Number(s.feeBalance ?? 0) > 0 && ` · owes K ${Number(s.feeBalance).toLocaleString()}`}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {form.studentId && (() => {
+                      const s = (students as any[]).find((st: any) => st.id === form.studentId);
+                      const bal = Number(s?.feeBalance ?? 0);
+                      return bal > 0 ? (
+                        <p className="mt-1.5 text-xs font-medium text-destructive">Outstanding balance: K {bal.toLocaleString()}</p>
+                      ) : bal === 0 && s ? (
+                        <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 className="h-3 w-3" />Account is cleared</p>
+                      ) : null;
+                    })()}
                   </div>
                   <div>
                     <Label>Fee category</Label>
@@ -297,9 +392,166 @@ function FeesPage() {
         <StatCard label="Bursaries active" value={activeBursaryCount} accent="accent" />
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold">Collection vs outstanding · last 5 months</h2>
-        <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+      {lastPayment && (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-emerald-700 dark:text-emerald-400">
+              {lastPayment.newBalance === 0 ? "Account cleared" : "Payment recorded"}
+            </p>
+            <p className="text-emerald-700/80 dark:text-emerald-400/80">
+              K {lastPayment.amount.toLocaleString()} received from {lastPayment.studentName}
+              {lastPayment.newBalance === 0 ? " — fee balance fully settled." : ` · Remaining: K ${lastPayment.newBalance.toLocaleString()}`}
+            </p>
+          </div>
+          <button
+            className="flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-500/30 dark:text-emerald-400"
+            onClick={() => setReceiptOpen(true)}
+          >
+            <Printer className="h-3.5 w-3.5" />Print receipt
+          </button>
+          <button className="ml-1 text-emerald-600 hover:text-emerald-800" onClick={() => setLastPayment(null)}>✕</button>
+        </div>
+      )}
+
+      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <div id="fee-receipt" className="divide-y divide-border text-sm">
+            <SchoolDocumentHeader title="Official Fee Receipt" subtitle={lastPayment?.termPeriod ?? ""} />
+            <div className="grid grid-cols-2 gap-3 p-6">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Student</p>
+                <p className="mt-0.5 font-semibold">{lastPayment?.studentName}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Class</p>
+                <p className="mt-0.5 font-semibold">{lastPayment?.grade || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Receipt no.</p>
+                <p className="mt-0.5 font-mono font-semibold">{lastPayment?.receiptNumber || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Reference</p>
+                <p className="mt-0.5 font-mono">{lastPayment?.referenceNumber || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Payment date</p>
+                <p className="mt-0.5">{lastPayment?.paymentDate}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Method</p>
+                <p className="mt-0.5">{lastPayment?.method}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Category</p>
+                <p className="mt-0.5">{lastPayment?.feeCategory}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Collected by</p>
+                <p className="mt-0.5">{lastPayment?.collectedBy || "Finance Office"}</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-6">
+              <p className="text-xs uppercase text-muted-foreground">Amount paid</p>
+              <p className="text-2xl font-bold">K {lastPayment?.amount.toLocaleString()}</p>
+            </div>
+            <div className="flex items-center justify-between px-6 py-3">
+              <p className="text-xs text-muted-foreground">Remaining balance</p>
+              <p className={`font-semibold text-sm ${lastPayment?.newBalance === 0 ? "text-emerald-600" : "text-destructive"}`}>
+                {lastPayment?.newBalance === 0 ? "Cleared" : `K ${lastPayment?.newBalance.toLocaleString()}`}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 p-6 pt-8">
+              <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">Cashier signature</div>
+              <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">School stamp</div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReceiptOpen(false)}>Close</Button>
+            <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex items-center justify-between border-b border-border p-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <h2 className="text-sm font-semibold">Outstanding balances</h2>
+            {debtors.length > 0 && (
+              <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold text-destructive">{debtors.length}</span>
+            )}
+          </div>
+          {debtors.length > 0 && (
+            <button
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+              disabled={reminderMutation.isPending}
+              onClick={() => setReminderOpen(true)}
+            >
+              <Bell className="h-3.5 w-3.5" />
+              Send bulk reminders ({debtors.length})
+            </button>
+          )}
+        </div>
+        {debtors.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+            <CheckCircle2 className="h-8 w-8 text-emerald-500 opacity-60" />
+            <p className="text-sm font-medium">No outstanding balances</p>
+            <p className="text-xs">All enrolled students are paid up for the current term.</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead className="text-right">Balance due</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {debtors.map((s: any) => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-medium">
+                    {s.firstName} {s.lastName}
+                    {s.admissionNumber && <div className="text-xs text-muted-foreground">{s.admissionNumber}</div>}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{s.className || (s.grade ? `Form ${s.grade}${s.section ? s.section : ""}` : "—")}</TableCell>
+                  <TableCell className="text-right font-semibold text-destructive">
+                    K {Number(s.feeBalance).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        disabled={sendingReminderId === s.id}
+                        onClick={() => void sendIndividualReminder(s)}
+                        title="Send reminder to parent"
+                      >
+                        {sendingReminderId === s.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Bell className="h-3.5 w-3.5" />}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setForm((f) => ({ ...f, studentId: s.id, studentName: `${s.firstName} ${s.lastName}`, grade: s.className || `Grade ${s.grade}` }));
+                          setOpen(true);
+                        }}
+                      >
+                        Record payment
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -348,5 +600,6 @@ function FeesPage() {
         )}
       </div>
     </div>
+    </AccessGuard>
   );
 }

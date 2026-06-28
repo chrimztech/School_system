@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/accounting")({
   head: () => ({ meta: [{ title: "Accounting — SRMS" }] }),
@@ -152,7 +153,8 @@ function AccountingPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="accounting">
+      <div className="space-y-6">
       <PageHeader
         title="Accounting"
         description={`Double-entry general ledger · ${active.currency ?? "ZMW"} · ZRA / NAPSA / NHIMA compliant`}
@@ -405,6 +407,7 @@ function AccountingPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </AccessGuard>
   );
 }
 

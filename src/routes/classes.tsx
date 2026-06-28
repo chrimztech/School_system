@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant, gradeRangeForType } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/classes")({
   head: () => ({ meta: [{ title: "Classes — SRMS" }] }),
@@ -40,7 +41,7 @@ function blankClassForm(year: string, defaultPhase = "") {
 }
 
 // ── Class detail sheet ────────────────────────────────────────────
-function ClassDetailSheet({ cls, schoolId, onClose }: { cls: any; schoolId: string; onClose: () => void }) {
+function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: any; schoolId: string; onClose: () => void; readOnly?: boolean }) {
   const qc = useQueryClient();
   const [enrollSearch, setEnrollSearch] = useState("");
   const [teacherDialog, setTeacherDialog] = useState(false);
@@ -185,7 +186,7 @@ function ClassDetailSheet({ cls, schoolId, onClose }: { cls: any; schoolId: stri
               <p className="text-sm text-muted-foreground">
                 {enrolments.length} / {cls.capacity ?? "—"} enrolled
               </p>
-              <Dialog open={enrollDialog} onOpenChange={setEnrollDialog}>
+              {!readOnly && <Dialog open={enrollDialog} onOpenChange={setEnrollDialog}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Enrol pupils</Button>
                 </DialogTrigger>
@@ -222,7 +223,7 @@ function ClassDetailSheet({ cls, schoolId, onClose }: { cls: any; schoolId: stri
                     <Button variant="outline" onClick={() => { setEnrollDialog(false); setEnrollSearch(""); }}>Done</Button>
                   </DialogFooter>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -253,9 +254,9 @@ function ClassDetailSheet({ cls, schoolId, onClose }: { cls: any; schoolId: stri
                           <Badge variant={e.status === "ACTIVE" ? "secondary" : "outline"} className="capitalize">{(e.status ?? "ACTIVE").toLowerCase()}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeEnrolMut.mutate(e.id)}>
+                          {!readOnly && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeEnrolMut.mutate(e.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          </Button>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -380,6 +381,8 @@ function ClassDetailSheet({ cls, schoolId, onClose }: { cls: any; schoolId: stri
 function ClassesPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const teacherEmail = user?.role === "teacher" ? user.email : undefined;
   const qc = useQueryClient();
 
   const currentYear = String(active.currentYear ?? new Date().getFullYear());
@@ -392,8 +395,8 @@ function ClassesPage() {
   const [form, setForm] = useState(() => blankClassForm(currentYear, defaultPhase));
 
   const { data: classesRaw = [], isLoading } = useQuery({
-    queryKey: ["classes", schoolId],
-    queryFn: () => api.classes.list(schoolId),
+    queryKey: ["classes", schoolId, teacherEmail],
+    queryFn: () => api.classes.list(schoolId, teacherEmail),
   });
 
   const { data: teachersRaw = [] } = useQuery({
@@ -404,7 +407,7 @@ function ClassesPage() {
   const createMutation = useMutation({
     mutationFn: (data: any) => api.classes.create(schoolId, data),
     onSuccess: (c: any) => {
-      void qc.invalidateQueries({ queryKey: ["classes", schoolId] });
+      void qc.invalidateQueries({ queryKey: ["classes", schoolId, teacherEmail] });
       toast.success(`${c.name} created`);
       setForm(blankClassForm(currentYear, defaultPhase));
       setCreateOpen(false);
@@ -480,17 +483,23 @@ function ClassesPage() {
             <div className={`h-full rounded-full ${fill > 90 ? "bg-destructive" : "bg-primary"}`} style={{ width: `${Math.min(fill, 100)}%` }} />
           </div>
         </div>
-        <p className="mt-3 text-xs text-primary underline-offset-2 hover:underline">Click to manage pupils &amp; teachers →</p>
+        <p className="mt-3 text-xs text-primary underline-offset-2 hover:underline">
+          {isTeacher ? "Click to view class roster →" : "Click to manage pupils & teachers →"}
+        </p>
       </button>
     );
   };
+
+  const isTeacher = user?.role === "teacher";
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Classes"
-        description={`${gradeRangeForType(active.type)} · ${active.name}. Create classes, enrol pupils and assign subject teachers.`}
-        actions={
+        description={isTeacher
+          ? `${active.name} · Your assigned classes for this term.`
+          : `${gradeRangeForType(active.type)} · ${active.name}. Create classes, enrol pupils and assign subject teachers.`}
+        actions={!isTeacher && (
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-1 h-4 w-4" />Create class</Button>
@@ -603,7 +612,7 @@ function ClassesPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        }
+        )}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -646,6 +655,7 @@ function ClassesPage() {
           cls={detailClass}
           schoolId={schoolId}
           onClose={() => setDetailClass(null)}
+          readOnly={isTeacher}
         />
       )}
     </div>

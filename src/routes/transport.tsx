@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { AccessGuard } from "@/components/access-guard";
 
 export const Route = createFileRoute("/transport")({
   head: () => ({ meta: [{ title: "Transport - SRMS" }] }),
@@ -127,7 +128,8 @@ function TransportPage() {
   const monthly = routeList.reduce((sum: number, route: any) => sum + (route.riders ?? route.currentRiders ?? 0) * route.fare, 0);
 
   return (
-    <div className="space-y-6">
+    <AccessGuard module="transport">
+      <div className="space-y-6">
       <PageHeader
         title="School Transport"
         description={`${routeList.length} routes serving ${active.name}`}
@@ -304,5 +306,6 @@ function TransportPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AccessGuard>
   );
 }
