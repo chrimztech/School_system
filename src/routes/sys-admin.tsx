@@ -34,6 +34,7 @@ import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { downloadCsv } from "@/lib/utils";
 import {
   ACADEMIC_LEVEL_META, useTenant, PLAN_CATALOG, FEATURE_META, FEATURE_ORDER, buildFeatureFlags, planIncludesFeature,
   type PlanId, type SubscriptionStatus, type BillingCycle, type TenantFeatureFlags,
@@ -228,6 +229,7 @@ function SysAdminPage() {
         action: "Queued subscriber school CSV export",
       }),
     });
+    downloadCsv(tenants.map((t) => ({ School: t.name, District: t.district, Province: t.province, Plan: PLAN_CATALOG[t.subscription.planId].name, Status: t.subscription.status, "MRR (K)": t.subscription.amount, "Renewal Date": t.subscription.renewalDate, Students: t.totalStudents, Campuses: t.campuses.length, "Billing Contact": t.subscription.billingContact })), "subscriber-portfolio");
     toast.success("Portfolio export queued");
   };
 

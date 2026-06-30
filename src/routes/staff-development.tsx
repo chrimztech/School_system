@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/staff-development")({
   head: () => ({ meta: [{ title: "Staff Development — SRMS" }] }),
@@ -171,7 +172,7 @@ function StaffDevelopmentPage() {
       <PageHeader
         title="Staff Development"
         description="Appraisals, lesson observations, CPD training log, and personal development plans."
-        actions={<Button variant="outline" onClick={() => toast.success("CPD summary exported")}>Export CPD report</Button>}
+        actions={<Button variant="outline" onClick={() => { downloadCsv((trainings as any[]).map((t: any) => ({ Course: t.program || t.course, Provider: t.provider, Category: t.category, Staff: t.staffName || t.staff, Hours: t.hours, Date: t.startDate || t.date, Mode: t.mode, "Cert Issued": t.certificationIssued ? "Yes" : "No" })), "cpd-summary"); toast.success("CPD summary exported"); }}>Export CPD report</Button>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

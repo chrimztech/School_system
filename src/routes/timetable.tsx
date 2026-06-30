@@ -16,6 +16,7 @@ import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/timetable")({
   head: () => ({ meta: [{ title: "Timetable - SRMS" }] }),
@@ -171,7 +172,7 @@ function TimetablePage() {
         description={`Weekly schedule · ${active.name}`}
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("Timetable PDF exported")}><Download className="mr-1 h-4 w-4" />Export PDF</Button>
+            <Button variant="outline" onClick={() => { window.print(); toast.success("Timetable PDF exported"); }}><Download className="mr-1 h-4 w-4" />Export PDF</Button>
             <Dialog open={newSlotOpen} onOpenChange={setNewSlotOpen}>
               <DialogTrigger asChild><Button><Plus className="mr-1 h-4 w-4" />Add slot</Button></DialogTrigger>
               <DialogContent className="sm:max-w-md">

@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/exams")({
   head: () => ({ meta: [{ title: "Exams — SRMS" }] }),
@@ -88,7 +89,7 @@ function EczTab({ papers }: { papers: any[] }) {
           <h3 className="font-semibold">ECZ Candidate Registration</h3>
           <p className="text-sm text-muted-foreground">{eczPapers.length} ECZ paper{eczPapers.length !== 1 ? "s" : ""} · {eczPapers.reduce((a, p) => a + (Number(p.candidates) || 0), 0)} total candidates</p>
         </div>
-        <Button onClick={() => toast.success("Candidate file (.csv) exported for ECZ portal upload")}>Export ECZ batch</Button>
+        <Button onClick={() => { downloadCsv(eczPapers.map((p) => ({ "Paper Code": p.code, Subject: p.subject, Grade: p.grade, Candidates: p.candidates, "Exam Date": p.examDate, "Start Time": p.startTime, Duration: p.duration, Room: p.room, Invigilator: p.invigilator, "Exam Board": p.examBoard })), "ecz-candidate-batch"); toast.success("Candidate file (.csv) exported for ECZ portal upload"); }}>Export ECZ batch</Button>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Object.entries(byGrade).map(([grade, { candidates }]) => (
@@ -153,7 +154,7 @@ function ExamsPage() {
         description="ECZ & internal exam scheduling, seating plans, invigilation roster and candidate registers."
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("Seating plan PDF generated")}>
+            <Button variant="outline" onClick={() => { window.print(); toast.success("Seating plan PDF generated"); }}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />Seating plan
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>

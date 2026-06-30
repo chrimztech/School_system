@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { downloadCsv } from "@/lib/utils";
 
 type RequestType = "Access" | "Rectification" | "Deletion";
 type RequestStatus = "New" | "Reviewing" | "Approved" | "Completed";
@@ -173,6 +174,7 @@ function DataGovernancePage() {
         slaHours: 24,
       }),
     });
+    downloadCsv(exports.map((job) => ({ ID: job.id, School: job.school, Scope: job.scope, Status: job.status, "Requested By": job.requestedBy })), "governance-export-jobs");
     toast.success("Export job queued");
   };
 
@@ -221,6 +223,7 @@ function DataGovernancePage() {
         action: `Ran export sweep (${queuedToRunning} queued to running, ${runningToReady} running to ready)`,
       }),
     });
+    downloadCsv(nextExports.map((job) => ({ ID: job.id, School: job.school, Scope: job.scope, Status: job.status, "Requested By": job.requestedBy })), "governance-export-sweep");
     toast.success("Export sweep executed");
   };
 

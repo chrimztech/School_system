@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/admissions")({
   head: () => ({ meta: [{ title: "Admissions - SRMS" }] }),
@@ -228,7 +229,7 @@ function AdmissionsPage() {
         description="Manage applicant flow, offers, and the final handoff into active learner records."
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("Applicant import template downloaded")}>
+            <Button variant="outline" onClick={() => downloadCsv([{ "First Name": "", "Last Name": "", "Date of Birth": "", "Gender": "Male/Female", "Class/Grade": "", "Guardian Name": "", "Guardian Phone": "", "Guardian Email": "", "Address": "", "Priority": "High/Medium/Low", "Notes": "" }], "admissions-import-template")}>
               <Download className="mr-2 h-4 w-4" />Import leads
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>

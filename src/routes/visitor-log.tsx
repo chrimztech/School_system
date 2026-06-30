@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/visitor-log")({
   head: () => ({ meta: [{ title: "Visitor Log - SRMS" }] }),
@@ -317,7 +318,7 @@ function VisitorLogPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, purpose, or host" className="pl-9" />
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.success("Visitor log exported")}>Export CSV</Button>
+            <Button variant="outline" size="sm" onClick={() => { downloadCsv(filtered.map((visitor: any) => ({ Date: (visitor.checkInTime ?? visitor.date ?? "").slice(0, 10), Name: visitor.name, Purpose: visitor.purpose, Host: visitor.host, Organisation: visitor.organisation ?? "", "Badge No": visitor.badgeNumber ?? visitor.badge ?? "", Status: visitor.status ?? "" })), "visitor-log"); toast.success("Visitor log exported"); }}>Export CSV</Button>
           </div>
           <Table>
             <TableHeader><TableRow>

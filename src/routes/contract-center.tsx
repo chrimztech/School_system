@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { BadgeCheck, FileSignature, ShieldAlert, ShieldCheck, Wallet } from "lucide-react";
+import { useMemo, useState } from "react";
+import { BadgeCheck, CheckCircle2, FileSignature, Printer, ShieldAlert, ShieldCheck, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, StatCard } from "@/components/page-header";
@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { useTenant } from "@/lib/tenant";
@@ -45,6 +47,8 @@ function ContractCenterPage() {
   const { tenants } = useTenant();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
+  const [packDialogOpen, setPackDialogOpen] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const contracts = (workspace?.contracts ?? tenants.flatMap((tenant, index) => ([
     { id: `ctr-${tenant.id}-msa`, tenantId: tenant.id, school: tenant.name, type: "MSA" as AgreementType, status: "Active" as ContractStatus, value: tenant.subscription.amount * 12, expiresOn: tenant.subscription.renewalDate, owner: contractOwners[index % contractOwners.length] },
     { id: `ctr-${tenant.id}-dpa`, tenantId: tenant.id, school: tenant.name, type: "DPA" as AgreementType, status: (index % 2 === 0 ? "Active" : "Awaiting signature") as ContractStatus, value: 0, expiresOn: tenant.subscription.renewalDate, owner: "Legal desk" },
@@ -147,6 +151,7 @@ function ContractCenterPage() {
   };
 
   const generateContractPack = () => {
+    const now = new Date().toLocaleString();
     saveWorkspace.mutate({
       exportJobs: appendExportJob(workspace, {
         school: "Platform",
@@ -175,10 +180,12 @@ function ContractCenterPage() {
         action: "Generated cross-tenant contract pack",
       }),
     });
-    toast.success("Contract pack generated");
+    setGeneratedAt(now);
+    setPackDialogOpen(true);
   };
 
   return (
+    <>
     <div className="space-y-6">
       <PageHeader
         title="Contract Center"
@@ -308,5 +315,97 @@ function ContractCenterPage() {
         </TabsContent>
       </Tabs>
     </div>
+
+    {/* Contract pack preview dialog */}
+    <Dialog open={packDialogOpen} onOpenChange={setPackDialogOpen}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">Contract pack generated</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Generated {generatedAt} · Submitted to Legal desk for review</p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <Separator />
+
+        {/* Summary stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+            <p className="text-xl font-bold">{contracts.length}</p>
+            <p className="text-xs text-muted-foreground">Contracts included</p>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+            <p className="text-xl font-bold">{tenants.length}</p>
+            <p className="text-xs text-muted-foreground">Schools covered</p>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+            <p className="text-xl font-bold">K{stats.contractValue.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total annual value</p>
+          </div>
+        </div>
+
+        {/* Contract list */}
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Documents in this pack</p>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40">
+                <tr>
+                  <th className="py-2 px-3 text-left text-xs font-medium text-muted-foreground">School</th>
+                  <th className="py-2 px-3 text-left text-xs font-medium text-muted-foreground">Type</th>
+                  <th className="py-2 px-3 text-left text-xs font-medium text-muted-foreground">Owner</th>
+                  <th className="py-2 px-3 text-left text-xs font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {contracts.map((c) => (
+                  <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="py-2 px-3 font-medium">{c.school}</td>
+                    <td className="py-2 px-3 text-muted-foreground">{c.type}</td>
+                    <td className="py-2 px-3 text-muted-foreground">{c.owner}</td>
+                    <td className="py-2 px-3">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusTone(c.status)}`}>{c.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Standard compliance docs */}
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Platform compliance attachments</p>
+          <div className="space-y-1.5">
+            {["Data Processing Agreement (template)", "Master Services Agreement (template)", "Security & Availability Schedule", "Implementation Statement of Work"].map((doc) => (
+              <div key={doc} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                <span className="text-sm">{doc}</span>
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs">Included</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">An approval request and support ticket have been created for Legal desk review.</p>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => { setPackDialogOpen(false); toast.info("Pack saved to export jobs"); }}>
+              <X className="mr-1.5 h-3.5 w-3.5" /> Close
+            </Button>
+            <Button size="sm" onClick={() => window.print()}>
+              <Printer className="mr-1.5 h-3.5 w-3.5" /> Print / Save PDF
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

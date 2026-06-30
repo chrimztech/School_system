@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { downloadCsv } from "@/lib/utils";
 
 type CollectionStatus = "Scheduled" | "In progress" | "Promised" | "Resolved";
 type CollectionCase = {
@@ -202,6 +203,7 @@ function RevenueOpsPage() {
         action: "Queued revenue forecast export",
       }),
     });
+    downloadCsv(portfolio.map((record) => ({ School: record.tenant.name, Plan: PLAN_CATALOG[record.tenant.subscription.planId].name, Status: record.tenant.subscription.status, MRR: record.tenant.subscription.amount, "Learner %": record.learnerPct, "Campus %": record.campusPct, "Renewal Date": record.tenant.subscription.renewalDate, "Days to Renewal": record.daysToRenewal, Risk: record.risk })), "revenue-forecast");
     toast.success("Forecast export queued");
   };
 

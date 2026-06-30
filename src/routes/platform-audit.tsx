@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { downloadCsv } from "@/lib/utils";
 
 type AuditSeverity = "Info" | "Warning" | "Critical";
 type AuditEvent = {
@@ -136,6 +137,7 @@ function PlatformAuditPage() {
         action: "Queued platform audit evidence export",
       }),
     });
+    downloadCsv(events.map((event) => ({ ID: event.id, Time: event.ts, Actor: event.actor, Tenant: event.tenant, Area: event.area, Action: event.action, Severity: event.severity, Reviewed: event.reviewed ? "Yes" : "No" })), "platform-audit-export");
     toast.success("Audit export queued");
   };
 

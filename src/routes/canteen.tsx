@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/canteen")({
   head: () => ({ meta: [{ title: "Canteen - SRMS" }] }),
@@ -526,7 +527,7 @@ function CanteenPage() {
         <TabsContent value="sales" className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border p-3">
             <p className="text-sm font-medium">{sales.length} extra sale{sales.length !== 1 ? "s" : ""} · K {extraSalesTotal.toLocaleString()} total</p>
-            <Button size="sm" variant="outline" onClick={() => toast.success("Sales report exported")}>Export</Button>
+            <Button size="sm" variant="outline" onClick={() => { downloadCsv(sales.map((s: any) => ({ Item: s.displayItem, Quantity: s.quantity, Total: s.total, Method: s.method, Customer: s.customerName, Date: String(s.date).slice(0, 10), Status: s.status })), "canteen-sales-report"); toast.success("Sales report exported"); }}>Export</Button>
           </div>
           {ordersLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">

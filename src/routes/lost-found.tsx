@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/lost-found")({
   head: () => ({ meta: [{ title: "Lost & Found — SRMS" }] }),
@@ -347,7 +348,7 @@ function LostFoundPage() {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search description, category, or location" className="pl-9" />
               </div>
-              <Button variant="outline" size="sm" onClick={() => toast.success("Lost & found register exported")}>Export CSV</Button>
+              <Button variant="outline" size="sm" onClick={() => { downloadCsv(items.map((i: any) => ({ Description: i.description, Category: i.category, Location: i.location, "Date Found": (i.foundDate ?? i.dateFound ?? "").slice(0, 10), Status: i.status, "Claimed By": i.claimedBy ?? "" })), "lost-found-register"); toast.success("Lost & found register exported"); }}>Export CSV</Button>
             </div>
             <Table>
               <TableHeader>

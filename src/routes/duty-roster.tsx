@@ -346,7 +346,7 @@ function DutyRosterPage() {
       <div className="rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border p-3">
           <p className="text-sm font-medium">All assignments this week</p>
-          <Button size="sm" variant="outline" onClick={() => toast.success("Roster exported")}>Export PDF</Button>
+          <Button size="sm" variant="outline" onClick={() => { window.print(); toast.success("Roster exported"); }}>Export PDF</Button>
         </div>
         <Table>
           <TableHeader><TableRow>

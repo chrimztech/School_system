@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { HardDrive, Download, Upload, ShieldAlert } from "lucide-react";
+import { HardDrive, Download, Upload, ShieldAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
+import { useTenant } from "@/lib/tenant";
+import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,9 +21,15 @@ export const Route = createFileRoute("/backups")({
   component: BackupsPage,
 });
 
+type ExportItem = { id: string; scope: string; rows: number; when: string; dataset: string };
+
 function BackupsPage() {
   const { user } = useAuth();
-  const [exports, setExports] = useState<Array<{ id: string; scope: string; rows: number; when: string }>>([]);
+  const { active } = useTenant();
+  const schoolId = active.id;
+
+  const [exports, setExports] = useState<ExportItem[]>([]);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const [auto, setAuto] = useState(true);
   const [encrypt, setEncrypt] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
@@ -45,17 +54,67 @@ function BackupsPage() {
       return;
     }
     setExports((prev) => [
-      {
-        id: `e${prev.length + 1}`,
-        scope: `${exportForm.dataset} (${exportForm.format})`,
-        rows,
-        when: "Queued now",
-      },
+      { id: `e${prev.length + 1}`, scope: `${exportForm.dataset} (${exportForm.format})`, rows, when: "Ready", dataset: exportForm.dataset },
       ...prev,
     ]);
-    toast.success(`${exportForm.dataset} export queued`);
+    toast.success(`${exportForm.dataset} export ready — click Download`);
     setExportForm({ dataset: "Student register", format: "CSV", rows: "842" });
     setExportOpen(false);
+  };
+
+  const handleDownload = async (item: ExportItem) => {
+    setDownloading(item.id);
+    const date = new Date().toISOString().slice(0, 10);
+    const fname = `${item.dataset.toLowerCase().replace(/\s+/g, "-")}-${date}`;
+    try {
+      let rows: Record<string, unknown>[] = [];
+
+      if (item.dataset === "Student register") {
+        const data = await api.students.list(schoolId);
+        rows = (data as any[]).map((s) => ({
+          "ID": s.id, "First Name": s.firstName || "", "Last Name": s.lastName || "",
+          "Class": s.className || s.class || s.currentClass || "",
+          "Gender": s.gender || "", "Date of Birth": s.dateOfBirth || "",
+          "Guardian Name": s.guardianName || s.parentName || "",
+          "Guardian Phone": s.guardianPhone || s.parentPhone || "",
+          "Status": s.status || "active",
+        }));
+      } else if (item.dataset === "Fee ledger") {
+        const data = await api.fees.payments(schoolId);
+        rows = (data as any[]).map((p) => ({
+          "ID": p.id, "Student": p.studentName || p.student || "",
+          "Amount": p.amount || 0, "Type": p.feeType || p.type || "",
+          "Date": p.paidDate || p.date || "", "Method": p.paymentMethod || p.method || "",
+          "Reference": p.reference || p.receiptNo || "", "Status": p.status || "",
+        }));
+      } else if (item.dataset === "Attendance archive") {
+        const data = await api.attendance.list(schoolId);
+        rows = (data as any[]).map((r) => ({
+          "Date": r.date || "", "Student": r.studentName || r.student || "",
+          "Class": r.className || r.class || "", "Status": r.status || "",
+          "Remarks": r.remarks || "",
+        }));
+      } else if (item.dataset === "Audit log") {
+        const data = await api.audit.list(schoolId);
+        rows = (data as any[]).map((a) => ({
+          "ID": a.id, "Action": a.action || a.title || "",
+          "User": a.user || a.performedBy || "",
+          "Date": a.date || a.createdAt || "",
+          "Details": a.details || a.description || "",
+        }));
+      }
+
+      if (rows.length === 0) {
+        toast.info("No records found for this dataset");
+        return;
+      }
+      downloadCsv(rows, fname);
+      toast.success(`${item.dataset} downloaded — ${rows.length} records`);
+    } catch {
+      toast.error("Export failed — please try again");
+    } finally {
+      setDownloading(null);
+    }
   };
 
   if (user?.role !== "super_admin") {
@@ -107,7 +166,17 @@ function BackupsPage() {
                 <p className="font-medium">{item.scope}</p>
                 <p className="text-xs text-muted-foreground">{item.rows.toLocaleString()} rows · {item.when}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => toast.success(`${item.scope} downloaded`)}><Download className="mr-1 h-3 w-3" />Download</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={downloading === item.id}
+                onClick={() => handleDownload(item)}
+              >
+                {downloading === item.id
+                  ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  : <Download className="mr-1 h-3 w-3" />}
+                Download
+              </Button>
             </div>
           ))}
           <Button onClick={() => setExportOpen(true)} className="w-full" variant="outline">

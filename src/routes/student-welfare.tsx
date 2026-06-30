@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/student-welfare")({
   head: () => ({ meta: [{ title: "Student Welfare — SRMS" }] }),
@@ -86,7 +87,7 @@ function StudentWelfarePage() {
       <PageHeader
         title="Student Welfare"
         description="Pastoral care cases, counseling sessions, and at-risk student monitoring."
-        actions={<Button variant="outline" onClick={() => toast.success("Welfare report exported")}>Export report</Button>}
+        actions={<Button variant="outline" onClick={() => { downloadCsv((cases as any[]).map((c: any) => ({ Student: c.student, Grade: c.grade, Type: c.type, "Assigned To": c.assignedTo, "Last Contact": c.lastContact, Status: c.status })), "welfare-report"); toast.success("Welfare report exported"); }}>Export report</Button>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

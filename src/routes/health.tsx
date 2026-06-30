@@ -110,7 +110,7 @@ function HealthPage() {
             <Button variant="outline" asChild>
               <Link to="/student-welfare">Welfare cases</Link>
             </Button>
-            <Button variant="outline" onClick={() => toast.success("Health register exported (PDF)")}>
+            <Button variant="outline" onClick={() => { window.print(); toast.success("Health register exported (PDF)"); }}>
               <Download className="mr-2 h-4 w-4" />Export register
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>

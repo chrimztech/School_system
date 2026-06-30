@@ -276,7 +276,7 @@ function ReportCardPage() {
         description={`Term ${active.currentTerm} · ${active.currentYear}`}
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("PDF downloaded")}><Download className="mr-1 h-4 w-4" />PDF</Button>
+            <Button variant="outline" onClick={() => window.print()}><Download className="mr-1 h-4 w-4" />PDF</Button>
             <Button onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print</Button>
           </>
         }

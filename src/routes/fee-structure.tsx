@@ -301,7 +301,7 @@ function FeeStructurePage() {
             <Button variant="outline" asChild>
               <Link to="/bursaries">Bursaries</Link>
             </Button>
-            <Button variant="outline" onClick={() => toast.success("Fee schedule exported to PDF")}>Export schedule</Button>
+            <Button variant="outline" onClick={() => { window.print(); toast.success("Fee schedule exported to PDF"); }}>Export schedule</Button>
           </>
         }
       />

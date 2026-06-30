@@ -455,6 +455,9 @@ export const api = {
         replyBody: data?.replyBody ?? data?.body ?? "",
       }),
     ),
+    closeMessage: (schoolId: string, id: string) => unwrap<any>(
+      apiClient.put(schoolPath(schoolId, `messages/${id}/close`), {}),
+    ),
   },
 
   // Discipline

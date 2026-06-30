@@ -18,6 +18,7 @@ import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/activities")({
   head: () => ({ meta: [{ title: "Activities & Clubs - SRMS" }] }),
@@ -162,7 +163,7 @@ function ActivitiesPage() {
       <PageHeader
         title="Activities & Clubs"
         description="Co-curricular clubs, sports teams, memberships, and fixture calendar."
-        actions={<Button variant="outline" onClick={() => toast.success("Activities report exported")}>Export report</Button>}
+        actions={<Button variant="outline" onClick={() => { downloadCsv(clubs.map((club) => ({ Name: club.name, Category: club.category, Leader: club.leader, Members: club.members, "Meeting Day": club.meetingDay, Venue: club.venue, Status: club.status })), "activities-report"); toast.success("Activities report exported"); }}>Export report</Button>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
