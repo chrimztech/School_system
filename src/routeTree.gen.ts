@@ -33,6 +33,7 @@ import { Route as RevenueOpsRouteImport } from './routes/revenue-ops'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReportingRouteImport } from './routes/reporting'
 import { Route as ReportCardRouteImport } from './routes/report-card'
+import { Route as PtcRouteImport } from './routes/ptc'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProcurementRouteImport } from './routes/procurement'
 import { Route as PolicyLibraryRouteImport } from './routes/policy-library'
@@ -208,6 +209,11 @@ const ReportingRoute = ReportingRouteImport.update({
 const ReportCardRoute = ReportCardRouteImport.update({
   id: '/report-card',
   path: '/report-card',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PtcRoute = PtcRouteImport.update({
+  id: '/ptc',
+  path: '/ptc',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -546,6 +552,7 @@ export interface FileRoutesByFullPath {
   '/policy-library': typeof PolicyLibraryRoute
   '/procurement': typeof ProcurementRoute
   '/profile': typeof ProfileRoute
+  '/ptc': typeof PtcRoute
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
@@ -628,6 +635,7 @@ export interface FileRoutesByTo {
   '/policy-library': typeof PolicyLibraryRoute
   '/procurement': typeof ProcurementRoute
   '/profile': typeof ProfileRoute
+  '/ptc': typeof PtcRoute
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
@@ -711,6 +719,7 @@ export interface FileRoutesById {
   '/policy-library': typeof PolicyLibraryRoute
   '/procurement': typeof ProcurementRoute
   '/profile': typeof ProfileRoute
+  '/ptc': typeof PtcRoute
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
@@ -795,6 +804,7 @@ export interface FileRouteTypes {
     | '/policy-library'
     | '/procurement'
     | '/profile'
+    | '/ptc'
     | '/report-card'
     | '/reporting'
     | '/reports'
@@ -877,6 +887,7 @@ export interface FileRouteTypes {
     | '/policy-library'
     | '/procurement'
     | '/profile'
+    | '/ptc'
     | '/report-card'
     | '/reporting'
     | '/reports'
@@ -959,6 +970,7 @@ export interface FileRouteTypes {
     | '/policy-library'
     | '/procurement'
     | '/profile'
+    | '/ptc'
     | '/report-card'
     | '/reporting'
     | '/reports'
@@ -1042,6 +1054,7 @@ export interface RootRouteChildren {
   PolicyLibraryRoute: typeof PolicyLibraryRoute
   ProcurementRoute: typeof ProcurementRoute
   ProfileRoute: typeof ProfileRoute
+  PtcRoute: typeof PtcRoute
   ReportCardRoute: typeof ReportCardRoute
   ReportingRoute: typeof ReportingRoute
   ReportsRoute: typeof ReportsRoute
@@ -1236,6 +1249,13 @@ declare module '@tanstack/react-router' {
       path: '/report-card'
       fullPath: '/report-card'
       preLoaderRoute: typeof ReportCardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ptc': {
+      id: '/ptc'
+      path: '/ptc'
+      fullPath: '/ptc'
+      preLoaderRoute: typeof PtcRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -1712,6 +1732,7 @@ const rootRouteChildren: RootRouteChildren = {
   PolicyLibraryRoute: PolicyLibraryRoute,
   ProcurementRoute: ProcurementRoute,
   ProfileRoute: ProfileRoute,
+  PtcRoute: PtcRoute,
   ReportCardRoute: ReportCardRoute,
   ReportingRoute: ReportingRoute,
   ReportsRoute: ReportsRoute,

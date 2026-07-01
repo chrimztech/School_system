@@ -127,6 +127,7 @@ const schoolOps: NavItem[] = [
   { title: "Lost & Found", url: "/lost-found", icon: PackageSearch, module: "lost-found" },
   { title: "Alumni", url: "/alumni", icon: Award, module: "alumni" },
   { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
+  { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
 ];
 
 const schoolFinance: NavItem[] = [
@@ -407,6 +408,7 @@ export function WorkspaceSidebar() {
             { title: "Fee Balance", url: "/fees", icon: Wallet, module: "fees" },
             { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
             { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
+            { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
           ])
         ) : user?.role === "hod" ? (
           <>
@@ -432,6 +434,7 @@ export function WorkspaceSidebar() {
             {renderGroup("Resources", [
               { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
               { title: "Library", url: "/library", icon: BookOpen, module: "library" },
+              { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
               { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
               { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
             ])}
@@ -458,6 +461,7 @@ export function WorkspaceSidebar() {
             {renderGroup("Resources", [
               { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
               { title: "Library", url: "/library", icon: BookOpen, module: "library" },
+              { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
               { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
               { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
             ])}
@@ -474,6 +478,7 @@ export function WorkspaceSidebar() {
               { title: "Risk Register", url: "/risk-register", icon: ShieldCheck, module: "risk-register" },
             ])}
             {renderGroup("Resources", [
+              { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
               { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
               { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
             ])}

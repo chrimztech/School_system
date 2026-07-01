@@ -679,6 +679,28 @@ export const api = {
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `duty-roster/${id}`)),
   },
 
+  // Parent-Teacher Committee
+  ptc: {
+    members: {
+      list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "ptc/members"))),
+      create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "ptc/members"), data)),
+      update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `ptc/members/${id}`), data)),
+      delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `ptc/members/${id}`)),
+    },
+    meetings: {
+      list: (schoolId: string, publishedOnly = false) =>
+        unwrap<any[]>(apiClient.get(schoolPath(schoolId, "ptc/meetings"), { params: { publishedOnly } })),
+      create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "ptc/meetings"), data)),
+      update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `ptc/meetings/${id}`), data)),
+      publish: (schoolId: string, id: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `ptc/meetings/${id}/publish`))),
+    },
+    transactions: {
+      list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "ptc/transactions"))),
+      create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "ptc/transactions"), data)),
+      update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `ptc/transactions/${id}`), data)),
+    },
+  },
+
   // Staff Development
   staffDevelopment: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "staff-development"))),
