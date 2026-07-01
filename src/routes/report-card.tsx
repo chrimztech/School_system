@@ -25,15 +25,26 @@ export const Route = createFileRoute("/report-card")({
   component: ReportCardPage,
 });
 
-type SubjectResult = { name: string; ca: number; exam: number; total: number; grade: string; remark: string };
+type SubjectResult = {
+  name: string;
+  ca: number | null;
+  midterm: number | null;
+  exam: number | null;
+  total: number;
+  grade: string;
+  complete: boolean;
+};
+
+const HEAD_COMMENT_ROLES = new Set(["principal", "deputy_head", "hod", "school_admin", "super_admin"]);
 
 function CommentSection({
-  teacherComment, headComment, saving, onSave,
+  teacherComment, headComment, saving, onSave, canEditHead,
 }: {
   teacherComment: string;
   headComment: string;
   saving: boolean;
   onSave: (tc: string, hc: string) => void;
+  canEditHead: boolean;
 }) {
   const [tc, setTc] = useState(teacherComment);
   const [hc, setHc] = useState(headComment);
@@ -102,7 +113,7 @@ function CommentSection({
       <div>
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase text-muted-foreground">Head teacher's comment</p>
-          {!editingHc ? (
+          {!canEditHead ? null : !editingHc ? (
             <button
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => setEditingHc(true)}
@@ -119,7 +130,7 @@ function CommentSection({
             </button>
           )}
         </div>
-        {editingHc ? (
+        {canEditHead && editingHc ? (
           <Textarea
             ref={hcRef}
             className="mt-1"
@@ -132,8 +143,8 @@ function CommentSection({
           />
         ) : (
           <p
-            className="mt-1 cursor-text rounded-md px-1 py-0.5 text-sm hover:bg-muted/50"
-            onClick={() => setEditingHc(true)}
+            className={`mt-1 rounded-md px-1 py-0.5 text-sm ${canEditHead ? "cursor-text hover:bg-muted/50" : ""}`}
+            onClick={canEditHead ? () => setEditingHc(true) : undefined}
           >
             {hc || <span className="text-muted-foreground italic">No comment recorded — click to add</span>}
           </p>
@@ -149,25 +160,22 @@ function CommentSection({
   );
 }   // CommentSection
 
-function deriveGrade(total: number): string {
-  if (total >= 90) return "A+";
-  if (total >= 80) return "A";
-  if (total >= 70) return "B";
-  if (total >= 60) return "C";
-  if (total >= 50) return "D";
-  return "F";
-}
-
-const CA_TYPES = new Set(["cat", "project", "homework", "quiz", "practical"]);
+const TERM_OPTIONS = [
+  { value: "1", label: "Term 1" },
+  { value: "2", label: "Term 2" },
+  { value: "3", label: "Term 3" },
+];
 
 function ReportCardPage() {
   const { active } = useTenant();
   const { user } = useAuth();
   const teacherEmail = user?.role === "teacher" ? user.email : undefined;
+  const canEditHead = !!user && HEAD_COMMENT_ROLES.has(user.role);
   const qc = useQueryClient();
   const { studentId: initialStudentId } = Route.useSearch();
   const [selectedId, setSelectedId] = useState(initialStudentId || "");
-  const term = String(active.currentTerm ?? "1");
+  const [selectedTerm, setSelectedTerm] = useState(String(active.currentTerm ?? "1"));
+  const term = selectedTerm;
   const year = String(active.currentYear ?? new Date().getFullYear());
 
   const { data: students = [], isLoading } = useQuery({
@@ -176,15 +184,9 @@ function ReportCardPage() {
     enabled: !!active.id,
   });
 
-  const { data: allAssessments = [] } = useQuery({
-    queryKey: ["assessments", active.id],
-    queryFn: () => api.assessments.list(active.id),
-    enabled: !!active.id,
-  });
-
-  const { data: studentResults = [] } = useQuery({
-    queryKey: ["student-results", active.id, selectedId],
-    queryFn: () => api.assessments.studentResults(active.id, selectedId),
+  const { data: termGradeHistory = [] } = useQuery({
+    queryKey: ["term-grades", active.id, selectedId, year],
+    queryFn: () => api.termGrades.history(active.id, selectedId, year),
     enabled: !!active.id && !!selectedId,
   });
 
@@ -216,48 +218,24 @@ function ReportCardPage() {
   const grade = backendStudent?.className || backendStudent?.grade || "—";
   const classTeacher = backendStudent?.classTeacher || active.headTeacher || "—";
 
-  const subjects: SubjectResult[] = useMemo(() => {
-    if (!(studentResults as any[]).length || !(allAssessments as any[]).length) return [];
+  const termGrades = useMemo(
+    () => (termGradeHistory as any[]).filter((g) => g.term === selectedTerm),
+    [termGradeHistory, selectedTerm],
+  );
 
-    const assessmentMap = new Map((allAssessments as any[]).map((a: any) => [a.id, a]));
-    const bySubject = new Map<string, { ca: number; caMax: number; exam: number; examMax: number; grade: string; remark: string }>();
-
-    for (const result of studentResults as any[]) {
-      if (result.absent) continue;
-      const assessment = assessmentMap.get(result.assessmentId);
-      if (!assessment?.subjectName) continue;
-
-      const subj: string = assessment.subjectName;
-      if (!bySubject.has(subj)) {
-        bySubject.set(subj, { ca: 0, caMax: 0, exam: 0, examMax: 0, grade: result.grade || "", remark: result.remarks || "" });
-      }
-      const entry = bySubject.get(subj)!;
-
-      if (assessment.type === "exam") {
-        entry.exam += result.score;
-        entry.examMax += assessment.maxScore || 60;
-      } else if (CA_TYPES.has(assessment.type)) {
-        entry.ca += result.score;
-        entry.caMax += assessment.maxScore || 40;
-      }
-      if (result.grade) entry.grade = result.grade;
-      if (result.remarks) entry.remark = result.remarks;
-    }
-
-    return Array.from(bySubject.entries()).map(([name, { ca, caMax, exam, examMax, grade: g, remark }]) => {
-      const caScaled = caMax > 0 ? Math.min(Math.round((ca / caMax) * 40), 40) : 0;
-      const examScaled = examMax > 0 ? Math.min(Math.round((exam / examMax) * 60), 60) : 0;
-      const total = caScaled + examScaled;
-      return {
-        name,
-        ca: caScaled,
-        exam: examScaled,
-        total,
-        grade: g || deriveGrade(total),
-        remark,
-      };
-    });
-  }, [studentResults, allAssessments]);
+  const subjects: SubjectResult[] = useMemo(
+    () =>
+      termGrades.map((g) => ({
+        name: g.subjectName,
+        ca: g.caPercent != null ? Math.round(g.caPercent) : null,
+        midterm: g.midtermPercent != null ? Math.round(g.midtermPercent) : null,
+        exam: g.examPercent != null ? Math.round(g.examPercent) : null,
+        total: Math.round(g.weightedTotal),
+        grade: g.letterGrade,
+        complete: g.complete,
+      })),
+    [termGrades],
+  );
 
   const totalMarks = subjects.reduce((s, x) => s + x.total, 0);
   const avg = subjects.length > 0 ? (totalMarks / subjects.length).toFixed(1) : "0";
@@ -273,7 +251,7 @@ function ReportCardPage() {
       <div className="space-y-6">
       <PageHeader
         title="Student Report Card"
-        description={`Term ${active.currentTerm} · ${active.currentYear}`}
+        description={`Term ${selectedTerm} · ${year}`}
         actions={
           <>
             <Button variant="outline" onClick={() => window.print()}><Download className="mr-1 h-4 w-4" />PDF</Button>
@@ -282,7 +260,7 @@ function ReportCardPage() {
         }
       />
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Label className="text-sm">Student</Label>
         <Select value={selectedId} onValueChange={setSelectedId}>
           <SelectTrigger className="w-64"><SelectValue placeholder={isLoading ? "Loading…" : "Select student"} /></SelectTrigger>
@@ -292,12 +270,21 @@ function ReportCardPage() {
             ))}
           </SelectContent>
         </Select>
+        <Label className="text-sm">Term</Label>
+        <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {TERM_OPTIONS.map((t) => (
+              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="rounded-xl border border-border bg-card shadow-sm">
         <SchoolDocumentHeader
           title="Academic Report Card"
-          subtitle={`Term ${active.currentTerm} · ${active.currentYear}`}
+          subtitle={`Term ${selectedTerm} · ${year}`}
         />
 
         <div className="grid grid-cols-2 gap-4 border-b border-border p-6 text-sm sm:grid-cols-4">
@@ -323,30 +310,32 @@ function ReportCardPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Subject</TableHead>
-              <TableHead className="text-right">CA (40)</TableHead>
-              <TableHead className="text-right">Exam (60)</TableHead>
-              <TableHead className="text-right">Total (100)</TableHead>
+              <TableHead className="text-right">CA %</TableHead>
+              <TableHead className="text-right">Midterm %</TableHead>
+              <TableHead className="text-right">Exam %</TableHead>
+              <TableHead className="text-right">Weighted total</TableHead>
               <TableHead>Grade</TableHead>
-              <TableHead>Teacher remark</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {subjects.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                  {selectedId ? "No assessment results recorded for this student yet." : "Select a student to view their report card."}
+                  {selectedId ? "No term grades computed for this student and term yet." : "Select a student to view their report card."}
                 </TableCell>
               </TableRow>
             ) : subjects.map((s) => (
               <TableRow key={s.name}>
                 <TableCell className="font-medium">{s.name}</TableCell>
-                <TableCell className="text-right tabular-nums">{s.ca}</TableCell>
-                <TableCell className="text-right tabular-nums">{s.exam}</TableCell>
-                <TableCell className="text-right font-semibold tabular-nums">{s.total}</TableCell>
+                <TableCell className="text-right tabular-nums">{s.ca ?? "—"}</TableCell>
+                <TableCell className="text-right tabular-nums">{s.midterm ?? "—"}</TableCell>
+                <TableCell className="text-right tabular-nums">{s.exam ?? "—"}</TableCell>
+                <TableCell className="text-right font-semibold tabular-nums">
+                  {s.total}{!s.complete && <span className="ml-1 text-xs font-normal text-muted-foreground">(provisional)</span>}
+                </TableCell>
                 <TableCell>
                   <Badge variant={s.grade.startsWith("A") ? "default" : "secondary"}>{s.grade}</Badge>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{s.remark || "—"}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -373,6 +362,7 @@ function ReportCardPage() {
             headComment={savedComment?.headComment ?? ""}
             saving={commentMut.isPending}
             onSave={(teacherComment, headComment) => commentMut.mutate({ teacherComment, headComment })}
+            canEditHead={canEditHead}
           />
         )}
       </div>

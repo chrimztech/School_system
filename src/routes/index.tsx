@@ -46,12 +46,50 @@ function pct(score: number, max: number) {
   return `${Math.round((score / max) * 100)}%`;
 }
 
+function SubjectClassStats({
+  schoolId, classId, subjectName, term, academicYear,
+}: {
+  schoolId: string; classId: string; subjectName: string; term: string; academicYear: string;
+}) {
+  const { data } = useQuery({
+    queryKey: ["term-grade-class-stats", schoolId, classId, subjectName, term, academicYear],
+    queryFn: () => api.termGrades.classStats(schoolId, { classId, subjectName, term, academicYear }),
+    enabled: !!classId && !!subjectName,
+  });
+
+  if (!data || data.average == null) return null;
+  const distribution = data.distribution ?? {};
+  const maxCount = Math.max(1, ...Object.values(distribution));
+
+  return (
+    <div className="flex items-center gap-4 rounded-lg bg-muted/40 px-3 py-2 text-xs">
+      <span className="text-muted-foreground">Class average: <span className="font-semibold text-foreground">{Math.round(data.average)}%</span></span>
+      <div className="flex items-end gap-1.5">
+        {Object.entries(distribution).map(([grade, count]) => (
+          <div key={grade} className="flex flex-col items-center gap-0.5">
+            <div className="w-3 rounded-t bg-primary/50" style={{ height: `${Math.max(4, (count / maxCount) * 20)}px` }} />
+            <span className="text-[10px] text-muted-foreground">{grade}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; color: string }) {
+  const { active } = useTenant();
   const [tab, setTab] = useState("overview");
+  const academicYear = String(active.currentYear ?? new Date().getFullYear());
+  const currentTerm = String(active.currentTerm ?? "1");
 
   const { data: rawResults = [], isLoading: resultsLoading } = useQuery({
     queryKey: ["parent-results", schoolId, child.id],
     queryFn: () => api.assessments.studentResultsEnriched(schoolId, child.id),
+  });
+
+  const { data: rawTermGrades = [] } = useQuery({
+    queryKey: ["parent-term-grades", schoolId, child.id, academicYear],
+    queryFn: () => api.termGrades.history(schoolId, child.id, academicYear, true),
   });
 
   const { data: rawDiscipline = [], isLoading: disciplineLoading } = useQuery({
@@ -65,6 +103,8 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
   });
 
   const results = rawResults as any[];
+  const termGrades = (rawTermGrades as any[]).slice().sort((a, b) => Number(b.term) - Number(a.term));
+  const currentTermGrades = termGrades.filter((g) => g.term === currentTerm);
   const disciplineCases = rawDiscipline as any[];
   const attendanceHistory = rawAttendance as any[];
 
@@ -78,10 +118,11 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
   const lateDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "late").length;
   const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : (child.attendanceRate ?? null);
 
-  // Performance stats
+  // Performance stats — sourced from published term grades (same weighted total the report card shows),
+  // not the raw per-assessment results, so this figure never disagrees with the report card.
   const scoredResults = results.filter((r: any) => !r.absent && r.maxScore > 0);
-  const avgPct = scoredResults.length > 0
-    ? Math.round(scoredResults.reduce((s: number, r: any) => s + (r.score / r.maxScore) * 100, 0) / scoredResults.length)
+  const avgPct = currentTermGrades.length > 0
+    ? Math.round(currentTermGrades.reduce((s: number, g: any) => s + g.weightedTotal, 0) / currentTermGrades.length)
     : null;
 
   // Discipline stats
@@ -202,7 +243,63 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
         </TabsContent>
 
         {/* PERFORMANCE */}
-        <TabsContent value="performance" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        <TabsContent value="performance" className="space-y-4">
+          {termGrades.length > 0 && (
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="border-b border-border px-4 py-3">
+                <p className="text-sm font-semibold">Term grades</p>
+                <p className="text-xs text-muted-foreground">Weighted CA, mid-term and exam results by term — current and previous terms.</p>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Term</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="text-right">CA %</TableHead>
+                    <TableHead className="text-right">Midterm %</TableHead>
+                    <TableHead className="text-right">Exam %</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Grade</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {termGrades.map((g: any) => (
+                    <TableRow key={g.id}>
+                      <TableCell className="text-xs text-muted-foreground">Term {g.term}</TableCell>
+                      <TableCell className="font-medium">{g.subjectName}</TableCell>
+                      <TableCell className="text-right tabular-nums">{g.caPercent != null ? Math.round(g.caPercent) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{g.midtermPercent != null ? Math.round(g.midtermPercent) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{g.examPercent != null ? Math.round(g.examPercent) : "—"}</TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">{Math.round(g.weightedTotal)}</TableCell>
+                      <TableCell><span className={gradeColor(g.letterGrade)}>{g.letterGrade}</span></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {currentTermGrades.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <p className="mb-3 text-sm font-semibold">Class performance this term</p>
+              <div className="space-y-2">
+                {currentTermGrades.map((g: any) => (
+                  <div key={g.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">{g.subjectName}</span>
+                    <SubjectClassStats
+                      schoolId={schoolId}
+                      classId={g.classId}
+                      subjectName={g.subjectName}
+                      term={g.term}
+                      academicYear={academicYear}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           {resultsLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading results…</span>
@@ -254,6 +351,7 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
               </TableBody>
             </Table>
           )}
+          </div>
         </TabsContent>
 
         {/* DISCIPLINE */}

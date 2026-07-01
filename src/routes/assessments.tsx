@@ -26,28 +26,36 @@ export const Route = createFileRoute("/assessments")({
 
 const typeColor: Record<string, "secondary" | "outline" | "destructive"> = {
   exam: "destructive",
+  midterm: "destructive",
   cat: "secondary",
+  quiz: "secondary",
   project: "outline",
   homework: "outline",
+  practical: "outline",
 };
 
-const TYPES = ["cat", "exam", "project", "homework"] as const;
-const TERMS = ["Term 1", "Term 2", "Term 3"] as const;
+const TYPES = ["cat", "quiz", "practical", "project", "homework", "midterm", "exam"] as const;
+const TERM_OPTIONS = [
+  { value: "1", label: "Term 1" },
+  { value: "2", label: "Term 2" },
+  { value: "3", label: "Term 3" },
+];
 const SUBJECTS = ["Mathematics", "English Language", "Science", "Social Studies", "Civic Education", "Religious Education", "Physical Education", "French", "History", "Geography", "Biology", "Chemistry", "Physics", "Computer Studies", "Commerce", "Accounts", "Literature", "Art", "Music"];
 const EMPTY_ITEMS: any[] = [];
 
+// Matches the backend's GradeThresholds — keep in sync.
 function computeGrade(score: number, maxScore: number): string {
   const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+  if (pct >= 90) return "A+";
   if (pct >= 80) return "A";
   if (pct >= 70) return "B";
   if (pct >= 60) return "C";
   if (pct >= 50) return "D";
-  if (pct >= 40) return "E";
   return "F";
 }
 
 function gradeColor(grade: string) {
-  if (grade === "A") return "text-emerald-600";
+  if (grade === "A+" || grade === "A") return "text-emerald-600";
   if (grade === "B") return "text-blue-600";
   if (grade === "C") return "text-amber-600";
   if (grade === "D") return "text-orange-500";
@@ -163,7 +171,7 @@ function ResultsSheet({
     const passCount = scored.filter((r) => r.grade !== "F" && r.grade !== "").length;
     const passRate = scored.length > 0 ? Math.round((passCount / scored.length) * 100) : 0;
 
-    const byGrade: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
+    const byGrade: Record<string, number> = { "A+": 0, A: 0, B: 0, C: 0, D: 0, F: 0 };
     scored.forEach((r) => { if (r.grade && r.grade !== "—") byGrade[r.grade] = (byGrade[r.grade] ?? 0) + 1; });
 
     return { marked: marked.length, total: rows.length, avg, passRate, byGrade };
@@ -282,6 +290,141 @@ function ResultsSheet({
   );
 }
 
+// ---------- Compute & Publish Term Grades ----------
+
+function ComputeGradesDialog({ schoolId, classList }: { schoolId: string; classList: string[] }) {
+  const qc = useQueryClient();
+  const { active } = useTenant();
+  const [open, setOpen] = useState(false);
+  const [classId, setClassId] = useState(classList[0] ?? "");
+  const [subjectName, setSubjectName] = useState(SUBJECTS[0]);
+  const [term, setTerm] = useState(String(active.currentTerm ?? "1"));
+  const [results, setResults] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    if (!classId && classList[0]) setClassId(classList[0]);
+  }, [classList, classId]);
+
+  const academicYear = String(active.currentYear ?? new Date().getFullYear());
+
+  const computeMutation = useMutation({
+    mutationFn: () => api.termGrades.compute(schoolId, { classId, subjectName, term, academicYear }),
+    onSuccess: (rows) => {
+      setResults(rows);
+      toast.success(`Computed term grades for ${rows.length} student${rows.length === 1 ? "" : "s"}`);
+    },
+    onError: () => toast.error("Failed to compute term grades"),
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: (id: string) => api.termGrades.publish(schoolId, id),
+    onSuccess: (updated) => {
+      setResults((prev) => prev?.map((r) => (r.id === updated.id ? updated : r)) ?? null);
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+    },
+    onError: () => toast.error("Failed to publish"),
+  });
+
+  const publishAll = () => {
+    (results ?? []).filter((r) => !r.published).forEach((r) => publishMutation.mutate(r.id));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setResults(null); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline"><ClipboardList className="mr-2 h-4 w-4" /> Term grades</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Compute &amp; publish term grades</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Combines each student's continuous assessment, mid-term test, and exam scores for the selected class,
+          subject, and term into a weighted overall grade.
+        </p>
+        <div className="grid grid-cols-3 gap-4 mt-2">
+          <div>
+            <Label>Class</Label>
+            <Select value={classId} onValueChange={setClassId}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select class" /></SelectTrigger>
+              <SelectContent>{classList.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Subject</Label>
+            <Select value={subjectName} onValueChange={setSubjectName}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>{SUBJECTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Term</Label>
+            <Select value={term} onValueChange={setTerm}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>{TERM_OPTIONS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="mt-3">
+          <Button onClick={() => computeMutation.mutate()} disabled={!classId || computeMutation.isPending}>
+            {computeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Compute
+          </Button>
+        </div>
+
+        {results && (
+          <div className="mt-4 space-y-3">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead className="text-right">CA %</TableHead>
+                  <TableHead className="text-right">Midterm %</TableHead>
+                  <TableHead className="text-right">Exam %</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Grade</TableHead>
+                  <TableHead className="w-24"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {results.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-sm">{r.studentName || r.studentId}</TableCell>
+                    <TableCell className="text-right tabular-nums">{r.caPercent != null ? Math.round(r.caPercent) : "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{r.midtermPercent != null ? Math.round(r.midtermPercent) : "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{r.examPercent != null ? Math.round(r.examPercent) : "—"}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{Math.round(r.weightedTotal)}</TableCell>
+                    <TableCell><span className={`text-sm font-bold ${gradeColor(r.letterGrade)}`}>{r.letterGrade}</span></TableCell>
+                    <TableCell>
+                      {r.published ? (
+                        <Badge variant="secondary">Published</Badge>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => publishMutation.mutate(r.id)} disabled={publishMutation.isPending}>
+                          Publish
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {results.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                      No enrolled students with assessment results found for this class/subject/term.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            {results.some((r) => !r.published) && (
+              <div className="flex justify-end">
+                <Button onClick={publishAll} disabled={publishMutation.isPending}>Publish all</Button>
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ---------- Main Page ----------
 
 function AssessmentsPage() {
@@ -302,7 +445,7 @@ function AssessmentsPage() {
 
   const [form, setForm] = useState({
     title: "", classId: "", type: "cat" as typeof TYPES[number],
-    subject: SUBJECTS[0], teacherAssigned: loggedInTeacherName, term: "Term 1" as typeof TERMS[number],
+    subject: SUBJECTS[0], teacherAssigned: loggedInTeacherName, term: String(active.currentTerm ?? "1"),
     maxScore: "40", passMark: "20", weight: "10",
     date: new Date().toISOString().slice(0, 10), totalStudents: "32",
     rubricDescription: "", submissionMode: "Written",
@@ -328,7 +471,7 @@ function AssessmentsPage() {
     onSuccess: (a: any) => {
       qc.invalidateQueries({ queryKey: ["assessments", schoolId] });
       toast.success(`Assessment "${a.title}" created`);
-      setForm({ title: "", classId: firstClass ?? "", type: "cat", subject: SUBJECTS[0], teacherAssigned: loggedInTeacherName, term: "Term 1", maxScore: "40", passMark: "20", weight: "10", date: new Date().toISOString().slice(0, 10), totalStudents: "32", rubricDescription: "", submissionMode: "Written", durationMinutes: "60", syllabusReference: "", gradingScheme: "Points", retakeAllowed: "no", markingCompletedBy: "" });
+      setForm({ title: "", classId: firstClass ?? "", type: "cat", subject: SUBJECTS[0], teacherAssigned: loggedInTeacherName, term: String(active.currentTerm ?? "1"), maxScore: "40", passMark: "20", weight: "10", date: new Date().toISOString().slice(0, 10), totalStudents: "32", rubricDescription: "", submissionMode: "Written", durationMinutes: "60", syllabusReference: "", gradingScheme: "Points", retakeAllowed: "no", markingCompletedBy: "" });
       setOpen(false);
     },
     onError: () => toast.error("Failed to create assessment"),
@@ -338,8 +481,9 @@ function AssessmentsPage() {
     if (!form.title.trim()) { toast.error("Assessment title is required"); return; }
     createMutation.mutate({
       title: form.title, classId: form.classId, type: form.type,
-      subject: form.subject, teacherAssigned: form.teacherAssigned.trim() || null,
-      term: form.term, maxScore: Number(form.maxScore) || 40,
+      subjectName: form.subject, teacherAssigned: form.teacherAssigned.trim() || null,
+      term: form.term, academicYear: String(active.currentYear ?? new Date().getFullYear()),
+      maxScore: Number(form.maxScore) || 40,
       passMark: Number(form.passMark) || 20, weight: Number(form.weight) || 10,
       date: form.date, totalStudents: Number(form.totalStudents) || 32,
       rubricDescription: form.rubricDescription.trim() || null,
@@ -365,6 +509,7 @@ function AssessmentsPage() {
             <Button variant="outline" asChild>
               <Link to="/report-card" search={{ studentId: "" }}><FileText className="mr-2 h-4 w-4" /> Report cards</Link>
             </Button>
+            <ComputeGradesDialog schoolId={schoolId} classList={classList} />
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> Add assessment</Button>
@@ -399,9 +544,9 @@ function AssessmentsPage() {
                   </div>
                   <div>
                     <Label>Term</Label>
-                    <Select value={form.term} onValueChange={(v) => setForm({ ...form, term: v as any })}>
+                    <Select value={form.term} onValueChange={(v) => setForm({ ...form, term: v })}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{TERMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                      <SelectContent>{TERM_OPTIONS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>

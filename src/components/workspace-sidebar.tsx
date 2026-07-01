@@ -478,6 +478,26 @@ export function WorkspaceSidebar() {
               { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
             ])}
           </>
+        ) : user?.role === "career_guidance" ? (
+          <>
+            {renderGroup("My Guidance Workspace", [
+              { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
+              { title: "Students", url: "/students", icon: Users, module: "students" },
+              { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
+              { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
+              { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
+            ])}
+            {renderGroup("Student Support", [
+              { title: "Student Welfare", url: "/student-welfare", icon: Heart, module: "student-welfare" },
+              { title: "Discipline", url: "/discipline", icon: ShieldAlert, module: "discipline" },
+              { title: "Activities & Clubs", url: "/activities", icon: Trophy, module: "activities" },
+            ])}
+            {renderGroup("Resources", [
+              { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
+              { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
+              { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
+            ])}
+          </>
         ) : (
           <>
             {renderGroup("Overview", schoolOverview)}

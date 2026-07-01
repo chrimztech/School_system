@@ -412,6 +412,27 @@ export const api = {
       unwrap<any>(apiClient.put(schoolPath(schoolId, `report-comments/student/${studentId}`), data, { params: { term, academicYear } })),
   },
 
+  // Term grades (weighted CA/midterm/exam rollup)
+  termGrades: {
+    compute: (schoolId: string, data: { classId: string; subjectName: string; term: string; academicYear: string }) =>
+      unwrap<any[]>(apiClient.post(schoolPath(schoolId, "term-grades/compute"), data)),
+    publish: (schoolId: string, id: string) =>
+      unwrap<any>(apiClient.patch(schoolPath(schoolId, `term-grades/${id}/publish`))),
+    history: (schoolId: string, studentId: string, academicYear: string, publishedOnly = false) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades"), { params: { studentId, academicYear, publishedOnly } })),
+    classStats: (schoolId: string, params: { classId: string; subjectName: string; term: string; academicYear: string }) =>
+      unwrap<{ average: number | null; distribution: Record<string, number> }>(
+        apiClient.get(schoolPath(schoolId, "term-grades/class-stats"), { params }),
+      ),
+  },
+
+  // Grade weight configuration
+  gradeWeights: {
+    get: (schoolId: string) => unwrap<any>(apiClient.get(schoolPath(schoolId, "grade-weights"))),
+    update: (schoolId: string, data: { caWeight: number; midtermWeight: number; examWeight: number }) =>
+      unwrap<any>(apiClient.put(schoolPath(schoolId, "grade-weights"), data)),
+  },
+
   // Fees
   fees: {
     payments: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/payments"))),

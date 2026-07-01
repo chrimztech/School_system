@@ -60,7 +60,7 @@ export const Route = createFileRoute("/user-management")({
   component: UserManagementPage,
 });
 
-const ROLE_OPTIONS: Role[] = ["super_admin", "school_admin", "teacher", "finance", "parent"];
+const ROLE_OPTIONS: Role[] = ["super_admin", "school_admin", "principal", "deputy_head", "teacher", "hod", "career_guidance", "finance", "parent"];
 
 type CreateForm = {
   name: string;
@@ -88,12 +88,30 @@ function normaliseRole(role: string | null | undefined): Role {
       return "school_admin";
     case "teacher":
       return "teacher";
+    case "hod":
+    case "head_of_department":
+    case "head of department":
+      return "hod";
     case "finance":
     case "finance_officer":
     case "finance officer":
       return "finance";
     case "parent":
       return "parent";
+    case "principal":
+    case "head_master":
+    case "headmaster":
+    case "head master":
+      return "principal";
+    case "deputy_head":
+    case "deputy_headteacher":
+    case "deputy head":
+      return "deputy_head";
+    case "career_guidance":
+    case "career_guidance_teacher":
+    case "career guidance":
+    case "career guidance teacher":
+      return "career_guidance";
     default:
       return "school_admin";
   }
