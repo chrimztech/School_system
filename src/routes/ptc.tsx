@@ -18,6 +18,7 @@ import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/ptc")({
   head: () => ({ meta: [{ title: "PTC Committee — SRMS" }] }),
@@ -106,6 +107,66 @@ function PtcPage() {
   const [meetingForm, setMeetingForm] = useState(emptyMeetingForm(term, year));
   const [txOpen, setTxOpen] = useState(false);
   const [txForm, setTxForm] = useState(emptyTxForm());
+
+  // Picker data — only fetched while the dialog is open and the matching seat type is selected.
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["ptc-picker-students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: memberOpen && memberForm.memberType === "PARENT",
+  });
+  const { data: pickerTeachers = [], isLoading: pickerTeachersLoading } = useQuery({
+    queryKey: ["ptc-picker-teachers", schoolId],
+    queryFn: () => api.teachers.list(schoolId),
+    enabled: memberOpen && memberForm.memberType === "TEACHER",
+  });
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["ptc-picker-users", schoolId],
+    queryFn: () => api.users.list(schoolId),
+    enabled: memberOpen && memberForm.memberType === "ADMIN",
+  });
+
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: [s.className || s.grade, s.guardian ? `Guardian: ${s.guardian}` : null].filter(Boolean).join(" · "),
+  }));
+  const teacherOptions: PersonOption[] = (pickerTeachers as any[]).map((t) => ({
+    id: t.id,
+    label: `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || t.id,
+    sublabel: t.email,
+  }));
+  const userOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
+
+  const selectStudentForMember = (option: PersonOption) => {
+    const student = (pickerStudents as any[]).find((s) => s.id === option.id);
+    if (!student) return;
+    setMemberForm((prev) => ({
+      ...prev,
+      name: student.guardian || prev.name,
+      studentName: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(),
+      email: student.guardianEmail || prev.email,
+      phone: student.guardianPhone || prev.phone,
+    }));
+  };
+
+  const selectTeacherForMember = (option: PersonOption) => {
+    const teacher = (pickerTeachers as any[]).find((t) => t.id === option.id);
+    if (!teacher) return;
+    setMemberForm((prev) => ({
+      ...prev,
+      name: `${teacher.firstName ?? ""} ${teacher.lastName ?? ""}`.trim() || prev.name,
+      email: teacher.email || prev.email,
+      phone: teacher.phone || prev.phone,
+    }));
+  };
+
+  const selectUserForMember = (option: PersonOption) => {
+    const person = (pickerUsers as any[]).find((u) => u.id === option.id);
+    if (!person) return;
+    setMemberForm((prev) => ({ ...prev, name: person.name || prev.name, email: person.email || prev.email, phone: person.phone || prev.phone }));
+  };
 
   const { data: membersRaw = [], isLoading: membersLoading } = useQuery({
     queryKey: ["ptc-members", schoolId],
@@ -245,6 +306,37 @@ function PtcPage() {
                             <SelectContent>{MEMBER_TYPES.map((t) => <SelectItem key={t} value={t}>{t === "PARENT" ? "Parent representative" : t === "TEACHER" ? "Teacher representative" : "School administration"}</SelectItem>)}</SelectContent>
                           </Select>
                         </div>
+                      </div>
+                      <div>
+                        <Label>Find existing {memberForm.memberType === "PARENT" ? "student" : memberForm.memberType === "TEACHER" ? "teacher" : "staff member"}</Label>
+                        <div className="mt-1">
+                          {memberForm.memberType === "PARENT" ? (
+                            <PersonCombobox
+                              options={studentOptions}
+                              loading={pickerStudentsLoading}
+                              placeholder="Search enrolled students…"
+                              emptyText="No students found."
+                              onSelect={selectStudentForMember}
+                            />
+                          ) : memberForm.memberType === "TEACHER" ? (
+                            <PersonCombobox
+                              options={teacherOptions}
+                              loading={pickerTeachersLoading}
+                              placeholder="Search teaching staff…"
+                              emptyText="No teachers found."
+                              onSelect={selectTeacherForMember}
+                            />
+                          ) : (
+                            <PersonCombobox
+                              options={userOptions}
+                              loading={pickerUsersLoading}
+                              placeholder="Search school staff…"
+                              emptyText="No staff found."
+                              onSelect={selectUserForMember}
+                            />
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">Fills in the fields below — you can still edit them afterwards.</p>
                       </div>
                       {memberForm.memberType === "PARENT" && (
                         <div>
