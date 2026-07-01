@@ -75,21 +75,32 @@ interface ResultRow {
 function ResultsSheet({
   assessment,
   schoolId,
+  classes,
   open,
   onClose,
 }: {
   assessment: any;
   schoolId: string;
+  classes: any[];
   open: boolean;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<ResultRow[]>([]);
 
-  const studentsQuery = useQuery({
-    queryKey: ["students", schoolId],
-    queryFn: () => api.students.list(schoolId),
-    enabled: open,
+  // Assessment.classId is stored as the class's display name (or occasionally its real id) —
+  // resolve it to the real SchoolClass id before looking up enrolments.
+  const resolvedClassId = useMemo(() => {
+    const target = assessment?.classId ?? assessment?.class;
+    if (!target) return undefined;
+    const match = classes.find((c: any) => c.id === target || c.name === target || c.className === target);
+    return match?.id ?? target;
+  }, [assessment, classes]);
+
+  const enrolmentsQuery = useQuery({
+    queryKey: ["class-enrolments", schoolId, resolvedClassId],
+    queryFn: () => api.classes.enrolments(schoolId, resolvedClassId),
+    enabled: open && !!resolvedClassId,
   });
 
   const resultsQuery = useQuery({
@@ -97,36 +108,32 @@ function ResultsSheet({
     queryFn: () => api.assessments.results(schoolId, assessment.id),
     enabled: open && !!assessment?.id,
   });
-  const allStudents = (studentsQuery.data ?? EMPTY_ITEMS) as any[];
+  const enrolments = (enrolmentsQuery.data ?? EMPTY_ITEMS) as any[];
   const existingResults = (resultsQuery.data ?? EMPTY_ITEMS) as any[];
-  const studentsLoading = studentsQuery.isLoading;
+  const studentsLoading = enrolmentsQuery.isLoading;
   const resultsLoading = resultsQuery.isLoading;
 
-  // Filter students in this class and build rows
+  // Build rows from the class's actual enrolment roster
   useEffect(() => {
     if (!open || !assessment) return;
-    const classStudents = (allStudents as any[]).filter((s: any) => {
-      const cls = s.classId || s.class || s.currentClass || "";
-      return cls === assessment.classId || cls === assessment.className || cls === assessment.class;
-    });
 
     const resultsMap: Record<string, any> = {};
     (existingResults as any[]).forEach((r: any) => { resultsMap[r.studentId] = r; });
 
-    setRows(classStudents.map((s: any) => {
-      const existing = resultsMap[s.id];
+    setRows(enrolments.map((e: any) => {
+      const existing = resultsMap[e.studentId];
       const score = existing ? String(existing.score ?? "") : "";
       const absent = existing?.absent ?? false;
       const grade = absent ? "—" : existing?.grade ?? (score !== "" ? computeGrade(Number(score), assessment.maxScore) : "");
       return {
-        studentId: s.id,
-        studentName: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.name || s.id,
+        studentId: e.studentId,
+        studentName: e.studentName || e.studentId,
         score,
         absent,
         grade,
       };
     }));
-  }, [open, assessment, allStudents, existingResults]);
+  }, [open, assessment, enrolments, existingResults]);
 
   const updateRow = (studentId: string, field: "score" | "absent", value: string | boolean) => {
     setRows((prev) => prev.map((r) => {
@@ -720,6 +727,7 @@ function AssessmentsPage() {
         <ResultsSheet
           assessment={selectedAssessment}
           schoolId={schoolId}
+          classes={classesData as any[]}
           open={!!selectedAssessment}
           onClose={() => setSelectedAssessment(null)}
         />
