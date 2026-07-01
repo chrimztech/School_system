@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Users, CalendarOff, Award, BriefcaseBusiness, Plus, Loader2 } from "lucide-react";
+import { Users, CalendarOff, Award, BriefcaseBusiness, Plus, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
@@ -30,6 +31,7 @@ function HRPage() {
   const qc = useQueryClient();
 
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState({
     name: "", role: "", dept: "", contract: "Permanent" as typeof CONTRACTS[number],
     status: "Active" as "Active" | "On leave", gender: "Male" as "Male" | "Female",
@@ -160,6 +162,7 @@ function HRPage() {
             <Button variant="outline" asChild>
               <Link to="/duty-roster">Duty roster</Link>
             </Button>
+            <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Import staff</Button>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" />Add staff</Button>
@@ -408,6 +411,84 @@ function HRPage() {
           <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
         </TabsContent>
       </Tabs>
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import staff"
+        entityName="staff record"
+        columns={[
+          { key: "firstName", label: "First Name", required: true, example: "John" },
+          { key: "lastName", label: "Last Name", required: true, example: "Daka" },
+          { key: "email", label: "Email", required: true, example: "john.daka@school.edu.zm" },
+          { key: "phone", label: "Phone", example: "+260 966 000001" },
+          { key: "role", label: "Role / Position", example: "Biology Teacher" },
+          { key: "department", label: "Department", example: "Science" },
+          { key: "qualification", label: "Qualification", example: "BSc Ed. (UNZA)" },
+          { key: "gender", label: "Gender", example: "Male" },
+          { key: "dateJoined", label: "Date Joined", example: "2022-01-10" },
+          { key: "nationalId", label: "National ID", example: "123456/78/1" },
+          { key: "bankName", label: "Bank Name", example: "ZANACO" },
+          { key: "bankAccount", label: "Bank Account", example: "4000012345" },
+          { key: "emergencyContactName", label: "Emergency Contact Name", example: "Mary Daka" },
+          { key: "emergencyContactPhone", label: "Emergency Contact Phone", example: "+260 977 000001" },
+        ]}
+        onDone={() => { void qc.invalidateQueries({ queryKey: ["teachers", schoolId] }); void qc.invalidateQueries({ queryKey: ["school-users", schoolId] }); }}
+        onImport={async (rows) => {
+          const result: ImportResult = { imported: 0, errors: [] };
+          const valid: { row: number; dto: any }[] = [];
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row["First Name"]?.trim() || !row["Last Name"]?.trim() || !row["Email"]?.trim()) {
+              result.errors.push({ row: i + 2, error: "First Name, Last Name and Email are required" });
+              continue;
+            }
+            valid.push({
+              row: i + 2,
+              dto: {
+                firstName: row["First Name"].trim(),
+                lastName: row["Last Name"].trim(),
+                email: row["Email"].trim(),
+                phone: row["Phone"]?.trim() || null,
+                subject: row["Role / Position"]?.trim() || null,
+                department: row["Department"]?.trim() || deptNames[0] || "",
+                qualification: row["Qualification"]?.trim() || null,
+                gender: row["Gender"]?.trim() || "Male",
+                dateJoined: row["Date Joined"]?.trim() || new Date().toISOString().slice(0, 10),
+                nationalId: row["National ID"]?.trim() || null,
+                bankName: row["Bank Name"]?.trim() || null,
+                bankAccount: row["Bank Account"]?.trim() || null,
+                emergencyContactName: row["Emergency Contact Name"]?.trim() || null,
+                emergencyContactPhone: row["Emergency Contact Phone"]?.trim() || null,
+                status: "active",
+              },
+            });
+          }
+          if (valid.length > 0) {
+            try {
+              const bulk = await api.teachers.bulkCreate(schoolId, valid.map((v) => v.dto));
+              result.imported += bulk.imported;
+              const failedRows = new Set(bulk.errors.map((e) => e.row));
+              bulk.errors.forEach((e) => result.errors.push({ row: valid[e.row]?.row ?? -1, error: e.error }));
+              await Promise.all(
+                valid
+                  .filter((_, i) => !failedRows.has(i))
+                  .map((v) =>
+                    api.users.create(schoolId, {
+                      name: `${v.dto.firstName ?? ""} ${v.dto.lastName ?? ""}`.trim(),
+                      email: v.dto.email,
+                      role: "teacher",
+                    }).catch(() => { /* login may already exist */ })
+                  )
+              );
+            } catch (e: any) {
+              valid.forEach((v) => result.errors.push({ row: v.row, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" }));
+            }
+          }
+          result.errors.sort((a, b) => a.row - b.row);
+          return result;
+        }}
+      />
     </div>
     </AccessGuard>
   );

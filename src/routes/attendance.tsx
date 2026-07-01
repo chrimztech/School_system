@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarCheck, UserX, Clock, WifiOff, Plus, Loader2 } from "lucide-react";
+import { CalendarCheck, UserX, Clock, WifiOff, Plus, Loader2, HeartPulse, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,8 +22,17 @@ export const Route = createFileRoute("/attendance")({
 });
 
 
-type EntryStatus = "present" | "absent" | "late";
+type EntryStatus = "present" | "absent" | "late" | "sick" | "excused";
 type AttendanceEntry = { id: string; student: string; status: EntryStatus };
+
+const STATUS_META: Record<EntryStatus, { label: string; short: string; border: string; bg: string; dot: string }> = {
+  present: { label: "Present", short: "P", border: "border-emerald-500", bg: "bg-emerald-500", dot: "bg-emerald-500" },
+  late: { label: "Late", short: "L", border: "border-amber-500", bg: "bg-amber-500", dot: "bg-amber-500" },
+  absent: { label: "Absent", short: "A", border: "border-destructive", bg: "bg-destructive", dot: "bg-destructive" },
+  sick: { label: "Sick", short: "S", border: "border-sky-500", bg: "bg-sky-500", dot: "bg-sky-500" },
+  excused: { label: "Absent w/ permission", short: "E", border: "border-violet-500", bg: "bg-violet-500", dot: "bg-violet-500" },
+};
+const STATUS_ORDER: EntryStatus[] = ["present", "late", "absent", "sick", "excused"];
 
 function AttendancePage() {
   const { active } = useTenant();
@@ -40,7 +49,7 @@ function AttendancePage() {
   const [selectedClass, setSelectedClass] = useState("");
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
 
-  const { data: summary = { present: 0, absent: 0, late: 0, rate: 0 } } = useQuery({
+  const { data: summary = { present: 0, absent: 0, late: 0, sick: 0, excused: 0, rate: 0 } } = useQuery({
     queryKey: ["attendance-summary", schoolId],
     queryFn: () => api.attendance.summary(schoolId),
     staleTime: 0,
@@ -127,7 +136,7 @@ function AttendancePage() {
               <DialogTrigger asChild>
                 <Button><Plus className="mr-1 h-4 w-4" />Mark attendance</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
+              <DialogContent className="sm:max-w-2xl">
                 <DialogHeader><DialogTitle>Mark class register</DialogTitle></DialogHeader>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -148,24 +157,23 @@ function AttendancePage() {
                       <thead className="sticky top-0 bg-muted/80">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">Student</th>
-                          <th className="px-3 py-2 text-center font-medium">Present</th>
-                          <th className="px-3 py-2 text-center font-medium">Late</th>
-                          <th className="px-3 py-2 text-center font-medium">Absent</th>
+                          {STATUS_ORDER.map((s) => (
+                            <th key={s} className="px-2 py-2 text-center font-medium" title={STATUS_META[s].label}>{STATUS_META[s].short}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
                         {classEntries.map((e) => (
                           <tr key={e.id} className="border-t border-border">
                             <td className="px-3 py-2 font-medium">{e.student}</td>
-                            {(["present", "late", "absent"] as const).map((s) => (
-                              <td key={s} className="px-3 py-2 text-center">
+                            {STATUS_ORDER.map((s) => (
+                              <td key={s} className="px-2 py-2 text-center">
                                 <button
                                   onClick={() => toggleStatus(e.id, s)}
+                                  title={STATUS_META[s].label}
                                   className={`h-5 w-5 rounded-full border-2 transition ${
                                     e.status === s
-                                      ? s === "present" ? "border-emerald-500 bg-emerald-500"
-                                      : s === "late" ? "border-amber-500 bg-amber-500"
-                                      : "border-destructive bg-destructive"
+                                      ? `${STATUS_META[s].border} ${STATUS_META[s].bg}`
                                       : "border-muted-foreground/30"
                                   }`}
                                 />
@@ -176,10 +184,13 @@ function AttendancePage() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-emerald-500" />Present: {classEntries.filter((e) => e.status === "present").length}</span>
-                    <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-amber-500" />Late: {classEntries.filter((e) => e.status === "late").length}</span>
-                    <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-destructive" />Absent: {classEntries.filter((e) => e.status === "absent").length}</span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                    {STATUS_ORDER.map((s) => (
+                      <span key={s} className="flex items-center gap-1.5">
+                        <span className={`h-3 w-3 rounded-full ${STATUS_META[s].dot}`} />
+                        {STATUS_META[s].label}: {classEntries.filter((e) => e.status === s).length}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <DialogFooter>
@@ -216,10 +227,12 @@ function AttendancePage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Present" value={summ.present ?? 0} accent="success" icon={<CalendarCheck className="h-4 w-4" />} />
         <StatCard label="Absent" value={summ.absent ?? 0} accent="destructive" icon={<UserX className="h-4 w-4" />} />
         <StatCard label="Late" value={summ.late ?? 0} accent="warning" icon={<Clock className="h-4 w-4" />} />
+        <StatCard label="Sick" value={summ.sick ?? 0} accent="primary" icon={<HeartPulse className="h-4 w-4" />} />
+        <StatCard label="Excused" value={summ.excused ?? 0} accent="accent" icon={<ShieldCheck className="h-4 w-4" />} />
         <StatCard label="Rate" value={`${summ.rate ?? 0}%`} accent="primary" />
       </div>
 
@@ -233,15 +246,13 @@ function AttendancePage() {
         <TabsContent value="today" className="mt-4 space-y-4">
           {/* Per-class statistics */}
           {(recentRecords as any[]).length > 0 && (() => {
-            const byClass = new Map<string, { present: number; absent: number; late: number; total: number }>();
+            const byClass = new Map<string, Record<EntryStatus, number> & { total: number }>();
             for (const r of recentRecords as any[]) {
               const cls = r.className ?? r.class ?? "Unknown";
-              if (!byClass.has(cls)) byClass.set(cls, { present: 0, absent: 0, late: 0, total: 0 });
+              if (!byClass.has(cls)) byClass.set(cls, { present: 0, absent: 0, late: 0, sick: 0, excused: 0, total: 0 });
               const c = byClass.get(cls)!;
               c.total++;
-              if (r.status === "present") c.present++;
-              else if (r.status === "absent") c.absent++;
-              else if (r.status === "late") c.late++;
+              if (STATUS_ORDER.includes(r.status)) c[r.status as EntryStatus]++;
             }
             return (
               <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -250,10 +261,10 @@ function AttendancePage() {
                   {Array.from(byClass.entries()).map(([cls, stats]) => (
                     <div key={cls} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
                       <p className="w-28 shrink-0 text-sm font-medium">{cls}</p>
-                      <div className="flex flex-1 items-center gap-4 text-xs">
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />{stats.present} present</span>
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{stats.absent} absent</span>
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />{stats.late} late</span>
+                      <div className="flex flex-1 flex-wrap items-center gap-3 text-xs">
+                        {STATUS_ORDER.map((s) => (
+                          <span key={s} className="flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${STATUS_META[s].dot}`} />{stats[s]} {STATUS_META[s].label.toLowerCase()}</span>
+                        ))}
                       </div>
                       <p className="text-xs text-muted-foreground">{stats.total} students · {stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%</p>
                     </div>
@@ -276,8 +287,11 @@ function AttendancePage() {
                       <p className="text-sm font-medium">{r.studentName ?? r.student ?? "—"}</p>
                       <p className="text-xs text-muted-foreground">{r.className ?? r.class ?? "—"} · {String(r.date ?? "").slice(0, 10)}</p>
                     </div>
-                    <Badge variant={r.status === "present" ? "secondary" : r.status === "late" ? "outline" : "destructive"}>
-                      {r.status}
+                    <Badge
+                      variant="outline"
+                      className={STATUS_ORDER.includes(r.status) ? `border-transparent text-white ${STATUS_META[r.status as EntryStatus].bg}` : undefined}
+                    >
+                      {STATUS_ORDER.includes(r.status) ? STATUS_META[r.status as EntryStatus].label : r.status}
                     </Badge>
                   </div>
                 ))}

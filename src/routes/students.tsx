@@ -651,6 +651,7 @@ function StudentsListPage() {
         onDone={() => void qc.invalidateQueries({ queryKey: ["students", schoolId, teacherEmail] })}
         onImport={async (rows) => {
           const result: ImportResult = { imported: 0, errors: [] };
+          const valid: { row: number; dto: any }[] = [];
           for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             if (!row["First Name"]?.trim() || !row["Last Name"]?.trim()) {
@@ -665,8 +666,9 @@ function StudentsListPage() {
               result.errors.push({ row: i + 2, error: "Guardian Name and Guardian Phone are required" });
               continue;
             }
-            try {
-              await api.students.create(schoolId, {
+            valid.push({
+              row: i + 2,
+              dto: {
                 firstName: row["First Name"].trim(),
                 middleName: row["Middle Name"]?.trim() || null,
                 lastName: row["Last Name"].trim(),
@@ -691,12 +693,19 @@ function StudentsListPage() {
                 emergencyContactName: row["Emergency Contact Name"]?.trim() || null,
                 emergencyContactPhone: row["Emergency Contact Phone"]?.trim() || null,
                 status: row["Status"]?.trim() || "active",
-              });
-              result.imported++;
+              },
+            });
+          }
+          if (valid.length > 0) {
+            try {
+              const bulk = await api.students.bulkCreate(schoolId, valid.map((v) => v.dto));
+              result.imported += bulk.imported;
+              bulk.errors.forEach((e) => result.errors.push({ row: valid[e.row]?.row ?? -1, error: e.error }));
             } catch (e: any) {
-              result.errors.push({ row: i + 2, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" });
+              valid.forEach((v) => result.errors.push({ row: v.row, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" }));
             }
           }
+          result.errors.sort((a, b) => a.row - b.row);
           return result;
         }}
       />

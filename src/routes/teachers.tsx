@@ -558,15 +558,17 @@ function TeachersListPage() {
         onDone={() => void qc.invalidateQueries({ queryKey: ["teachers", schoolId] })}
         onImport={async (rows) => {
           const result: ImportResult = { imported: 0, errors: [] };
+          const valid: { row: number; dto: any }[] = [];
           for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             if (!row["First Name"]?.trim() || !row["Last Name"]?.trim() || !row["Email"]?.trim()) {
               result.errors.push({ row: i + 2, error: "First Name, Last Name and Email are required" });
               continue;
             }
-            try {
-              const dept = row["Department"]?.trim() ?? deptNames[0] ?? "";
-              const created = await api.teachers.create(schoolId, {
+            const dept = row["Department"]?.trim() ?? deptNames[0] ?? "";
+            valid.push({
+              row: i + 2,
+              dto: {
                 firstName: row["First Name"].trim(),
                 lastName: row["Last Name"].trim(),
                 email: row["Email"].trim(),
@@ -586,20 +588,32 @@ function TeachersListPage() {
                 emergencyContactName: row["Emergency Contact Name"]?.trim() || null,
                 emergencyContactPhone: row["Emergency Contact Phone"]?.trim() || null,
                 status: "active",
-              });
-              // Auto-create login
-              if (created?.email) {
-                await api.users.create(schoolId, {
-                  name: `${created.firstName ?? ""} ${created.lastName ?? ""}`.trim(),
-                  email: created.email,
-                  role: "teacher",
-                }).catch(() => { /* login may already exist */ });
-              }
-              result.imported++;
+              },
+            });
+          }
+          if (valid.length > 0) {
+            try {
+              const bulk = await api.teachers.bulkCreate(schoolId, valid.map((v) => v.dto));
+              result.imported += bulk.imported;
+              const failedRows = new Set(bulk.errors.map((e) => e.row));
+              bulk.errors.forEach((e) => result.errors.push({ row: valid[e.row]?.row ?? -1, error: e.error }));
+              // Auto-create logins for every row that actually landed
+              await Promise.all(
+                valid
+                  .filter((_, i) => !failedRows.has(i))
+                  .map((v) =>
+                    api.users.create(schoolId, {
+                      name: `${v.dto.firstName ?? ""} ${v.dto.lastName ?? ""}`.trim(),
+                      email: v.dto.email,
+                      role: "teacher",
+                    }).catch(() => { /* login may already exist */ })
+                  )
+              );
             } catch (e: any) {
-              result.errors.push({ row: i + 2, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" });
+              valid.forEach((v) => result.errors.push({ row: v.row, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" }));
             }
           }
+          result.errors.sort((a, b) => a.row - b.row);
           return result;
         }}
       />

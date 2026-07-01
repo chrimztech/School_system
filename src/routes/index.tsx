@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, CalendarCheck, Wallet, GraduationCap, TrendingUp, AlertCircle, ShieldAlert, ClipboardList, Truck, Download, Plus, UserPlus, Receipt, Wrench, Award, ShieldCheck, BookText, HandCoins, Heart, Building2, Activity, Layers, LifeBuoy, FileCog, FileText, CreditCard, HardDrive, Loader2, BookOpen, ChevronRight, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Users, CalendarCheck, Wallet, GraduationCap, TrendingUp, AlertCircle, ShieldAlert, ClipboardList, Truck, Download, Plus, UserPlus, Receipt, Wrench, Award, ShieldCheck, BookText, HandCoins, Heart, Building2, Activity, Layers, LifeBuoy, FileCog, FileText, CreditCard, HardDrive, Loader2, BookOpen, ChevronRight, CheckCircle2, XCircle, Clock, HeartPulse } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -116,6 +116,8 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
   const presentDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "present").length;
   const absentDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "absent").length;
   const lateDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "late").length;
+  const sickDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "sick").length;
+  const excusedDays = attendanceHistory.filter((a: any) => (a.status ?? "").toLowerCase() === "excused").length;
   const attendanceRate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : (child.attendanceRate ?? null);
 
   // Performance stats — sourced from published term grades (same weighted total the report card shows),
@@ -192,7 +194,7 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
             <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarCheck className="h-4 w-4" />Attendance rate</div>
               <p className="mt-2 text-2xl font-semibold">{attendanceRate != null ? `${attendanceRate}%` : "—"}</p>
-              <p className="text-xs text-muted-foreground">{totalDays > 0 ? `${presentDays} present · ${absentDays} absent · ${lateDays} late` : "No data yet"}</p>
+              <p className="text-xs text-muted-foreground">{totalDays > 0 ? `${presentDays} present · ${absentDays} absent · ${lateDays} late · ${sickDays} sick · ${excusedDays} excused` : "No data yet"}</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-center gap-2 text-xs text-muted-foreground"><Wallet className="h-4 w-4" />Fee balance</div>
@@ -422,11 +424,13 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-6 border-b border-border px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center gap-6 border-b border-border px-4 py-3 text-sm">
                 <span className="text-muted-foreground">Total: <strong className="text-foreground">{totalDays}</strong></span>
                 <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" />Present: <strong>{presentDays}</strong></span>
                 <span className="flex items-center gap-1 text-destructive"><XCircle className="h-3.5 w-3.5" />Absent: <strong>{absentDays}</strong></span>
                 <span className="flex items-center gap-1 text-amber-600"><Clock className="h-3.5 w-3.5" />Late: <strong>{lateDays}</strong></span>
+                <span className="flex items-center gap-1 text-sky-600"><HeartPulse className="h-3.5 w-3.5" />Sick: <strong>{sickDays}</strong></span>
+                <span className="flex items-center gap-1 text-violet-600"><ShieldCheck className="h-3.5 w-3.5" />Excused: <strong>{excusedDays}</strong></span>
               </div>
               <Table>
                 <TableHeader>
@@ -440,13 +444,19 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                 <TableBody>
                   {attendanceHistory.slice(0, 60).map((a: any) => {
                     const status = (a.status ?? "present").toLowerCase();
+                    const badge = {
+                      present: { cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400", icon: <CheckCircle2 className="mr-1 h-3 w-3" /> },
+                      late: { cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400", icon: <Clock className="mr-1 h-3 w-3" /> },
+                      sick: { cls: "bg-sky-500/15 text-sky-700 dark:text-sky-400", icon: <HeartPulse className="mr-1 h-3 w-3" /> },
+                      excused: { cls: "bg-violet-500/15 text-violet-700 dark:text-violet-400", icon: <ShieldCheck className="mr-1 h-3 w-3" /> },
+                    }[status as "present" | "late" | "sick" | "excused"] ?? { cls: "bg-destructive/15 text-destructive", icon: <XCircle className="mr-1 h-3 w-3" /> };
                     return (
                       <TableRow key={a.id}>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{a.date ?? (a.createdAt ?? "").slice(0, 10)}</TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${status === "present" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : status === "late" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-destructive/15 text-destructive"}`}>
-                            {status === "present" ? <CheckCircle2 className="mr-1 h-3 w-3" /> : status === "late" ? <Clock className="mr-1 h-3 w-3" /> : <XCircle className="mr-1 h-3 w-3" />}
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          <Badge className={`text-[10px] ${badge.cls}`}>
+                            {badge.icon}
+                            {status === "excused" ? "Absent w/ permission" : status.charAt(0).toUpperCase() + status.slice(1)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{a.subjectName ?? a.className ?? a.classId ?? "—"}</TableCell>

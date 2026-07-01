@@ -325,6 +325,7 @@ export const api = {
     listByGuardian: (schoolId: string, email: string) =>
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "students/by-guardian"), { params: { email } })),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "students"), data)),
+    bulkCreate: (schoolId: string, data: any[]) => unwrap<{ imported: number; errors: { row: number; error: string }[] }>(apiClient.post(schoolPath(schoolId, "students/bulk"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `students/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `students/${id}`)),
   },
@@ -334,6 +335,7 @@ export const api = {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "teachers"))),
     get: (schoolId: string, id: string) => unwrap<any>(apiClient.get(schoolPath(schoolId, `teachers/${id}`))),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "teachers"), data)),
+    bulkCreate: (schoolId: string, data: any[]) => unwrap<{ imported: number; errors: { row: number; error: string }[] }>(apiClient.post(schoolPath(schoolId, "teachers/bulk"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `teachers/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `teachers/${id}`)),
   },
