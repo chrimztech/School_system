@@ -18,6 +18,7 @@ import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/activities")({
@@ -79,6 +80,15 @@ function ActivitiesPage() {
     queryKey: ["activities", schoolId],
     queryFn: () => api.activities.list(schoolId),
   });
+
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["activities-picker-users", schoolId],
+    queryFn: () => api.users.list(schoolId),
+    enabled: clubOpen,
+  });
+  const staffOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.activities.create(schoolId, data),
@@ -214,7 +224,16 @@ function ActivitiesPage() {
                     </div>
                     <div>
                       <Label>Patron / leader *</Label>
-                      <Input className="mt-1" value={clubForm.leader} onChange={(event) => setClubForm({ ...clubForm, leader: event.target.value })} placeholder="Mr. Phiri" maxLength={80} />
+                      <div className="mt-1 space-y-1.5">
+                        <PersonCombobox
+                          options={staffOptions}
+                          loading={pickerUsersLoading}
+                          placeholder="Search school staff…"
+                          emptyText="No staff found."
+                          onSelect={(option) => setClubForm((prev) => ({ ...prev, leader: option.label }))}
+                        />
+                        <Input value={clubForm.leader} onChange={(event) => setClubForm({ ...clubForm, leader: event.target.value })} placeholder="Mr. Phiri" maxLength={80} />
+                      </div>
                     </div>
                   </div>
 

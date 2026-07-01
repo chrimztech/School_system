@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/bursaries")({
   head: () => ({ meta: [{ title: "Bursaries - SRMS" }] }),
@@ -55,6 +56,16 @@ function BursariesPage() {
     queryKey: ["bursaries", schoolId],
     queryFn: () => api.bursaries.list(schoolId),
   });
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["bursary-picker-students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: open,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
   const { data: applicationsRaw = [], isLoading: applicationsLoading } = useQuery({
     queryKey: ["bursary-applications", schoolId],
     queryFn: () => api.bursaries.applications(schoolId),
@@ -166,6 +177,18 @@ function BursariesPage() {
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader><DialogTitle>Create bursary award</DialogTitle></DialogHeader>
                 <div className="grid gap-3">
+                  <div>
+                    <Label>Find student</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={studentOptions}
+                        loading={pickerStudentsLoading}
+                        placeholder="Search enrolled students…"
+                        emptyText="No students found."
+                        onSelect={(option) => setForm((prev) => ({ ...prev, student: option.label }))}
+                      />
+                    </div>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <Label>Student *</Label>

@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/hostel")({
   head: () => ({ meta: [{ title: "Hostel & Boarding — SRMS" }] }),
@@ -75,6 +76,18 @@ function HostelPage() {
     queryKey: ["hostel-leaves", schoolId],
     queryFn: () => api.hostel.leaves(schoolId),
   });
+
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["hostel-picker-students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: allocOpen || leaveOpen,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
+  const findPickerStudent = (id: string) => (pickerStudents as any[]).find((s) => s.id === id);
 
   // ── Normalised data ───────────────────────────────────────────
   const rooms = (roomsData as any[]).map((r: any) => ({
@@ -308,6 +321,26 @@ function HostelPage() {
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label>Find student</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={studentOptions}
+                        loading={pickerStudentsLoading}
+                        placeholder="Search enrolled students…"
+                        emptyText="No students found."
+                        onSelect={(option) => {
+                          const student = findPickerStudent(option.id);
+                          if (!student) return;
+                          setAllocForm((prev) => ({
+                            ...prev,
+                            name: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(),
+                            grade: student.className || student.grade || prev.grade,
+                          }));
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <Label>Student name *</Label>
                     <Input className="mt-1" value={allocForm.name} onChange={(e) => setAllocForm({ ...allocForm, name: e.target.value })} placeholder="Chanda Mwape" maxLength={100} />
@@ -510,6 +543,22 @@ function HostelPage() {
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader><DialogTitle>Submit leave request</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label>Find student</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={studentOptions}
+                        loading={pickerStudentsLoading}
+                        placeholder="Search enrolled students…"
+                        emptyText="No students found."
+                        onSelect={(option) => {
+                          const student = findPickerStudent(option.id);
+                          if (!student) return;
+                          setLeaveForm((prev) => ({ ...prev, student: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim() }));
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <Label>Student name *</Label>
                     <Input className="mt-1" value={leaveForm.student} onChange={(e) => setLeaveForm({ ...leaveForm, student: e.target.value })} placeholder="Mwila Chanda" maxLength={100} />

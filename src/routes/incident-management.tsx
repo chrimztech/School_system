@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/incident-management")({
   head: () => ({ meta: [{ title: "Incident Management — SRMS" }] }),
@@ -53,6 +54,25 @@ function IncidentManagementPage() {
     queryKey: ["incidents", active.id],
     queryFn: () => api.incidents.list(active.id),
   });
+
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["incident-picker-students", active.id],
+    queryFn: () => api.students.list(active.id),
+    enabled: open,
+  });
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["incident-picker-users", active.id],
+    queryFn: () => api.users.list(active.id),
+    enabled: open,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
+  const staffOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
 
   const createMut = useMutation({
     mutationFn: (data: any) => api.incidents.create(active.id, data),
@@ -159,11 +179,30 @@ function IncidentManagementPage() {
                 </div>
                 <div>
                   <Label>Injured party</Label>
-                  <Input className="mt-1" value={form.injuredParty} onChange={(e) => setForm({ ...form, injuredParty: e.target.value })} placeholder="Name(s) if injury occurred" maxLength={120} disabled={form.injuryOccurred !== "yes"} />
+                  <div className="mt-1 space-y-1.5">
+                    <PersonCombobox
+                      options={studentOptions}
+                      loading={pickerStudentsLoading}
+                      placeholder="Search students…"
+                      emptyText="No students found."
+                      disabled={form.injuryOccurred !== "yes"}
+                      onSelect={(option) => setForm((prev) => ({ ...prev, injuredParty: option.label }))}
+                    />
+                    <Input value={form.injuredParty} onChange={(e) => setForm({ ...form, injuredParty: e.target.value })} placeholder="Name(s) if injury occurred" maxLength={120} disabled={form.injuryOccurred !== "yes"} />
+                  </div>
                 </div>
                 <div>
                   <Label>Investigation assigned to</Label>
-                  <Input className="mt-1" value={form.investigationAssignedTo} onChange={(e) => setForm({ ...form, investigationAssignedTo: e.target.value })} placeholder="e.g. Deputy Head, Security" maxLength={100} />
+                  <div className="mt-1 space-y-1.5">
+                    <PersonCombobox
+                      options={staffOptions}
+                      loading={pickerUsersLoading}
+                      placeholder="Search school staff…"
+                      emptyText="No staff found."
+                      onSelect={(option) => setForm((prev) => ({ ...prev, investigationAssignedTo: option.label }))}
+                    />
+                    <Input value={form.investigationAssignedTo} onChange={(e) => setForm({ ...form, investigationAssignedTo: e.target.value })} placeholder="e.g. Deputy Head, Security" maxLength={100} />
+                  </div>
                 </div>
                 <div>
                   <Label>Evidence / case reference</Label>

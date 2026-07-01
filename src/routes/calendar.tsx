@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/calendar")({
   head: () => ({ meta: [{ title: "Calendar - SRMS" }] }),
@@ -85,6 +86,15 @@ function CalendarPage() {
     queryKey: ["calendar", active.id],
     queryFn: () => api.calendar.list(active.id),
   });
+
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["calendar-picker-users", active.id],
+    queryFn: () => api.users.list(active.id),
+    enabled: open,
+  });
+  const staffOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
 
   const createMut = useMutation({
     mutationFn: (data: any) => api.calendar.create(active.id, data),
@@ -218,7 +228,16 @@ function CalendarPage() {
                 </div>
                 <div>
                   <Label>Event owner</Label>
-                  <Input className="mt-1" value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Deputy Head, Sports Office, PTA Chair" maxLength={100} />
+                  <div className="mt-1 space-y-1.5">
+                    <PersonCombobox
+                      options={staffOptions}
+                      loading={pickerUsersLoading}
+                      placeholder="Search school staff…"
+                      emptyText="No staff found."
+                      onSelect={(option) => setForm((prev) => ({ ...prev, owner: option.label }))}
+                    />
+                    <Input value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Deputy Head, Sports Office, PTA Chair" maxLength={100} />
+                  </div>
                 </div>
                 <div>
                   <Label>Transport / logistics</Label>

@@ -18,6 +18,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { downloadCsv } from "@/lib/utils";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/lost-found")({
   head: () => ({ meta: [{ title: "Lost & Found — SRMS" }] }),
@@ -59,6 +60,17 @@ function LostFoundPage() {
     returnMethod: "Counter collection", color: "", brand: "", notes: "",
   });
   const [claimForm, setClaimForm] = useState({ claimedBy: "", notes: "" });
+
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["lost-found-picker-students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: logOpen || claimOpen,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
 
   const { data: itemsData = [], isLoading } = useQuery({
     queryKey: ["lost-found", schoolId],
@@ -217,7 +229,16 @@ function LostFoundPage() {
                 </div>
                 <div>
                   <Label>Known owner name</Label>
-                  <Input className="mt-1" value={logForm.ownerName} onChange={(e) => setLogForm({ ...logForm, ownerName: e.target.value })} placeholder="If identifiable" maxLength={100} />
+                  <div className="mt-1 space-y-1.5">
+                    <PersonCombobox
+                      options={studentOptions}
+                      loading={pickerStudentsLoading}
+                      placeholder="Search students…"
+                      emptyText="No students found."
+                      onSelect={(option) => setLogForm((prev) => ({ ...prev, ownerName: option.label }))}
+                    />
+                    <Input value={logForm.ownerName} onChange={(e) => setLogForm({ ...logForm, ownerName: e.target.value })} placeholder="If identifiable" maxLength={100} />
+                  </div>
                 </div>
                 <div>
                   <Label>Owner contact</Label>
@@ -248,7 +269,20 @@ function LostFoundPage() {
               <p className="rounded-md bg-muted px-3 py-2 text-sm">{selectedItem.description}</p>
               <div>
                 <Label>Claimed by (name + class/role) *</Label>
-                <Input className="mt-1" value={claimForm.claimedBy} onChange={(e) => setClaimForm({ ...claimForm, claimedBy: e.target.value })} placeholder="Chanda Mwale (Form 3B)" maxLength={100} />
+                <div className="mt-1 space-y-1.5">
+                  <PersonCombobox
+                    options={studentOptions}
+                    loading={pickerStudentsLoading}
+                    placeholder="Search students…"
+                    emptyText="No students found."
+                    onSelect={(option) => {
+                      const student = (pickerStudents as any[]).find((s) => s.id === option.id);
+                      const grade = student?.className || student?.grade;
+                      setClaimForm((prev) => ({ ...prev, claimedBy: grade ? `${option.label} (${grade})` : option.label }));
+                    }}
+                  />
+                  <Input value={claimForm.claimedBy} onChange={(e) => setClaimForm({ ...claimForm, claimedBy: e.target.value })} placeholder="Chanda Mwale (Form 3B)" maxLength={100} />
+                </div>
               </div>
               <div>
                 <Label>Notes</Label>

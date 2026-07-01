@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/health")({
   head: () => ({ meta: [{ title: "Health & Clinic — SRMS" }] }),
@@ -51,6 +52,26 @@ function HealthPage() {
   });
 
   const [recOpen, setRecOpen] = useState(false);
+
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["health-picker-students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: open || recOpen,
+  });
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["health-picker-users", schoolId],
+    queryFn: () => api.users.list(schoolId),
+    enabled: open,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
+  const staffOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
+  const findPickerStudent = (id: string) => (pickerStudents as any[]).find((s) => s.id === id);
   const [recForm, setRecForm] = useState({
     studentName: "", grade: "", bloodGroup: "", allergies: "",
     chronicConditions: "", emergencyContact: "", emergencyPhone: "",
@@ -120,6 +141,22 @@ function HealthPage() {
               <DialogContent className="sm:max-w-3xl">
                 <DialogHeader><DialogTitle>Record clinic visit</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label>Find student</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={studentOptions}
+                        loading={pickerStudentsLoading}
+                        placeholder="Search enrolled students…"
+                        emptyText="No students found."
+                        onSelect={(option) => {
+                          const student = findPickerStudent(option.id);
+                          if (!student) return;
+                          setForm((prev) => ({ ...prev, student: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(), grade: student.className || student.grade || prev.grade }));
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <Label>Student name *</Label>
                     <Input className="mt-1" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} placeholder="Full name" maxLength={100} />
@@ -150,7 +187,16 @@ function HealthPage() {
                   </div>
                   <div>
                     <Label>Attending nurse / staff</Label>
-                    <Input className="mt-1" value={form.attendingNurse} onChange={(e) => setForm({ ...form, attendingNurse: e.target.value })} placeholder="School Nurse" maxLength={80} />
+                    <div className="mt-1 space-y-1.5">
+                      <PersonCombobox
+                        options={staffOptions}
+                        loading={pickerUsersLoading}
+                        placeholder="Search school staff…"
+                        emptyText="No staff found."
+                        onSelect={(option) => setForm((prev) => ({ ...prev, attendingNurse: option.label }))}
+                      />
+                      <Input value={form.attendingNurse} onChange={(e) => setForm({ ...form, attendingNurse: e.target.value })} placeholder="School Nurse" maxLength={80} />
+                    </div>
                   </div>
                   <div className="col-span-2">
                     <Label>Complaint / presenting symptoms *</Label>
@@ -263,6 +309,22 @@ function HealthPage() {
             <DialogContent className="sm:max-w-2xl">
               <DialogHeader><DialogTitle>Add student health record</DialogTitle></DialogHeader>
               <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <Label>Find student</Label>
+                  <div className="mt-1">
+                    <PersonCombobox
+                      options={studentOptions}
+                      loading={pickerStudentsLoading}
+                      placeholder="Search enrolled students…"
+                      emptyText="No students found."
+                      onSelect={(option) => {
+                        const student = findPickerStudent(option.id);
+                        if (!student) return;
+                        setRecForm((prev) => ({ ...prev, studentName: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(), grade: student.className || student.grade || prev.grade }));
+                      }}
+                    />
+                  </div>
+                </div>
                 <div>
                   <Label>Student name *</Label>
                   <Input className="mt-1" value={recForm.studentName} onChange={(e) => setRecForm({ ...recForm, studentName: e.target.value })} placeholder="Full name" maxLength={100} />

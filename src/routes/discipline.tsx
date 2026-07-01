@@ -17,6 +17,7 @@ import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/discipline")({
   head: () => ({ meta: [{ title: "Discipline — SRMS" }] }),
@@ -64,6 +65,37 @@ function DisciplinePage() {
     queryKey: ["discipline", schoolId],
     queryFn: () => api.discipline.list(schoolId),
   });
+
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["discipline-picker-students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: open,
+  });
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["discipline-picker-users", schoolId],
+    queryFn: () => api.users.list(schoolId),
+    enabled: open,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
+  const reporterOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
+  const selectStudent = (option: PersonOption) => {
+    const student = (pickerStudents as any[]).find((s) => s.id === option.id);
+    if (!student) return;
+    setForm((prev) => ({
+      ...prev,
+      studentName: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(),
+      grade: student.className || student.grade || prev.grade,
+    }));
+  };
+  const selectReporter = (option: PersonOption) => {
+    setForm((prev) => ({ ...prev, reportedBy: option.label }));
+  };
 
   const resolveMutation = useMutation({
     mutationFn: (id: string) => api.discipline.resolve(schoolId, id),
@@ -147,6 +179,18 @@ function DisciplinePage() {
               <DialogContent className="sm:max-w-3xl">
                 <DialogHeader><DialogTitle>Log disciplinary incident</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label>Find student</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={studentOptions}
+                        loading={pickerStudentsLoading}
+                        placeholder="Search enrolled students…"
+                        emptyText="No students found."
+                        onSelect={selectStudent}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <Label>Student name *</Label>
                     <Input className="mt-1" value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} placeholder="Mwansa Tembo" maxLength={100} />
@@ -197,7 +241,16 @@ function DisciplinePage() {
                   </div>
                   <div>
                     <Label>Reported by</Label>
-                    <Input className="mt-1" value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} placeholder="Reporting teacher / staff name" maxLength={100} />
+                    <div className="mt-1 space-y-1.5">
+                      <PersonCombobox
+                        options={reporterOptions}
+                        loading={pickerUsersLoading}
+                        placeholder="Search school staff…"
+                        emptyText="No staff found."
+                        onSelect={selectReporter}
+                      />
+                      <Input value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} placeholder="Reporting teacher / staff name" maxLength={100} />
+                    </div>
                   </div>
                   <div>
                     <Label>Follow-up date</Label>

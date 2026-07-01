@@ -18,6 +18,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { downloadCsv } from "@/lib/utils";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/staff-development")({
   head: () => ({ meta: [{ title: "Staff Development — SRMS" }] }),
@@ -56,6 +57,28 @@ function StaffDevelopmentPage() {
   const [obsForm, setObsForm] = useState({ observer: "", observee: "", subject: "", grade: "", date: "", time: "", rating: "4", lessonObjective: "", strengthsObserved: "", areasForImprovement: "", notes: "" });
   const [trainForm, setTrainForm] = useState({ course: "", provider: "", startDate: "", endDate: "", hours: "", staff: "", category: CATEGORIES[0], venue: "", mode: "In-person", certificationIssued: "no", certificationRef: "", trainingBudget: "" });
   const [pdpForm, setPDPForm] = useState({ staff: "", goals: "3", nextReview: "", status: "Active" as PDP["status"], reviewType: "Line manager", goal1: "", goal2: "", goal3: "", developmentArea: "", supportRequired: "" });
+
+  const anyDialogOpen = appraisalOpen || observationOpen || trainingOpen || pdpOpen;
+  const { data: pickerTeachers = [], isLoading: pickerTeachersLoading } = useQuery({
+    queryKey: ["staff-dev-picker-teachers", active.id],
+    queryFn: () => api.teachers.list(active.id),
+    enabled: anyDialogOpen,
+  });
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["staff-dev-picker-users", active.id],
+    queryFn: () => api.users.list(active.id),
+    enabled: anyDialogOpen,
+  });
+  const teacherOptions: PersonOption[] = (pickerTeachers as any[]).map((t) => ({
+    id: t.id,
+    label: `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || t.id,
+    sublabel: t.email,
+  }));
+  const staffOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
+  const findTeacher = (id: string) => (pickerTeachers as any[]).find((t) => t.id === id);
+  const teacherLabel = (t: any) => `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim();
 
   // Training records connected to backend
   const { data: trainings = [], isLoading: trainingsLoading } = useQuery({
@@ -199,6 +222,34 @@ function StaffDevelopmentPage() {
                 <DialogHeader><DialogTitle>Start appraisal</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    <Label>Find teacher</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={teacherOptions}
+                        loading={pickerTeachersLoading}
+                        placeholder="Search teaching staff…"
+                        emptyText="No teachers found."
+                        onSelect={(option) => {
+                          const teacher = findTeacher(option.id);
+                          if (!teacher) return;
+                          setAppraisalForm((prev) => ({ ...prev, staff: teacherLabel(teacher) }));
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Find reviewer</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={staffOptions}
+                        loading={pickerUsersLoading}
+                        placeholder="Search school staff…"
+                        emptyText="No staff found."
+                        onSelect={(option) => setAppraisalForm((prev) => ({ ...prev, reviewer: option.label }))}
+                      />
+                    </div>
+                  </div>
+                  <div>
                     <Label>Staff member</Label>
                     <Input className="mt-1" value={appraisalForm.staff} onChange={(e) => setAppraisalForm({ ...appraisalForm, staff: e.target.value })} placeholder="Full name" maxLength={100} />
                   </div>
@@ -295,6 +346,36 @@ function StaffDevelopmentPage() {
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader><DialogTitle>Log lesson observation</DialogTitle></DialogHeader>
                 <div className="grid gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Find observer</Label>
+                      <div className="mt-1">
+                        <PersonCombobox
+                          options={staffOptions}
+                          loading={pickerUsersLoading}
+                          placeholder="Search school staff…"
+                          emptyText="No staff found."
+                          onSelect={(option) => setObsForm((prev) => ({ ...prev, observer: option.label }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Find observee</Label>
+                      <div className="mt-1">
+                        <PersonCombobox
+                          options={teacherOptions}
+                          loading={pickerTeachersLoading}
+                          placeholder="Search teaching staff…"
+                          emptyText="No teachers found."
+                          onSelect={(option) => {
+                            const teacher = findTeacher(option.id);
+                            if (!teacher) return;
+                            setObsForm((prev) => ({ ...prev, observee: teacherLabel(teacher) }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Observer</Label>
@@ -394,6 +475,22 @@ function StaffDevelopmentPage() {
                     </Select>
                   </div>
                   <div>
+                    <Label>Find teacher</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={teacherOptions}
+                        loading={pickerTeachersLoading}
+                        placeholder="Search teaching staff…"
+                        emptyText="No teachers found."
+                        onSelect={(option) => {
+                          const teacher = findTeacher(option.id);
+                          if (!teacher) return;
+                          setTrainForm((prev) => ({ ...prev, staff: teacherLabel(teacher) }));
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
                     <Label>Staff member</Label>
                     <Input className="mt-1" value={trainForm.staff} onChange={(e) => setTrainForm({ ...trainForm, staff: e.target.value })} placeholder="Full name" maxLength={100} />
                   </div>
@@ -478,6 +575,22 @@ function StaffDevelopmentPage() {
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader><DialogTitle>Create personal development plan</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Find teacher</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={teacherOptions}
+                        loading={pickerTeachersLoading}
+                        placeholder="Search teaching staff…"
+                        emptyText="No teachers found."
+                        onSelect={(option) => {
+                          const teacher = findTeacher(option.id);
+                          if (!teacher) return;
+                          setPDPForm((prev) => ({ ...prev, staff: teacherLabel(teacher) }));
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <Label>Staff member</Label>
                     <Input className="mt-1" value={pdpForm.staff} onChange={(e) => setPDPForm({ ...pdpForm, staff: e.target.value })} placeholder="Full name" maxLength={100} />

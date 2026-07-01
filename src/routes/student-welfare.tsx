@@ -18,6 +18,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { downloadCsv } from "@/lib/utils";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/student-welfare")({
   head: () => ({ meta: [{ title: "Student Welfare — SRMS" }] }),
@@ -46,6 +47,27 @@ function StudentWelfarePage() {
     queryKey: ["welfare-sessions", active.id],
     queryFn: () => api.welfare.sessions(active.id),
   });
+
+  const dialogOpen = caseOpen || sessionOpen;
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["welfare-picker-students", active.id],
+    queryFn: () => api.students.list(active.id),
+    enabled: dialogOpen,
+  });
+  const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
+    queryKey: ["welfare-picker-users", active.id],
+    queryFn: () => api.users.list(active.id),
+    enabled: dialogOpen,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
+  const staffOptions: PersonOption[] = (pickerUsers as any[])
+    .filter((u) => u.role !== "parent")
+    .map((u) => ({ id: u.id, label: u.name, sublabel: u.email }));
+  const findStudent = (id: string) => (pickerStudents as any[]).find((s) => s.id === id);
 
   const createCaseMut = useMutation({
     mutationFn: (data: any) => api.welfare.createCase(active.id, data),
@@ -115,6 +137,26 @@ function StudentWelfarePage() {
                 <DialogHeader><DialogTitle>Open welfare case</DialogTitle></DialogHeader>
                 <div className="grid gap-3">
                   <div>
+                    <Label>Find student</Label>
+                    <div className="mt-1">
+                      <PersonCombobox
+                        options={studentOptions}
+                        loading={pickerStudentsLoading}
+                        placeholder="Search enrolled students…"
+                        emptyText="No students found."
+                        onSelect={(option) => {
+                          const student = findStudent(option.id);
+                          if (!student) return;
+                          setCaseForm((prev) => ({
+                            ...prev,
+                            student: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(),
+                            grade: student.className || student.grade || prev.grade,
+                          }));
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
                     <Label>Student name *</Label>
                     <Input className="mt-1" value={caseForm.student} onChange={(e) => setCaseForm({ ...caseForm, student: e.target.value })} placeholder="Chanda Mwape" maxLength={100} />
                   </div>
@@ -136,7 +178,16 @@ function StudentWelfarePage() {
                   </div>
                   <div>
                     <Label>Assigned to</Label>
-                    <Input className="mt-1" value={caseForm.assignedTo} onChange={(e) => setCaseForm({ ...caseForm, assignedTo: e.target.value })} placeholder="Counselor / staff name" maxLength={100} />
+                    <div className="mt-1 space-y-1.5">
+                      <PersonCombobox
+                        options={staffOptions}
+                        loading={pickerUsersLoading}
+                        placeholder="Search school staff…"
+                        emptyText="No staff found."
+                        onSelect={(option) => setCaseForm((prev) => ({ ...prev, assignedTo: option.label }))}
+                      />
+                      <Input value={caseForm.assignedTo} onChange={(e) => setCaseForm({ ...caseForm, assignedTo: e.target.value })} placeholder="Counselor / staff name" maxLength={100} />
+                    </div>
                   </div>
                 </div>
                 <DialogFooter className="mt-2">
@@ -189,6 +240,36 @@ function StudentWelfarePage() {
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader><DialogTitle>Log counseling session</DialogTitle></DialogHeader>
                 <div className="grid gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Find student</Label>
+                      <div className="mt-1">
+                        <PersonCombobox
+                          options={studentOptions}
+                          loading={pickerStudentsLoading}
+                          placeholder="Search students…"
+                          emptyText="No students found."
+                          onSelect={(option) => {
+                            const student = findStudent(option.id);
+                            if (!student) return;
+                            setSessionForm((prev) => ({ ...prev, student: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim() }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Find counselor</Label>
+                      <div className="mt-1">
+                        <PersonCombobox
+                          options={staffOptions}
+                          loading={pickerUsersLoading}
+                          placeholder="Search school staff…"
+                          emptyText="No staff found."
+                          onSelect={(option) => setSessionForm((prev) => ({ ...prev, counselor: option.label }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Student name *</Label>
