@@ -169,6 +169,21 @@ function FeesPage() {
     onError: () => toast.error("Failed to record payment"),
   });
 
+  const recheckMutation = useMutation({
+    mutationFn: (paymentId: string) => api.fees.paymentStatus(schoolId, paymentId),
+    onSuccess: (result: any) => {
+      qc.invalidateQueries({ queryKey: ["fees-payments", schoolId] });
+      qc.invalidateQueries({ queryKey: ["fees-collected", schoolId] });
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      if (result?.status === "pending") {
+        toast.info("Still pending — the gateway hasn't confirmed this payment yet");
+      } else {
+        toast.success(`Payment status updated: ${result?.status}`);
+      }
+    },
+    onError: () => toast.error("Could not check payment status"),
+  });
+
   const recordPayment = () => {
     if (!form.amount || Number(form.amount) <= 0) { toast.error("Enter a valid amount"); return; }
     if (!form.studentId) { toast.error("Select a student"); return; }
@@ -416,7 +431,7 @@ function FeesPage() {
 
       <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
         <DialogContent className="sm:max-w-lg">
-          <div id="fee-receipt" className="divide-y divide-border text-sm">
+          <div id="fee-receipt" className="print-area divide-y divide-border text-sm print:rounded-none print:border-0 print:shadow-none">
             <SchoolDocumentHeader title="Official Fee Receipt" subtitle={lastPayment?.termPeriod ?? ""} />
             <div className="grid grid-cols-2 gap-3 p-6">
               <div>
@@ -467,7 +482,7 @@ function FeesPage() {
               <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">School stamp</div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="print:hidden">
             <Button variant="outline" onClick={() => setReceiptOpen(false)}>Close</Button>
             <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
           </DialogFooter>
@@ -572,27 +587,44 @@ function FeesPage() {
                 <TableHead>Method</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(payments as any[]).map((p: any) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">
-                    {p.studentName ?? p.student}
-                    {p.referenceNumber && <div className="text-xs text-muted-foreground">{p.referenceNumber}</div>}
-                  </TableCell>
-                  <TableCell>{p.grade ?? "—"}</TableCell>
-                  <TableCell>K {Number(p.amount).toLocaleString()}</TableCell>
-                  <TableCell>{p.method}</TableCell>
-                  <TableCell className="text-muted-foreground">{(p.paymentDate ?? p.date ?? "").slice(0, 10)}</TableCell>
-                  <TableCell>
-                    <Badge variant={(p.status ?? "completed") === "completed" ? "secondary" : "outline"}>{p.status ?? "completed"}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {(payments as any[]).map((p: any) => {
+                const status = p.status ?? "completed";
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">
+                      {p.studentName ?? p.student}
+                      {p.referenceNumber && <div className="text-xs text-muted-foreground">{p.referenceNumber}</div>}
+                    </TableCell>
+                    <TableCell>{p.grade ?? "—"}</TableCell>
+                    <TableCell>K {Number(p.amount).toLocaleString()}</TableCell>
+                    <TableCell>{p.method}</TableCell>
+                    <TableCell className="text-muted-foreground">{(p.paymentDate ?? p.date ?? "").slice(0, 10)}</TableCell>
+                    <TableCell>
+                      <Badge variant={status === "completed" ? "secondary" : status === "failed" ? "destructive" : "outline"}>{status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {status === "pending" && p.gatewayProvider && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={recheckMutation.isPending && recheckMutation.variables === p.id}
+                          onClick={() => recheckMutation.mutate(p.id)}
+                        >
+                          {recheckMutation.isPending && recheckMutation.variables === p.id && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                          Recheck
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {(payments as any[]).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No payments recorded yet.</TableCell>
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No payments recorded yet.</TableCell>
                 </TableRow>
               )}
             </TableBody>

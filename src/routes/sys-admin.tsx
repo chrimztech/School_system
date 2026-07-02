@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import {
   School, TrendingUp, Users, CreditCard, Plus, Search,
   CheckCircle2, AlertTriangle, XCircle, Clock, ArrowUpRight,
-  Building2, MoreHorizontal, Activity, LifeBuoy, Layers, FileCog, FileText,
+  Building2, MoreHorizontal, Activity, LifeBuoy, Layers, FileCog, FileText, Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -77,12 +77,19 @@ type EditForm = {
 };
 
 function SysAdminPage() {
-  const { user } = useAuth();
+  const { user, isSystemAdmin } = useAuth();
   const { tenants, updateTenant, setActive } = useTenant();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
+
+  const { data: gatewayBalance, isLoading: balanceLoading, isError: balanceError } = useQuery({
+    queryKey: ["zynlepay-balance"],
+    queryFn: () => api.platform.zynlepayBalance(),
+    enabled: isSystemAdmin,
+    retry: false,
+  });
 
   const deleteSchool = useMutation({
     mutationFn: (id: string) => api.schools.delete(id),
@@ -412,6 +419,34 @@ function SysAdminPage() {
         <StatCard label="Monthly revenue (MRR)" value={`K${mrr.toLocaleString()}`} accent="accent" icon={<CreditCard className="h-4 w-4" />} />
         <StatCard label="Past-due accounts" value={pastDue} accent="warning" icon={<AlertTriangle className="h-4 w-4" />} />
       </div>
+
+      {isSystemAdmin && (
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Wallet className="h-4 w-4" />ZynlePay merchant balance
+          </div>
+          {balanceLoading ? (
+            <p className="text-sm text-muted-foreground">Checking balance…</p>
+          ) : balanceError ? (
+            <p className="text-sm text-muted-foreground">Unavailable — gateway credentials may not be configured yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Collection balance</p>
+                <p className="mt-1 text-lg font-semibold">K {Number(gatewayBalance?.collectionBalance ?? 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Disbursement balance</p>
+                <p className="mt-1 text-lg font-semibold">K {Number(gatewayBalance?.disbursementBalance ?? 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Merchant</p>
+                <p className="mt-1 text-sm font-medium">{gatewayBalance?.merchantInformation || "—"}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Tabs defaultValue="schools">
         <TabsList>

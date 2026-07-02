@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/utils";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/parents")({
   head: () => ({ meta: [{ title: "Parents — SRMS" }] }),
@@ -668,26 +669,12 @@ function InvoiceDialog({
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+        <DialogHeader className="print:hidden">
           <DialogTitle>Invoice · {invoiceNo}</DialogTitle>
         </DialogHeader>
         <div className="overflow-y-auto flex-1 pr-1">
-        <div className="space-y-4 text-sm print:text-black">
-          {/* School header */}
-          <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
-            <div>
-              <p className="text-lg font-bold">{school.name}</p>
-              <p className="text-xs text-muted-foreground">{school.district}, {school.province}</p>
-              {school.phone && <p className="text-xs text-muted-foreground">{school.phone}</p>}
-              {school.email && <p className="text-xs text-muted-foreground">{school.email}</p>}
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-primary">INVOICE</p>
-              <p className="font-mono text-xs">{invoiceNo}</p>
-              <p className="text-xs text-muted-foreground">Date: {today}</p>
-              <p className="text-xs text-muted-foreground">Term {school.currentTerm}, {school.currentYear}</p>
-            </div>
-          </div>
+        <div className="print-area space-y-4 text-sm print:text-black">
+          <SchoolDocumentHeader title="INVOICE" subtitle={`${invoiceNo} · ${today} · Term ${school.currentTerm}, ${school.currentYear}`} />
 
           {/* Bill to */}
           <div className="rounded-lg border border-border p-3">
@@ -738,7 +725,7 @@ function InvoiceDialog({
         </div>
         </div>
 
-        <DialogFooter className="mt-2">
+        <DialogFooter className="mt-2 print:hidden">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print invoice</Button>
         </DialogFooter>
@@ -762,17 +749,12 @@ function ReceiptDialog({
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+        <DialogHeader className="print:hidden">
           <DialogTitle>Receipt · {payment.receiptNumber || "—"}</DialogTitle>
         </DialogHeader>
         <div className="overflow-y-auto flex-1 pr-1">
-        <div className="space-y-4 text-sm">
-          {/* Header */}
-          <div className="rounded-lg bg-muted/50 p-4 text-center">
-            <p className="font-bold">{school.name}</p>
-            <p className="text-xs text-muted-foreground">{school.district}, {school.province}</p>
-            <p className="mt-2 text-xl font-bold tracking-wider text-primary">OFFICIAL RECEIPT</p>
-          </div>
+        <div className="print-area space-y-4 text-sm">
+          <SchoolDocumentHeader title="OFFICIAL RECEIPT" subtitle={dateStr} />
 
           {/* Details */}
           <div className="space-y-2 rounded-lg border border-border p-4">
@@ -830,7 +812,7 @@ function ReceiptDialog({
         </div>
         </div>
 
-        <DialogFooter className="mt-2">
+        <DialogFooter className="mt-2 print:hidden">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print receipt</Button>
         </DialogFooter>

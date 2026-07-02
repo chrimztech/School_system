@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Wallet, TrendingUp, TrendingDown, Scale, Plus, Download, FileText,
-  Banknote, Building2, Receipt, ArrowUpRight, ArrowDownRight,
+  Banknote, Building2, Receipt, ArrowUpRight, ArrowDownRight, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +24,8 @@ import {
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { downloadCsv } from "@/lib/utils";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/accounting")({
   head: () => ({ meta: [{ title: "Accounting — SRMS" }] }),
@@ -31,6 +33,7 @@ export const Route = createFileRoute("/accounting")({
 });
 
 const k = (n: number) => `K ${n < 0 ? "-" : ""}${Math.abs(n).toLocaleString()}`;
+const isNumericLike = (v: unknown) => typeof v === "string" && v.trim() !== "" && !isNaN(Number(v));
 
 function AccountingPage() {
   const { active } = useTenant();
@@ -40,6 +43,7 @@ function AccountingPage() {
   const [openExp, setOpenExp] = useState(false);
   const [jeDebitAccount, setJeDebitAccount] = useState("1010");
   const [jeCreditAccount, setJeCreditAccount] = useState("4000");
+  const [reportPreview, setReportPreview] = useState<{ title: string; filename: string; rows: Record<string, unknown>[] } | null>(null);
 
   const { data: feesData } = useQuery({
     queryKey: ["fees-collected", active.id],
@@ -56,6 +60,10 @@ function AccountingPage() {
   const { data: expensesRaw = [] } = useQuery({
     queryKey: ["accounting-expenses", active.id],
     queryFn: () => api.accounting.expenses(active.id),
+  });
+  const { data: studentsRaw = [] } = useQuery({
+    queryKey: ["students", active.id],
+    queryFn: () => api.students.list(active.id),
   });
 
   const createJEMutation = useMutation({
@@ -94,6 +102,8 @@ function AccountingPage() {
     desc: je.description ?? je.desc ?? "",
     debit: je.debitAmount ?? je.debit ?? 0,
     credit: je.creditAmount ?? je.credit ?? 0,
+    debitAccount: je.debitAccount ?? "",
+    creditAccount: je.creditAccount ?? "",
     status: je.status === "POSTED" ? "Posted" : "Draft",
   }));
 
@@ -127,7 +137,102 @@ function AccountingPage() {
 
   const onPost = (id: string) => postJEMutation.mutate(id);
 
-  const onExport = (what: string) => toast.error(`${what} export is not available from the backend yet`);
+  const openReport = (title: string, filename: string, rows: Record<string, unknown>[] | null) => {
+    if (!rows) return; // the builder already toasted why there's nothing to show
+    setReportPreview({ title, filename, rows });
+  };
+
+  const buildTrialBalance = (): Record<string, unknown>[] | null => {
+    const posted = journal.filter((j) => j.status === "Posted");
+    if (posted.length === 0) { toast.error("No posted journal entries to build a trial balance from"); return null; }
+    const byAccount = new Map<string, { debit: number; credit: number }>();
+    posted.forEach((j) => {
+      if (j.debitAccount) {
+        const acc = byAccount.get(j.debitAccount) ?? { debit: 0, credit: 0 };
+        acc.debit += Number(j.debit);
+        byAccount.set(j.debitAccount, acc);
+      }
+      if (j.creditAccount) {
+        const acc = byAccount.get(j.creditAccount) ?? { debit: 0, credit: 0 };
+        acc.credit += Number(j.credit);
+        byAccount.set(j.creditAccount, acc);
+      }
+    });
+    const rows = Array.from(byAccount.entries()).map(([account, v]) => ({
+      Account: account, Debit: v.debit.toFixed(2), Credit: v.credit.toFixed(2),
+    }));
+    const totalDebit = Array.from(byAccount.values()).reduce((s, v) => s + v.debit, 0);
+    const totalCredit = Array.from(byAccount.values()).reduce((s, v) => s + v.credit, 0);
+    rows.push({ Account: "TOTAL", Debit: totalDebit.toFixed(2), Credit: totalCredit.toFixed(2) });
+    return rows;
+  };
+
+  const buildGeneralLedger = (): Record<string, unknown>[] | null => {
+    if (journal.length === 0) { toast.error("No journal entries recorded yet"); return null; }
+    return journal.map((j) => ({
+      Date: j.date, Reference: j.ref, Description: j.desc,
+      "Debit account": j.debitAccount || "—", "Credit account": j.creditAccount || "—",
+      Debit: Number(j.debit).toFixed(2), Credit: Number(j.credit).toFixed(2), Status: j.status,
+    }));
+  };
+
+  const buildProfitAndLoss = (): Record<string, unknown>[] | null => {
+    const completedPayments = (feePayments as any[]).filter((p) => (p.status ?? "completed") === "completed");
+    if (completedPayments.length === 0 && expenses.length === 0) { toast.error("No income or expense records yet"); return null; }
+    const incomeByCategory = new Map<string, number>();
+    completedPayments.forEach((p) => {
+      const cat = p.feeCategory || "Fees";
+      incomeByCategory.set(cat, (incomeByCategory.get(cat) ?? 0) + Number(p.amount));
+    });
+    const expenseByCategory = new Map<string, number>();
+    expenses.forEach((e) => {
+      const cat = e.category || "Other";
+      expenseByCategory.set(cat, (expenseByCategory.get(cat) ?? 0) + Number(e.amount));
+    });
+    const rows: Record<string, unknown>[] = [{ Section: "INCOME", Category: "", Amount: "" }];
+    let totalIncome = 0;
+    incomeByCategory.forEach((amt, cat) => { rows.push({ Section: "", Category: cat, Amount: amt.toFixed(2) }); totalIncome += amt; });
+    rows.push({ Section: "", Category: "Total income", Amount: totalIncome.toFixed(2) });
+    rows.push({ Section: "EXPENSES", Category: "", Amount: "" });
+    let totalExpense = 0;
+    expenseByCategory.forEach((amt, cat) => { rows.push({ Section: "", Category: cat, Amount: amt.toFixed(2) }); totalExpense += amt; });
+    rows.push({ Section: "", Category: "Total expenses", Amount: totalExpense.toFixed(2) });
+    rows.push({ Section: "", Category: "Net surplus / (deficit)", Amount: (totalIncome - totalExpense).toFixed(2) });
+    return rows;
+  };
+
+  const buildCashFlow = (): Record<string, unknown>[] | null => {
+    const inflows = (feePayments as any[])
+      .filter((p) => (p.status ?? "completed") === "completed")
+      .map((p) => ({ date: String(p.paymentDate ?? "").slice(0, 10), desc: `Fee payment — ${p.studentName ?? "Unknown"}`, amount: Number(p.amount) }));
+    const outflows = expenses.map((e) => ({ date: e.date, desc: `${e.category || "Expense"} — ${e.vendor}`, amount: -Number(e.amount) }));
+    const combined = [...inflows, ...outflows].filter((t) => t.date).sort((a, b) => a.date.localeCompare(b.date));
+    if (combined.length === 0) { toast.error("No cash transactions recorded yet"); return null; }
+    let running = 0;
+    return combined.map((t) => {
+      running += t.amount;
+      return {
+        Date: t.date, Description: t.desc,
+        "Cash in": t.amount > 0 ? t.amount.toFixed(2) : "",
+        "Cash out": t.amount < 0 ? Math.abs(t.amount).toFixed(2) : "",
+        "Running balance": running.toFixed(2),
+      };
+    });
+  };
+
+  const buildOutstandingFees = (): Record<string, unknown>[] | null => {
+    const withBalance = (studentsRaw as any[]).filter((s) => Number(s.feeBalance ?? 0) > 0);
+    if (withBalance.length === 0) { toast.error("No students have an outstanding balance"); return null; }
+    return withBalance
+      .slice()
+      .sort((a, b) => Number(b.feeBalance) - Number(a.feeBalance))
+      .map((s) => ({
+        Student: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim(),
+        "Admission No.": s.admissionNumber ?? "",
+        Grade: s.grade ?? "",
+        "Outstanding balance": Number(s.feeBalance).toFixed(2),
+      }));
+  };
 
   const addJE = (form: HTMLFormElement) => {
     const fd = new FormData(form);
@@ -266,7 +371,8 @@ function AccountingPage() {
             <Table>
               <TableHeader><TableRow>
                 <TableHead>ID</TableHead><TableHead>Date</TableHead><TableHead>Ref</TableHead>
-                <TableHead>Description</TableHead><TableHead className="text-right">Debit</TableHead>
+                <TableHead>Description</TableHead><TableHead>Debit a/c</TableHead><TableHead>Credit a/c</TableHead>
+                <TableHead className="text-right">Debit</TableHead>
                 <TableHead className="text-right">Credit</TableHead><TableHead>Status</TableHead><TableHead></TableHead>
               </TableRow></TableHeader>
               <TableBody>
@@ -276,6 +382,8 @@ function AccountingPage() {
                     <TableCell>{j.date}</TableCell>
                     <TableCell className="font-mono text-xs">{j.ref}</TableCell>
                     <TableCell>{j.desc}</TableCell>
+                    <TableCell className="font-mono text-xs">{j.debitAccount || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{j.creditAccount || "—"}</TableCell>
                     <TableCell className="text-right font-mono">{k(j.debit)}</TableCell>
                     <TableCell className="text-right font-mono">{k(j.credit)}</TableCell>
                     <TableCell><Badge variant={j.status === "Posted" ? "secondary" : "outline"}>{j.status}</Badge></TableCell>
@@ -286,7 +394,7 @@ function AccountingPage() {
                 ))}
                 {journal.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                       No journal entries recorded yet.
                     </TableCell>
                   </TableRow>
@@ -374,18 +482,26 @@ function AccountingPage() {
         {/* Reports */}
         <TabsContent value="reports" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { name: "Trial Balance",       icon: Scale,      desc: "All accounts with running debit/credit" },
-            { name: "Profit & Loss",       icon: TrendingUp, desc: "Income statement for current term" },
-            { name: "Balance Sheet",       icon: Building2,  desc: "Statement of financial position" },
-            { name: "Cash Flow Statement", icon: ArrowUpRight, desc: "Operating, investing, financing" },
-            { name: "General Ledger",      icon: FileText,   desc: "Account-level transactions" },
-            { name: "Aged Receivables",    icon: ArrowDownRight, desc: "Outstanding fees by age bucket" },
+            { name: "Trial Balance",       icon: Scale,      desc: "Posted journal entries grouped by account code", action: () => openReport("Trial Balance", `trial-balance-${active.shortCode}`, buildTrialBalance()) },
+            { name: "Profit & Loss",       icon: TrendingUp, desc: "Fee income by category vs. recorded expenses", action: () => openReport("Profit & Loss", `profit-and-loss-${active.shortCode}`, buildProfitAndLoss()) },
+            {
+              name: "Balance Sheet", icon: Building2, desc: "Requires a chart of accounts (assets/liabilities/equity) — not yet configured",
+              action: () => toast.error("Balance Sheet needs a chart of accounts, which isn't set up yet"), disabled: true,
+            },
+            { name: "Cash Flow Statement", icon: ArrowUpRight, desc: "Chronological cash in/out with running balance", action: () => openReport("Cash Flow Statement", `cash-flow-${active.shortCode}`, buildCashFlow()) },
+            { name: "General Ledger",      icon: FileText,   desc: "All journal entries with account codes", action: () => openReport("General Ledger", `general-ledger-${active.shortCode}`, buildGeneralLedger()) },
+            { name: "Outstanding Fees",    icon: ArrowDownRight, desc: "Students with a fee balance, highest first", action: () => openReport("Outstanding Fees", `outstanding-fees-${active.shortCode}`, buildOutstandingFees()) },
           ].map((r) => (
-            <button key={r.name} onClick={() => onExport(r.name)} className="rounded-xl border border-border bg-card p-5 text-left shadow-sm transition hover:bg-muted">
+            <button
+              key={r.name}
+              onClick={r.action}
+              disabled={r.disabled}
+              className={`rounded-xl border border-border bg-card p-5 text-left shadow-sm transition ${r.disabled ? "cursor-not-allowed opacity-60" : "hover:bg-muted"}`}
+            >
               <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary"><r.icon className="h-4 w-4" /></div>
               <p className="font-medium">{r.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">{r.desc}</p>
-              <p className="mt-3 text-xs text-primary">Download CSV →</p>
+              {!r.disabled && <p className="mt-3 text-xs text-primary">View report →</p>}
             </button>
           ))}
         </TabsContent>
@@ -406,6 +522,51 @@ function AccountingPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!reportPreview} onOpenChange={(v) => { if (!v) setReportPreview(null); }}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader className="print:hidden">
+            <DialogTitle>{reportPreview?.title}</DialogTitle>
+            <DialogDescription>Preview the report below, then print it to PDF or download it as a spreadsheet.</DialogDescription>
+          </DialogHeader>
+          {reportPreview && (
+            <div className="print-area max-h-[65vh] overflow-y-auto rounded-xl border border-border bg-card print:max-h-none print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
+              <SchoolDocumentHeader
+                title={reportPreview.title}
+                subtitle={`Generated ${new Date().toLocaleDateString()} · Term ${active.currentTerm} ${active.currentYear}`}
+              />
+              <div className="overflow-x-auto p-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {Object.keys(reportPreview.rows[0] ?? {}).map((col) => (
+                        <TableHead key={col}>{col}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportPreview.rows.map((row, i) => (
+                      <TableRow key={i} className={i % 2 === 1 ? "bg-muted/30" : undefined}>
+                        {Object.values(row).map((val, j) => (
+                          <TableCell key={j} className={isNumericLike(val) ? "text-right font-mono" : undefined}>{String(val)}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="mt-2 print:hidden">
+            <Button variant="outline" onClick={() => reportPreview && downloadCsv(reportPreview.rows, reportPreview.filename)}>
+              <Download className="mr-1.5 h-4 w-4" />CSV
+            </Button>
+            <Button onClick={() => window.print()}>
+              <Printer className="mr-1.5 h-4 w-4" />Print / Save as PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </AccessGuard>
   );

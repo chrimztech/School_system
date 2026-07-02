@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { CreditCard, CheckCircle2, Lock, Zap, ArrowRight, RefreshCw, Loader2, Download } from "lucide-react";
+import { CreditCard, CheckCircle2, Lock, Zap, ArrowRight, RefreshCw, Loader2, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -48,6 +48,7 @@ function BillingPage() {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [targetPlan, setTargetPlan] = useState<PlanId>(activePlan.id);
   const [targetCycle, setTargetCycle] = useState<BillingCycle>(sub.billingCycle);
+  const [invoicePreview, setInvoicePreview] = useState<Invoice | null>(null);
 
   const { data: invoicesData = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ["billing-invoices", schoolId],
@@ -374,7 +375,7 @@ function BillingPage() {
                             Mark paid
                           </Button>
                         )}
-                        <Button size="sm" variant="ghost" onClick={() => toast.info("PDF download requires a billing integration. Contact support.")}>
+                        <Button size="sm" variant="ghost" onClick={() => setInvoicePreview(inv)}>
                           <Download className="h-3 w-3" />
                         </Button>
                       </div>
@@ -393,6 +394,56 @@ function BillingPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!invoicePreview} onOpenChange={(v) => { if (!v) setInvoicePreview(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader className="print:hidden">
+            <DialogTitle>Invoice · {invoicePreview?.id}</DialogTitle>
+          </DialogHeader>
+          {invoicePreview && (
+            <div className="print-area space-y-4 rounded-xl border border-border bg-card p-6 text-sm print:rounded-none print:border-0 print:shadow-none">
+              <div className="flex items-start justify-between border-b border-border pb-4">
+                <div>
+                  <p className="text-lg font-bold">SRMS</p>
+                  <p className="text-xs text-muted-foreground">School Records Management System</p>
+                  <p className="text-xs text-muted-foreground">support@srms.zm · +260 211 000 000</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-primary">INVOICE</p>
+                  <p className="font-mono text-xs">{invoicePreview.id}</p>
+                  <p className="text-xs text-muted-foreground">{(invoicePreview.date ?? "").slice(0, 10)}</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Bill To</p>
+                <p className="mt-1 font-semibold">{active.name}</p>
+                <p className="text-xs text-muted-foreground">{[active.district, active.province].filter(Boolean).join(", ")}</p>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
+                <div>
+                  <p className="font-medium">{invoicePreview.description}</p>
+                  <p className="text-xs text-muted-foreground">SRMS subscription — {activePlan.name}</p>
+                </div>
+                <p className="font-mono text-lg font-bold">K{invoicePreview.amount.toLocaleString()}</p>
+              </div>
+              <div className="flex items-center justify-between border-t border-border pt-3">
+                <span className="text-xs uppercase text-muted-foreground">Status</span>
+                <Badge className={{
+                  paid: "bg-success/15 text-success",
+                  open: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+                  overdue: "bg-destructive/15 text-destructive",
+                }[invoicePreview.status] ?? "bg-muted text-muted-foreground"}>
+                  {invoicePreview.status.charAt(0).toUpperCase() + invoicePreview.status.slice(1)}
+                </Badge>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="mt-2 print:hidden">
+            <Button variant="outline" onClick={() => setInvoicePreview(null)}>Close</Button>
+            <Button onClick={() => window.print()}><Printer className="mr-1.5 h-4 w-4" />Print / Save as PDF</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

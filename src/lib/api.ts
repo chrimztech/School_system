@@ -286,6 +286,7 @@ export const api = {
     getWorkspace: () => unwrap<BackendPlatformWorkspace>(apiClient.get("/api/platform/workspace")),
     updateWorkspace: (data: Partial<BackendPlatformWorkspace>) =>
       unwrap<BackendPlatformWorkspace>(apiClient.put("/api/platform/workspace", data)),
+    zynlepayBalance: () => unwrap<any>(apiClient.get("/api/platform/payments/zynlepay/balance")),
   },
 
   // Schools / tenants

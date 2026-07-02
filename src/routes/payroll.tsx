@@ -499,7 +499,7 @@ function PayrollPage() {
       <Dialog open={!!printSlip} onOpenChange={(o) => { if (!o) setPrintSlip(null); }}>
         <DialogContent className="sm:max-w-md">
           {printSlip && (
-            <div className="divide-y divide-border text-sm">
+            <div className="print-area divide-y divide-border text-sm print:rounded-none print:border-0 print:shadow-none">
               <SchoolDocumentHeader
                 title="Employee Payslip"
                 subtitle={new Date().toLocaleString("en", { month: "long", year: "numeric" })}
@@ -566,7 +566,7 @@ function PayrollPage() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="print:hidden">
             <Button variant="outline" onClick={() => setPrintSlip(null)}>Close</Button>
             <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
           </DialogFooter>
