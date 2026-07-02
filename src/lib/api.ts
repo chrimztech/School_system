@@ -463,6 +463,14 @@ export const api = {
     billingRules: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/billing-rules"))),
     createBillingRule: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/billing-rules"), data)),
     updateBillingRule: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `fees/billing-rules/${id}`), data)),
+    initiateCardPayment: (schoolId: string, studentId: string, data: any) =>
+      unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/payments/card/initiate"), { studentId, ...data })),
+    initiateMomoPayment: (schoolId: string, studentId: string, data: any) =>
+      unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/payments/momo/initiate"), { studentId, ...data })),
+    paymentStatus: (schoolId: string, paymentId: string) =>
+      unwrap<any>(apiClient.get(schoolPath(schoolId, `fees/payments/${paymentId}/status`))),
+    publicPaymentStatus: (referenceNo: string) =>
+      unwrap<any>(apiClient.get(`/api/public/payments/zynlepay/status`, { params: { referenceNo } })),
   },
 
   // Communication
@@ -507,9 +515,14 @@ export const api = {
   transport: {
     vehicles: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "transport/vehicles"))),
     createVehicle: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "transport/vehicles"), data)),
+    updateVehicle: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `transport/vehicles/${id}`), data)),
+    deleteVehicle: (schoolId: string, id: string) => unwrap<any>(apiClient.delete(schoolPath(schoolId, `transport/vehicles/${id}`))),
     routes: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "transport/routes"))),
     createRoute: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "transport/routes"), data)),
     enrolments: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "transport/enrolments"))),
+    enrolStudent: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "transport/enrolments"), data)),
+    updateEnrolment: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `transport/enrolments/${id}`), data)),
+    deleteEnrolment: (schoolId: string, id: string) => unwrap<any>(apiClient.delete(schoolPath(schoolId, `transport/enrolments/${id}`))),
   },
 
   // HR

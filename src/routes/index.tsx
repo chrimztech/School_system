@@ -18,7 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { downloadCsv } from "@/lib/utils";
+import { downloadCsv, gradeBadgeClass } from "@/lib/utils";
+import { PaymentDialog } from "@/components/payment-dialog";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,17 +30,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Dashboard,
 });
-
-// Grade colour helper
-function gradeColor(grade: string | null | undefined) {
-  if (!grade) return "text-muted-foreground";
-  const g = grade.trim().toUpperCase();
-  if (["A", "A+", "A-", "DISTINCTION"].includes(g)) return "text-emerald-600 dark:text-emerald-400 font-semibold";
-  if (["B", "B+", "B-", "MERIT"].includes(g)) return "text-sky-600 dark:text-sky-400 font-semibold";
-  if (["C", "C+", "C-", "PASS"].includes(g)) return "text-amber-600 dark:text-amber-400";
-  if (["D", "D+", "D-"].includes(g)) return "text-orange-600 dark:text-orange-400";
-  return "text-destructive font-semibold";
-}
 
 function pct(score: number, max: number) {
   if (!max) return "—";
@@ -79,6 +69,7 @@ function SubjectClassStats({
 function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; color: string }) {
   const { active } = useTenant();
   const [tab, setTab] = useState("overview");
+  const [payOpen, setPayOpen] = useState(false);
   const academicYear = String(active.currentYear ?? new Date().getFullYear());
   const currentTerm = String(active.currentTerm ?? "1");
 
@@ -224,12 +215,15 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
               <div className="flex-1">
                 <p className="text-sm font-semibold text-destructive">Fee balance due</p>
                 <p className="mt-0.5 text-xs text-destructive/80">
-                  K {feeBalance.toLocaleString()} is outstanding for {fullName} this term. Please contact the school bursar or visit the parent portal to make a payment.
+                  K {feeBalance.toLocaleString()} is outstanding for {fullName} this term. Pay securely by card below.
                 </p>
               </div>
-              <Link to="/parents" className="shrink-0 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90">
+              <button
+                onClick={() => setPayOpen(true)}
+                className="shrink-0 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
+              >
                 Pay now
-              </Link>
+              </button>
             </div>
           )}
           {child.medicalConditions || child.allergies || child.bloodGroup ? (
@@ -265,15 +259,15 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {termGrades.map((g: any) => (
-                    <TableRow key={g.id}>
+                  {termGrades.map((g: any, i: number) => (
+                    <TableRow key={g.id} className={i % 2 === 1 ? "bg-muted/30" : undefined}>
                       <TableCell className="text-xs text-muted-foreground">Term {g.term}</TableCell>
                       <TableCell className="font-medium">{g.subjectName}</TableCell>
                       <TableCell className="text-right tabular-nums">{g.caPercent != null ? Math.round(g.caPercent) : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{g.midtermPercent != null ? Math.round(g.midtermPercent) : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{g.examPercent != null ? Math.round(g.examPercent) : "—"}</TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">{Math.round(g.weightedTotal)}</TableCell>
-                      <TableCell><span className={gradeColor(g.letterGrade)}>{g.letterGrade}</span></TableCell>
+                      <TableCell><Badge className={gradeBadgeClass(g.letterGrade)}>{g.letterGrade}</Badge></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -345,7 +339,7 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={gradeColor(r.grade)}>{r.grade ?? "—"}</span>
+                      {r.grade ? <Badge className={gradeBadgeClass(r.grade)}>{r.grade}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{r.remarks ?? ""}</TableCell>
                   </TableRow>
@@ -473,6 +467,8 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
           )}
         </TabsContent>
       </Tabs>
+
+      <PaymentDialog schoolId={schoolId} student={child} open={payOpen} onOpenChange={setPayOpen} />
     </div>
   );
 }

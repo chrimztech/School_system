@@ -1,10 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Phone, BookOpen, Wallet, CalendarCheck, ShieldAlert, Loader2, Mail, MapPin } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Phone, BookOpen, Wallet, CalendarCheck, ShieldAlert, Loader2, Mail, MapPin, Bus } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -17,6 +23,12 @@ function StudentProfilePage() {
   const { studentId } = Route.useParams();
   const { active } = useTenant();
   const schoolId = active.id;
+  const qc = useQueryClient();
+  const term = String(active.currentTerm ?? "1");
+  const year = String(active.currentYear ?? new Date().getFullYear());
+
+  const [transportOpen, setTransportOpen] = useState(false);
+  const [transportForm, setTransportForm] = useState({ routeId: "", pickupStop: "" });
 
   const { data: student, isLoading } = useQuery({
     queryKey: ["student", schoolId, studentId],
@@ -27,6 +39,50 @@ function StudentProfilePage() {
     queryKey: ["student-fees", schoolId, studentId],
     queryFn: () => api.fees.studentPayments(schoolId, studentId),
     enabled: !!studentId,
+  });
+
+  const { data: enrolments = [] } = useQuery({
+    queryKey: ["transport-enrolments", schoolId],
+    queryFn: () => api.transport.enrolments(schoolId),
+  });
+
+  const { data: routes = [] } = useQuery({
+    queryKey: ["transport-routes", schoolId],
+    queryFn: () => api.transport.routes(schoolId),
+  });
+
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["transport-vehicles", schoolId],
+    queryFn: () => api.transport.vehicles(schoolId),
+  });
+
+  const enrolMutation = useMutation({
+    mutationFn: (data: any) => api.transport.enrolStudent(schoolId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transport-enrolments", schoolId] });
+      toast.success("Assigned to route");
+      setTransportOpen(false);
+    },
+    onError: () => toast.error("Failed to assign route"),
+  });
+
+  const updateEnrolmentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.transport.updateEnrolment(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transport-enrolments", schoolId] });
+      toast.success("Route assignment updated");
+      setTransportOpen(false);
+    },
+    onError: () => toast.error("Failed to update route assignment"),
+  });
+
+  const removeEnrolmentMutation = useMutation({
+    mutationFn: (id: string) => api.transport.deleteEnrolment(schoolId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transport-enrolments", schoolId] });
+      toast.success("Removed from transport");
+    },
+    onError: () => toast.error("Failed to remove from transport"),
   });
 
   if (isLoading) {
@@ -51,6 +107,38 @@ function StudentProfilePage() {
   const s = student as any;
   const feeBalance = s.feeBalance ?? 0;
   const fullName = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ");
+
+  const currentEnrolment = (enrolments as any[]).find((e: any) => e.studentId === studentId && e.status !== "INACTIVE");
+  const currentRoute = currentEnrolment ? (routes as any[]).find((r: any) => r.id === currentEnrolment.routeId || r.routeName === currentEnrolment.routeName) : null;
+  const currentVehicle = currentRoute ? (vehicles as any[]).find((v: any) => v.id === currentRoute.vehicleId) : null;
+
+  const openTransportDialog = () => {
+    setTransportForm({ routeId: currentRoute?.id ?? "", pickupStop: currentEnrolment?.pickupStop ?? "" });
+    setTransportOpen(true);
+  };
+
+  const saveTransportAssignment = () => {
+    if (!transportForm.routeId) {
+      toast.error("Select a route");
+      return;
+    }
+    const route = (routes as any[]).find((r: any) => r.id === transportForm.routeId);
+    const payload = {
+      studentId,
+      studentName: fullName,
+      grade: s.grade ?? null,
+      routeId: transportForm.routeId,
+      routeName: route?.routeName ?? "",
+      pickupStop: transportForm.pickupStop.trim() || null,
+      term,
+      academicYear: year,
+    };
+    if (currentEnrolment) {
+      updateEnrolmentMutation.mutate({ id: currentEnrolment.id, data: payload });
+    } else {
+      enrolMutation.mutate(payload);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -237,6 +325,51 @@ function StudentProfilePage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Transport</h2>
+          {currentEnrolment ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={openTransportDialog}>Change route</Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (window.confirm(`Remove ${fullName} from transport?`)) removeEnrolmentMutation.mutate(currentEnrolment.id);
+                }}
+              >
+                Remove
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" onClick={openTransportDialog}><Bus className="mr-1 h-4 w-4" />Assign to route</Button>
+          )}
+        </div>
+        {currentEnrolment ? (
+          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Route</p>
+              <p className="mt-1 font-medium">{currentEnrolment.routeName || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Vehicle</p>
+              <p className="mt-1 font-medium">{currentVehicle?.plateNumber ?? "Unassigned"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Driver</p>
+              <p className="mt-1 font-medium">{currentVehicle?.driverName || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Pickup stop</p>
+              <p className="mt-1 font-medium">{currentEnrolment.pickupStop || "—"}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="py-4 text-center text-sm text-muted-foreground">Not currently assigned to a bus route.</p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold">Fee payment history</h2>
         {(feePayments as any[]).length > 0 ? (
           <Table>
@@ -263,6 +396,41 @@ function StudentProfilePage() {
           <p className="text-sm text-muted-foreground">No payments recorded.</p>
         )}
       </div>
+
+      <Dialog open={transportOpen} onOpenChange={setTransportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>{currentEnrolment ? "Change route" : "Assign to route"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Route *</Label>
+              <Select value={transportForm.routeId} onValueChange={(v) => setTransportForm({ ...transportForm, routeId: v })}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder={(routes as any[]).length === 0 ? "No routes configured yet" : "Select a route"} /></SelectTrigger>
+                <SelectContent>
+                  {(routes as any[]).map((r: any) => {
+                    const vehicle = (vehicles as any[]).find((v: any) => v.id === r.vehicleId);
+                    return (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.routeName}{vehicle ? ` · ${vehicle.plateNumber}` : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Pickup stop</Label>
+              <Input className="mt-1" value={transportForm.pickupStop} onChange={(e) => setTransportForm({ ...transportForm, pickupStop: e.target.value })} placeholder="Crossroads" maxLength={100} />
+            </div>
+          </div>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setTransportOpen(false)}>Cancel</Button>
+            <Button onClick={saveTransportAssignment} disabled={enrolMutation.isPending || updateEnrolmentMutation.isPending}>
+              {(enrolMutation.isPending || updateEnrolmentMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {currentEnrolment ? "Save changes" : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

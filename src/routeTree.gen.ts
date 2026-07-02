@@ -42,6 +42,7 @@ import { Route as PlatformConfigRouteImport } from './routes/platform-config'
 import { Route as PlatformAuditRouteImport } from './routes/platform-audit'
 import { Route as PlanCatalogRouteImport } from './routes/plan-catalog'
 import { Route as PayrollRouteImport } from './routes/payroll'
+import { Route as PaymentResultRouteImport } from './routes/payment-result'
 import { Route as PartnerManagementRouteImport } from './routes/partner-management'
 import { Route as ParentsRouteImport } from './routes/parents'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -254,6 +255,11 @@ const PlanCatalogRoute = PlanCatalogRouteImport.update({
 const PayrollRoute = PayrollRouteImport.update({
   id: '/payroll',
   path: '/payroll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentResultRoute = PaymentResultRouteImport.update({
+  id: '/payment-result',
+  path: '/payment-result',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartnerManagementRoute = PartnerManagementRouteImport.update({
@@ -544,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/parents': typeof ParentsRoute
   '/partner-management': typeof PartnerManagementRoute
+  '/payment-result': typeof PaymentResultRoute
   '/payroll': typeof PayrollRoute
   '/plan-catalog': typeof PlanCatalogRoute
   '/platform-audit': typeof PlatformAuditRoute
@@ -627,6 +634,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/parents': typeof ParentsRoute
   '/partner-management': typeof PartnerManagementRoute
+  '/payment-result': typeof PaymentResultRoute
   '/payroll': typeof PayrollRoute
   '/plan-catalog': typeof PlanCatalogRoute
   '/platform-audit': typeof PlatformAuditRoute
@@ -711,6 +719,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/parents': typeof ParentsRoute
   '/partner-management': typeof PartnerManagementRoute
+  '/payment-result': typeof PaymentResultRoute
   '/payroll': typeof PayrollRoute
   '/plan-catalog': typeof PlanCatalogRoute
   '/platform-audit': typeof PlatformAuditRoute
@@ -796,6 +805,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/parents'
     | '/partner-management'
+    | '/payment-result'
     | '/payroll'
     | '/plan-catalog'
     | '/platform-audit'
@@ -879,6 +889,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/parents'
     | '/partner-management'
+    | '/payment-result'
     | '/payroll'
     | '/plan-catalog'
     | '/platform-audit'
@@ -962,6 +973,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/parents'
     | '/partner-management'
+    | '/payment-result'
     | '/payroll'
     | '/plan-catalog'
     | '/platform-audit'
@@ -1046,6 +1058,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ParentsRoute: typeof ParentsRoute
   PartnerManagementRoute: typeof PartnerManagementRoute
+  PaymentResultRoute: typeof PaymentResultRoute
   PayrollRoute: typeof PayrollRoute
   PlanCatalogRoute: typeof PlanCatalogRoute
   PlatformAuditRoute: typeof PlatformAuditRoute
@@ -1312,6 +1325,13 @@ declare module '@tanstack/react-router' {
       path: '/payroll'
       fullPath: '/payroll'
       preLoaderRoute: typeof PayrollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment-result': {
+      id: '/payment-result'
+      path: '/payment-result'
+      fullPath: '/payment-result'
+      preLoaderRoute: typeof PaymentResultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/partner-management': {
@@ -1724,6 +1744,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ParentsRoute: ParentsRoute,
   PartnerManagementRoute: PartnerManagementRoute,
+  PaymentResultRoute: PaymentResultRoute,
   PayrollRoute: PayrollRoute,
   PlanCatalogRoute: PlanCatalogRoute,
   PlatformAuditRoute: PlatformAuditRoute,

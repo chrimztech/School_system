@@ -18,6 +18,7 @@ import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { gradeBadgeClass } from "@/lib/utils";
 
 export const Route = createFileRoute("/assessments")({
   head: () => ({ meta: [{ title: "Assessments — SRMS" }] }),
@@ -52,14 +53,6 @@ function computeGrade(score: number, maxScore: number): string {
   if (pct >= 60) return "C";
   if (pct >= 50) return "D";
   return "F";
-}
-
-function gradeColor(grade: string) {
-  if (grade === "A+" || grade === "A") return "text-emerald-600";
-  if (grade === "B") return "text-blue-600";
-  if (grade === "C") return "text-amber-600";
-  if (grade === "D") return "text-orange-500";
-  return "text-destructive";
 }
 
 // ---------- Results Recording Sheet ----------
@@ -200,26 +193,25 @@ function ResultsSheet({
             <button onClick={onClose} className="rounded-md p-1 hover:bg-muted transition-colors shrink-0"><X className="h-4 w-4" /></button>
           </div>
           {rows.length > 0 && (
-            <div className="flex gap-5 mt-3 pt-3 border-t border-border">
-              <div>
-                <p className="text-lg font-bold">{stats.marked}/{stats.total}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border">
+              <div className="rounded-lg bg-muted/50 px-3 py-1.5">
+                <p className="text-lg font-bold leading-tight">{stats.marked}/{stats.total}</p>
                 <p className="text-[11px] text-muted-foreground">Marked</p>
               </div>
-              <div>
-                <p className="text-lg font-bold text-emerald-600">{stats.avg > 0 ? stats.avg.toFixed(1) : "—"}</p>
+              <div className="rounded-lg bg-muted/50 px-3 py-1.5">
+                <p className="text-lg font-bold leading-tight text-emerald-600">{stats.avg > 0 ? stats.avg.toFixed(1) : "—"}</p>
                 <p className="text-[11px] text-muted-foreground">Avg score</p>
               </div>
-              <div>
-                <p className={`text-lg font-bold ${stats.passRate >= 70 ? "text-emerald-600" : stats.passRate >= 50 ? "text-amber-600" : "text-destructive"}`}>{stats.marked > 0 ? `${stats.passRate}%` : "—"}</p>
+              <div className="rounded-lg bg-muted/50 px-3 py-1.5">
+                <p className={`text-lg font-bold leading-tight ${stats.passRate >= 70 ? "text-emerald-600" : stats.passRate >= 50 ? "text-amber-600" : "text-destructive"}`}>{stats.marked > 0 ? `${stats.passRate}%` : "—"}</p>
                 <p className="text-[11px] text-muted-foreground">Pass rate</p>
               </div>
               {stats.marked > 0 && (
-                <div className="ml-auto flex items-end gap-1">
+                <div className="ml-auto flex items-end gap-1.5">
                   {Object.entries(stats.byGrade).map(([g, count]) => count > 0 && (
-                    <div key={g} className="text-center">
-                      <div className="text-xs font-bold">{count}</div>
-                      <div className={`text-[10px] font-semibold ${gradeColor(g)}`}>{g}</div>
-                    </div>
+                    <Badge key={g} variant="outline" className={`gap-1 ${gradeBadgeClass(g)}`}>
+                      {g}<span className="font-bold">{count}</span>
+                    </Badge>
                   ))}
                 </div>
               )}
@@ -251,7 +243,7 @@ function ResultsSheet({
               </TableHeader>
               <TableBody>
                 {rows.map((r, i) => (
-                  <TableRow key={r.studentId} className={r.absent ? "opacity-40" : ""}>
+                  <TableRow key={r.studentId} className={`transition-colors hover:bg-muted/40 ${r.absent ? "opacity-40" : ""}`}>
                     <TableCell className="text-center text-muted-foreground text-xs">{i + 1}</TableCell>
                     <TableCell className="font-medium text-sm">{r.studentName}</TableCell>
                     <TableCell>
@@ -267,7 +259,7 @@ function ResultsSheet({
                       />
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className={`text-sm font-bold ${gradeColor(r.grade)}`}>{r.grade || "—"}</span>
+                      {r.grade ? <Badge className={gradeBadgeClass(r.grade)}>{r.grade}</Badge> : <span className="text-sm text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-center">
                       <Checkbox
@@ -399,7 +391,7 @@ function ComputeGradesDialog({ schoolId, classList }: { schoolId: string; classL
                     <TableCell className="text-right tabular-nums">{r.midtermPercent != null ? Math.round(r.midtermPercent) : "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{r.examPercent != null ? Math.round(r.examPercent) : "—"}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{Math.round(r.weightedTotal)}</TableCell>
-                    <TableCell><span className={`text-sm font-bold ${gradeColor(r.letterGrade)}`}>{r.letterGrade}</span></TableCell>
+                    <TableCell><Badge className={gradeBadgeClass(r.letterGrade)}>{r.letterGrade}</Badge></TableCell>
                     <TableCell>
                       {r.published ? (
                         <Badge variant="secondary">Published</Badge>

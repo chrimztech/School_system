@@ -240,3 +240,26 @@
 .shadow-sm {
   box-shadow: var(--shadow-soft);
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  @page {
+    margin: 1.2cm;
+  }
+}

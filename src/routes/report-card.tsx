@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
+import { gradeBadgeClass } from "@/lib/utils";
 
 export const Route = createFileRoute("/report-card")({
   head: () => ({ meta: [{ title: "Report Card — SRMS" }] }),
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/report-card")({
 
 type SubjectResult = {
   name: string;
+  classId: string;
   ca: number | null;
   midterm: number | null;
   exam: number | null;
@@ -34,6 +36,20 @@ type SubjectResult = {
   grade: string;
   complete: boolean;
 };
+
+function ClassAverageCell({
+  schoolId, classId, subjectName, term, academicYear,
+}: {
+  schoolId: string; classId: string; subjectName: string; term: string; academicYear: string;
+}) {
+  const { data } = useQuery({
+    queryKey: ["report-card-class-avg", schoolId, classId, subjectName, term, academicYear],
+    queryFn: () => api.termGrades.classStats(schoolId, { classId, subjectName, term, academicYear }),
+    enabled: !!classId && !!subjectName,
+  });
+  if (!data || data.average == null) return <span className="text-muted-foreground">—</span>;
+  return <span className="tabular-nums text-muted-foreground">{Math.round(data.average)}</span>;
+}
 
 const HEAD_COMMENT_ROLES = new Set(["principal", "deputy_head", "hod", "school_admin", "super_admin"]);
 
@@ -227,6 +243,7 @@ function ReportCardPage() {
     () =>
       termGrades.map((g) => ({
         name: g.subjectName,
+        classId: g.classId,
         ca: g.caPercent != null ? Math.round(g.caPercent) : null,
         midterm: g.midtermPercent != null ? Math.round(g.midtermPercent) : null,
         exam: g.examPercent != null ? Math.round(g.examPercent) : null,
@@ -253,14 +270,14 @@ function ReportCardPage() {
         title="Student Report Card"
         description={`Term ${selectedTerm} · ${year}`}
         actions={
-          <>
+          <div className="flex items-center gap-2 print:hidden">
             <Button variant="outline" onClick={() => window.print()}><Download className="mr-1 h-4 w-4" />PDF</Button>
             <Button onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print</Button>
-          </>
+          </div>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         <Label className="text-sm">Student</Label>
         <Select value={selectedId} onValueChange={setSelectedId}>
           <SelectTrigger className="w-64"><SelectValue placeholder={isLoading ? "Loading…" : "Select student"} /></SelectTrigger>
@@ -281,7 +298,7 @@ function ReportCardPage() {
         </Select>
       </div>
 
-      <div className="rounded-xl border border-border bg-card shadow-sm">
+      <div className="print-area rounded-xl border border-border bg-card shadow-sm print:rounded-none print:border-0 print:shadow-none">
         <SchoolDocumentHeader
           title="Academic Report Card"
           subtitle={`Term ${selectedTerm} · ${year}`}
@@ -314,18 +331,19 @@ function ReportCardPage() {
               <TableHead className="text-right">Midterm %</TableHead>
               <TableHead className="text-right">Exam %</TableHead>
               <TableHead className="text-right">Weighted total</TableHead>
+              <TableHead className="text-right">Class avg</TableHead>
               <TableHead>Grade</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {subjects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                   {selectedId ? "No term grades computed for this student and term yet." : "Select a student to view their report card."}
                 </TableCell>
               </TableRow>
-            ) : subjects.map((s) => (
-              <TableRow key={s.name}>
+            ) : subjects.map((s, i) => (
+              <TableRow key={s.name} className={i % 2 === 1 ? "bg-muted/30" : undefined}>
                 <TableCell className="font-medium">{s.name}</TableCell>
                 <TableCell className="text-right tabular-nums">{s.ca ?? "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{s.midterm ?? "—"}</TableCell>
@@ -333,8 +351,11 @@ function ReportCardPage() {
                 <TableCell className="text-right font-semibold tabular-nums">
                   {s.total}{!s.complete && <span className="ml-1 text-xs font-normal text-muted-foreground">(provisional)</span>}
                 </TableCell>
+                <TableCell className="text-right">
+                  <ClassAverageCell schoolId={active.id} classId={s.classId} subjectName={s.name} term={selectedTerm} academicYear={year} />
+                </TableCell>
                 <TableCell>
-                  <Badge variant={s.grade.startsWith("A") ? "default" : "secondary"}>{s.grade}</Badge>
+                  <Badge className={gradeBadgeClass(s.grade)}>{s.grade}</Badge>
                 </TableCell>
               </TableRow>
             ))}
@@ -352,7 +373,7 @@ function ReportCardPage() {
           </div>
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="text-xs uppercase text-muted-foreground">Position in class</p>
-            <p className="mt-1 text-xl font-semibold">—</p>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">Not available</p>
           </div>
         </div>
 

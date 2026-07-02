@@ -336,6 +336,9 @@ function HostelPage() {
                             ...prev,
                             name: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(),
                             grade: student.className || student.grade || prev.grade,
+                            emergencyContactName: student.guardian || student.guardianName || prev.emergencyContactName,
+                            emergencyContactPhone: student.guardianPhone || prev.emergencyContactPhone,
+                            medicalNeeds: student.medicalConditions || student.allergies || prev.medicalNeeds,
                           }));
                         }}
                       />
@@ -554,7 +557,11 @@ function HostelPage() {
                         onSelect={(option) => {
                           const student = findPickerStudent(option.id);
                           if (!student) return;
-                          setLeaveForm((prev) => ({ ...prev, student: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim() }));
+                          setLeaveForm((prev) => ({
+                            ...prev,
+                            student: `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim(),
+                            guardianPhone: student.guardianPhone || prev.guardianPhone,
+                          }));
                         }}
                       />
                     </div>
