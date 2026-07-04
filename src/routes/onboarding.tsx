@@ -6,6 +6,7 @@ import {
   Check,
   GraduationCap,
   Image as ImageIcon,
+  Lock,
   Plus,
   Sparkles,
   Upload,
@@ -29,7 +30,8 @@ import { toast } from "sonner";
 import {
   useTenant, gradeRangeForType, buildFeatureFlags, createTenantSubscription,
   ACADEMIC_LEVEL_META, ACADEMIC_LEVEL_ORDER, CAMPUS_STATUS_OPTIONS, createCampusDraft, defaultLevelsForType,
-  type SchoolType, type Tenant, type AcademicLevel, type Campus, type CampusStatus,
+  FEATURE_META, FEATURE_ORDER, PLAN_CATALOG, planIncludesFeature,
+  type SchoolType, type Tenant, type AcademicLevel, type Campus, type CampusStatus, type PlanId, type FeatureCategory,
 } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -83,6 +85,9 @@ const provinces = [
   "Southern",
   "Western",
 ];
+
+const FEATURE_CATEGORY_ORDER: FeatureCategory[] = ["Communication", "Finance", "Operations", "Enterprise"];
+const PLAN_IDS: PlanId[] = ["core", "growth", "advanced", "enterprise"];
 
 type Form = Omit<Tenant, "id" | "totalStudents" | "totalTeachers" | "totalClasses">;
 
@@ -152,6 +157,12 @@ function OnboardingPage() {
     setForm((f) => ({ ...f, [k]: v }));
   const toggle = (k: keyof Form["features"]) =>
     setForm((f) => ({ ...f, features: { ...f.features, [k]: !f.features[k] } }));
+  const setPlan = (planId: PlanId) =>
+    setForm((f) => ({
+      ...f,
+      subscription: createTenantSubscription(planId, f.subscription),
+      features: buildFeatureFlags(planId, f.features),
+    }));
 
   const applyTypeTemplate = (type: SchoolType) => {
     const levels = defaultLevelsForType(type);
@@ -1142,28 +1153,54 @@ function OnboardingPage() {
 
         {/* STEP 8 — Modules */}
         {step === 8 && (
-          <div className="space-y-3">
-            {(
-              [
-                ["sms", "SMS parent alerts", "Africa's Talking gateway"],
-                ["ussd", "USSD fallback", "For parents without smartphones"],
-                ["momo", "Mobile money", "MTN MoMo, Airtel Money, Zamtel Kwacha"],
-                ["ecz", "ECZ integration", "Auto-register exam candidates"],
-                ["library", "Library module", "Catalogue & circulation"],
-                ["transport", "Transport routes", "Bus tracking & fees"],
-              ] as const
-            ).map(([k, label, desc]) => (
-              <div
-                key={k}
-                className="flex items-center justify-between rounded-lg border border-border p-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">{label}</p>
-                  <p className="text-xs text-muted-foreground">{desc}</p>
+          <div className="space-y-6">
+            <div className="rounded-lg border border-border p-4">
+              <Label>Starting plan</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Determines which modules can be switched on below. Can be changed later from Billing.
+              </p>
+              <Select value={form.subscription.planId} onValueChange={(v) => setPlan(v as PlanId)}>
+                <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PLAN_IDS.map((id) => (
+                    <SelectItem key={id} value={id}>{PLAN_CATALOG[id].name} — {PLAN_CATALOG[id].badge}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {FEATURE_CATEGORY_ORDER.map((category) => {
+              const keys = FEATURE_ORDER.filter((k) => FEATURE_META[k].category === category);
+              if (keys.length === 0) return null;
+              return (
+                <div key={category}>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category}</p>
+                  <div className="space-y-2">
+                    {keys.map((k) => {
+                      const meta = FEATURE_META[k];
+                      const unlocked = planIncludesFeature(form.subscription.planId, k);
+                      return (
+                        <div
+                          key={k}
+                          className={`flex items-center justify-between rounded-lg border border-border p-3 ${!unlocked ? "opacity-60" : ""}`}
+                        >
+                          <div>
+                            <p className="flex items-center gap-1.5 text-sm font-medium">
+                              {meta.label}
+                              {!unlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {unlocked ? meta.description : `Requires ${PLAN_CATALOG[meta.availableFrom].name} plan`}
+                            </p>
+                          </div>
+                          <Switch checked={form.features[k]} disabled={!unlocked} onCheckedChange={() => toggle(k)} />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <Switch checked={form.features[k]} onCheckedChange={() => toggle(k)} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -84,7 +84,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { ROLE_META, useAuth } from "@/lib/auth";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, isTenantModuleEnabled } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -260,7 +260,7 @@ export function WorkspaceSidebar() {
   const isActive = (url: string) => (url === "/" ? path === "/" : path.startsWith(url));
 
   const renderGroup = (label: string, items: NavItem[]) => {
-    const visible = items.filter((item) => can(item.module) !== false);
+    const visible = items.filter((item) => can(item.module) !== false && isTenantModuleEnabled(active, item.module));
     if (visible.length === 0) return null;
 
     return (

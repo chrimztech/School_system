@@ -1,12 +1,15 @@
 import { Link } from "@tanstack/react-router";
-import { ShieldAlert } from "lucide-react";
+import { PackageX, ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { useTenant, isTenantModuleEnabled } from "@/lib/tenant";
 
 export function AccessGuard({ module, children }: { module: string; children: ReactNode }) {
-  const { can } = useAuth();
+  const { can, isSystemAdmin } = useAuth();
+  const { active } = useTenant();
+
   if (can(module) === false) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -21,5 +24,21 @@ export function AccessGuard({ module, children }: { module: string; children: Re
       </div>
     );
   }
+
+  if (!isSystemAdmin && !isTenantModuleEnabled(active, module)) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <PackageX className="h-10 w-10 text-muted-foreground" />
+        <p className="text-lg font-semibold">Module not enabled</p>
+        <p className="text-sm text-muted-foreground">
+          This module isn't enabled for {active.name}. A school administrator can turn it on in Settings.
+        </p>
+        <Button asChild variant="outline">
+          <Link to="/settings">Go to Settings</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 }

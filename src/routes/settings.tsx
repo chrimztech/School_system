@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Check, Palette, Save } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Check, Lock, Palette, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,11 +23,15 @@ import {
   ACADEMIC_LEVEL_ORDER,
   CAMPUS_STATUS_OPTIONS,
   FEATURE_META,
+  FEATURE_ORDER,
+  PLAN_CATALOG,
+  planIncludesFeature,
   createCampusDraft,
   type AcademicLevel,
   type Campus,
   type CampusStatus,
   type FeatureKey,
+  type FeatureCategory,
   useTenant,
 } from "@/lib/tenant";
 
@@ -44,18 +48,10 @@ const schoolTypes = [
   { code: "FULL", name: "Full School", range: "Baby Class · Grade 1-6 · Form 1-6" },
 ] as const;
 
-const managedFeatures = [
-  "offlineMode",
-  "sms",
-  "ussd",
-  "ecz",
-  "library",
-  "transport",
-  "canteen",
-  "multiCurrency",
-] as const satisfies readonly FeatureKey[];
+const managedFeatures = FEATURE_ORDER;
+const FEATURE_CATEGORY_ORDER: FeatureCategory[] = ["Communication", "Finance", "Operations", "Enterprise"];
 
-type ManagedFeature = (typeof managedFeatures)[number];
+type ManagedFeature = FeatureKey;
 type FeatureState = Record<ManagedFeature, boolean>;
 
 function currentFeatureState(features: Record<FeatureKey, boolean>): FeatureState {
@@ -488,20 +484,45 @@ function SettingsPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-semibold">Feature controls</h2>
-          <div className="mt-4 space-y-4">
-            {managedFeatures.map((feature) => {
-              const meta = FEATURE_META[feature];
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">Feature controls</h2>
+            <p className="text-xs text-muted-foreground">
+              Modules on the {PLAN_CATALOG[school.subscription.planId].name} plan
+            </p>
+          </div>
+          <div className="mt-4 space-y-6">
+            {FEATURE_CATEGORY_ORDER.map((category) => {
+              const keys = managedFeatures.filter((k) => FEATURE_META[k].category === category);
+              if (keys.length === 0) return null;
               return (
-                <div key={feature} className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{meta.label}</p>
-                    <p className="text-xs text-muted-foreground">{meta.description}</p>
+                <div key={category}>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category}</p>
+                  <div className="space-y-2">
+                    {keys.map((feature) => {
+                      const meta = FEATURE_META[feature];
+                      const unlocked = planIncludesFeature(school.subscription.planId, feature);
+                      return (
+                        <div key={feature} className={`flex items-center justify-between gap-3 rounded-lg border border-border p-3 ${!unlocked ? "opacity-60" : ""}`}>
+                          <div className="min-w-0">
+                            <p className="flex items-center gap-1.5 text-sm font-medium">
+                              {meta.label}
+                              {!unlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {unlocked ? meta.description : (
+                                <>Requires {PLAN_CATALOG[meta.availableFrom].name} plan — <Link to="/billing" className="underline">upgrade</Link></>
+                              )}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={featureValues[feature]}
+                            disabled={!unlocked}
+                            onCheckedChange={(enabled) => toggleFeature(feature, enabled)}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                  <Switch
-                    checked={featureValues[feature]}
-                    onCheckedChange={(enabled) => toggleFeature(feature, enabled)}
-                  />
                 </div>
               );
             })}
