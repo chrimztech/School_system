@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { LifeBuoy, BookOpen, Mail, Phone, MessageCircle, Send } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { LifeBuoy, BookOpen, Mail, Phone, MessageCircle, Send, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -8,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ROLE_META } from "@/lib/auth";
+import { useTenant } from "@/lib/tenant";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/help")({
   head: () => ({ meta: [{ title: "Help - SRMS" }] }),
@@ -25,9 +28,38 @@ const faqs = [
 ];
 
 function HelpPage() {
-  const { isSystemAdmin } = useAuth();
+  const { user, isSystemAdmin } = useAuth();
+  const { active } = useTenant();
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+
+  const [rating, setRating] = useState(5);
+  const [reviewQuote, setReviewQuote] = useState("");
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+  const submitReviewMutation = useMutation({
+    mutationFn: (data: any) => api.testimonials.submit(data),
+    onSuccess: () => {
+      toast.success("Thanks for the feedback! It'll appear on the login page once reviewed.");
+      setReviewSubmitted(true);
+      setReviewQuote("");
+    },
+    onError: () => toast.error("Could not submit your review — please try again"),
+  });
+
+  const submitReview = () => {
+    if (!reviewQuote.trim()) {
+      toast.error("Add a few words about your experience");
+      return;
+    }
+    submitReviewMutation.mutate({
+      authorName: user?.name ?? "SRMS user",
+      authorRole: user ? ROLE_META[user.role].label : undefined,
+      schoolName: isSystemAdmin ? undefined : active.name,
+      quote: reviewQuote.trim(),
+      rating,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -48,7 +80,7 @@ function HelpPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Link to="/knowledge-base" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><BookOpen className="h-5 w-5" /></div>
           <div>
@@ -70,6 +102,14 @@ function HelpPage() {
           <div>
             <p className="font-semibold">Call support</p>
             <p className="text-xs text-muted-foreground">+260 211 555 200</p>
+          </div>
+        </a>
+
+        <a href="#rate-us" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500"><Star className="h-5 w-5" /></div>
+          <div>
+            <p className="font-semibold">Rate SRMS</p>
+            <p className="text-xs text-muted-foreground">Share a rating and review</p>
           </div>
         </a>
       </div>
@@ -107,6 +147,44 @@ function HelpPage() {
             <Button type="submit"><Send className="mr-1 h-4 w-4" />Submit ticket</Button>
           </div>
         </form>
+      </section>
+
+      <section id="rate-us" className="scroll-mt-6 rounded-xl border border-border bg-card p-6">
+        <h2 className="mb-1 flex items-center gap-2 text-base font-semibold"><Star className="h-4 w-4 text-amber-500" />Rate SRMS</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Enjoying the system? Leave a rating and a short review — approved reviews are shown to prospective schools on the sign-in page.
+        </p>
+        {reviewSubmitted ? (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+            <Star className="h-4 w-4 fill-emerald-500 text-emerald-500" />
+            Thanks for the feedback! It'll appear on the login page once a platform admin reviews it.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Your rating</p>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button key={n} type="button" onClick={() => setRating(n)} aria-label={`${n} star${n === 1 ? "" : "s"}`}>
+                    <Star className={`h-6 w-6 transition ${n <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40 hover:text-amber-300"}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Textarea
+              placeholder="What's working well for you? What would you tell another school considering SRMS?"
+              value={reviewQuote}
+              onChange={(event) => setReviewQuote(event.target.value)}
+              rows={3}
+              maxLength={500}
+            />
+            <div className="flex justify-end">
+              <Button onClick={submitReview} disabled={submitReviewMutation.isPending}>
+                <Star className="mr-1.5 h-4 w-4" />Submit review
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

@@ -289,6 +289,16 @@ export const api = {
     zynlepayBalance: () => unwrap<any>(apiClient.get("/api/platform/payments/zynlepay/balance")),
   },
 
+  // Testimonials (login page + platform admin management)
+  testimonials: {
+    public: () => unwrap<any[]>(apiClient.get("/api/public/testimonials")),
+    submit: (data: any) => unwrap<any>(apiClient.post("/api/testimonials", data)),
+    adminList: () => unwrap<any[]>(apiClient.get("/api/platform/testimonials")),
+    create: (data: any) => unwrap<any>(apiClient.post("/api/platform/testimonials", data)),
+    update: (id: string, data: any) => unwrap<any>(apiClient.patch(`/api/platform/testimonials/${id}`, data)),
+    delete: (id: string) => apiClient.delete(`/api/platform/testimonials/${id}`),
+  },
+
   // Schools / tenants
   schools: {
     list: () => unwrap<BackendSchool[]>(apiClient.get("/api/schools")),
@@ -427,6 +437,18 @@ export const api = {
       unwrap<{ average: number | null; distribution: Record<string, number> }>(
         apiClient.get(schoolPath(schoolId, "term-grades/class-stats"), { params }),
       ),
+  },
+
+  // Student promotion (bulk advance a class roster to the next grade / graduate)
+  promotions: {
+    promote: (
+      schoolId: string,
+      data: {
+        sourceClassId: string;
+        targetAcademicYear: string;
+        items: Array<{ studentId: string; enrolmentId: string; destinationClassId: string | null; graduate: boolean }>;
+      },
+    ) => unwrap<{ promoted: number; graduated: number }>(apiClient.post(schoolPath(schoolId, "promotions"), data)),
   },
 
   // Grade weight configuration

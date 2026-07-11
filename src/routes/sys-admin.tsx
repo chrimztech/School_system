@@ -4,6 +4,7 @@ import {
   School, TrendingUp, Users, CreditCard, Plus, Search,
   CheckCircle2, AlertTriangle, XCircle, Clock, ArrowUpRight,
   Building2, MoreHorizontal, Activity, LifeBuoy, Layers, FileCog, FileText, Wallet,
+  Star, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -89,6 +91,45 @@ function SysAdminPage() {
     queryFn: () => api.platform.zynlepayBalance(),
     enabled: isSystemAdmin,
     retry: false,
+  });
+
+  const [testimonialOpen, setTestimonialOpen] = useState(false);
+  const [testimonialForm, setTestimonialForm] = useState({ authorName: "", authorRole: "", schoolName: "", quote: "", rating: 5 });
+
+  const { data: testimonials = [], isLoading: testimonialsLoading } = useQuery({
+    queryKey: ["platform-testimonials"],
+    queryFn: () => api.testimonials.adminList(),
+    enabled: isSystemAdmin,
+  });
+
+  const createTestimonialMutation = useMutation({
+    mutationFn: (data: any) => api.testimonials.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["platform-testimonials"] });
+      toast.success("Testimonial added");
+      setTestimonialForm({ authorName: "", authorRole: "", schoolName: "", quote: "", rating: 5 });
+      setTestimonialOpen(false);
+    },
+    onError: () => toast.error("Failed to add testimonial"),
+  });
+
+  const toggleTestimonialApprovalMutation = useMutation({
+    mutationFn: ({ id, testimonial, approved }: { id: string; testimonial: any; approved: boolean }) =>
+      api.testimonials.update(id, { ...testimonial, approved }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["platform-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["public-testimonials"] });
+    },
+    onError: () => toast.error("Failed to update testimonial"),
+  });
+
+  const deleteTestimonialMutation = useMutation({
+    mutationFn: (id: string) => api.testimonials.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["platform-testimonials"] });
+      toast.success("Testimonial removed");
+    },
+    onError: () => toast.error("Failed to remove testimonial"),
   });
 
   const deleteSchool = useMutation({
@@ -453,6 +494,7 @@ function SysAdminPage() {
           <TabsTrigger value="schools">Schools ({tenants.length})</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="plans">Plans & pricing</TabsTrigger>
+          <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
         </TabsList>
 
         {/* SCHOOLS */}
@@ -707,6 +749,120 @@ function SysAdminPage() {
                 </div>
               );
             })}
+          </div>
+        </TabsContent>
+
+        {/* TESTIMONIALS */}
+        <TabsContent value="testimonials" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Shown on the login page — only approved testimonials are public.</p>
+            <Dialog open={testimonialOpen} onOpenChange={setTestimonialOpen}>
+              <Button onClick={() => setTestimonialOpen(true)}><Plus className="mr-1.5 h-4 w-4" />Add testimonial</Button>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Add testimonial</DialogTitle></DialogHeader>
+                <div className="grid gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Author name *</Label>
+                      <Input className="mt-1" value={testimonialForm.authorName} onChange={(e) => setTestimonialForm({ ...testimonialForm, authorName: e.target.value })} placeholder="Beatrice N." />
+                    </div>
+                    <div>
+                      <Label>Role</Label>
+                      <Input className="mt-1" value={testimonialForm.authorRole} onChange={(e) => setTestimonialForm({ ...testimonialForm, authorRole: e.target.value })} placeholder="Head Teacher" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>School</Label>
+                    <Input className="mt-1" value={testimonialForm.schoolName} onChange={(e) => setTestimonialForm({ ...testimonialForm, schoolName: e.target.value })} placeholder="Combined School, Lusaka" />
+                  </div>
+                  <div>
+                    <Label>Quote *</Label>
+                    <Textarea className="mt-1" rows={3} value={testimonialForm.quote} onChange={(e) => setTestimonialForm({ ...testimonialForm, quote: e.target.value })} placeholder="SRMS transformed how we manage our learners..." />
+                  </div>
+                  <div>
+                    <Label>Rating</Label>
+                    <div className="mt-1 flex gap-1">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button key={n} type="button" onClick={() => setTestimonialForm({ ...testimonialForm, rating: n })}>
+                          <Star className={`h-5 w-5 ${n <= testimonialForm.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setTestimonialOpen(false)}>Cancel</Button>
+                  <Button
+                    disabled={createTestimonialMutation.isPending}
+                    onClick={() => {
+                      if (!testimonialForm.authorName.trim() || !testimonialForm.quote.trim()) {
+                        toast.error("Author name and quote are required");
+                        return;
+                      }
+                      createTestimonialMutation.mutate(testimonialForm);
+                    }}
+                  >
+                    Add testimonial
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Author</TableHead>
+                  <TableHead>Quote</TableHead>
+                  <TableHead>Rating</TableHead>
+                  <TableHead>Approved</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(testimonials as any[]).map((t: any) => (
+                  <TableRow key={t.id}>
+                    <TableCell>
+                      <p className="font-medium">{t.authorName}</p>
+                      <p className="text-xs text-muted-foreground">{[t.authorRole, t.schoolName].filter(Boolean).join(" · ")}</p>
+                    </TableCell>
+                    <TableCell className="max-w-sm truncate text-sm text-muted-foreground">{t.quote}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`h-3.5 w-3.5 ${i < t.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={t.approved}
+                        onCheckedChange={(approved) => toggleTestimonialApprovalMutation.mutate({ id: t.id, testimonial: t, approved })}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          if (window.confirm(`Remove testimonial from ${t.authorName}?`)) deleteTestimonialMutation.mutate(t.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!testimonialsLoading && (testimonials as any[]).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                      No testimonials yet. Add one to show it on the login page.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </TabsContent>
       </Tabs>

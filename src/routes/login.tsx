@@ -41,16 +41,20 @@ const STATS = [
   { value: "Multi", label: "Campus" },
 ];
 
-function StarRating() {
+function StarRating({ rating = 5 }: { rating?: number }) {
   return (
     <div className="flex gap-0.5">
       {Array.from({ length: 5 }).map((_, i) => (
-        <svg key={i} className="h-3.5 w-3.5 fill-amber-400" viewBox="0 0 20 20" aria-hidden>
+        <svg key={i} className={`h-3.5 w-3.5 ${i < rating ? "fill-amber-400" : "fill-white/15"}`} viewBox="0 0 20 20" aria-hidden>
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
       ))}
     </div>
   );
+}
+
+function testimonialInitials(name: string) {
+  return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
 }
 
 function LoginPage() {
@@ -63,10 +67,17 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
   const [schoolBranding, setSchoolBranding] = useState<SchoolBranding | null>(null);
+  const [testimonials, setTestimonials] = useState<any[]>([]);
 
   useEffect(() => {
     if (user) navigate({ to: "/" });
   }, [user, navigate]);
+
+  useEffect(() => {
+    api.testimonials.public()
+      .then((data: any[]) => setTestimonials(Array.isArray(data) ? data : []))
+      .catch(() => { /* ignore — testimonial fetch is non-critical for login */ });
+  }, []);
 
   useEffect(() => {
     const slug = detectSubdomainSlug();
@@ -226,21 +237,20 @@ function LoginPage() {
           </div>
 
           {/* Testimonial */}
-          {!schoolBranding && (
+          {!schoolBranding && testimonials.length > 0 && (
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] backdrop-blur-sm p-5 space-y-4">
-              <StarRating />
+              <StarRating rating={testimonials[0].rating} />
               <p className="text-[13px] text-white/55 leading-relaxed italic">
-                "SRMS transformed how we manage our 800+ learners. Attendance, fees, and report
-                cards — everything lives in one place now. I would not go back to the old way."
+                "{testimonials[0].quote}"
               </p>
               <div className="flex items-center gap-3 pt-0.5">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-[11px] font-bold text-blue-300 ring-1 ring-blue-500/20">
-                  BN
+                  {testimonialInitials(testimonials[0].authorName)}
                 </div>
                 <div className="leading-none">
-                  <p className="text-[12px] font-semibold text-white/65">Beatrice N.</p>
+                  <p className="text-[12px] font-semibold text-white/65">{testimonials[0].authorName}</p>
                   <p className="text-[10px] text-white/30 mt-0.5">
-                    Head Teacher · Combined School, Lusaka
+                    {[testimonials[0].authorRole, testimonials[0].schoolName].filter(Boolean).join(" · ")}
                   </p>
                 </div>
               </div>

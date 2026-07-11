@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Users, Loader2, Trash2, BookOpen, UserCog, Search } from "lucide-react";
+import { Plus, Users, Loader2, Trash2, BookOpen, UserCog, Search, GraduationCap } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,20 @@ function gradeLabel(grade: number | string | undefined, phase?: string): string 
   return g >= 8 ? `Grade ${g}` : `Grade ${g}`;
 }
 
+// Suggests the next-grade destination class for promotion, following the same
+// primary(1-6) → olevel(1-4) → alevel(5-6) progression used when creating classes.
+function suggestDestination(grade: number, phase: string, allClasses: any[], targetYear: string) {
+  let nextGrade = grade + 1;
+  let nextPhase = phase || "primary";
+  if (nextPhase === "primary" && grade >= 6) { nextGrade = 1; nextPhase = "olevel"; }
+  else if (nextPhase === "olevel" && grade >= 4) { nextGrade = 5; nextPhase = "alevel"; }
+  else if (nextPhase === "alevel" && grade >= 6) return { graduate: true, defaultId: "" };
+  const candidates = (allClasses as any[]).filter(
+    (c: any) => String(c.academicYear) === targetYear && Number(c.grade) === nextGrade && (c.phase ?? nextPhase) === nextPhase,
+  );
+  return { graduate: false, defaultId: candidates.length === 1 ? candidates[0].id : "" };
+}
+
 function blankClassForm(year: string, defaultPhase = "") {
   return {
     name: "", grade: "", section: "", teacherId: "", teacherName: "", capacity: "30",
@@ -46,6 +61,7 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
   const [enrollSearch, setEnrollSearch] = useState("");
   const [teacherDialog, setTeacherDialog] = useState(false);
   const [enrollDialog, setEnrollDialog] = useState(false);
+  const [promoteDialog, setPromoteDialog] = useState(false);
   const [teacherForm, setTeacherForm] = useState({ teacherId: "", teacherName: "", subjectId: "", subjectName: "" });
 
   // Reset teacher form when dialog opens and auto-select first teacher + first subject
@@ -85,6 +101,11 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
   const { data: allSubjects = [] } = useQuery({
     queryKey: ["subjects", schoolId],
     queryFn: () => api.subjects.list(schoolId),
+  });
+
+  const { data: allClassesRaw = [] } = useQuery({
+    queryKey: ["classes", schoolId],
+    queryFn: () => api.classes.list(schoolId),
   });
 
   const enrolments = enrolmentsRaw as any[];
@@ -128,6 +149,17 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
     onError: () => toast.error("Failed to remove student"),
   });
 
+  const promoteMut = useMutation({
+    mutationFn: (payload: any) => api.promotions.promote(schoolId, payload),
+    onSuccess: (result: any) => {
+      void qc.invalidateQueries({ queryKey: ["class-enrolments", schoolId, cls.id] });
+      void qc.invalidateQueries({ queryKey: ["classes", schoolId] });
+      toast.success(`${result.promoted} promoted, ${result.graduated} graduated`);
+      setPromoteDialog(false);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to promote students"),
+  });
+
   const assignTeacherMut = useMutation({
     mutationFn: (data: any) => api.classes.assignTeacher(schoolId, cls.id, data),
     onSuccess: () => {
@@ -162,6 +194,7 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
   };
 
   return (
+    <>
     <Sheet open onOpenChange={(v) => { if (!v) onClose(); }}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl">
         <SheetHeader className="border-b border-border px-6 py-4">
@@ -186,7 +219,11 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
               <p className="text-sm text-muted-foreground">
                 {enrolments.length} / {cls.capacity ?? "—"} enrolled
               </p>
-              {!readOnly && <Dialog open={enrollDialog} onOpenChange={setEnrollDialog}>
+              {!readOnly && <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPromoteDialog(true)}>
+                <GraduationCap className="mr-1 h-3.5 w-3.5" />Promote to next year
+              </Button>
+              <Dialog open={enrollDialog} onOpenChange={setEnrollDialog}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Enrol pupils</Button>
                 </DialogTrigger>
@@ -223,7 +260,8 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                     <Button variant="outline" onClick={() => { setEnrollDialog(false); setEnrollSearch(""); }}>Done</Button>
                   </DialogFooter>
                 </DialogContent>
-              </Dialog>}
+              </Dialog>
+              </div>}
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -374,6 +412,154 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
         </Tabs>
       </SheetContent>
     </Sheet>
+    {!readOnly && (
+      <PromoteClassDialog
+        open={promoteDialog}
+        onOpenChange={setPromoteDialog}
+        cls={cls}
+        enrolments={enrolments}
+        allClasses={allClassesRaw as any[]}
+        onSubmit={(payload) => promoteMut.mutate(payload)}
+        isPending={promoteMut.isPending}
+      />
+    )}
+    </>
+  );
+}
+
+// ── Promote class dialog ─────────────────────────────────────────
+function PromoteClassDialog({
+  open, onOpenChange, cls, enrolments, allClasses, onSubmit, isPending,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  cls: any;
+  enrolments: any[];
+  allClasses: any[];
+  onSubmit: (payload: any) => void;
+  isPending: boolean;
+}) {
+  const activeEnrolments = useMemo(
+    () => (enrolments as any[]).filter((e: any) => (e.status ?? "ACTIVE") === "ACTIVE"),
+    [enrolments],
+  );
+  const [targetYear, setTargetYear] = useState(() => String(Number(cls.academicYear ?? new Date().getFullYear()) + 1));
+  const [rows, setRows] = useState<Record<string, { include: boolean; destinationClassId: string; graduate: boolean }>>({});
+
+  // Reset the roster whenever the dialog is (re)opened for this class
+  useEffect(() => {
+    if (!open) return;
+    const year = String(Number(cls.academicYear ?? new Date().getFullYear()) + 1);
+    setTargetYear(year);
+    const suggestion = suggestDestination(Number(cls.grade), cls.phase ?? "primary", allClasses, year);
+    const next: Record<string, { include: boolean; destinationClassId: string; graduate: boolean }> = {};
+    for (const e of activeEnrolments) {
+      next[e.id] = {
+        include: true,
+        destinationClassId: suggestion.graduate ? "" : suggestion.defaultId,
+        graduate: suggestion.graduate,
+      };
+    }
+    setRows(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, cls.id]);
+
+  const candidates = useMemo(
+    () => (allClasses as any[]).filter((c: any) => String(c.academicYear) === targetYear && c.id !== cls.id),
+    [allClasses, targetYear, cls.id],
+  );
+
+  const updateRow = (id: string, patch: Partial<{ include: boolean; destinationClassId: string; graduate: boolean }>) => {
+    setRows((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  };
+
+  const includedRows = activeEnrolments.filter((e: any) => rows[e.id]?.include);
+  const canSubmit = includedRows.length > 0 && includedRows.every((e: any) => {
+    const r = rows[e.id];
+    return r?.graduate || (r?.destinationClassId ?? "").length > 0;
+  });
+
+  const submit = () => {
+    const items = includedRows.map((e: any) => ({
+      studentId: e.studentId,
+      enrolmentId: e.id,
+      destinationClassId: rows[e.id].graduate ? null : rows[e.id].destinationClassId,
+      graduate: rows[e.id].graduate,
+    }));
+    onSubmit({ sourceClassId: cls.id, targetAcademicYear: targetYear, items });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Promote {cls.name} to {targetYear}</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Review each pupil, choose their destination class for the next academic year, or mark them as graduating.
+          </p>
+        </DialogHeader>
+        <div className="flex items-center gap-3">
+          <Label className="shrink-0">Target academic year</Label>
+          <Input className="w-32" value={targetYear} onChange={(e) => setTargetYear(e.target.value)} />
+        </div>
+        {activeEnrolments.length > 0 && candidates.length === 0 && (
+          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
+            No classes exist yet for {targetYear}. Create the destination class(es) in Classes first, or mark pupils as graduating below.
+          </p>
+        )}
+        <div className="flex-1 overflow-y-auto rounded-lg border border-border">
+          {activeEnrolments.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No active pupils to promote.</p>
+          ) : (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead className="w-10" />
+                <TableHead>Student</TableHead>
+                <TableHead>Destination</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {activeEnrolments.map((e: any) => {
+                  const row = rows[e.id] ?? { include: true, destinationClassId: "", graduate: false };
+                  return (
+                    <TableRow key={e.id}>
+                      <TableCell>
+                        <Checkbox checked={row.include} onCheckedChange={(v) => updateRow(e.id, { include: !!v })} />
+                      </TableCell>
+                      <TableCell className={!row.include ? "text-muted-foreground" : ""}>{e.studentName}</TableCell>
+                      <TableCell>
+                        <Select
+                          disabled={!row.include}
+                          value={row.graduate ? "__graduate__" : row.destinationClassId || ""}
+                          onValueChange={(v) => {
+                            if (v === "__graduate__") updateRow(e.id, { graduate: true, destinationClassId: "" });
+                            else updateRow(e.id, { graduate: false, destinationClassId: v });
+                          }}
+                        >
+                          <SelectTrigger className="w-56"><SelectValue placeholder="Select destination" /></SelectTrigger>
+                          <SelectContent>
+                            {candidates.map((c: any) => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                            <SelectItem value="__graduate__">🎓 Graduate (leaving school)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={!canSubmit || isPending}>
+            {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+            Promote {includedRows.length} pupil{includedRows.length === 1 ? "" : "s"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
