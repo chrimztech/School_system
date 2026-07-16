@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Pencil, Trash2, Loader2, Building2, ChevronDown, ChevronRight, BookMarked, ArrowRightLeft, UserCog, School } from "lucide-react";
-import { useState, Dispatch, SetStateAction } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/departments")({
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/departments")({
 });
 
 function emptyForm() {
-  return { name: "", code: "", head: "", description: "" };
+  return { name: "", code: "", headTeacherId: "", description: "" };
 }
 
 const PHASE_LABEL: Record<string, string> = {
@@ -60,7 +61,7 @@ function SubjectRow({
 }
 
 function DeptDialog({
-  open, onClose, title, form, setForm, save, editTarget, isPending,
+  open, onClose, title, form, setForm, save, editTarget, isPending, teachers,
 }: {
   open: boolean;
   onClose: () => void;
@@ -70,6 +71,7 @@ function DeptDialog({
   save: () => void;
   editTarget: any | null;
   isPending: boolean;
+  teachers: any[];
 }) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -88,7 +90,20 @@ function DeptDialog({
           </div>
           <div>
             <Label>Head of Department</Label>
-            <Input className="mt-1" value={form.head} onChange={(e) => setForm((f) => ({ ...f, head: e.target.value }))} placeholder="Mr. Banda" maxLength={80} />
+            <Select
+              value={form.headTeacherId || "__none__"}
+              onValueChange={(v) => setForm((f) => ({ ...f, headTeacherId: v === "__none__" ? "" : v }))}
+            >
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select a teacher…" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— None —</SelectItem>
+                {teachers.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.firstName} {t.lastName}{t.department ? ` (${t.department})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Description</Label>
@@ -110,6 +125,8 @@ function DeptDialog({
 function DepartmentsPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const isHOD = user?.role === "hod";
   const qc = useQueryClient();
 
   const [addOpen, setAddOpen] = useState(false);
@@ -162,6 +179,26 @@ function DepartmentsPage() {
   const deptNames = depts.map((d: any) => d.name);
   const unassigned = subjects.filter((s) => !s.department || !deptNames.includes(s.department));
   const unassignedTeachers = teachers.filter((t) => !t.department || !deptNames.includes(t.department));
+
+  // HODs only manage the department(s) they've been set as head of — not every department in the school.
+  const myTeacherRecord = isHOD
+    ? teachers.find((t: any) => t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase())
+    : undefined;
+  const visibleDepts = isHOD
+    ? depts.filter((d: any) => myTeacherRecord && d.headTeacherId === myTeacherRecord.id)
+    : depts;
+  const visibleDeptNames = visibleDepts.map((d: any) => d.name);
+
+  // Auto-expand the HOD's own department so they land straight on their teacher list.
+  useEffect(() => {
+    if (!isHOD || visibleDepts.length === 0) return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      visibleDepts.forEach((d: any) => next.add(d.id));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHOD, visibleDepts.map((d: any) => d.id).join(",")]);
 
   // Mutations
   const createMut = useMutation({
@@ -232,7 +269,7 @@ function DepartmentsPage() {
 
   const openEdit = (d: any) => {
     setEditTarget(d);
-    setForm({ name: d.name ?? "", code: d.code ?? "", head: d.head ?? "", description: d.description ?? "" });
+    setForm({ name: d.name ?? "", code: d.code ?? "", headTeacherId: d.headTeacherId ?? "", description: d.description ?? "" });
   };
 
   const save = () => {
@@ -240,7 +277,7 @@ function DepartmentsPage() {
     const payload = {
       name: form.name.trim(),
       code: form.code.trim() || null,
-      head: form.head.trim() || null,
+      headTeacherId: form.headTeacherId || "",
       description: form.description.trim() || null,
     };
     if (editTarget) {
@@ -268,19 +305,21 @@ function DepartmentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Departments"
-        description="Academic departments — manage faculty groupings and subject assignments"
+        description={isHOD ? "Manage the teachers and subjects in the department you head" : "Academic departments — manage faculty groupings and subject assignments"}
         actions={
-          <Button onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
-            <Plus className="mr-1 h-4 w-4" />Add department
-          </Button>
+          !isHOD && (
+            <Button onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
+              <Plus className="mr-1 h-4 w-4" />Add department
+            </Button>
+          )
         }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Departments" value={depts.length} accent="primary" icon={<Building2 className="h-4 w-4" />} />
-        <StatCard label="Linked subjects" value={subjects.filter(s => s.department && deptNames.includes(s.department)).length} accent="success" icon={<BookMarked className="h-4 w-4" />} />
-        <StatCard label="Linked teachers" value={teachers.filter(t => t.department && deptNames.includes(t.department)).length} accent="accent" icon={<UserCog className="h-4 w-4" />} />
-        <StatCard label="Unassigned" value={unassigned.length + unassignedTeachers.length} accent="warning" hint="Subjects + teachers" />
+        <StatCard label="Departments" value={visibleDepts.length} accent="primary" icon={<Building2 className="h-4 w-4" />} />
+        <StatCard label="Linked subjects" value={subjects.filter(s => s.department && visibleDeptNames.includes(s.department)).length} accent="success" icon={<BookMarked className="h-4 w-4" />} />
+        <StatCard label="Linked teachers" value={teachers.filter(t => t.department && visibleDeptNames.includes(t.department)).length} accent="accent" icon={<UserCog className="h-4 w-4" />} />
+        {!isHOD && <StatCard label="Unassigned" value={unassigned.length + unassignedTeachers.length} accent="warning" hint="Subjects + teachers" />}
       </div>
 
       <DeptDialog
@@ -292,6 +331,7 @@ function DepartmentsPage() {
         save={save}
         editTarget={editTarget}
         isPending={createMut.isPending || updateMut.isPending}
+        teachers={teachers}
       />
 
       {/* Assign teacher to subject dialog */}
@@ -456,18 +496,27 @@ function DepartmentsPage() {
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /><span>Loading…</span>
         </div>
-      ) : depts.length === 0 ? (
+      ) : visibleDepts.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card py-16 text-center shadow-sm">
           <Building2 className="h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm font-medium text-muted-foreground">No departments yet.</p>
-          <p className="text-xs text-muted-foreground">Add your first department to start grouping subjects by faculty.</p>
-          <Button size="sm" onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
-            <Plus className="mr-1 h-3.5 w-3.5" />Add department
-          </Button>
+          {isHOD ? (
+            <>
+              <p className="text-sm font-medium text-muted-foreground">You're not set as head of any department yet.</p>
+              <p className="text-xs text-muted-foreground">Ask your school administrator to assign you as head of department first.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-muted-foreground">No departments yet.</p>
+              <p className="text-xs text-muted-foreground">Add your first department to start grouping subjects by faculty.</p>
+              <Button size="sm" onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
+                <Plus className="mr-1 h-3.5 w-3.5" />Add department
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-          {depts.map((d: any, idx: number) => {
+          {visibleDepts.map((d: any, idx: number) => {
             const deptSubjects: any[] = subjectsByDept[d.name] ?? [];
             const deptTeachers: any[] = teachersByDept[d.name] ?? [];
             const isOpen = expanded.has(d.id);
@@ -494,21 +543,26 @@ function DepartmentsPage() {
                         {deptTeachers.length} teacher{deptTeachers.length !== 1 ? "s" : ""}
                       </Badge>
                     </div>
-                    {d.head && <p className="text-xs text-muted-foreground mt-0.5">HOD: {d.head}</p>}
+                    {d.headTeacherId && (() => {
+                      const head = teachers.find((t: any) => t.id === d.headTeacherId);
+                      return head ? <p className="text-xs text-muted-foreground mt-0.5">HOD: {head.firstName} {head.lastName}</p> : null;
+                    })()}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(d)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="sm"
-                      className="text-destructive hover:text-destructive"
-                      disabled={deleteMut.isPending}
-                      onClick={() => deleteMut.mutate(d.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  {!isHOD && (
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(d)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={deleteMut.isPending}
+                        onClick={() => deleteMut.mutate(d.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Expanded: teachers then subjects */}
@@ -578,7 +632,7 @@ function DepartmentsPage() {
           })}
 
           {/* Unassigned section */}
-          {(unassigned.length > 0 || unassignedTeachers.length > 0) && (
+          {!isHOD && (unassigned.length > 0 || unassignedTeachers.length > 0) && (
             <div className="border-t border-border">
               <div
                 className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"

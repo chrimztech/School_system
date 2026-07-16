@@ -205,13 +205,13 @@ function TenantMark({
 
   return (
     <div
-      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[20px] p-2 text-white shadow-[0_12px_28px_rgb(15_23_42/0.18)] group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:p-1.5"
+      className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[20px] p-1.5 text-white shadow-[0_12px_28px_rgb(15_23_42/0.18)] group-data-[collapsible=icon]:h-11 group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:p-1"
       style={{ backgroundColor: color }}
     >
       {logoUrl ? (
         <img src={logoUrl} alt={label} className="h-full w-full object-contain" />
       ) : (
-        <FallbackIcon className="h-6 w-6 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4" />
+        <FallbackIcon className="h-7 w-7 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5" />
       )}
     </div>
   );

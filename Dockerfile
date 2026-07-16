@@ -1,19 +1,23 @@
-# syntax=docker/dockerfile:1
-
 # ==================================================
-# Stage 1: Install all dependencies required to build
+# Stage 1: Install dependencies
 # ==================================================
 FROM node:22-slim AS dependencies
 
 WORKDIR /app
 
-# Copy dependency manifests first for better Docker caching
 COPY package.json package-lock.json ./
-
-# Required because npm postinstall executes scripts from this directory
 COPY scripts ./scripts
 
-RUN npm ci
+# Make npm more tolerant of slow or unstable internet
+RUN npm config set registry https://registry.npmjs.org/ \
+    && npm config set fetch-retries 10 \
+    && npm config set fetch-retry-factor 2 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 180000 \
+    && npm config set fetch-timeout 600000 \
+    && npm config set audit false \
+    && npm config set fund false \
+    && npm ci --no-audit --no-fund
 
 
 # ==================================================
@@ -25,34 +29,14 @@ WORKDIR /app
 
 COPY . .
 
-# Vite exposes this value to the frontend during compilation
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
-# Uses vite.config.render.ts and creates:
-# - dist/client
-# - dist/server/server.js
 RUN npm run build:render
 
 
 # ==================================================
-# Stage 3: Install production dependencies only
-# ==================================================
-FROM node:22-slim AS production-dependencies
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-
-# Required by your package.json postinstall command
-COPY scripts ./scripts
-
-RUN npm ci --omit=dev \
-    && npm cache clean --force
-
-
-# ==================================================
-# Stage 4: Production runtime
+# Stage 3: Production runtime
 # ==================================================
 FROM node:22-slim AS runtime
 
@@ -61,23 +45,21 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy production dependencies
-COPY --from=production-dependencies --chown=node:node \
+# Copy dependencies from the first stage.
+# This temporarily includes development dependencies,
+# but avoids a second npm download.
+COPY --from=dependencies --chown=node:node \
     /app/node_modules ./node_modules
 
-# Copy package metadata
 COPY --from=build --chown=node:node \
     /app/package.json ./package.json
 
-# Copy the Render/Node entry point
 COPY --from=build --chown=node:node \
     /app/server.node.mjs ./server.node.mjs
 
-# Contains dist/client and dist/server/server.js
 COPY --from=build --chown=node:node \
     /app/dist ./dist
 
-# Run as the non-root Node user
 USER node
 
 EXPOSE 3000

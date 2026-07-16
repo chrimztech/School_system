@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -47,7 +47,7 @@ function TimetablePage() {
   const [klass, setKlass] = useState<string>("");
   const [teacher, setTeacher] = useState<string>("");
   const [newSlotOpen, setNewSlotOpen] = useState(false);
-  const [form, setForm] = useState({ classId: "", className: "", day: "MONDAY", startTime: "07:30", endTime: "08:10", period: "1", subjectName: "", teacherName: "", room: "" });
+  const [form, setForm] = useState({ classId: "", className: "", day: "MONDAY", startTime: "07:30", endTime: "08:10", period: "1", subjectId: "", subjectName: "", teacherId: "", teacherName: "", room: "" });
 
   const { data: slots = [], isLoading, refetch } = useQuery({
     queryKey: ["timetable", active.id],
@@ -58,8 +58,6 @@ function TimetablePage() {
   const { data: teachersData = [] } = useQuery({ queryKey: ["teachers", active.id], queryFn: () => api.teachers.list(active.id) });
   const { data: subjectsData = [] } = useQuery({ queryKey: ["subjects", active.id], queryFn: () => api.subjects.list(active.id) });
 
-  const allClassNames = (classesData as any[]).map((c: any) => c.name || c.className).filter(Boolean).sort();
-  const allTeacherNames = (teachersData as any[]).map((t: any) => `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim()).filter(Boolean).sort();
   const allSubjectNames = [...new Set([
     ...(subjectsData as any[]).map((s: any) => s.name).filter(Boolean),
     ...Object.keys(subjectColors),
@@ -68,14 +66,22 @@ function TimetablePage() {
   // Auto-populate form when lists arrive or dialog opens
   useEffect(() => {
     if (!newSlotOpen) return;
-    setForm((prev) => ({
-      ...prev,
-      className: prev.className || allClassNames[0] || "",
-      subjectName: prev.subjectName || allSubjectNames[0] || "",
-      teacherName: prev.teacherName || allTeacherNames[0] || "",
-    }));
+    setForm((prev) => {
+      const firstClass = (classesData as any[])[0];
+      const firstSubject = (subjectsData as any[])[0];
+      const firstTeacher = (teachersData as any[])[0];
+      return {
+        ...prev,
+        classId: prev.classId || firstClass?.id || "",
+        className: prev.className || firstClass?.name || firstClass?.className || "",
+        subjectId: prev.subjectId || firstSubject?.id || "",
+        subjectName: prev.subjectName || firstSubject?.name || allSubjectNames[0] || "",
+        teacherId: prev.teacherId || firstTeacher?.id || "",
+        teacherName: prev.teacherName || (firstTeacher ? `${firstTeacher.firstName ?? ""} ${firstTeacher.lastName ?? ""}`.trim() : ""),
+      };
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newSlotOpen, allClassNames[0], allSubjectNames[0], allTeacherNames[0]]);
+  }, [newSlotOpen, classesData, subjectsData, teachersData]);
 
   // Derive unique classes and teachers from slots
   const classes = [...new Set(slots.map((s: any) => s.className))].filter(Boolean).sort();
@@ -112,13 +118,38 @@ function TimetablePage() {
         classId: form.classId || form.className.toLowerCase().replace(/\s/g, "-"),
         className: form.className, dayOfWeek: form.day,
         startTime: form.startTime, endTime: form.endTime, period: Number(form.period),
-        subjectName: form.subjectName, teacherName: form.teacherName,
+        subjectId: form.subjectId || undefined, subjectName: form.subjectName,
+        teacherId: form.teacherId || undefined, teacherName: form.teacherName,
         room: form.room, academicYear: String(active.currentYear), term: active.currentTerm,
       });
       toast.success("Slot added");
       setNewSlotOpen(false);
       void refetch();
     } catch { toast.error("Failed to add slot"); }
+  };
+
+  const exportCsv = () => {
+    if (slots.length === 0) { toast.error("No timetable data to export"); return; }
+    downloadCsv(
+      (slots as any[])
+        .slice()
+        .sort((a: any, b: any) =>
+          (a.className ?? "").localeCompare(b.className ?? "")
+          || DAYS.indexOf(a.dayOfWeek) - DAYS.indexOf(b.dayOfWeek)
+          || Number(a.period) - Number(b.period))
+        .map((s: any) => ({
+          Class: s.className ?? "",
+          Day: DAY_LABELS[s.dayOfWeek] ?? s.dayOfWeek ?? "",
+          Period: s.period ?? "",
+          Start: s.startTime ?? "",
+          End: s.endTime ?? "",
+          Subject: s.subjectName ?? "",
+          Teacher: s.teacherName ?? "",
+          Room: s.room ?? "",
+        })),
+      `timetable-${active.shortCode ?? active.id}-${new Date().toISOString().slice(0, 10)}`,
+    );
+    toast.success("Timetable exported");
   };
 
   const timetableTable = (periods: number[], grid: Record<string, Record<number, any>>, renderEmpty: () => React.ReactNode) => (
@@ -172,7 +203,8 @@ function TimetablePage() {
         description={`Weekly schedule · ${active.name}`}
         actions={
           <>
-            <Button variant="outline" onClick={() => { window.print(); toast.success("Timetable PDF exported"); }}><Download className="mr-1 h-4 w-4" />Export PDF</Button>
+            <Button variant="outline" onClick={exportCsv}><Download className="mr-1 h-4 w-4" />Export CSV</Button>
+            <Button variant="outline" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print</Button>
             <Dialog open={newSlotOpen} onOpenChange={setNewSlotOpen}>
               <DialogTrigger asChild><Button><Plus className="mr-1 h-4 w-4" />Add slot</Button></DialogTrigger>
               <DialogContent className="sm:max-w-md">
@@ -182,10 +214,16 @@ function TimetablePage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Class</Label>
-                      {allClassNames.length > 0 ? (
-                        <Select value={form.className} onValueChange={(v) => setForm({ ...form, className: v })}>
+                      {(classesData as any[]).length > 0 ? (
+                        <Select
+                          value={form.classId}
+                          onValueChange={(v) => {
+                            const c = (classesData as any[]).find((x: any) => x.id === v);
+                            setForm({ ...form, classId: v, className: c?.name ?? c?.className ?? "" });
+                          }}
+                        >
                           <SelectTrigger className="mt-1"><SelectValue placeholder="Select class" /></SelectTrigger>
-                          <SelectContent>{allClassNames.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          <SelectContent>{(classesData as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name ?? c.className}</SelectItem>)}</SelectContent>
                         </Select>
                       ) : (
                         <Input className="mt-1" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} placeholder="Form 1 A" />
@@ -217,7 +255,13 @@ function TimetablePage() {
                     <div>
                       <Label>Subject</Label>
                       {allSubjectNames.length > 0 ? (
-                        <Select value={form.subjectName} onValueChange={(v) => setForm({ ...form, subjectName: v })}>
+                        <Select
+                          value={form.subjectName}
+                          onValueChange={(v) => {
+                            const s = (subjectsData as any[]).find((x: any) => x.name === v);
+                            setForm({ ...form, subjectName: v, subjectId: s?.id ?? "" });
+                          }}
+                        >
                           <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger>
                           <SelectContent>{allSubjectNames.map((s: string) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                         </Select>
@@ -227,10 +271,16 @@ function TimetablePage() {
                     </div>
                     <div>
                       <Label>Teacher</Label>
-                      {allTeacherNames.length > 0 ? (
-                        <Select value={form.teacherName} onValueChange={(v) => setForm({ ...form, teacherName: v })}>
+                      {(teachersData as any[]).length > 0 ? (
+                        <Select
+                          value={form.teacherId}
+                          onValueChange={(v) => {
+                            const t = (teachersData as any[]).find((x: any) => x.id === v);
+                            setForm({ ...form, teacherId: v, teacherName: t ? `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() : "" });
+                          }}
+                        >
                           <SelectTrigger className="mt-1"><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                          <SelectContent>{allTeacherNames.map((t: string) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                          <SelectContent>{(teachersData as any[]).map((t: any) => <SelectItem key={t.id} value={t.id}>{`${t.firstName ?? ""} ${t.lastName ?? ""}`.trim()}</SelectItem>)}</SelectContent>
                         </Select>
                       ) : (
                         <Input className="mt-1" value={form.teacherName} onChange={(e) => setForm({ ...form, teacherName: e.target.value })} placeholder="Mr. Phiri" />

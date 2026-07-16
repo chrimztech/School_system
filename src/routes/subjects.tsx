@@ -112,7 +112,7 @@ function emptyForm(defaultPhase: string, firstDept = "") {
 }
 
 function emptyDeptForm() {
-  return { name: "", code: "", description: "", head: "" };
+  return { name: "", code: "", description: "", headTeacherId: "" };
 }
 
 function phaseFormRange(phase: string): { gradeFrom: string; gradeTo: string } {
@@ -153,6 +153,12 @@ function SubjectsPage() {
   });
   const deptList = rawDepts as any[];
   const deptNames = deptList.map((d: any) => d.name);
+
+  const { data: rawTeachers = [] } = useQuery({
+    queryKey: ["teachers", schoolId],
+    queryFn: () => api.teachers.list(schoolId),
+  });
+  const teacherList = rawTeachers as any[];
 
   const [form, setForm] = useState(() => emptyForm(defaultPhase, deptNames[0] ?? ""));
 
@@ -615,7 +621,18 @@ function SubjectsPage() {
               </div>
               <div>
                 <Label>Head of department</Label>
-                <Input className="mt-1" value={deptForm.head} onChange={(e) => setDeptForm({ ...deptForm, head: e.target.value })} placeholder="Mr. Banda" maxLength={80} />
+                <Select
+                  value={deptForm.headTeacherId || "__none__"}
+                  onValueChange={(v) => setDeptForm({ ...deptForm, headTeacherId: v === "__none__" ? "" : v })}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select a teacher…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {teacherList.map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Description</Label>
@@ -631,9 +648,9 @@ function SubjectsPage() {
                   onClick={() => {
                     if (!deptForm.name.trim()) { toast.error("Name is required"); return; }
                     if (deptEdit) {
-                      updateDeptMut.mutate({ id: deptEdit.id, data: { name: deptForm.name.trim(), code: deptForm.code.trim() || null, head: deptForm.head.trim() || null, description: deptForm.description.trim() || null } });
+                      updateDeptMut.mutate({ id: deptEdit.id, data: { name: deptForm.name.trim(), code: deptForm.code.trim() || null, headTeacherId: deptForm.headTeacherId || "", description: deptForm.description.trim() || null } });
                     } else {
-                      createDeptMut.mutate({ name: deptForm.name.trim(), code: deptForm.code.trim() || null, head: deptForm.head.trim() || null, description: deptForm.description.trim() || null });
+                      createDeptMut.mutate({ name: deptForm.name.trim(), code: deptForm.code.trim() || null, headTeacherId: deptForm.headTeacherId || "", description: deptForm.description.trim() || null });
                     }
                   }}
                 >
@@ -655,12 +672,15 @@ function SubjectsPage() {
                         <span className="font-medium text-sm">{d.name}</span>
                         {d.code && <Badge variant="secondary" className="text-xs font-mono">{d.code}</Badge>}
                       </div>
-                      {d.head && <p className="text-xs text-muted-foreground mt-0.5">HOD: {d.head}</p>}
+                      {d.headTeacherId && (() => {
+                        const head = teacherList.find((t: any) => t.id === d.headTeacherId);
+                        return head ? <p className="text-xs text-muted-foreground mt-0.5">HOD: {head.firstName} {head.lastName}</p> : null;
+                      })()}
                     </div>
                     <div className="flex gap-1">
                       <Button
                         variant="ghost" size="sm"
-                        onClick={() => { setDeptEdit(d); setDeptForm({ name: d.name, code: d.code ?? "", description: d.description ?? "", head: d.head ?? "" }); }}
+                        onClick={() => { setDeptEdit(d); setDeptForm({ name: d.name, code: d.code ?? "", description: d.description ?? "", headTeacherId: d.headTeacherId ?? "" }); }}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
