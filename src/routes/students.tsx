@@ -248,7 +248,7 @@ function StudentsListPage() {
             )}
             {!isTeacher && !isHOD && <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setForm(createInitialForm()); setStep(1); } }}>
               <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> New admission</Button>
+                <Button><Plus className="mr-2 h-4 w-4" /> Register student</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-4xl">
                 <DialogHeader>

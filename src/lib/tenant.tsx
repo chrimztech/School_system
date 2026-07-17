@@ -979,24 +979,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           tenant.subscription.planId,
           tenant.subscription.billingCycle,
         );
-        try {
-          const createdSchool = await api.schools.create(toSchoolDto(draft));
-          const created = tenantFromBackendSchool(createdSchool, { ...draft, id: createdSchool.id });
-          setTenants((prev) => [...prev.filter((item) => item.shortCode !== created.shortCode), created]);
-          setActiveId(created.id);
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem(SCHOOL_STORAGE_KEY, created.id);
-          }
-          return created;
-        } catch (error) {
-          console.warn("Failed to create school in backend", error);
-          setTenants((prev) => [...prev, draft]);
-          setActiveId(draft.id);
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem(SCHOOL_STORAGE_KEY, draft.id);
-          }
-          return draft;
+        // No fallback here on purpose: a school that only exists in local state
+        // disappears on the next refresh with no record it was ever "created",
+        // while onboarding would still tell the user it succeeded. Let failures
+        // propagate so the caller can show a real error instead.
+        const createdSchool = await api.schools.create(toSchoolDto(draft));
+        const created = tenantFromBackendSchool(createdSchool, { ...draft, id: createdSchool.id });
+        setTenants((prev) => [...prev.filter((item) => item.shortCode !== created.shortCode), created]);
+        setActiveId(created.id);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(SCHOOL_STORAGE_KEY, created.id);
         }
+        return created;
       },
       updateActive: (patch) => {
         mutateTenant(activeId, (tenant) => applyTenantPatch(tenant, patch), true);

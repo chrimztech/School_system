@@ -91,6 +91,7 @@ import { Route as AccessRouteImport } from './routes/access'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeachersStaffIdRouteImport } from './routes/teachers.$staffId'
 import { Route as StudentsStudentIdRouteImport } from './routes/students.$studentId'
+import { Route as SSlugRouteImport } from './routes/s.$slug'
 
 const VisitorLogRoute = VisitorLogRouteImport.update({
   id: '/visitor-log',
@@ -502,6 +503,11 @@ const StudentsStudentIdRoute = StudentsStudentIdRouteImport.update({
   path: '/$studentId',
   getParentRoute: () => StudentsRoute,
 } as any)
+const SSlugRoute = SSlugRouteImport.update({
+  id: '/s/$slug',
+  path: '/s/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -584,6 +590,7 @@ export interface FileRoutesByFullPath {
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
+  '/s/$slug': typeof SSlugRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/teachers/$staffId': typeof TeachersStaffIdRoute
 }
@@ -668,6 +675,7 @@ export interface FileRoutesByTo {
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
+  '/s/$slug': typeof SSlugRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/teachers/$staffId': typeof TeachersStaffIdRoute
 }
@@ -753,6 +761,7 @@ export interface FileRoutesById {
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
+  '/s/$slug': typeof SSlugRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/teachers/$staffId': typeof TeachersStaffIdRoute
 }
@@ -839,6 +848,7 @@ export interface FileRouteTypes {
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
+    | '/s/$slug'
     | '/students/$studentId'
     | '/teachers/$staffId'
   fileRoutesByTo: FileRoutesByTo
@@ -923,6 +933,7 @@ export interface FileRouteTypes {
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
+    | '/s/$slug'
     | '/students/$studentId'
     | '/teachers/$staffId'
   id:
@@ -1007,6 +1018,7 @@ export interface FileRouteTypes {
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
+    | '/s/$slug'
     | '/students/$studentId'
     | '/teachers/$staffId'
   fileRoutesById: FileRoutesById
@@ -1092,6 +1104,7 @@ export interface RootRouteChildren {
   UserManagementRoute: typeof UserManagementRoute
   VendorManagementRoute: typeof VendorManagementRoute
   VisitorLogRoute: typeof VisitorLogRoute
+  SSlugRoute: typeof SSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1670,6 +1683,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentsStudentIdRouteImport
       parentRoute: typeof StudentsRoute
     }
+    '/s/$slug': {
+      id: '/s/$slug'
+      path: '/s/$slug'
+      fullPath: '/s/$slug'
+      preLoaderRoute: typeof SSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1778,6 +1798,7 @@ const rootRouteChildren: RootRouteChildren = {
   UserManagementRoute: UserManagementRoute,
   VendorManagementRoute: VendorManagementRoute,
   VisitorLogRoute: VisitorLogRoute,
+  SSlugRoute: SSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -235,7 +235,16 @@ apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
+      const hadSession = Boolean(localStorage.getItem("srms_token"));
       localStorage.removeItem("srms_token");
+      localStorage.removeItem("srms_user");
+      localStorage.removeItem("srms_school_id");
+      // Clearing the token alone doesn't log anyone out — AuthProvider only re-checks
+      // on this event, otherwise it keeps showing the last cached user indefinitely
+      // while every school-scoped request keeps silently failing.
+      if (hadSession && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("srms-session-changed"));
+      }
     }
     return Promise.reject(err);
   }
@@ -310,12 +319,12 @@ export const api = {
 
   // School users
   users: {
-    list: (schoolId: string) => unwrap<BackendAppUser[]>(apiClient.get(`/api/schools/${schoolId}/users`)),
+    list: (schoolId: string) => unwrap<BackendAppUser[]>(apiClient.get(schoolPath(schoolId, "users"))),
     create: (schoolId: string, data: { name: string; email: string; role: string; password?: string; phone?: string }) =>
-      unwrap<BackendAppUser>(apiClient.post(`/api/schools/${schoolId}/users`, data)),
+      unwrap<BackendAppUser>(apiClient.post(schoolPath(schoolId, "users"), data)),
     updateForSchool: (schoolId: string, userId: string, data: { role?: string; phone?: string; active?: boolean; password?: string }) =>
-      unwrap<BackendAppUser>(apiClient.patch(`/api/schools/${schoolId}/users/${userId}`, data)),
-    deleteForSchool: (schoolId: string, userId: string) => apiClient.delete(`/api/schools/${schoolId}/users/${userId}`),
+      unwrap<BackendAppUser>(apiClient.patch(schoolPath(schoolId, `users/${userId}`), data)),
+    deleteForSchool: (schoolId: string, userId: string) => apiClient.delete(schoolPath(schoolId, `users/${userId}`)),
     all: () => unwrap<BackendAppUser[]>(apiClient.get("/api/admin/users")),
     createGlobal: (data: { name: string; email: string; role: string; password?: string; phone?: string; schoolId?: string }) =>
       unwrap<BackendAppUser>(apiClient.post("/api/admin/users", data)),

@@ -25,6 +25,8 @@ type SchoolBranding = {
   province?: string;
 };
 
+const PENDING_SLUG_KEY = "srms_pending_slug";
+
 function detectSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
   const parts = window.location.hostname.split(".");
@@ -32,6 +34,15 @@ function detectSubdomainSlug(): string | null {
   const sub = parts[0].toLowerCase();
   if (["www", "app", "portal", "admin", "api", "mail"].includes(sub)) return null;
   return sub;
+}
+
+// Set by the /s/$slug route — lets a plain path URL (srms.com/s/mongu-trust-academy)
+// resolve the same school branding a real subdomain would, without needing wildcard DNS.
+function consumePendingSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  const slug = window.sessionStorage.getItem(PENDING_SLUG_KEY);
+  if (slug) window.sessionStorage.removeItem(PENDING_SLUG_KEY);
+  return slug;
 }
 
 const STATS = [
@@ -80,13 +91,13 @@ function LoginPage() {
   }, []);
 
   useEffect(() => {
-    const slug = detectSubdomainSlug();
+    const slug = detectSubdomainSlug() ?? consumePendingSlug();
     if (!slug) return;
     api.public.schoolBySlug(slug)
       .then((data: any) => {
         if (data?.id) setSchoolBranding(data as SchoolBranding);
       })
-      .catch(() => { /* ignore — not on a school subdomain */ });
+      .catch(() => { /* ignore — unknown slug */ });
   }, []);
 
   const submit = async (e: React.FormEvent) => {

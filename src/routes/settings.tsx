@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, Lock, Palette, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, Image as ImageIcon, Lock, Palette, Save, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -77,7 +77,20 @@ function SettingsPage() {
   const [secondaryColor, setSecondaryColor] = useState(school.secondaryColor ?? "#134e4a");
   const [accentColor, setAccentColor] = useState(school.accentColor ?? "#7c3aed");
   const [logoUrl, setLogoUrl] = useState(school.logoUrl ?? "");
+  const [faviconUrl, setFaviconUrl] = useState(school.faviconUrl ?? "");
   const [slug, setSlug] = useState(school.slug ?? "");
+  const logoInput = useRef<HTMLInputElement>(null);
+  const faviconInput = useRef<HTMLInputElement>(null);
+
+  const readAsDataUrl = (file: File, setter: (value: string) => void) => {
+    if (file.size > 2_000_000) {
+      toast.error("File too large. Max 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setter(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     setSelectedType(school.type);
@@ -93,6 +106,7 @@ function SettingsPage() {
     setSecondaryColor(school.secondaryColor ?? "#134e4a");
     setAccentColor(school.accentColor ?? "#7c3aed");
     setLogoUrl(school.logoUrl ?? "");
+    setFaviconUrl(school.faviconUrl ?? "");
     setSlug(school.slug ?? "");
   }, [school]);
 
@@ -129,6 +143,7 @@ function SettingsPage() {
       secondaryColor,
       accentColor,
       logoUrl: logoUrl.trim() || undefined,
+      faviconUrl: faviconUrl.trim() || undefined,
       slug: slug.trim() ? slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") : undefined,
       features: {
         ...school.features,
@@ -392,7 +407,7 @@ function SettingsPage() {
               <Label htmlFor="slug">URL slug</Label>
               <div className="mt-1 flex items-center gap-0">
                 <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
-                  srms.com/
+                  srms.com/s/
                 </span>
                 <Input
                   id="slug"
@@ -403,7 +418,7 @@ function SettingsPage() {
                 />
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                School's unique subdomain — auto-generated from the school code if left blank.
+                Unique link to this school's branded login page — auto-generated from the school code if left blank.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -466,19 +481,70 @@ function SettingsPage() {
               </div>
             </div>
             <div>
-              <Label htmlFor="logoUrl">Logo URL</Label>
-              <Input
-                id="logoUrl"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                className="mt-1"
-                placeholder="https://yourdomain.com/logo.png"
-              />
-              {logoUrl && (
-                <div className="mt-2 flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
-                  <img src={logoUrl} alt="Logo preview" className="h-full w-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              <Label>School logo</Label>
+              <p className="text-xs text-muted-foreground">PNG or SVG, square, max 2MB.</p>
+              <div className="mt-2 flex items-center gap-4">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo preview" className="h-full w-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  )}
                 </div>
-              )}
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={logoInput}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) readAsDataUrl(f, setLogoUrl);
+                    }}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => logoInput.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" />Upload logo
+                  </Button>
+                  {logoUrl && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setLogoUrl("")}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div>
+              <Label>Favicon</Label>
+              <p className="text-xs text-muted-foreground">32×32 ICO/PNG, max 2MB.</p>
+              <div className="mt-2 flex items-center gap-4">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                  {faviconUrl ? (
+                    <img src={faviconUrl} alt="Favicon preview" className="h-8 w-8 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={faviconInput}
+                    type="file"
+                    accept="image/*,.ico"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) readAsDataUrl(f, setFaviconUrl);
+                    }}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => faviconInput.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" />Upload favicon
+                  </Button>
+                  {faviconUrl && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setFaviconUrl("")}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

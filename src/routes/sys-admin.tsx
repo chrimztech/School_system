@@ -4,7 +4,7 @@ import {
   School, TrendingUp, Users, CreditCard, Plus, Search,
   CheckCircle2, AlertTriangle, XCircle, Clock, ArrowUpRight,
   Building2, MoreHorizontal, Activity, LifeBuoy, Layers, FileCog, FileText, Wallet,
-  Star, Trash2,
+  Star, Trash2, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -134,17 +134,24 @@ function SysAdminPage() {
 
   const deleteSchool = useMutation({
     mutationFn: (id: string) => api.schools.delete(id),
-    onSuccess: (_, id) => {
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["platform-workspace"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success("School deactivated");
+      // Tenants aren't react-query-managed — force TenantProvider to refetch /api/schools
+      // so the deleted school actually disappears from this page without a manual refresh.
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("srms-session-changed"));
+      toast.success("School permanently deleted");
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
     },
-    onError: () => toast.error("Failed to deactivate school"),
+    onError: () => toast.error("Failed to delete school"),
   });
 
   const [q, setQ] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; shortCode: string } | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [editForm, setEditForm] = useState<EditForm>({
     planId: "core", status: "active", billingCycle: "monthly",
     amount: "", renewalDate: "", billingContact: "", notes: "",
@@ -527,10 +534,14 @@ function SysAdminPage() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded text-[10px] font-bold text-white"
                         style={{ backgroundColor: t.primaryColor }}
                       >
-                        {t.shortCode.slice(0, 2)}
+                        {t.logoUrl ? (
+                          <img src={t.logoUrl} alt={t.shortCode} className="h-full w-full object-contain" />
+                        ) : (
+                          t.shortCode.slice(0, 2)
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-sm">{t.name}</p>
@@ -583,14 +594,9 @@ function SysAdminPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          disabled={deleteSchool.isPending}
-                          onClick={() => {
-                            if (window.confirm(`Deactivate school "${t.name}"? This action can be reversed by a platform admin.`)) {
-                              deleteSchool.mutate(t.id);
-                            }
-                          }}
+                          onClick={() => { setDeleteTarget({ id: t.id, name: t.name, shortCode: t.shortCode }); setDeleteConfirmText(""); }}
                         >
-                          Deactivate school
+                          Delete school permanently
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -607,6 +613,43 @@ function SysAdminPage() {
             </TableBody>
           </Table>
         </TabsContent>
+
+        <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) { setDeleteTarget(null); setDeleteConfirmText(""); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Delete school permanently</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <p>
+                This permanently erases <strong>{deleteTarget?.name}</strong> and every record tied to
+                it — students, teachers, classes, fees, attendance, everything. There is no undo and
+                no way for a platform admin to recover it afterwards.
+              </p>
+              <div>
+                <Label>
+                  Type <span className="font-mono font-semibold">{deleteTarget?.shortCode}</span> to confirm
+                </Label>
+                <Input
+                  className="mt-1 font-mono"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <DialogFooter className="mt-2">
+              <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteConfirmText(""); }}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={deleteSchool.isPending || deleteConfirmText !== deleteTarget?.shortCode}
+                onClick={() => deleteTarget && deleteSchool.mutate(deleteTarget.id)}
+              >
+                {deleteSchool.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Delete permanently
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* REVENUE */}
         <TabsContent value="revenue" className="space-y-4">

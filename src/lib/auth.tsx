@@ -256,6 +256,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAllUsers((prev) => mergeUser(prev, cachedUser));
         setUser(cachedUser);
         if (cachedUser.tenantId) setActive(cachedUser.tenantId);
+      } else {
+        // No cached user (session was cleared, e.g. by a 401) — reflect that in state
+        // immediately instead of leaving the previous user sitting in memory while
+        // every request keeps failing silently.
+        setUser(null);
       }
 
       if (!token) {

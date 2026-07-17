@@ -14,6 +14,12 @@ export const getRouter = () => {
       queries: {
         retry: false,
         throwOnError: false,
+        // Without this, staleTime defaults to 0 — every remount (e.g. navigating back to a
+        // page you already visited) and every window refocus refetches from the network even
+        // though most school data (teachers, classes, departments, etc.) doesn't change from
+        // one moment to the next. 60s keeps navigation snappy without noticeably hurting
+        // freshness; any mutation already invalidates its own query keys explicitly.
+        staleTime: 60_000,
       },
     },
   });
@@ -22,7 +28,7 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    defaultPreloadStaleTime: 60_000,
   });
 
   return router;

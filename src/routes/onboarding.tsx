@@ -261,9 +261,16 @@ function OnboardingPage() {
   const back = () => setStep((s) => Math.max(s - 1, 0));
   const finish = async () => {
     setSubmitting(true);
+    let created: Tenant;
     try {
-      const created = await addTenant(form);
+      created = await addTenant(form);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message ?? "Failed to provision school — check your connection and try again.");
+      setSubmitting(false);
+      return;
+    }
 
+    try {
       // Create school admin user if head teacher email is provided
       const adminEmail = form.headTeacherEmail?.trim() || form.email?.trim();
       const adminName = form.headTeacher?.trim() || form.name;
@@ -368,7 +375,7 @@ function OnboardingPage() {
               <Label htmlFor="slug">URL slug</Label>
               <div className="mt-1 flex items-center gap-0">
                 <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
-                  srms.com/
+                  srms.com/s/
                 </span>
                 <Input
                   id="slug"
@@ -379,7 +386,7 @@ function OnboardingPage() {
                 />
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Unique subdomain for this school's portal. Auto-generated from the short code if left blank.
+                Unique link to this school's branded login page. Auto-generated from the short code if left blank.
               </p>
             </div>
             <div>
