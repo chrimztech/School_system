@@ -37,8 +37,9 @@ const STATUS_ORDER: EntryStatus[] = ["present", "late", "absent", "sick", "excus
 function AttendancePage() {
   const { active } = useTenant();
   const schoolId = active.id;
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const teacherEmail = user?.role === "teacher" ? user.email : undefined;
+  const canManage = can("attendance") === true;
   const qc = useQueryClient();
 
   const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId, teacherEmail], queryFn: () => api.classes.list(schoolId, teacherEmail) });
@@ -128,6 +129,7 @@ function AttendancePage() {
         title="Attendance"
         description="Configurable per phase: full-day for primary, period-based for secondary"
         actions={
+          canManage ? (
           <>
             <Button variant="outline" onClick={() => setOfflineOpen(true)}>
               <WifiOff className="mr-2 h-4 w-4" /> Offline mode
@@ -224,6 +226,7 @@ function AttendancePage() {
               </DialogContent>
             </Dialog>
           </>
+          ) : null
         }
       />
 

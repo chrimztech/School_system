@@ -3,11 +3,15 @@ import { useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  BookOpenCheck,
   Check,
+  GitBranch,
   GraduationCap,
   Image as ImageIcon,
   Lock,
   Plus,
+  Scale,
+  ShieldCheck,
   Sparkles,
   Upload,
 } from "lucide-react";
@@ -28,10 +32,27 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  useTenant, gradeRangeForType, buildFeatureFlags, createTenantSubscription,
-  ACADEMIC_LEVEL_META, ACADEMIC_LEVEL_ORDER, CAMPUS_STATUS_OPTIONS, createCampusDraft, defaultLevelsForType,
-  FEATURE_META, FEATURE_ORDER, PLAN_CATALOG, planIncludesFeature,
-  type SchoolType, type Tenant, type AcademicLevel, type Campus, type CampusStatus, type PlanId, type FeatureCategory,
+  useTenant,
+  gradeRangeForType,
+  buildFeatureFlags,
+  createTenantSubscription,
+  ACADEMIC_LEVEL_META,
+  ACADEMIC_LEVEL_ORDER,
+  CAMPUS_STATUS_OPTIONS,
+  createCampusDraft,
+  defaultLevelsForType,
+  FEATURE_META,
+  FEATURE_ORDER,
+  PLAN_CATALOG,
+  planIncludesFeature,
+  ZAMBIA_2023_GRADING_BANDS,
+  type SchoolType,
+  type Tenant,
+  type AcademicLevel,
+  type Campus,
+  type CampusStatus,
+  type PlanId,
+  type FeatureCategory,
 } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -52,7 +73,6 @@ const steps = [
   "Modules",
   "Review",
 ] as const;
-
 
 const types: { code: SchoolType; name: string; desc: string }[] = [
   { code: "NURSERY", name: "Nursery / ECD", desc: "Baby Class to Reception" },
@@ -86,7 +106,12 @@ const provinces = [
   "Western",
 ];
 
-const FEATURE_CATEGORY_ORDER: FeatureCategory[] = ["Communication", "Finance", "Operations", "Enterprise"];
+const FEATURE_CATEGORY_ORDER: FeatureCategory[] = [
+  "Communication",
+  "Finance",
+  "Operations",
+  "Enterprise",
+];
 const PLAN_IDS: PlanId[] = ["core", "growth", "advanced", "enterprise"];
 
 type Form = Omit<Tenant, "id" | "totalStudents" | "totalTeachers" | "totalClasses">;
@@ -103,7 +128,12 @@ function OnboardingPage() {
     name: "",
     shortCode: "",
     levels: defaultLevelsForType("PRIMARY"),
-    campuses: [createCampusDraft({ name: "", shortCode: "", district: "", city: "", physicalAddress: "", phone: "" }, defaultLevelsForType("PRIMARY"))],
+    campuses: [
+      createCampusDraft(
+        { name: "", shortCode: "", district: "", city: "", physicalAddress: "", phone: "" },
+        defaultLevelsForType("PRIMARY"),
+      ),
+    ],
     motto: "",
     district: "",
     province: "Lusaka",
@@ -143,7 +173,9 @@ function OnboardingPage() {
     termEnd: "",
     weekStart: "Monday",
     gradingScale: "ECZ",
-    passMark: 50,
+    resultPublicationMode: "SEPARATE",
+    gradingBands: ZAMBIA_2023_GRADING_BANDS,
+    passMark: 40,
     currency: "ZMW",
     bankName: "",
     bankAccount: "",
@@ -153,8 +185,7 @@ function OnboardingPage() {
     features: buildFeatureFlags("core", { sms: true, momo: true }),
   });
 
-  const update = <K extends keyof Form>(k: K, v: Form[K]) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const update = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const toggle = (k: keyof Form["features"]) =>
     setForm((f) => ({ ...f, features: { ...f.features, [k]: !f.features[k] } }));
   const setPlan = (planId: PlanId) =>
@@ -172,9 +203,10 @@ function OnboardingPage() {
       levels,
       campuses: current.campuses.map((campus) => ({
         ...campus,
-        levels: campus.levels.filter((level) => levels.includes(level)).length > 0
-          ? campus.levels.filter((level) => levels.includes(level))
-          : levels,
+        levels:
+          campus.levels.filter((level) => levels.includes(level)).length > 0
+            ? campus.levels.filter((level) => levels.includes(level))
+            : levels,
       })),
     }));
   };
@@ -190,9 +222,10 @@ function OnboardingPage() {
         levels: ACADEMIC_LEVEL_ORDER.filter((item) => nextLevels.includes(item)),
         campuses: current.campuses.map((campus) => ({
           ...campus,
-          levels: campus.levels.filter((item) => nextLevels.includes(item)).length > 0
-            ? campus.levels.filter((item) => nextLevels.includes(item))
-            : nextLevels,
+          levels:
+            campus.levels.filter((item) => nextLevels.includes(item)).length > 0
+              ? campus.levels.filter((item) => nextLevels.includes(item))
+              : nextLevels,
         })),
       };
     });
@@ -213,9 +246,9 @@ function OnboardingPage() {
   const updateCampus = (campusId: string, patch: Partial<Campus>) => {
     setForm((current) => ({
       ...current,
-      campuses: current.campuses.map((campus) => (
-        campus.id === campusId ? { ...campus, ...patch } : campus
-      )),
+      campuses: current.campuses.map((campus) =>
+        campus.id === campusId ? { ...campus, ...patch } : campus,
+      ),
     }));
   };
 
@@ -239,9 +272,10 @@ function OnboardingPage() {
           : [...campus.levels, level];
         return {
           ...campus,
-          levels: nextLevels.length > 0
-            ? ACADEMIC_LEVEL_ORDER.filter((item) => nextLevels.includes(item))
-            : campus.levels,
+          levels:
+            nextLevels.length > 0
+              ? ACADEMIC_LEVEL_ORDER.filter((item) => nextLevels.includes(item))
+              : campus.levels,
         };
       }),
     }));
@@ -265,7 +299,10 @@ function OnboardingPage() {
     try {
       created = await addTenant(form);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message ?? "Failed to provision school — check your connection and try again.");
+      toast.error(
+        error?.response?.data?.message ??
+          "Failed to provision school — check your connection and try again.",
+      );
       setSubmitting(false);
       return;
     }
@@ -297,8 +334,7 @@ function OnboardingPage() {
     }
   };
 
-  const canContinue =
-    step === 0 ? form.name.trim() && form.shortCode.trim() : true;
+  const canContinue = step === 0 ? form.name.trim() && form.shortCode.trim() : true;
 
   return (
     <div className="space-y-6">
@@ -316,22 +352,18 @@ function OnboardingPage() {
                   i < step
                     ? "bg-success text-success-foreground"
                     : i === step
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                 }`}
               >
                 {i < step ? <Check className="h-3 w-3" /> : i + 1}
               </span>
               <span
-                className={
-                  i === step ? "font-medium text-foreground" : "text-muted-foreground"
-                }
+                className={i === step ? "font-medium text-foreground" : "text-muted-foreground"}
               >
                 {s}
               </span>
-              {i < steps.length - 1 && (
-                <span className="mx-1 text-muted-foreground/40">/</span>
-              )}
+              {i < steps.length - 1 && <span className="mx-1 text-muted-foreground/40">/</span>}
             </li>
           ))}
         </ol>
@@ -380,13 +412,19 @@ function OnboardingPage() {
                 <Input
                   id="slug"
                   value={form.slug ?? ""}
-                  onChange={(e) => update("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") || undefined)}
+                  onChange={(e) =>
+                    update(
+                      "slug",
+                      e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") || undefined,
+                    )
+                  }
                   placeholder="mongu-trust-academy"
                   className="mt-0 rounded-l-none font-mono text-sm"
                 />
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Unique link to this school's branded login page. Auto-generated from the short code if left blank.
+                Unique link to this school's branded login page. Auto-generated from the short code
+                if left blank.
               </p>
             </div>
             <div>
@@ -483,11 +521,15 @@ function OnboardingPage() {
                   value={form.ownership}
                   onValueChange={(v) => update("ownership", v as Form["ownership"])}
                 >
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {["Government", "Private", "Grant-Aided", "Community", "Faith-Based"].map(
                       (o) => (
-                        <SelectItem key={o} value={o}>{o}</SelectItem>
+                        <SelectItem key={o} value={o}>
+                          {o}
+                        </SelectItem>
                       ),
                     )}
                   </SelectContent>
@@ -499,10 +541,14 @@ function OnboardingPage() {
                   value={form.category}
                   onValueChange={(v) => update("category", v as Form["category"])}
                 >
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {["Day", "Boarding", "Day & Boarding"].map((o) => (
-                      <SelectItem key={o} value={o}>{o}</SelectItem>
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -513,10 +559,14 @@ function OnboardingPage() {
                   value={form.gender}
                   onValueChange={(v) => update("gender", v as Form["gender"])}
                 >
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {["Mixed", "Boys", "Girls"].map((o) => (
-                      <SelectItem key={o} value={o}>{o}</SelectItem>
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -527,10 +577,14 @@ function OnboardingPage() {
                   value={form.curriculum}
                   onValueChange={(v) => update("curriculum", v as Form["curriculum"])}
                 >
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {["ECZ", "Cambridge", "IB", "Hybrid"].map((o) => (
-                      <SelectItem key={o} value={o}>{o}</SelectItem>
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -638,10 +692,14 @@ function OnboardingPage() {
             <div>
               <Label>Province</Label>
               <Select value={form.province} onValueChange={(v) => update("province", v)}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {provinces.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -714,13 +772,42 @@ function OnboardingPage() {
         {/* STEP 5 — Academic */}
         {step === 5 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="surface-card-strong relative overflow-hidden rounded-2xl p-5 sm:col-span-2">
+              <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Set the academic reporting policy</p>
+                    <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+                      These defaults control every mark sheet and report card. School administrators
+                      can refine them later; teachers cannot override them.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 text-[10px]">
+                  <Badge variant="outline" className="gap-1 bg-background/70">
+                    <ShieldCheck className="h-3 w-3" />
+                    HOD verified
+                  </Badge>
+                  <Badge variant="outline" className="gap-1 bg-background/70">
+                    <Lock className="h-3 w-3" />
+                    Careers Guidance release
+                  </Badge>
+                </div>
+              </div>
+            </div>
             <div>
               <Label>Current term</Label>
               <Select
                 value={String(form.currentTerm)}
                 onValueChange={(v) => update("currentTerm", Number(v) as 1 | 2 | 3)}
               >
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">Term 1</SelectItem>
                   <SelectItem value="2">Term 2</SelectItem>
@@ -764,36 +851,132 @@ function OnboardingPage() {
                 value={form.weekStart}
                 onValueChange={(v) => update("weekStart", v as Form["weekStart"])}
               >
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Monday">Monday</SelectItem>
                   <SelectItem value="Sunday">Sunday</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Grading scale</Label>
-              <Select
-                value={form.gradingScale}
-                onValueChange={(v) => update("gradingScale", v as Form["gradingScale"])}
-              >
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["ECZ", "Percentage", "GPA", "Letter"].map((o) => (
-                    <SelectItem key={o} value={o}>{o}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="rounded-2xl border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" />
+                <Label>Grading scale</Label>
+              </div>
+              <p className="mt-3 text-sm font-semibold">Zambia MoE 2023</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Achievement bands A–E with descriptions and points.
+              </p>
+              <Badge variant="secondary" className="mt-3 gap-1">
+                <Lock className="h-3 w-3" />
+                Applied automatically
+              </Badge>
             </div>
-            <div>
-              <Label htmlFor="pass">Pass mark (%)</Label>
-              <Input
-                id="pass"
-                type="number"
-                value={form.passMark}
-                onChange={(e) => update("passMark", Number(e.target.value))}
-                className="mt-1"
-              />
+            <div className="rounded-2xl border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" />
+                <Label htmlFor="pass">Pass mark</Label>
+              </div>
+              <div className="mt-3 flex items-end gap-2">
+                <Input
+                  id="pass"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={form.passMark}
+                  onChange={(e) => update("passMark", Number(e.target.value))}
+                  className="h-11 text-xl font-semibold tabular-nums"
+                />
+                <span className="pb-2.5 text-sm text-muted-foreground">%</span>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Used for school performance analytics.
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4 text-primary" />
+                <Label>Result publication</Label>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Choose when Careers Guidance releases report cards to families.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    {
+                      value: "SEPARATE",
+                      title: "Separate releases",
+                      copy: "Mid-term report first, followed by the end-of-term report.",
+                      icon: GitBranch,
+                    },
+                    {
+                      value: "COMBINED",
+                      title: "Combined release",
+                      copy: "One complete report after all term results are ready.",
+                      icon: BookOpenCheck,
+                    },
+                  ] as const
+                ).map((option) => {
+                  const selected = form.resultPublicationMode === option.value;
+                  const OptionIcon = option.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => update("resultPublicationMode", option.value)}
+                      className={`interactive-card rounded-2xl border p-4 text-left ${selected ? "border-primary bg-primary/[0.07] ring-1 ring-primary/20" : "border-border"}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div
+                          className={`flex h-9 w-9 items-center justify-center rounded-xl ${selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                        >
+                          <OptionIcon className="h-4 w-4" />
+                        </div>
+                        <div
+                          className={`flex h-5 w-5 items-center justify-center rounded-full ${selected ? "bg-primary text-primary-foreground" : "border border-border"}`}
+                        >
+                          {selected && <Check className="h-3 w-3" />}
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm font-semibold">{option.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{option.copy}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border p-4 sm:col-span-2">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Zambia 2023 achievement scale</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Administrators can adjust these bands later; teachers receive automatic grades.
+                  </p>
+                </div>
+                <Badge variant="outline">8 achievement bands</Badge>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {form.gradingBands.map((band) => (
+                  <div
+                    key={band.grade}
+                    className="rounded-xl border border-border bg-background p-3 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-base font-semibold">{band.grade}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {band.min}–{band.max}
+                      </span>
+                    </div>
+                    <p className="mt-2 font-medium">{band.description}</p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      {band.points} point{band.points === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="sm:col-span-2 rounded-lg border border-border p-4">
               <div className="flex items-start justify-between gap-3">
@@ -803,7 +986,9 @@ function OnboardingPage() {
                     Schools can span multiple levels even under one tenant.
                   </p>
                 </div>
-                <Badge variant="outline">{form.levels.length} level{form.levels.length === 1 ? "" : "s"}</Badge>
+                <Badge variant="outline">
+                  {form.levels.length} level{form.levels.length === 1 ? "" : "s"}
+                </Badge>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {ACADEMIC_LEVEL_ORDER.map((level) => {
@@ -814,11 +999,15 @@ function OnboardingPage() {
                       type="button"
                       onClick={() => toggleLevel(level)}
                       className={`rounded-lg border p-3 text-left transition ${
-                        active ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"
+                        active
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-muted-foreground/40"
                       }`}
                     >
                       <p className="text-sm font-medium">{ACADEMIC_LEVEL_META[level].label}</p>
-                      <p className="text-xs text-muted-foreground">{ACADEMIC_LEVEL_META[level].grades}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ACADEMIC_LEVEL_META[level].grades}
+                      </p>
                     </button>
                   );
                 })}
@@ -833,7 +1022,8 @@ function OnboardingPage() {
                   </p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={addCampus}>
-                  <Plus className="mr-1 h-4 w-4" />Add campus
+                  <Plus className="mr-1 h-4 w-4" />
+                  Add campus
                 </Button>
               </div>
               <div className="mt-4 space-y-4">
@@ -842,10 +1032,17 @@ function OnboardingPage() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium">Campus {index + 1}</p>
-                        <p className="text-xs text-muted-foreground">Levels and operational ownership for this location.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Levels and operational ownership for this location.
+                        </p>
                       </div>
                       {form.campuses.length > 1 && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeCampus(campus.id)}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeCampus(campus.id)}
+                        >
                           Remove
                         </Button>
                       )}
@@ -865,7 +1062,9 @@ function OnboardingPage() {
                         <Input
                           className="mt-1"
                           value={campus.code}
-                          onChange={(e) => updateCampus(campus.id, { code: e.target.value.toUpperCase() })}
+                          onChange={(e) =>
+                            updateCampus(campus.id, { code: e.target.value.toUpperCase() })
+                          }
                           placeholder="MTA1"
                         />
                       </div>
@@ -882,9 +1081,13 @@ function OnboardingPage() {
                         <Label>Status</Label>
                         <Select
                           value={campus.status}
-                          onValueChange={(value) => updateCampus(campus.id, { status: value as CampusStatus })}
+                          onValueChange={(value) =>
+                            updateCampus(campus.id, { status: value as CampusStatus })
+                          }
                         >
-                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
                             {CAMPUS_STATUS_OPTIONS.map((status) => (
                               <SelectItem key={status} value={status}>
@@ -906,7 +1109,9 @@ function OnboardingPage() {
                               type="button"
                               onClick={() => toggleCampusLevel(campus.id, level)}
                               className={`rounded-full border px-3 py-1 text-xs transition ${
-                                active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                                active
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border text-muted-foreground"
                               }`}
                             >
                               {ACADEMIC_LEVEL_META[level].label}
@@ -931,7 +1136,9 @@ function OnboardingPage() {
                 value={form.currency}
                 onValueChange={(v) => update("currency", v as Form["currency"])}
               >
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ZMW">Zambian Kwacha (ZMW)</SelectItem>
                   <SelectItem value="USD">US Dollar (USD)</SelectItem>
@@ -1001,7 +1208,8 @@ function OnboardingPage() {
                       size="sm"
                       onClick={() => logoInput.current?.click()}
                     >
-                      <Upload className="mr-2 h-4 w-4" />Upload logo
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload logo
                     </Button>
                     {form.logoUrl && (
                       <Button
@@ -1022,7 +1230,11 @@ function OnboardingPage() {
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                     {form.faviconUrl ? (
-                      <img src={form.faviconUrl} alt="Favicon" className="h-10 w-10 object-contain" />
+                      <img
+                        src={form.faviconUrl}
+                        alt="Favicon"
+                        className="h-10 w-10 object-contain"
+                      />
                     ) : (
                       <ImageIcon className="h-7 w-7 text-muted-foreground" />
                     )}
@@ -1044,7 +1256,8 @@ function OnboardingPage() {
                       size="sm"
                       onClick={() => faviconInput.current?.click()}
                     >
-                      <Upload className="mr-2 h-4 w-4" />Upload favicon
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload favicon
                     </Button>
                     {form.faviconUrl && (
                       <Button
@@ -1104,14 +1317,17 @@ function OnboardingPage() {
               </div>
               <div>
                 <Label>Heading font</Label>
-                <Select
-                  value={form.fontFamily}
-                  onValueChange={(v) => update("fontFamily", v)}
-                >
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <Select value={form.fontFamily} onValueChange={(v) => update("fontFamily", v)}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {["Inter", "Poppins", "Merriweather", "Playfair Display", "Source Sans 3"].map(
-                      (o) => (<SelectItem key={o} value={o}>{o}</SelectItem>),
+                      (o) => (
+                        <SelectItem key={o} value={o}>
+                          {o}
+                        </SelectItem>
+                      ),
                     )}
                   </SelectContent>
                 </Select>
@@ -1143,10 +1359,7 @@ function OnboardingPage() {
                   )}
                 </div>
                 <div>
-                  <p
-                    className="text-base font-semibold"
-                    style={{ fontFamily: form.fontFamily }}
-                  >
+                  <p className="text-base font-semibold" style={{ fontFamily: form.fontFamily }}>
                     {form.name || "School name"}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -1164,13 +1377,18 @@ function OnboardingPage() {
             <div className="rounded-lg border border-border p-4">
               <Label>Starting plan</Label>
               <p className="mt-1 text-xs text-muted-foreground">
-                Determines which modules can be switched on below. Can be changed later from Billing.
+                Determines which modules can be switched on below. Can be changed later from
+                Billing.
               </p>
               <Select value={form.subscription.planId} onValueChange={(v) => setPlan(v as PlanId)}>
-                <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {PLAN_IDS.map((id) => (
-                    <SelectItem key={id} value={id}>{PLAN_CATALOG[id].name} — {PLAN_CATALOG[id].badge}</SelectItem>
+                    <SelectItem key={id} value={id}>
+                      {PLAN_CATALOG[id].name} — {PLAN_CATALOG[id].badge}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1181,7 +1399,9 @@ function OnboardingPage() {
               if (keys.length === 0) return null;
               return (
                 <div key={category}>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{category}</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {category}
+                  </p>
                   <div className="space-y-2">
                     {keys.map((k) => {
                       const meta = FEATURE_META[k];
@@ -1197,10 +1417,16 @@ function OnboardingPage() {
                               {!unlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {unlocked ? meta.description : `Requires ${PLAN_CATALOG[meta.availableFrom].name} plan`}
+                              {unlocked
+                                ? meta.description
+                                : `Requires ${PLAN_CATALOG[meta.availableFrom].name} plan`}
                             </p>
                           </div>
-                          <Switch checked={form.features[k]} disabled={!unlocked} onCheckedChange={() => toggle(k)} />
+                          <Switch
+                            checked={form.features[k]}
+                            disabled={!unlocked}
+                            onCheckedChange={() => toggle(k)}
+                          />
                         </div>
                       );
                     })}
@@ -1219,7 +1445,8 @@ function OnboardingPage() {
               <div>
                 <p className="text-sm font-medium">Ready to provision</p>
                 <p className="text-xs text-muted-foreground">
-                  Grade structure, term calendar and report templates will be generated automatically.
+                  Grade structure, term calendar and report templates will be generated
+                  automatically.
                 </p>
               </div>
             </div>
@@ -1240,6 +1467,12 @@ function OnboardingPage() {
                 ["Term", `Term ${form.currentTerm}, ${form.currentYear}`],
                 ["Currency", form.currency],
                 ["Pass mark", `${form.passMark}%`],
+                [
+                  "Result release",
+                  form.resultPublicationMode === "SEPARATE"
+                    ? "Mid-term and end-of-term separately"
+                    : "Combined term report",
+                ],
                 ["Brand", form.primaryColor],
               ].map(([k, v]) => (
                 <div key={k as string} className="rounded-lg border border-border p-3">
@@ -1252,7 +1485,9 @@ function OnboardingPage() {
               {Object.entries(form.features)
                 .filter(([, v]) => v)
                 .map(([k]) => (
-                  <Badge key={k} variant="secondary">{k}</Badge>
+                  <Badge key={k} variant="secondary">
+                    {k}
+                  </Badge>
                 ))}
             </div>
           </div>
@@ -1260,15 +1495,18 @@ function OnboardingPage() {
 
         <div className="mt-8 flex items-center justify-between border-t border-border pt-4">
           <Button variant="ghost" onClick={back} disabled={step === 0}>
-            <ArrowLeft className="mr-1 h-4 w-4" />Back
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back
           </Button>
           {step < steps.length - 1 ? (
             <Button onClick={next} disabled={!canContinue}>
-              Next<ArrowRight className="ml-1 h-4 w-4" />
+              Next
+              <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
             <Button onClick={() => void finish()} disabled={submitting}>
-              Provision school<Check className="ml-1 h-4 w-4" />
+              Provision school
+              <Check className="ml-1 h-4 w-4" />
             </Button>
           )}
         </div>

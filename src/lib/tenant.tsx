@@ -1,8 +1,27 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { api, type BackendSchool, type BackendSchoolDto } from "@/lib/api";
+import { api, type BackendGradingBand, type BackendSchool, type BackendSchoolDto } from "@/lib/api";
 
 export type SchoolType = "NURSERY" | "PRIMARY" | "SECONDARY" | "COMBINED" | "FULL";
+export type ResultPublicationMode = "SEPARATE" | "COMBINED";
+export type GradingBand = BackendGradingBand;
+
+export const ZAMBIA_2023_GRADING_BANDS: GradingBand[] = [
+  { min: 80, max: 100, grade: "A", description: "Excellent", points: 1 },
+  { min: 70, max: 79, grade: "B+", description: "Very Good", points: 2 },
+  { min: 60, max: 69, grade: "B", description: "Good", points: 3 },
+  { min: 50, max: 59, grade: "C+", description: "Credit", points: 4 },
+  { min: 40, max: 49, grade: "C", description: "Satisfactory", points: 5 },
+  { min: 30, max: 39, grade: "D+", description: "Elementary", points: 6 },
+  { min: 20, max: 29, grade: "D", description: "Limited Achievement", points: 7 },
+  { min: 0, max: 19, grade: "E", description: "Unsatisfactory", points: 8 },
+];
+
+export function gradingBandForPercentage(bands: GradingBand[], percentage: number): GradingBand {
+  const bounded = Math.max(0, Math.min(100, percentage));
+  return bands.find((band) => bounded >= band.min && bounded < band.max + 1)
+    ?? ZAMBIA_2023_GRADING_BANDS[ZAMBIA_2023_GRADING_BANDS.length - 1];
+}
 export type AcademicLevel = "ECE" | "PRIMARY" | "JUNIOR_SECONDARY" | "SENIOR_SECONDARY";
 export type CampusStatus = "active" | "setup" | "planned";
 export type PlanId = "core" | "growth" | "advanced" | "enterprise";
@@ -135,6 +154,8 @@ export type Tenant = {
   termEnd?: string;
   weekStart?: "Monday" | "Sunday";
   gradingScale?: "ECZ" | "Percentage" | "GPA" | "Letter";
+  resultPublicationMode: ResultPublicationMode;
+  gradingBands: GradingBand[];
   passMark?: number;
   currency?: "ZMW" | "USD";
   bankName?: string;
@@ -473,6 +494,8 @@ const EMPTY_TENANT: Tenant = normaliseTenantStructure({
   totalTeachers: 0,
   totalClasses: 0,
   primaryColor: "#1e40af",
+  resultPublicationMode: "SEPARATE",
+  gradingBands: ZAMBIA_2023_GRADING_BANDS,
   offlineMode: false,
   subscription: createTenantSubscription("core", {
     status: "trial",
@@ -598,6 +621,8 @@ function toSchoolDto(tenant: Tenant): BackendSchoolDto {
     yearFounded: tenant.yearFounded,
     weekStart: tenant.weekStart,
     gradingScale: tenant.gradingScale,
+    resultPublicationMode: tenant.resultPublicationMode,
+    gradingBands: tenant.gradingBands,
     passMark: tenant.passMark,
     currency: tenant.currency,
     bankName: tenant.bankName,
@@ -737,6 +762,8 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
       gradingScale: school.gradingScale === "Percentage" || school.gradingScale === "GPA" || school.gradingScale === "Letter"
         ? school.gradingScale
         : "ECZ",
+      resultPublicationMode: school.resultPublicationMode === "COMBINED" ? "COMBINED" : "SEPARATE",
+      gradingBands: school.gradingBands?.length ? school.gradingBands : ZAMBIA_2023_GRADING_BANDS,
       passMark: school.passMark ?? undefined,
       currency: school.currency === "USD" || school.currency === "ZMW" ? school.currency : "ZMW",
       bankName: school.bankName ?? "",
@@ -803,6 +830,10 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
     gradingScale: school.gradingScale === "Percentage" || school.gradingScale === "GPA" || school.gradingScale === "Letter" || school.gradingScale === "ECZ"
       ? school.gradingScale
       : existing?.gradingScale ?? "ECZ",
+    resultPublicationMode: school.resultPublicationMode === "COMBINED" || school.resultPublicationMode === "SEPARATE"
+      ? school.resultPublicationMode
+      : existing?.resultPublicationMode ?? "SEPARATE",
+    gradingBands: school.gradingBands?.length ? school.gradingBands : existing?.gradingBands ?? ZAMBIA_2023_GRADING_BANDS,
     passMark: school.passMark ?? existing?.passMark,
     currency: school.currency === "USD" || school.currency === "ZMW"
       ? school.currency
@@ -848,7 +879,7 @@ type TenantContextValue = {
   activePlan: PlanDefinition;
   setActive: (id: string) => void;
   addTenant: (tenant: Omit<Tenant, "id" | "totalStudents" | "totalTeachers" | "totalClasses">) => Promise<Tenant>;
-  updateActive: (patch: TenantPatch) => void;
+  updateActive: (patch: TenantPatch) => Promise<void>;
   updateTenant: (tenantId: string, patch: TenantPatch) => void;
   setFeaturesForTenant: (tenantId: string, features: Partial<TenantFeatureFlags>) => void;
   changePlan: (planId: PlanId, billingCycle?: BillingCycle) => void;
@@ -878,23 +909,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   });
 
   const persistTenant = async (tenant: Tenant) => {
-    try {
-      await api.schools.update(tenant.id, toSchoolDto(tenant));
-    } catch (error) {
-      console.warn("Failed to sync school to backend", error);
-    }
+    await api.schools.update(tenant.id, toSchoolDto(tenant));
   };
 
   const mutateTenant = (tenantId: string, updater: (tenant: Tenant) => Tenant, persist = false) => {
-    let nextTenant: Tenant | null = null;
-    setTenants((prev) => prev.map((tenant) => {
-      if (tenant.id !== tenantId) return tenant;
-      nextTenant = updater(tenant);
-      return nextTenant;
-    }));
-    if (persist && nextTenant) {
-      void persistTenant(nextTenant);
-    }
+    const currentTenant = tenants.find((tenant) => tenant.id === tenantId);
+    if (!currentTenant) return Promise.resolve();
+    const nextTenant = updater(currentTenant);
+    setTenants((prev) => prev.map((tenant) => tenant.id === tenantId ? nextTenant : tenant));
+    if (!persist) return Promise.resolve();
+    return persistTenant(nextTenant).catch((error) => {
+      setTenants((prev) => prev.map((tenant) => (
+        tenant.id === tenantId && tenant === nextTenant ? currentTenant : tenant
+      )));
+      throw error;
+    });
   };
 
   useEffect(() => {
@@ -992,11 +1021,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         }
         return created;
       },
-      updateActive: (patch) => {
-        mutateTenant(activeId, (tenant) => applyTenantPatch(tenant, patch), true);
-      },
+      updateActive: (patch) => mutateTenant(activeId, (tenant) => applyTenantPatch(tenant, patch), true),
       updateTenant: (tenantId, patch) => {
-        mutateTenant(tenantId, (tenant) => applyTenantPatch(tenant, patch), true);
+        void mutateTenant(tenantId, (tenant) => applyTenantPatch(tenant, patch), true)
+          .catch((error) => console.warn("Failed to sync school to backend", error));
       },
       setFeaturesForTenant: (tenantId, features) => {
         mutateTenant(tenantId, (tenant) => {
@@ -1014,10 +1042,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         });
       },
       changePlan: (planId, billingCycle) => {
-        mutateTenant(activeId, (tenant) => withPlan(tenant, planId, billingCycle), true);
+        void mutateTenant(activeId, (tenant) => withPlan(tenant, planId, billingCycle), true)
+          .catch((error) => console.warn("Failed to sync school plan to backend", error));
       },
       changePlanForTenant: (tenantId, planId, billingCycle) => {
-        mutateTenant(tenantId, (tenant) => withPlan(tenant, planId, billingCycle), true);
+        void mutateTenant(tenantId, (tenant) => withPlan(tenant, planId, billingCycle), true)
+          .catch((error) => console.warn("Failed to sync school plan to backend", error));
       },
       setFeatureEnabled: (feature, enabled) => {
         mutateTenant(activeId, (tenant) => {
@@ -1061,5 +1091,28 @@ export function gradeRangeForType(type: SchoolType): string {
       return "Primary Grade 1-6 · Secondary Form 1-6";
     case "FULL":
       return "ECE · Primary Grade 1-6 · Secondary Form 1-6";
+  }
+}
+
+/**
+ * The single source of truth for turning a student's raw numeric `grade` into the label a
+ * user should see. A pure SECONDARY school stores Form 1-6 directly as grade 1-6; a pure
+ * PRIMARY/NURSERY school stores Grade 1-6 directly. A COMBINED/FULL school stores grade 1-12
+ * (matching its combined dropdown), where 1-6 is primary "Grade N" and 7-12 is secondary
+ * "Form N-6" per gradeRangeForType's documented split — do not duplicate this logic inline;
+ * every place that renders a student's grade should call this instead.
+ */
+export function formatGrade(grade: number | string | null | undefined, type: SchoolType): string {
+  const n = Number(grade);
+  if (!n) return "—";
+  switch (type) {
+    case "SECONDARY":
+      return `Form ${n}`;
+    case "PRIMARY":
+    case "NURSERY":
+      return `Grade ${n}`;
+    case "COMBINED":
+    case "FULL":
+      return n <= 6 ? `Grade ${n}` : `Form ${n - 6}`;
   }
 }

@@ -485,7 +485,7 @@ export function WorkspaceSidebar() {
           </>
         ) : user?.role === "career_guidance" ? (
           <>
-            {renderGroup("My Guidance Workspace", [
+            {renderGroup("Careers Guidance", [
               { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
               { title: "Students", url: "/students", icon: Users, module: "students" },
               { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },

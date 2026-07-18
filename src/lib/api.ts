@@ -37,6 +37,14 @@ export type BackendSchoolCampus = {
   teacherCount?: number | null;
 };
 
+export type BackendGradingBand = {
+  min: number;
+  max: number;
+  grade: string;
+  description: string;
+  points: number;
+};
+
 export type BackendSchool = {
   id: string;
   name: string;
@@ -77,6 +85,8 @@ export type BackendSchool = {
   yearFounded?: number | null;
   weekStart?: string | null;
   gradingScale?: string | null;
+  resultPublicationMode?: string | null;
+  gradingBands?: BackendGradingBand[] | null;
   passMark?: number | null;
   currency?: string | null;
   bankName?: string | null;
@@ -149,6 +159,8 @@ export type BackendSchoolDto = {
   yearFounded?: number;
   weekStart?: string;
   gradingScale?: string;
+  resultPublicationMode?: string;
+  gradingBands?: BackendGradingBand[];
   passMark?: number;
   currency?: string;
   bankName?: string;
@@ -364,6 +376,8 @@ export const api = {
   classes: {
     list: (schoolId: string, teacherEmail?: string) =>
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "classes"), { params: teacherEmail ? { teacherEmail } : undefined })),
+    assignments: (schoolId: string, teacherEmail: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "classes/assignments"), { params: { teacherEmail } })),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "classes"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `classes/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `classes/${id}`)),
@@ -422,6 +436,10 @@ export const api = {
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `assessments/${id}`)),
     results: (schoolId: string, id: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `assessments/${id}/results`))),
     saveResults: (schoolId: string, id: string, data: any[]) => unwrap<any[]>(apiClient.post(schoolPath(schoolId, `assessments/${id}/results/bulk`), data)),
+    submit: (schoolId: string, id: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `assessments/${id}/submit`))),
+    verify: (schoolId: string, id: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `assessments/${id}/verify`))),
+    reject: (schoolId: string, id: string, note: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `assessments/${id}/reject`), { note })),
+    publishCycle: (schoolId: string, id: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `assessments/${id}/publish-cycle`))),
     studentResults: (schoolId: string, studentId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `assessments/student/${studentId}`))),
     studentResultsEnriched: (schoolId: string, studentId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `assessments/student/${studentId}/enriched`))),
   },
@@ -438,11 +456,11 @@ export const api = {
   termGrades: {
     compute: (schoolId: string, data: { classId: string; subjectName: string; term: string; academicYear: string }) =>
       unwrap<any[]>(apiClient.post(schoolPath(schoolId, "term-grades/compute"), data)),
-    publish: (schoolId: string, id: string) =>
-      unwrap<any>(apiClient.patch(schoolPath(schoolId, `term-grades/${id}/publish`))),
-    history: (schoolId: string, studentId: string, academicYear: string, publishedOnly = false) =>
-      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades"), { params: { studentId, academicYear, publishedOnly } })),
-    classStats: (schoolId: string, params: { classId: string; subjectName: string; term: string; academicYear: string }) =>
+    history: (schoolId: string, studentId: string, academicYear: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades"), { params: { studentId, academicYear } })),
+    publishedHistory: (schoolId: string, studentId: string, academicYear: string, reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED") =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades/published"), { params: { studentId, academicYear, reportingPeriod } })),
+    classStats: (schoolId: string, params: { classId: string; subjectName: string; term: string; academicYear: string; reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" }) =>
       unwrap<{ average: number | null; distribution: Record<string, number> }>(
         apiClient.get(schoolPath(schoolId, "term-grades/class-stats"), { params }),
       ),

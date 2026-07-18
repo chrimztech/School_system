@@ -72,9 +72,9 @@ export const ROLE_META: Record<Role, { label: string; tone: string; description:
     description: "Deputises for the Principal across the school's day-to-day operations.",
   },
   career_guidance: {
-    label: "Career Guidance Teacher",
+    label: "Careers Guidance Department",
     tone: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
-    description: "Guides students on academic and career choices using welfare and performance records.",
+    description: "Publishes HOD-verified result cycles and supports academic and career guidance.",
   },
 };
 

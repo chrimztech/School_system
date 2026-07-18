@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Wallet, AlertCircle, TrendingUp, Plus, Download, Send, Loader2, Bell, CheckCircle2, Users, Printer } from "lucide-react";
+import { Wallet, AlertCircle, TrendingUp, Plus, Download, Send, Loader2, Bell, CheckCircle2, Users, Printer, CreditCard } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,11 +13,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, formatGrade } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
+import { PaymentDialog } from "@/components/payment-dialog";
 
 export const Route = createFileRoute("/fees")({
   head: () => ({ meta: [{ title: "Fees & Payments — SRMS" }] }),
@@ -28,9 +30,83 @@ const METHODS = ["MTN MoMo", "Airtel Money", "Zamtel Kwacha", "Bank Transfer", "
 const FEE_CATEGORIES = ["Tuition", "Transport levy", "Exam fee", "Boarding", "Uniform / books", "Sports levy", "ICT levy", "NAPSA contribution", "Miscellaneous"];
 const TERMS = ["Term 1 · 2026", "Term 2 · 2026", "Term 3 · 2026", "Term 1 · 2027"];
 
+/** Parents get their own children's balances and a self-service "Pay now" — never the
+ * staff fee ledger, bulk reminders, or the free-form "Record payment" admin form. */
+function ParentFeesView({ schoolId }: { schoolId: string }) {
+  const { user } = useAuth();
+  const { active } = useTenant();
+  const [payFor, setPayFor] = useState<any>(null);
+
+  const { data: children = [], isLoading } = useQuery({
+    queryKey: ["guardian-children", schoolId, user?.email],
+    queryFn: () => api.students.listByGuardian(schoolId, user!.email),
+    enabled: !!user?.email,
+  });
+
+  const childList = children as any[];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Fees & Payments" description="Your children's fee balances and payment options" />
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" /><span>Loading…</span>
+        </div>
+      ) : childList.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+          <Wallet className="h-8 w-8 opacity-40" />
+          <p className="text-sm">No children linked to your account yet.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {childList.map((child: any) => {
+            const balance = Number(child.feeBalance ?? 0);
+            return (
+              <div key={child.id} className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3">
+                <div>
+                  <p className="font-semibold">{child.firstName} {child.lastName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {child.className || formatGrade(child.grade, active.type)}
+                    {child.admissionNumber ? ` · ${child.admissionNumber}` : ""}
+                  </p>
+                </div>
+                <div>
+                  {balance > 0 ? (
+                    <p className="text-xl font-bold text-destructive">K {balance.toLocaleString()}</p>
+                  ) : (
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                      <CheckCircle2 className="h-4 w-4" />Cleared
+                    </p>
+                  )}
+                </div>
+                {balance > 0 && (
+                  <Button size="sm" className="w-full" onClick={() => setPayFor(child)}>
+                    <CreditCard className="mr-2 h-4 w-4" />Pay now
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {payFor && (
+        <PaymentDialog
+          schoolId={schoolId}
+          student={payFor}
+          open={!!payFor}
+          onOpenChange={(v) => !v && setPayFor(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 function FeesPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
   const qc = useQueryClient();
 
   const [open, setOpen] = useState(false);
@@ -206,6 +282,11 @@ function FeesPage() {
     });
   };
 
+  // Parents get a much simpler, scoped view — never the staff ledger/admin actions below.
+  if (user?.role === "parent") {
+    return <ParentFeesView schoolId={schoolId} />;
+  }
+
   return (
     <AccessGuard module="fees">
       <div className="space-y-6">
@@ -285,7 +366,7 @@ function FeesPage() {
                     <Label>Student</Label>
                     <Select value={form.studentId} onValueChange={(v) => {
                       const s = (students as any[]).find((st: any) => st.id === v);
-                      setForm({ ...form, studentId: v, studentName: s ? `${s.firstName} ${s.lastName}` : "", grade: s ? `Form ${s.grade} ${s.section ?? ""}`.trim() : "" });
+                      setForm({ ...form, studentId: v, studentName: s ? `${s.firstName} ${s.lastName}` : "", grade: s ? `${formatGrade(s.grade, active.type)} ${s.section ?? ""}`.trim() : "" });
                     }}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select student" /></SelectTrigger>
                       <SelectContent>
@@ -532,7 +613,7 @@ function FeesPage() {
                     {s.firstName} {s.lastName}
                     {s.admissionNumber && <div className="text-xs text-muted-foreground">{s.admissionNumber}</div>}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{s.className || (s.grade ? `Form ${s.grade}${s.section ? s.section : ""}` : "—")}</TableCell>
+                  <TableCell className="text-muted-foreground">{s.className || (s.grade ? `${formatGrade(s.grade, active.type)}${s.section ? s.section : ""}` : "—")}</TableCell>
                   <TableCell className="text-right font-semibold text-destructive">
                     K {Number(s.feeBalance).toLocaleString()}
                   </TableCell>
@@ -554,7 +635,7 @@ function FeesPage() {
                         size="sm"
                         className="h-7 text-xs"
                         onClick={() => {
-                          setForm((f) => ({ ...f, studentId: s.id, studentName: `${s.firstName} ${s.lastName}`, grade: s.className || `Grade ${s.grade}` }));
+                          setForm((f) => ({ ...f, studentId: s.id, studentName: `${s.firstName} ${s.lastName}`, grade: s.className || formatGrade(s.grade, active.type) }));
                           setOpen(true);
                         }}
                       >

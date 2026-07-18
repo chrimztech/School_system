@@ -29,8 +29,9 @@ function gradeLabel(grade: number | string | undefined, phase?: string): string 
   if (!g) return "—";
   if (phase === "olevel" || phase === "alevel") return `Form ${g}`;
   if (phase === "primary") return `Grade ${g}`;
-  // legacy secondary stored as 8-12
-  return g >= 8 ? `Grade ${g}` : `Grade ${g}`;
+  // No phase tag (legacy class record): secondary grades are stored as 7-12 elsewhere
+  // in the app (see formatGrade in lib/tenant.tsx) — same offset here for consistency.
+  return g >= 7 ? `Form ${g - 6}` : `Grade ${g}`;
 }
 
 // Suggests the next-grade destination class for promotion, following the same

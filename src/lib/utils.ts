@@ -5,14 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Single source of truth for grade-letter colors — keep in sync with the backend's GradeThresholds. */
+/** Visual treatment for the admin-configured Zambia achievement grades. */
 export function gradeBadgeClass(grade: string | null | undefined): string {
   const g = (grade ?? "").trim().toUpperCase();
-  if (g === "A+" || g === "A") return "border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
-  if (g === "B") return "border-transparent bg-sky-500/15 text-sky-700 dark:text-sky-400";
-  if (g === "C") return "border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400";
-  if (g === "D") return "border-transparent bg-orange-500/15 text-orange-700 dark:text-orange-400";
-  if (g === "F") return "border-transparent bg-destructive/15 text-destructive";
+  if (g === "A") return "border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
+  if (g === "B+" || g === "B") return "border-transparent bg-sky-500/15 text-sky-700 dark:text-sky-400";
+  if (g === "C+" || g === "C") return "border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400";
+  if (g === "D+" || g === "D") return "border-transparent bg-orange-500/15 text-orange-700 dark:text-orange-400";
+  if (g === "E") return "border-transparent bg-destructive/15 text-destructive";
   return "border-transparent bg-muted text-muted-foreground";
 }
 

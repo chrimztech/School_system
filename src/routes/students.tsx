@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, formatGrade } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/utils";
@@ -89,13 +89,7 @@ function StudentsListPage() {
   const isSecondary = ["SECONDARY", "COMBINED", "FULL"].includes(active.type);
   const isPrimary   = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(active.type);
 
-  // Zambia 2025: Primary uses Grade 1-6; Secondary uses Form 1-6 (O-Level 1-4, A-Level 5-6)
-  const gradeLabel = (g: number | string) => {
-    const n = Number(g);
-    if (!n) return "—";
-    if (isSecondary && !isPrimary) return `Form ${n}`;
-    return `Grade ${n}`;
-  };
+  const gradeLabel = (g: number | string) => formatGrade(g, active.type);
 
   const gradeOptions: { value: string; label: string }[] =
     isSecondary && !isPrimary
@@ -104,7 +98,7 @@ function StudentsListPage() {
       ? [1,2,3,4,5,6].map((n) => ({ value: String(n), label: `Grade ${n}` }))
       : [
           ...([1,2,3,4,5,6].map((n) => ({ value: String(n), label: `Grade ${n}` }))),
-          ...([7,8,9,10,11,12].map((n) => ({ value: String(n), label: `Grade ${n}` }))),
+          ...([7,8,9,10,11,12].map((n) => ({ value: String(n), label: `Form ${n - 6}` }))),
         ];
 
   const [q, setQ] = useState("");

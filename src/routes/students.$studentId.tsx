@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, formatGrade } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/students/$studentId")({
@@ -160,7 +160,7 @@ function StudentProfilePage() {
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <Badge variant={(s.status ?? "").toLowerCase() === "active" ? "secondary" : "outline"}>{s.status}</Badge>
                 <span className="text-sm text-muted-foreground">
-                  {["SECONDARY","COMBINED","FULL"].includes(active.type) && !["PRIMARY","NURSERY"].includes(active.type) ? `Form ${s.grade}` : `Grade ${s.grade}`}
+                  {formatGrade(s.grade, active.type)}
                   {s.section ? ` · Section ${s.section}` : ""}
                 </span>
                 {s.preferredName && <Badge variant="outline">Prefers {s.preferredName}</Badge>}
