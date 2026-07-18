@@ -23,7 +23,7 @@ export const Route = createFileRoute("/communication")({
 });
 
 const AUDIENCES = [
-  "All", "All parents", "All staff", "All secondary",
+  "All", "All parents", "All staff", "All alumni", "All secondary",
   "Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6",
   "All primary", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
 ];
@@ -422,7 +422,7 @@ function CommunicationPage() {
                   <Select value={broadcastRecipients} onValueChange={setBroadcastRecipients}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["All parents", "Form 1 parents", "Form 2 parents", "Form 3 parents", "Form 4 parents", "Form 5 parents", "Form 6 parents", "All primary parents", "All staff"].map((r) => (
+                      {["All parents", "Form 1 parents", "Form 2 parents", "Form 3 parents", "Form 4 parents", "Form 5 parents", "Form 6 parents", "All primary parents", "All staff", "All alumni"].map((r) => (
                         <SelectItem key={r} value={r}>{r}</SelectItem>
                       ))}
                     </SelectContent>

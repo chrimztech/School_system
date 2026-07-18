@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { GraduationCap, Heart, Calendar, Send, Plus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -99,7 +99,7 @@ function AlumniPage() {
     employer: alumnus.employer ?? alumnus.currentEmployer ?? "",
     year: alumnus.year ?? alumnus.graduationYear,
   }));
-  const donorCount = list.filter((a: any) => a.donor || a.isDonor).length;
+  const donorCount = list.filter((a: any) => a.engagementStatus === "Donor").length;
 
   return (
     <div className="space-y-6">
@@ -108,8 +108,10 @@ function AlumniPage() {
         description="Old scholars network, giving, mentorship and reunion management."
         actions={
           <>
-            <Button variant="outline" onClick={() => toast.success("Newsletter scheduled")}>
-              <Send className="mr-2 h-4 w-4" />Send newsletter
+            <Button variant="outline" asChild>
+              <Link to="/communication" hash="broadcast">
+                <Send className="mr-2 h-4 w-4" />Send newsletter
+              </Link>
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
@@ -229,7 +231,7 @@ function AlumniPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Alumni on file" value={list.length} hint="On register" accent="primary" icon={<GraduationCap className="h-4 w-4" />} />
         <StatCard label="Active donors" value={donorCount} accent="success" icon={<Heart className="h-4 w-4" />} />
-        <StatCard label="Giving this year" value="K 412,500" hint="Bursary fund" accent="accent" />
+        <StatCard label="Giving this year" value="—" hint="Not yet tracked" accent="accent" />
         <StatCard label="Upcoming events" value={0} accent="warning" icon={<Calendar className="h-4 w-4" />} />
       </div>
 
@@ -256,7 +258,7 @@ function AlumniPage() {
                 {list.map((a: any) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">
-                      {a.name} {(a.donor || a.isDonor) && <Badge variant="secondary" className="ml-2 text-success">Donor</Badge>}
+                      {a.name} {a.engagementStatus === "Donor" && <Badge variant="secondary" className="ml-2 text-success">Donor</Badge>}
                       {a.admissionNumber && <div className="text-xs text-muted-foreground">{a.admissionNumber}</div>}
                     </TableCell>
                     <TableCell>{a.graduationYear ?? a.year}</TableCell>
@@ -264,7 +266,7 @@ function AlumniPage() {
                     <TableCell className="text-muted-foreground">{a.employer}</TableCell>
                     <TableCell>{a.location ?? a.city}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => toast.success(`Message sent to ${a.name}`)}>Message</Button>
+                      <Button size="sm" variant="ghost" disabled title="Alumni messaging isn't set up yet">Message</Button>
                     </TableCell>
                   </TableRow>
                 ))}

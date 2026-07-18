@@ -285,17 +285,46 @@ function buildShellStyle(primaryColor: string): React.CSSProperties | undefined 
   } as React.CSSProperties;
 }
 
+const SHELL_STYLE_PROPS = [
+  "--primary",
+  "--primary-foreground",
+  "--ring",
+  "--sidebar-primary",
+  "--sidebar-primary-foreground",
+  "--sidebar-ring",
+  "--sidebar-accent",
+  "--sidebar-accent-foreground",
+] as const;
+
 function AppShell() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { user, isSystemAdmin, loadingSession } = useAuth();
   const { active } = useTenant();
-  const shellStyle = isSystemAdmin ? undefined : buildShellStyle(active.primaryColor);
 
   // Ensure SSR and first client render produce identical HTML.
   // Auth state reads from localStorage (client-only), so delay auth-dependent
   // rendering until after hydration to prevent mismatch errors.
   const [clientReady, setClientReady] = useState(false);
   useEffect(() => { setClientReady(true); }, []);
+
+  // Apply the school's brand color as CSS custom properties on <html> rather than a
+  // nested div: Radix portals (dialogs, dropdowns, selects, popovers, toasts) render
+  // into document.body, outside any inline style scoped to the app shell, so setting
+  // these on documentElement is the only way portaled UI also picks up the color.
+  useEffect(() => {
+    const root = document.documentElement;
+    const style = isSystemAdmin ? undefined : buildShellStyle(active.primaryColor);
+    if (style) {
+      for (const [key, value] of Object.entries(style)) {
+        root.style.setProperty(key, value as string);
+      }
+    } else {
+      for (const key of SHELL_STYLE_PROPS) root.style.removeProperty(key);
+    }
+    return () => {
+      for (const key of SHELL_STYLE_PROPS) root.style.removeProperty(key);
+    };
+  }, [isSystemAdmin, active.primaryColor]);
 
   // Apply school favicon to the browser tab
   useEffect(() => {
@@ -337,10 +366,7 @@ function AppShell() {
 
   return (
     <SidebarProvider>
-      <div
-        className="app-shell flex min-h-screen w-full bg-background"
-        style={shellStyle}
-      >
+      <div className="app-shell flex min-h-screen w-full bg-background">
         <WorkspaceSidebar />
         <SidebarInset className="workspace-frame min-w-0 overflow-hidden bg-background/90">
           <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl">
