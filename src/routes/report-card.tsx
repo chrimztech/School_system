@@ -397,11 +397,15 @@ function ReportCardPage() {
           description="Review the exact published record shared with learners and their families."
           actions={
             <div className="flex items-center gap-2 print:hidden">
-              <Button variant="outline" onClick={() => window.print()}>
+              <Button
+                variant="outline"
+                onClick={() => window.print()}
+                disabled={!selectedId || subjects.length === 0}
+              >
                 <Download className="mr-2 h-4 w-4" />
                 Save as PDF
               </Button>
-              <Button onClick={() => window.print()}>
+              <Button onClick={() => window.print()} disabled={!selectedId || subjects.length === 0}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print report
               </Button>

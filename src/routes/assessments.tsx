@@ -1223,6 +1223,7 @@ function AssessmentsPage() {
     .filter(Boolean);
 
   const [open, setOpen] = useState(false);
+  const [showAdvancedFields, setShowAdvancedFields] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [queueView, setQueueView] = useState<"ACTION" | "ALL" | "PUBLISHED">("ACTION");
@@ -1598,27 +1599,6 @@ function AssessmentsPage() {
                         </div>
                       )}
                       <div>
-                        <Label>Teacher assigned</Label>
-                        <Input
-                          className="mt-1"
-                          value={form.teacherAssigned}
-                          onChange={(e) => setForm({ ...form, teacherAssigned: e.target.value })}
-                          placeholder="Teacher name"
-                          readOnly={isTeacher}
-                          title={isTeacher ? "Auto-filled from your account" : undefined}
-                          maxLength={80}
-                        />
-                      </div>
-                      <div>
-                        <Label>Date</Label>
-                        <Input
-                          className="mt-1"
-                          type="date"
-                          value={form.date}
-                          onChange={(e) => setForm({ ...form, date: e.target.value })}
-                        />
-                      </div>
-                      <div>
                         <Label>Max score</Label>
                         <Input
                           className="mt-1"
@@ -1629,80 +1609,122 @@ function AssessmentsPage() {
                           max={200}
                         />
                       </div>
-                      <div>
-                        <Label>Weight (%)</Label>
-                        <Input
-                          className="mt-1"
-                          type="number"
-                          value={form.weight}
-                          onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                          min={0}
-                          max={100}
-                        />
-                      </div>
-                      <div>
-                        <Label>Duration (min)</Label>
-                        <Input
-                          className="mt-1"
-                          type="number"
-                          value={form.durationMinutes}
-                          onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
-                          min={0}
-                        />
-                      </div>
-                      <div>
-                        <Label>Grading scheme</Label>
-                        <Input
-                          className="mt-1"
-                          value="Zambia MoE 2023 (admin configured)"
-                          readOnly
-                        />
-                      </div>
-                      <div>
-                        <Label>Retake allowed</Label>
-                        <Select
-                          value={form.retakeAllowed}
-                          onValueChange={(v) => setForm({ ...form, retakeAllowed: v })}
+
+                      <div className="md:col-span-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedFields((v) => !v)}
+                          className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
                         >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="no">No</SelectItem>
-                            <SelectItem value="yes">Yes — one retake</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <ChevronRight
+                            className={`h-4 w-4 transition-transform ${showAdvancedFields ? "rotate-90" : ""}`}
+                          />
+                          Advanced details
+                          <span className="font-normal text-xs opacity-70">
+                            (date, weight, duration, rubric…)
+                          </span>
+                        </button>
                       </div>
-                      <div>
-                        <Label>Marking completed by</Label>
-                        <Input
-                          className="mt-1"
-                          value={form.markingCompletedBy}
-                          onChange={(e) => setForm({ ...form, markingCompletedBy: e.target.value })}
-                          placeholder="Mrs. Phiri"
-                          maxLength={80}
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label>Syllabus reference / topic coverage</Label>
-                        <Input
-                          className="mt-1"
-                          value={form.syllabusReference}
-                          onChange={(e) => setForm({ ...form, syllabusReference: e.target.value })}
-                          placeholder="e.g. ECZ Maths Syl. 4024 · Topics: Algebra, Simultaneous equations"
-                          maxLength={200}
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label>Rubric / marking scheme description</Label>
-                        <Input
-                          className="mt-1"
-                          value={form.rubricDescription}
-                          onChange={(e) => setForm({ ...form, rubricDescription: e.target.value })}
-                          placeholder="e.g. Section A: 20 marks (MCQ), Section B: 20 marks (structured)"
-                          maxLength={250}
-                        />
-                      </div>
+
+                      {showAdvancedFields && (
+                        <>
+                          <div>
+                            <Label>Teacher assigned</Label>
+                            <Input
+                              className="mt-1"
+                              value={form.teacherAssigned}
+                              onChange={(e) => setForm({ ...form, teacherAssigned: e.target.value })}
+                              placeholder="Teacher name"
+                              readOnly={isTeacher}
+                              title={isTeacher ? "Auto-filled from your account" : undefined}
+                              maxLength={80}
+                            />
+                          </div>
+                          <div>
+                            <Label>Date</Label>
+                            <Input
+                              className="mt-1"
+                              type="date"
+                              value={form.date}
+                              onChange={(e) => setForm({ ...form, date: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>Weight (%)</Label>
+                            <Input
+                              className="mt-1"
+                              type="number"
+                              value={form.weight}
+                              onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                              min={0}
+                              max={100}
+                            />
+                          </div>
+                          <div>
+                            <Label>Duration (min)</Label>
+                            <Input
+                              className="mt-1"
+                              type="number"
+                              value={form.durationMinutes}
+                              onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
+                              min={0}
+                            />
+                          </div>
+                          <div>
+                            <Label>Grading scheme</Label>
+                            <Input
+                              className="mt-1"
+                              value="Zambia MoE 2023 (admin configured)"
+                              readOnly
+                            />
+                          </div>
+                          <div>
+                            <Label>Retake allowed</Label>
+                            <Select
+                              value={form.retakeAllowed}
+                              onValueChange={(v) => setForm({ ...form, retakeAllowed: v })}
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="no">No</SelectItem>
+                                <SelectItem value="yes">Yes — one retake</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Marking completed by</Label>
+                            <Input
+                              className="mt-1"
+                              value={form.markingCompletedBy}
+                              onChange={(e) => setForm({ ...form, markingCompletedBy: e.target.value })}
+                              placeholder="Mrs. Phiri"
+                              maxLength={80}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label>Syllabus reference / topic coverage</Label>
+                            <Input
+                              className="mt-1"
+                              value={form.syllabusReference}
+                              onChange={(e) => setForm({ ...form, syllabusReference: e.target.value })}
+                              placeholder="e.g. ECZ Maths Syl. 4024 · Topics: Algebra, Simultaneous equations"
+                              maxLength={200}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label>Rubric / marking scheme description</Label>
+                            <Input
+                              className="mt-1"
+                              value={form.rubricDescription}
+                              onChange={(e) => setForm({ ...form, rubricDescription: e.target.value })}
+                              placeholder="e.g. Section A: 20 marks (MCQ), Section B: 20 marks (structured)"
+                              maxLength={250}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                     <DialogFooter className="border-t border-border bg-muted/20 px-6 py-4">
                       <Button variant="outline" onClick={() => setOpen(false)}>

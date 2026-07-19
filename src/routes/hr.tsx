@@ -4,6 +4,7 @@ import { Users, CalendarOff, Award, BriefcaseBusiness, Plus, Loader2, Upload } f
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -404,11 +405,19 @@ function HRPage() {
         </TabsContent>
 
         <TabsContent value="appraisal" className="space-y-3">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={Award}
+            title="No appraisals recorded yet"
+            description="Staff performance reviews and appraisal cycles will appear here."
+          />
         </TabsContent>
 
         <TabsContent value="jobs" className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={BriefcaseBusiness}
+            title="No open positions yet"
+            description="Job postings and recruitment pipelines will appear here."
+          />
         </TabsContent>
       </Tabs>
 

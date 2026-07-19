@@ -4,6 +4,7 @@ import { Package, ShoppingCart, Truck, AlertTriangle, Plus, Loader2 } from "luci
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -334,15 +335,27 @@ function InventoryPage() {
         </TabsContent>
 
         <TabsContent value="po" className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={ShoppingCart}
+            title="No purchase orders yet"
+            description="Purchase orders raised against suppliers will appear here."
+          />
         </TabsContent>
 
         <TabsContent value="suppliers" className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={Truck}
+            title="No suppliers on file yet"
+            description="Registered suppliers and their contact details will appear here."
+          />
         </TabsContent>
 
         <TabsContent value="grn" className="rounded-xl border border-border bg-card p-5">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={Package}
+            title="No goods received yet"
+            description="Delivery records against purchase orders will appear here."
+          />
         </TabsContent>
       </Tabs>
     </div>

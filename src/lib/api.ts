@@ -690,6 +690,21 @@ export const api = {
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "exams"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `exams/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `exams/${id}`)),
+    // Candidates registered for a paper (internal students + GCE candidates)
+    candidates: (schoolId: string, examId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `exams/${examId}/candidates`))),
+    addCandidate: (schoolId: string, examId: string, studentId: string) => unwrap<any>(apiClient.post(schoolPath(schoolId, `exams/${examId}/candidates`), { studentId })),
+    addFromClass: (schoolId: string, examId: string, classId: string) => unwrap<{ added: number; skipped: number }>(apiClient.post(schoolPath(schoolId, `exams/${examId}/candidates/from-class`), { classId })),
+    addGceCandidates: (schoolId: string, examId: string, gceCandidateIds: string[]) => unwrap<{ added: number; skipped: number }>(apiClient.post(schoolPath(schoolId, `exams/${examId}/candidates/gce`), { gceCandidateIds })),
+    removeCandidate: (schoolId: string, examId: string, candidateId: string) => apiClient.delete(schoolPath(schoolId, `exams/${examId}/candidates/${candidateId}`)),
+  },
+
+  // GCE candidates (private/repeat candidates registered for ECZ exams, not tied to a class)
+  gce: {
+    list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "gce-candidates"))),
+    create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "gce-candidates"), data)),
+    bulkCreate: (schoolId: string, data: any[]) => unwrap<{ imported: number; errors: { row: number; error: string }[] }>(apiClient.post(schoolPath(schoolId, "gce-candidates/bulk"), data)),
+    update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `gce-candidates/${id}`), data)),
+    delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `gce-candidates/${id}`)),
   },
 
   // Student Welfare

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -279,18 +280,26 @@ function AlumniPage() {
         </TabsContent>
 
         <TabsContent value="events" className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={Calendar}
+            title="No events or reunions yet"
+            description="Alumni gatherings and reunions you schedule will appear here."
+          />
         </TabsContent>
 
         <TabsContent value="giving" className="rounded-xl border border-border bg-card p-6">
-          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <p className="font-medium text-muted-foreground">No fundraising campaigns created yet</p>
-            <p className="text-sm text-muted-foreground">Campaigns will appear here once they are set up.</p>
-          </div>
+          <EmptyState
+            title="No fundraising campaigns created yet"
+            description="Campaigns will appear here once they are set up."
+          />
         </TabsContent>
 
         <TabsContent value="mentor" className="rounded-xl border border-border bg-card p-5">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={Heart}
+            title="No mentorship pairings yet"
+            description="Alumni-to-student mentorship matches will appear here once set up."
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Pencil, Trash2, Loader2, BookOpen, AlertCircle, Building2 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { Fragment, useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -342,11 +344,11 @@ function SubjectsPage() {
 
     if (list.length === 0) {
       return (
-        <div className="flex flex-col items-center gap-3 py-14 text-center">
-          <BookOpen className="h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm font-medium text-muted-foreground">No subjects in this phase yet.</p>
-          <p className="text-xs text-muted-foreground">Use <strong>Seed MoE curriculum</strong> to load the Zambia 2025 ECZ syllabus.</p>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title="No subjects in this phase yet"
+          description="Use “Seed MoE curriculum” to load the Zambia 2025 ECZ syllabus."
+        />
       );
     }
 
@@ -365,8 +367,8 @@ function SubjectsPage() {
         </TableHeader>
         <TableBody>
           {Object.entries(byDept).map(([dept, rows]) => (
-            <>
-              <TableRow key={`dept-${dept}`} className="bg-muted/30">
+            <Fragment key={dept}>
+              <TableRow className="bg-muted/30">
                 <TableCell colSpan={7} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {dept}
                 </TableCell>
@@ -393,7 +395,7 @@ function SubjectsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-            </>
+            </Fragment>
           ))}
         </TableBody>
       </Table>
@@ -401,11 +403,7 @@ function SubjectsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" /><span>Loading subjects...</span>
-      </div>
-    );
+    return <LoadingState label="Loading subjects…" className="py-16" />;
   }
 
   return (

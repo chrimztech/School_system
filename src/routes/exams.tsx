@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ClipboardCheck, MapPin, Users, FileSpreadsheet, Plus, Loader2 } from "lucide-react";
+import { ClipboardCheck, MapPin, Users, FileSpreadsheet, Plus, Loader2, UserPlus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, StatCard } from "@/components/page-header";
@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/utils";
@@ -64,15 +66,296 @@ function SeatingPlanTab({ papers }: { papers: any[] }) {
   );
 }
 
-function EczTab({ papers }: { papers: any[] }) {
-  const eczPapers = papers.filter((p) => p.examBoard === "ECZ");
+function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boolean; onOpenChange: (open: boolean) => void; paper: any; schoolId: string }) {
+  const qc = useQueryClient();
+  const [classId, setClassId] = useState<string>("");
+  const [selectedGce, setSelectedGce] = useState<string[]>([]);
 
-  if (!eczPapers.length) return (
-    <div className="py-8 text-center text-muted-foreground">
-      <p>No ECZ papers scheduled.</p>
-      <p className="mt-1 text-sm">Schedule a paper with Exam Board set to "ECZ" to see it here.</p>
+  const { data: candidates = [], isLoading } = useQuery({
+    queryKey: ["examCandidates", schoolId, paper?.id],
+    queryFn: () => api.exams.candidates(schoolId, paper.id),
+    enabled: open && !!paper,
+  });
+
+  const { data: classes = [] } = useQuery({
+    queryKey: ["classes", schoolId],
+    queryFn: () => api.classes.list(schoolId),
+    enabled: open,
+  });
+
+  const { data: gceCandidates = [] } = useQuery({
+    queryKey: ["gceCandidates", schoolId],
+    queryFn: () => api.gce.list(schoolId),
+    enabled: open,
+  });
+
+  const registeredGceIds = new Set((candidates as any[]).filter((c) => c.candidateType === "GCE").map((c) => c.gceCandidateId));
+  const availableGce = (gceCandidates as any[]).filter((g) => !registeredGceIds.has(g.id));
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["examCandidates", schoolId, paper?.id] });
+    void qc.invalidateQueries({ queryKey: ["exams", schoolId] });
+  };
+
+  const addFromClassMut = useMutation({
+    mutationFn: () => api.exams.addFromClass(schoolId, paper.id, classId),
+    onSuccess: (res) => { invalidate(); toast.success(`${res.added} candidate${res.added !== 1 ? "s" : ""} added${res.skipped ? `, ${res.skipped} already registered` : ""}`); setClassId(""); },
+    onError: () => toast.error("Failed to add class candidates"),
+  });
+
+  const addGceMut = useMutation({
+    mutationFn: () => api.exams.addGceCandidates(schoolId, paper.id, selectedGce),
+    onSuccess: (res) => { invalidate(); toast.success(`${res.added} GCE candidate${res.added !== 1 ? "s" : ""} added${res.skipped ? `, ${res.skipped} skipped` : ""}`); setSelectedGce([]); },
+    onError: () => toast.error("Failed to add GCE candidates"),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: (candidateId: string) => api.exams.removeCandidate(schoolId, paper.id, candidateId),
+    onSuccess: () => { invalidate(); toast.success("Candidate removed"); },
+    onError: () => toast.error("Failed to remove candidate"),
+  });
+
+  if (!paper) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Candidates — {paper.subject} ({paper.grade})</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-5 overflow-y-auto max-h-[70vh] pr-1">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <p className="text-sm font-medium mb-2">Add examination class</p>
+              <div className="flex gap-2">
+                <Select value={classId} onValueChange={setClassId}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectContent>
+                    {(classes as any[]).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}{c.section ? ` ${c.section}` : ""}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" disabled={!classId || addFromClassMut.isPending} onClick={() => addFromClassMut.mutate()}>
+                  {addFromClassMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Registers every actively enrolled student in the selected class as an internal candidate.</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <p className="text-sm font-medium mb-2">Add GCE candidates</p>
+              <div className="max-h-32 space-y-1.5 overflow-y-auto">
+                {availableGce.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No unregistered GCE candidates. Add candidates in the GCE tab.</p>
+                ) : availableGce.map((g) => (
+                  <label key={g.id} className="flex items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={selectedGce.includes(g.id)}
+                      onCheckedChange={(v) => setSelectedGce((prev) => v ? [...prev, g.id] : prev.filter((id) => id !== g.id))}
+                    />
+                    {g.firstName} {g.lastName} {g.examNumber ? `· ${g.examNumber}` : ""}
+                  </label>
+                ))}
+              </div>
+              <Button size="sm" className="mt-2" disabled={selectedGce.length === 0 || addGceMut.isPending} onClick={() => addGceMut.mutate()}>
+                {addGceMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Add ${selectedGce.length || ""} selected`}
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium mb-2">Registered candidates ({(candidates as any[]).length})</p>
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Grade</TableHead><TableHead className="text-right">Remove</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">Loading...</TableCell></TableRow>
+                  ) : (candidates as any[]).length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">No candidates registered yet.</TableCell></TableRow>
+                  ) : (candidates as any[]).map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.candidateName}</TableCell>
+                      <TableCell><Badge variant={c.candidateType === "GCE" ? "secondary" : "outline"} className="text-[10px]">{c.candidateType}</Badge></TableCell>
+                      <TableCell>{c.grade}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" disabled={removeMut.isPending} onClick={() => removeMut.mutate(c.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="mt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const GCE_IMPORT_COLUMNS = [
+  { key: "firstName", label: "First Name", required: true, example: "Chola" },
+  { key: "lastName", label: "Last Name", required: true, example: "Banda" },
+  { key: "grade", label: "Grade", required: true, example: "Grade 12" },
+  { key: "examNumber", label: "Exam Number", example: "0012345" },
+  { key: "nrc", label: "NRC", example: "123456/78/1" },
+  { key: "gender", label: "Gender", example: "Female" },
+  { key: "dateOfBirth", label: "Date of Birth", example: "2004-03-12" },
+  { key: "subjects", label: "Subjects", example: "Mathematics, English, Biology" },
+  { key: "centerNumber", label: "Center Number", example: "70123" },
+  { key: "phone", label: "Phone", example: "+260 977 000002" },
+  { key: "email", label: "Email", example: "chola@example.com" },
+  { key: "previousSchool", label: "Previous School", example: "Kabulonga Boys" },
+];
+
+function GceAddDialog({ open, onOpenChange, schoolId, onDone }: { open: boolean; onOpenChange: (open: boolean) => void; schoolId: string; onDone: () => void }) {
+  const [form, setForm] = useState({ firstName: "", lastName: "", grade: "", examNumber: "", nrc: "", subjects: "", phone: "" });
+
+  const createMut = useMutation({
+    mutationFn: () => api.gce.create(schoolId, form),
+    onSuccess: () => { toast.success("GCE candidate added"); onDone(); onOpenChange(false); setForm({ firstName: "", lastName: "", grade: "", examNumber: "", nrc: "", subjects: "", phone: "" }); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to add candidate"),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Add GCE candidate</DialogTitle></DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label>First name *</Label><Input className="mt-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></div>
+          <div><Label>Last name *</Label><Input className="mt-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></div>
+          <div><Label>Grade *</Label><Input className="mt-1" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="Grade 12" /></div>
+          <div><Label>Exam number</Label><Input className="mt-1" value={form.examNumber} onChange={(e) => setForm({ ...form, examNumber: e.target.value })} /></div>
+          <div><Label>NRC</Label><Input className="mt-1" value={form.nrc} onChange={(e) => setForm({ ...form, nrc: e.target.value })} /></div>
+          <div><Label>Phone</Label><Input className="mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+          <div className="col-span-2"><Label>Subjects</Label><Input className="mt-1" value={form.subjects} onChange={(e) => setForm({ ...form, subjects: e.target.value })} placeholder="Mathematics, English, Biology" /></div>
+        </div>
+        <DialogFooter className="mt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            disabled={!form.firstName.trim() || !form.lastName.trim() || !form.grade.trim() || createMut.isPending}
+            onClick={() => createMut.mutate()}
+          >
+            {createMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Add candidate
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function GceRoster({ schoolId }: { schoolId: string }) {
+  const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const { data: gceCandidates = [], isLoading } = useQuery({
+    queryKey: ["gceCandidates", schoolId],
+    queryFn: () => api.gce.list(schoolId),
+  });
+
+  const invalidate = () => void qc.invalidateQueries({ queryKey: ["gceCandidates", schoolId] });
+
+  return (
+    <div className="mb-6">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">GCE candidate roster</h3>
+          <p className="text-sm text-muted-foreground">Private / repeat candidates registered directly with ECZ, not tied to a class.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Import CSV</Button>
+          <Button onClick={() => setAddOpen(true)}><UserPlus className="mr-2 h-4 w-4" />Add candidate</Button>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Name</TableHead><TableHead>Exam number</TableHead><TableHead>Grade</TableHead>
+            <TableHead>Subjects</TableHead><TableHead>Status</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
+            ) : (gceCandidates as any[]).length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No GCE candidates yet. Add one or import a CSV.</TableCell></TableRow>
+            ) : (gceCandidates as any[]).map((c) => (
+              <TableRow key={c.id}>
+                <TableCell className="font-medium">{c.firstName} {c.lastName}</TableCell>
+                <TableCell className="font-mono text-xs">{c.examNumber || "—"}</TableCell>
+                <TableCell>{c.grade}</TableCell>
+                <TableCell className="text-muted-foreground">{c.subjects || "—"}</TableCell>
+                <TableCell><Badge variant="secondary" className="text-[10px]">{c.status}</Badge></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <GceAddDialog open={addOpen} onOpenChange={setAddOpen} schoolId={schoolId} onDone={invalidate} />
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import GCE candidates"
+        entityName="GCE candidate"
+        columns={GCE_IMPORT_COLUMNS}
+        onDone={invalidate}
+        onImport={async (rows) => {
+          const result: ImportResult = { imported: 0, errors: [] };
+          const valid: { row: number; dto: any }[] = [];
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row["First Name"]?.trim() || !row["Last Name"]?.trim()) {
+              result.errors.push({ row: i + 2, error: "First Name and Last Name are required" });
+              continue;
+            }
+            if (!row["Grade"]?.trim()) {
+              result.errors.push({ row: i + 2, error: "Grade is required" });
+              continue;
+            }
+            valid.push({
+              row: i + 2,
+              dto: {
+                firstName: row["First Name"].trim(),
+                lastName: row["Last Name"].trim(),
+                grade: row["Grade"].trim(),
+                examNumber: row["Exam Number"]?.trim() || null,
+                nrc: row["NRC"]?.trim() || null,
+                gender: row["Gender"]?.trim() || null,
+                dateOfBirth: row["Date of Birth"]?.trim() || null,
+                subjects: row["Subjects"]?.trim() || null,
+                centerNumber: row["Center Number"]?.trim() || null,
+                phone: row["Phone"]?.trim() || null,
+                email: row["Email"]?.trim() || null,
+                previousSchool: row["Previous School"]?.trim() || null,
+              },
+            });
+          }
+          if (valid.length > 0) {
+            try {
+              const bulk = await api.gce.bulkCreate(schoolId, valid.map((v) => v.dto));
+              result.imported += bulk.imported;
+              bulk.errors.forEach((e) => result.errors.push({ row: valid[e.row]?.row ?? -1, error: e.error }));
+            } catch (e: any) {
+              valid.forEach((v) => result.errors.push({ row: v.row, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" }));
+            }
+          }
+          result.errors.sort((a, b) => a.row - b.row);
+          return result;
+        }}
+      />
     </div>
   );
+}
+
+function EczTab({ papers, schoolId }: { papers: any[]; schoolId: string }) {
+  const eczPapers = papers.filter((p) => p.examBoard === "ECZ");
 
   const byGrade = eczPapers.reduce<Record<string, { papers: any[]; candidates: number }>>((acc, p) => {
     const key = p.grade ?? "Other";
@@ -84,23 +367,34 @@ function EczTab({ papers }: { papers: any[] }) {
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold">ECZ Candidate Registration</h3>
-          <p className="text-sm text-muted-foreground">{eczPapers.length} ECZ paper{eczPapers.length !== 1 ? "s" : ""} · {eczPapers.reduce((a, p) => a + (Number(p.candidates) || 0), 0)} total candidates</p>
+      <GceRoster schoolId={schoolId} />
+
+      {!eczPapers.length ? (
+        <div className="py-8 text-center text-muted-foreground">
+          <p>No ECZ papers scheduled.</p>
+          <p className="mt-1 text-sm">Schedule a paper with Exam Board set to "ECZ" to see it here.</p>
         </div>
-        <Button onClick={() => { downloadCsv(eczPapers.map((p) => ({ "Paper Code": p.code, Subject: p.subject, Grade: p.grade, Candidates: p.candidates, "Exam Date": p.examDate, "Start Time": p.startTime, Duration: p.duration, Room: p.room, Invigilator: p.invigilator, "Exam Board": p.examBoard })), "ecz-candidate-batch"); toast.success("Candidate file (.csv) exported for ECZ portal upload"); }}>Export ECZ batch</Button>
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {Object.entries(byGrade).map(([grade, { candidates }]) => (
-          <div key={grade} className="rounded-lg border border-border p-4">
-            <p className="text-xs uppercase text-muted-foreground">{grade}</p>
-            <p className="mt-1 text-2xl font-bold">{candidates}</p>
-            <p className="text-xs text-muted-foreground">candidates</p>
-            <Badge variant="secondary" className="mt-2">Scheduled</Badge>
+      ) : (
+        <>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">ECZ Candidate Registration</h3>
+              <p className="text-sm text-muted-foreground">{eczPapers.length} ECZ paper{eczPapers.length !== 1 ? "s" : ""} · {eczPapers.reduce((a, p) => a + (Number(p.candidates) || 0), 0)} total candidates</p>
+            </div>
+            <Button onClick={() => { downloadCsv(eczPapers.map((p) => ({ "Paper Code": p.code, Subject: p.subject, Grade: p.grade, Candidates: p.candidates, "Exam Date": p.examDate, "Start Time": p.startTime, Duration: p.duration, Room: p.room, Invigilator: p.invigilator, "Exam Board": p.examBoard })), "ecz-candidate-batch"); toast.success("Candidate file (.csv) exported for ECZ portal upload"); }}>Export ECZ batch</Button>
           </div>
-        ))}
-      </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {Object.entries(byGrade).map(([grade, { candidates }]) => (
+              <div key={grade} className="rounded-lg border border-border p-4">
+                <p className="text-xs uppercase text-muted-foreground">{grade}</p>
+                <p className="mt-1 text-2xl font-bold">{candidates}</p>
+                <p className="text-xs text-muted-foreground">candidates</p>
+                <Badge variant="secondary" className="mt-2">Scheduled</Badge>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -113,6 +407,7 @@ function ExamsPage() {
   const { active } = useTenant();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [candidatesPaper, setCandidatesPaper] = useState<any>(null);
   const [form, setForm] = useState({
     subject: "", grade: GRADES[2], examDate: "", startTime: "08:00",
     duration: "2h", room: ROOMS[0], candidates: "30", invigilator: "",
@@ -278,11 +573,11 @@ function ExamsPage() {
             <TableHeader><TableRow>
               <TableHead>Paper code</TableHead><TableHead>Subject</TableHead><TableHead>Grade</TableHead>
               <TableHead>Date</TableHead><TableHead>Start</TableHead><TableHead>Duration</TableHead>
-              <TableHead>Room</TableHead><TableHead>Candidates</TableHead><TableHead>Status</TableHead>
+              <TableHead>Room</TableHead><TableHead>Candidates</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
               ) : (papers as any[]).map((p: any) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-xs">{p.code}</TableCell>
@@ -294,6 +589,11 @@ function ExamsPage() {
                   <TableCell>{p.room}</TableCell>
                   <TableCell>{p.candidates}</TableCell>
                   <TableCell><span className="text-xs text-muted-foreground">{p.status}</span></TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="ghost" onClick={() => setCandidatesPaper(p)}>
+                      <UserPlus className="mr-1.5 h-3.5 w-3.5" />Manage
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -333,9 +633,16 @@ function ExamsPage() {
         </TabsContent>
 
         <TabsContent value="ecz" className="rounded-xl border border-border bg-card p-5">
-          <EczTab papers={papers as any[]} />
+          <EczTab papers={papers as any[]} schoolId={active.id} />
         </TabsContent>
       </Tabs>
+
+      <CandidatesDialog
+        open={!!candidatesPaper}
+        onOpenChange={(v) => { if (!v) setCandidatesPaper(null); }}
+        paper={candidatesPaper}
+        schoolId={active.id}
+      />
     </div>
   );
 }

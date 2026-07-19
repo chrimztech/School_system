@@ -112,6 +112,10 @@ function FeesPage() {
   const [open, setOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  const [reminderPreviewStudent, setReminderPreviewStudent] = useState<any | null>(null);
+  const [ledgerTermFilter, setLedgerTermFilter] = useState("ALL");
+  const [ledgerFrom, setLedgerFrom] = useState("");
+  const [ledgerTo, setLedgerTo] = useState("");
   const [form, setForm] = useState({
     studentId: "",
     studentName: "",
@@ -158,12 +162,25 @@ function FeesPage() {
     [students]
   );
 
+  const filteredPayments = useMemo(() => {
+    return (payments as any[]).filter((p: any) => {
+      if (ledgerTermFilter !== "ALL" && p.termPeriod !== ledgerTermFilter) return false;
+      const date = (p.paymentDate ?? p.date ?? "").slice(0, 10);
+      if (ledgerFrom && date && date < ledgerFrom) return false;
+      if (ledgerTo && date && date > ledgerTo) return false;
+      return true;
+    });
+  }, [payments, ledgerTermFilter, ledgerFrom, ledgerTo]);
+
+  const individualReminderMessage = (student: any) =>
+    `Dear parent/guardian of ${student.firstName} ${student.lastName}, this is a reminder that a fee balance of K ${Number(student.feeBalance).toLocaleString()} is outstanding for Term ${active.currentTerm} ${active.currentYear}. Please settle this balance promptly to avoid disruption to your child's education. Contact the finance office for assistance or payment plans.`;
+
   const sendIndividualReminder = async (student: any) => {
     setSendingReminderId(student.id);
     try {
       await api.communication.createAnnouncement(schoolId, {
         title: "Fee payment reminder",
-        body: `Dear parent/guardian of ${student.firstName} ${student.lastName}, this is a reminder that a fee balance of K ${Number(student.feeBalance).toLocaleString()} is outstanding for Term ${active.currentTerm} ${active.currentYear}. Please settle this balance promptly to avoid disruption to your child's education. Contact the finance office for assistance or payment plans.`,
+        body: individualReminderMessage(student),
         audience: "All parents",
         channels: "SMS, WhatsApp",
         publishDate: new Date().toISOString().slice(0, 10),
@@ -350,6 +367,35 @@ function FeesPage() {
                   <Button onClick={() => reminderMutation.mutate()} disabled={reminderMutation.isPending || debtors.length === 0}>
                     {reminderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <Send className="mr-2 h-4 w-4" />Send to {debtors.length} parent{debtors.length !== 1 ? "s" : ""}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!reminderPreviewStudent} onOpenChange={(v) => !v && setReminderPreviewStudent(null)}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader><DialogTitle>Send fee reminder</DialogTitle></DialogHeader>
+                {reminderPreviewStudent && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      To the parent/guardian of <strong className="text-foreground">{reminderPreviewStudent.firstName} {reminderPreviewStudent.lastName}</strong> via SMS and WhatsApp:
+                    </p>
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm leading-6">
+                      {individualReminderMessage(reminderPreviewStudent)}
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setReminderPreviewStudent(null)}>Cancel</Button>
+                  <Button
+                    disabled={sendingReminderId === reminderPreviewStudent?.id}
+                    onClick={async () => {
+                      const student = reminderPreviewStudent;
+                      setReminderPreviewStudent(null);
+                      if (student) await sendIndividualReminder(student);
+                    }}
+                  >
+                    <Send className="mr-2 h-4 w-4" />Send reminder
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -624,7 +670,7 @@ function FeesPage() {
                         variant="ghost"
                         className="h-7 text-xs"
                         disabled={sendingReminderId === s.id}
-                        onClick={() => void sendIndividualReminder(s)}
+                        onClick={() => setReminderPreviewStudent(s)}
                         title="Send reminder to parent"
                       >
                         {sendingReminderId === s.id
@@ -651,8 +697,30 @@ function FeesPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="border-b border-border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
           <h2 className="text-sm font-semibold">Recent payments</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={ledgerTermFilter} onValueChange={setLedgerTermFilter}>
+              <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All terms</SelectItem>
+                {TERMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Input type="date" className="h-8 w-36 text-xs" value={ledgerFrom} onChange={(e) => setLedgerFrom(e.target.value)} aria-label="From date" />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input type="date" className="h-8 w-36 text-xs" value={ledgerTo} onChange={(e) => setLedgerTo(e.target.value)} aria-label="To date" />
+            {(ledgerTermFilter !== "ALL" || ledgerFrom || ledgerTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => { setLedgerTermFilter("ALL"); setLedgerFrom(""); setLedgerTo(""); }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
@@ -672,7 +740,7 @@ function FeesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(payments as any[]).map((p: any) => {
+              {filteredPayments.map((p: any) => {
                 const status = p.status ?? "completed";
                 return (
                   <TableRow key={p.id}>
@@ -703,9 +771,13 @@ function FeesPage() {
                   </TableRow>
                 );
               })}
-              {(payments as any[]).length === 0 && (
+              {filteredPayments.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No payments recorded yet.</TableCell>
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                    {(payments as any[]).length === 0
+                      ? "No payments recorded yet."
+                      : "No payments match the current filters."}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>

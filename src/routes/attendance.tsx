@@ -1,17 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarCheck, UserX, Clock, WifiOff, Plus, Loader2, HeartPulse, ShieldCheck } from "lucide-react";
+import { CalendarCheck, UserX, Clock, Plus, Loader2, HeartPulse, ShieldCheck, BarChart3, Bell } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -45,9 +46,10 @@ function AttendancePage() {
   const { data: classesData = [] } = useQuery({ queryKey: ["classes", schoolId, teacherEmail], queryFn: () => api.classes.list(schoolId, teacherEmail) });
   const classList = (classesData as any[]).map((c: any) => c.name || c.className || c.id).filter(Boolean);
 
+  const today = new Date().toISOString().slice(0, 10);
   const [open, setOpen] = useState(false);
-  const [offlineOpen, setOfflineOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState("");
+  const [registerDate, setRegisterDate] = useState(today);
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
 
   const { data: summary = { present: 0, absent: 0, late: 0, sick: 0, excused: 0, rate: 0 } } = useQuery({
@@ -74,6 +76,16 @@ function AttendancePage() {
     refetchOnWindowFocus: true,
   });
 
+  // Records already submitted for the register date currently open in the dialog
+  // (falls back to today's already-loaded list to avoid an extra request in the common case).
+  const { data: dateRecords = [] } = useQuery({
+    queryKey: ["attendance-by-date", schoolId, registerDate],
+    queryFn: () => api.attendance.byDate(schoolId, registerDate),
+    enabled: open && registerDate !== today,
+    staleTime: 0,
+  });
+  const recordsForRegisterDate = registerDate === today ? recentRecords : dateRecords;
+
   const markMutation = useMutation({
     mutationFn: (data: any) => api.attendance.mark(schoolId, data),
     onSuccess: (saved: any) => {
@@ -81,26 +93,31 @@ function AttendancePage() {
       const present = records.filter((r) => r.status === "present").length;
       const absent = records.filter((r) => r.status === "absent").length;
       toast.success(`Register submitted — ${present} present, ${absent} absent · parent SMS queued`);
-      // Immediately patch the cache (upsert by studentId to avoid duplicates)
-      qc.setQueryData(["attendance-list", schoolId], (old: any) => {
-        const existing: any[] = Array.isArray(old) ? old : [];
-        const updatedIds = new Set(records.map((r: any) => r.studentId ?? r.id));
-        return [...existing.filter((r: any) => !updatedIds.has(r.studentId ?? r.id)), ...records];
-      });
-      // Force fresh fetch for both list and summary
-      void qc.refetchQueries({ queryKey: ["attendance-list", schoolId] });
-      void qc.refetchQueries({ queryKey: ["attendance-summary", schoolId] });
+      if (registerDate === today) {
+        // Immediately patch the cache (upsert by studentId to avoid duplicates)
+        qc.setQueryData(["attendance-list", schoolId], (old: any) => {
+          const existing: any[] = Array.isArray(old) ? old : [];
+          const updatedIds = new Set(records.map((r: any) => r.studentId ?? r.id));
+          return [...existing.filter((r: any) => !updatedIds.has(r.studentId ?? r.id)), ...records];
+        });
+        void qc.refetchQueries({ queryKey: ["attendance-list", schoolId] });
+        void qc.refetchQueries({ queryKey: ["attendance-summary", schoolId] });
+      } else {
+        void qc.refetchQueries({ queryKey: ["attendance-by-date", schoolId, registerDate] });
+      }
+      setEntries([]);
+      setOpen(false);
     },
     onError: () => toast.error("Failed to submit register — please try again"),
   });
 
-  // Records already submitted today for the selected class
-  const todayClassRecords = (recentRecords as any[]).filter(
+  // Records already submitted for the selected class on the selected date
+  const todayClassRecords = (recordsForRegisterDate as any[]).filter(
     (r) => (r.className ?? r.class) === selectedClass
   );
   const alreadySubmitted = todayClassRecords.length > 0;
 
-  // Build entries: prefer today's saved statuses over defaults
+  // Build entries: prefer the register date's saved statuses over defaults
   const savedStatusMap = new Map<string, EntryStatus>(
     todayClassRecords.map((r: any) => [r.studentId, r.status as EntryStatus])
   );
@@ -116,9 +133,7 @@ function AttendancePage() {
 
   const submitRegister = () => {
     const entries = classEntries.map((e) => ({ studentId: e.id, studentName: e.student, status: e.status }));
-    markMutation.mutate({ date: new Date().toISOString().slice(0, 10), classId: selectedClass, className: selectedClass, entries });
-    setEntries([]);
-    setOpen(false);
+    markMutation.mutate({ date: registerDate, classId: selectedClass, className: selectedClass, entries });
   };
 
   const summ = summary as any;
@@ -131,10 +146,13 @@ function AttendancePage() {
         actions={
           canManage ? (
           <>
-            <Button variant="outline" onClick={() => setOfflineOpen(true)}>
-              <WifiOff className="mr-2 h-4 w-4" /> Offline mode
-            </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog
+              open={open}
+              onOpenChange={(v) => {
+                setOpen(v);
+                if (v) { setRegisterDate(today); setEntries([]); }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button><Plus className="mr-1 h-4 w-4" />Mark attendance</Button>
               </DialogTrigger>
@@ -148,10 +166,20 @@ function AttendancePage() {
                       <SelectContent>{classList.length === 0 ? <SelectItem value="__empty__" disabled>No classes yet</SelectItem> : classList.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <Label className="shrink-0">Date</Label>
+                    <Input
+                      type="date"
+                      className="flex-1"
+                      value={registerDate}
+                      max={today}
+                      onChange={(e) => { setRegisterDate(e.target.value || today); setEntries([]); }}
+                    />
+                  </div>
                   {alreadySubmitted && (
                     <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                       <CalendarCheck className="h-3.5 w-3.5 shrink-0" />
-                      Register already submitted for {selectedClass} today — changes will update existing records.
+                      Register already submitted for {selectedClass} on {registerDate === today ? "today" : registerDate} — changes will update existing records.
                     </div>
                   )}
                   <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
@@ -200,27 +228,6 @@ function AttendancePage() {
                   <Button onClick={submitRegister} disabled={markMutation.isPending}>
                     {markMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {alreadySubmitted ? "Update register" : "Submit register"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={offlineOpen} onOpenChange={setOfflineOpen}>
-              <DialogContent className="sm:max-w-sm">
-                <DialogHeader><DialogTitle>Offline attendance mode</DialogTitle></DialogHeader>
-                <div className="space-y-3 text-sm text-muted-foreground">
-                  <p>Offline mode lets teachers capture attendance without an internet connection. Data syncs automatically when connectivity is restored.</p>
-                  <div className="rounded-lg border border-border p-3 space-y-1">
-                    <p className="font-medium text-foreground">How it works</p>
-                    <p>• Opens a local PWA register</p>
-                    <p>• Stores entries on-device (IndexedDB)</p>
-                    <p>• Syncs to server on next connection</p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setOfflineOpen(false)}>Cancel</Button>
-                  <Button onClick={() => { toast.success("Offline mode activated — data will sync automatically"); setOfflineOpen(false); }}>
-                    <WifiOff className="mr-2 h-4 w-4" />Enable offline mode
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -306,29 +313,22 @@ function AttendancePage() {
         <TabsContent value="weekly" className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold">School-wide attendance · this week</h2>
-            <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+            <EmptyState
+              icon={BarChart3}
+              title="No weekly trend yet"
+              description="A day-by-day attendance trend will appear once a few registers have been submitted this week."
+            />
           </div>
         </TabsContent>
 
         <TabsContent value="alerts" className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold">SMS notifications sent today</h2>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Guardian</TableHead>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Channel</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No parent notifications sent yet.</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+            <EmptyState
+              icon={Bell}
+              title="No parent notifications sent yet"
+              description="Absence alerts to guardians will be listed here once they go out."
+            />
           </div>
         </TabsContent>
       </Tabs>

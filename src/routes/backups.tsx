@@ -3,7 +3,8 @@ import { useState } from "react";
 import { HardDrive, Download, Upload, ShieldAlert, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
@@ -141,11 +142,13 @@ function BackupsPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Last backup" value="—" hint="Not configured" accent="success" />
-        <StatCard label="Retention" value="—" hint="Not configured" accent="primary" />
-        <StatCard label="Storage used" value="—" hint="Not configured" accent="accent" />
-        <StatCard label="Recovery point" value="—" hint="Not configured" accent="warning" />
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <EmptyState
+          icon={HardDrive}
+          title="Automatic backups aren't configured yet"
+          description="Once a backup schedule is set up, last backup time, retention, storage used, and recovery point will show here."
+          className="py-6"
+        />
       </div>
 
       <Tabs defaultValue="snapshots" className="space-y-4">
@@ -156,7 +159,11 @@ function BackupsPage() {
         </TabsList>
 
         <TabsContent value="snapshots" className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <EmptyState
+            icon={HardDrive}
+            title="No snapshots yet"
+            description="Backup snapshots will be listed here once the first one completes."
+          />
         </TabsContent>
 
         <TabsContent value="exports" className="space-y-3">

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Plug, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -204,9 +206,11 @@ function IntegrationsPage() {
 
         <TabsContent value="installed" className="space-y-6">
           {isLoading ? (
-            <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">Loading integrations...</div>
+            <div className="rounded-xl border border-border bg-card"><LoadingState label="Loading integrations…" /></div>
           ) : items.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">No integration connections found in the database.</div>
+            <div className="rounded-xl border border-border bg-card">
+              <EmptyState icon={Plug} title="No integrations connected yet" description="Browse the marketplace to connect payment, messaging, identity, and government services." />
+            </div>
           ) : categories.map((category) => (
             <section key={category} className="space-y-3">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{category}</h2>
@@ -270,7 +274,9 @@ function IntegrationsPage() {
 
         <TabsContent value="health" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {connected.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground lg:col-span-2">No connected integrations found in the database.</div>
+            <div className="rounded-xl border border-border bg-card lg:col-span-2">
+              <EmptyState icon={ShieldAlert} title="No connected integrations to monitor" description="Connection health for active integrations will appear here." />
+            </div>
           ) : connected.map((item) => (
             <div key={item.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between gap-3">

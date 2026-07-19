@@ -9,9 +9,7 @@ import {
   ShieldAlert,
   ClipboardList,
   Truck,
-  Download,
   Plus,
-  UserPlus,
   Receipt,
   Wrench,
   Award,
@@ -34,6 +32,7 @@ import {
   XCircle,
   Clock,
   HeartPulse,
+  BarChart3,
 } from "lucide-react";
 import {
   Bar,
@@ -50,6 +49,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTenant, formatGrade, gradingBandForPercentage } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { downloadCsv, gradeBadgeClass } from "@/lib/utils";
+import { gradeBadgeClass } from "@/lib/utils";
 import { PaymentDialog } from "@/components/payment-dialog";
 
 export const Route = createFileRoute("/")({
@@ -1067,7 +1067,9 @@ function StaffDashboard() {
       )}
 
       {isSystemAdmin && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Platform operations</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <Link
             to="/platform-ops"
             className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/70 hover:bg-primary/5"
@@ -1127,11 +1129,14 @@ function StaffDashboard() {
               <LifeBuoy className="h-5 w-5 text-sky-600" />
             </div>
           </Link>
+          </div>
         </div>
       )}
 
       {isSystemAdmin && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Governance &amp; configuration</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Link
             to="/platform-config"
             className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-slate-500/70 hover:bg-slate-500/5"
@@ -1176,11 +1181,14 @@ function StaffDashboard() {
               <FileText className="h-5 w-5 text-rose-600" />
             </div>
           </Link>
+          </div>
         </div>
       )}
 
       {isSystemAdmin && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Contracts &amp; data</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Link
             to="/contract-center"
             className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-emerald-500/70 hover:bg-emerald-500/5"
@@ -1210,11 +1218,14 @@ function StaffDashboard() {
               <HardDrive className="h-5 w-5 text-slate-600" />
             </div>
           </Link>
+          </div>
         </div>
       )}
 
       {isSystemAdmin && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Developer &amp; approvals</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Link
             to="/approval-center"
             className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-emerald-500/70 hover:bg-emerald-500/5"
@@ -1259,11 +1270,14 @@ function StaffDashboard() {
               <Building2 className="h-5 w-5 text-indigo-600" />
             </div>
           </Link>
+          </div>
         </div>
       )}
 
       {isSystemAdmin && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Partners &amp; status</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Link
             to="/partner-management"
             className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-indigo-500/70 hover:bg-indigo-500/5"
@@ -1308,6 +1322,7 @@ function StaffDashboard() {
               <AlertCircle className="h-5 w-5 text-rose-600" />
             </div>
           </Link>
+          </div>
         </div>
       )}
 
@@ -1318,35 +1333,6 @@ function StaffDashboard() {
             description={`Term ${school.currentTerm}, ${school.currentYear} · ${school.type} school configuration`}
             actions={
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    downloadCsv(
-                      [
-                        {
-                          School: school.name,
-                          Type: school.type ?? "",
-                          District: school.district ?? "",
-                          Province: school.province ?? "",
-                          "Total Students": school.totalStudents,
-                          "Attendance Rate (%)": attendanceToday.rate,
-                          "Present Today": attendanceToday.present,
-                          "Absent Today": attendanceToday.absent,
-                          "Fees Collected (K)": fees.collected,
-                          "Outstanding Fees (K)": fees.outstanding,
-                          "Collection Rate (%)": fees.collectionRate,
-                          "Current Term": school.currentTerm ?? "",
-                          "Current Year": school.currentYear ?? "",
-                          "Snapshot Date": new Date().toISOString().slice(0, 10),
-                        },
-                      ],
-                      `dashboard-snapshot-${new Date().toISOString().slice(0, 10)}`,
-                    );
-                  }}
-                >
-                  <Download className="mr-1 h-4 w-4" />
-                  Export snapshot
-                </Button>
                 {!isTeacher && !isHOD && (
                   <Button asChild>
                     <Link to="/students">
@@ -1366,7 +1352,7 @@ function StaffDashboard() {
                 {school.type} school workspace
               </div>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
-                A clearer operating view for {school.shortCode}
+                {school.shortCode} — Term {school.currentTerm} overview
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {school.campuses.length} campus{school.campuses.length === 1 ? "" : "es"},{" "}
@@ -1448,7 +1434,6 @@ function StaffDashboard() {
             <StatCard
               label="Total Students"
               value={school.totalStudents}
-              hint="+12 this term"
               accent="primary"
               icon={<Users className="h-4 w-4" />}
             />
@@ -1528,48 +1513,65 @@ function StaffDashboard() {
                 </Badge>
               </div>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={feeTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} />
-                    <YAxis
-                      stroke="var(--color-muted-foreground)"
-                      fontSize={12}
-                      tickFormatter={(v) => `${v / 1000}k`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--color-card)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: 8,
-                      }}
-                    />
-                    <Bar dataKey="collected" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="outstanding" fill="var(--color-chart-3)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {feeTrend.length === 0 ? (
+                  <EmptyState
+                    icon={BarChart3}
+                    title="No fee history yet"
+                    description="Collection trends will appear once payments are recorded across a few months."
+                    className="py-10"
+                  />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={feeTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                      <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <YAxis
+                        stroke="var(--color-muted-foreground)"
+                        fontSize={12}
+                        tickFormatter={(v) => `${v / 1000}k`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--color-card)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 8,
+                        }}
+                      />
+                      <Bar dataKey="collected" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="outstanding" fill="var(--color-chart-3)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <h2 className="text-sm font-semibold text-foreground">Enrolment by phase</h2>
               <p className="text-xs text-muted-foreground">Combined school</p>
-              <div className="mt-4 space-y-3">
-                {enrolmentByPhase.map((p) => (
-                  <div key={p.phase}>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-foreground">{p.phase}</span>
-                      <span className="font-medium text-muted-foreground">{p.count}</span>
+              {enrolmentByPhase.length === 0 ? (
+                <EmptyState
+                  icon={GraduationCap}
+                  title="No enrolment data yet"
+                  className="py-8"
+                />
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {enrolmentByPhase.map((p) => (
+                    <div key={p.phase}>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-foreground">{p.phase}</span>
+                        <span className="font-medium text-muted-foreground">{p.count}</span>
+                      </div>
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-accent"
+                          style={{ width: `${(p.count / 350) * 100}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-accent"
-                        style={{ width: `${(p.count / 350) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1648,24 +1650,6 @@ function StaffDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Link
-              to="/admissions"
-              className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-sky-500/70 hover:bg-sky-500/5"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Admissions hub</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Pipeline, offers, and learner intake readiness before enrolment.
-                  </p>
-                </div>
-                <UserPlus className="h-5 w-5 text-sky-600" />
-              </div>
-              <div className="mt-5 rounded-2xl bg-muted p-4 text-sm text-muted-foreground">
-                Open applicant pipeline
-              </div>
-            </Link>
-
             <Link
               to="/procurement"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-amber-500/70 hover:bg-amber-500/5"
@@ -1823,31 +1807,40 @@ function StaffDashboard() {
                 <Badge variant="outline">{attendanceToday.rate}% today</Badge>
               </div>
               <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={attendanceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis dataKey="day" stroke="var(--color-muted-foreground)" fontSize={12} />
-                    <YAxis
-                      domain={[80, 100]}
-                      stroke="var(--color-muted-foreground)"
-                      fontSize={12}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--color-card)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: 8,
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="rate"
-                      stroke="var(--color-chart-2)"
-                      strokeWidth={2.5}
-                      dot={{ r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                {attendanceTrend.length === 0 ? (
+                  <EmptyState
+                    icon={CalendarCheck}
+                    title="No attendance history yet"
+                    description="A weekly trend will appear once a few days of registers have been submitted."
+                    className="py-8"
+                  />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={attendanceTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                      <XAxis dataKey="day" stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <YAxis
+                        domain={[80, 100]}
+                        stroke="var(--color-muted-foreground)"
+                        fontSize={12}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--color-card)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 8,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="rate"
+                        stroke="var(--color-chart-2)"
+                        strokeWidth={2.5}
+                        dot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -1858,33 +1851,47 @@ function StaffDashboard() {
                   <Link to="/attendance">View all</Link>
                 </Button>
               </div>
-              <div className="space-y-2">
-                {recentAttendance.map((c) => (
-                  <div
-                    key={c.class}
-                    className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <GraduationCap className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{c.class}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {c.present}/{c.total} present
-                        </p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant={
-                        c.rate >= 90 ? "secondary" : c.rate >= 80 ? "outline" : "destructive"
-                      }
+              {recentAttendance.length === 0 ? (
+                <EmptyState
+                  icon={CalendarCheck}
+                  title="No attendance marked yet today"
+                  description="Per-class registers will show up here as teachers submit them."
+                  actionSlot={
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/attendance">Mark attendance</Link>
+                    </Button>
+                  }
+                  className="py-8"
+                />
+              ) : (
+                <div className="space-y-2">
+                  {recentAttendance.map((c) => (
+                    <div
+                      key={c.class}
+                      className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2"
                     >
-                      {c.rate}%
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                          <GraduationCap className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{c.class}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {c.present}/{c.total} present
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          c.rate >= 90 ? "secondary" : c.rate >= 80 ? "outline" : "destructive"
+                        }
+                      >
+                        {c.rate}%
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

@@ -84,7 +84,6 @@ import { Route as AttendanceRouteImport } from './routes/attendance'
 import { Route as AssessmentsRouteImport } from './routes/assessments'
 import { Route as ApprovalCenterRouteImport } from './routes/approval-center'
 import { Route as AlumniRouteImport } from './routes/alumni'
-import { Route as AdmissionsRouteImport } from './routes/admissions'
 import { Route as ActivitiesRouteImport } from './routes/activities'
 import { Route as AccountingRouteImport } from './routes/accounting'
 import { Route as AccessRouteImport } from './routes/access'
@@ -468,11 +467,6 @@ const AlumniRoute = AlumniRouteImport.update({
   path: '/alumni',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdmissionsRoute = AdmissionsRouteImport.update({
-  id: '/admissions',
-  path: '/admissions',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ActivitiesRoute = ActivitiesRouteImport.update({
   id: '/activities',
   path: '/activities',
@@ -514,7 +508,6 @@ export interface FileRoutesByFullPath {
   '/access': typeof AccessRoute
   '/accounting': typeof AccountingRoute
   '/activities': typeof ActivitiesRoute
-  '/admissions': typeof AdmissionsRoute
   '/alumni': typeof AlumniRoute
   '/approval-center': typeof ApprovalCenterRoute
   '/assessments': typeof AssessmentsRoute
@@ -599,7 +592,6 @@ export interface FileRoutesByTo {
   '/access': typeof AccessRoute
   '/accounting': typeof AccountingRoute
   '/activities': typeof ActivitiesRoute
-  '/admissions': typeof AdmissionsRoute
   '/alumni': typeof AlumniRoute
   '/approval-center': typeof ApprovalCenterRoute
   '/assessments': typeof AssessmentsRoute
@@ -685,7 +677,6 @@ export interface FileRoutesById {
   '/access': typeof AccessRoute
   '/accounting': typeof AccountingRoute
   '/activities': typeof ActivitiesRoute
-  '/admissions': typeof AdmissionsRoute
   '/alumni': typeof AlumniRoute
   '/approval-center': typeof ApprovalCenterRoute
   '/assessments': typeof AssessmentsRoute
@@ -772,7 +763,6 @@ export interface FileRouteTypes {
     | '/access'
     | '/accounting'
     | '/activities'
-    | '/admissions'
     | '/alumni'
     | '/approval-center'
     | '/assessments'
@@ -857,7 +847,6 @@ export interface FileRouteTypes {
     | '/access'
     | '/accounting'
     | '/activities'
-    | '/admissions'
     | '/alumni'
     | '/approval-center'
     | '/assessments'
@@ -942,7 +931,6 @@ export interface FileRouteTypes {
     | '/access'
     | '/accounting'
     | '/activities'
-    | '/admissions'
     | '/alumni'
     | '/approval-center'
     | '/assessments'
@@ -1028,7 +1016,6 @@ export interface RootRouteChildren {
   AccessRoute: typeof AccessRoute
   AccountingRoute: typeof AccountingRoute
   ActivitiesRoute: typeof ActivitiesRoute
-  AdmissionsRoute: typeof AdmissionsRoute
   AlumniRoute: typeof AlumniRoute
   ApprovalCenterRoute: typeof ApprovalCenterRoute
   AssessmentsRoute: typeof AssessmentsRoute
@@ -1634,13 +1621,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AlumniRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admissions': {
-      id: '/admissions'
-      path: '/admissions'
-      fullPath: '/admissions'
-      preLoaderRoute: typeof AdmissionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/activities': {
       id: '/activities'
       path: '/activities'
@@ -1722,7 +1702,6 @@ const rootRouteChildren: RootRouteChildren = {
   AccessRoute: AccessRoute,
   AccountingRoute: AccountingRoute,
   ActivitiesRoute: ActivitiesRoute,
-  AdmissionsRoute: AdmissionsRoute,
   AlumniRoute: AlumniRoute,
   ApprovalCenterRoute: ApprovalCenterRoute,
   AssessmentsRoute: AssessmentsRoute,
