@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chromium-cli --help)",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright'\\)\\)\")",
+      "Bash(npm ls *)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8080/login)",
+      "Bash(npm init *)",
+      "Bash(node shot.mjs)",
+      "Bash(lsof -ti:8080 -sTCP:LISTEN)",
+      "Bash(xargs -r kill)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 15236 //F //T)"
+    ]
+  }
+}
