@@ -858,6 +858,27 @@ export const api = {
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "audit"), data)),
   },
 
+  // Backups — tenant-scoped exports of every table for the school, not a raw DB dump
+  backup: {
+    list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "backups"))),
+    create: (schoolId: string) => unwrap<any>(apiClient.post(schoolPath(schoolId, "backups"))),
+    restore: (schoolId: string, id: string) =>
+      unwrap<void>(apiClient.post(schoolPath(schoolId, `backups/${id}/restore`))),
+    remove: (schoolId: string, id: string) =>
+      unwrap<void>(apiClient.delete(schoolPath(schoolId, `backups/${id}`))),
+    download: async (schoolId: string, id: string, fileName: string) => {
+      const res = await apiClient.get(schoolPath(schoolId, `backups/${id}/download`), { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
+  },
+
   // Billing invoices
   billingInvoices: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "billing/invoices"))),

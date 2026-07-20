@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { HardDrive, Download, Upload, ShieldAlert, Loader2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  HardDrive, Download, ShieldAlert, Loader2, RotateCcw, Trash2, CheckCircle2, XCircle, Clock,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
@@ -9,12 +12,16 @@ import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { downloadCsv } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/backups")({
@@ -22,30 +29,94 @@ export const Route = createFileRoute("/backups")({
   component: BackupsPage,
 });
 
+const ADMIN_ROLES = new Set(["super_admin", "school_admin", "principal", "deputy_head"]);
+
 type ExportItem = { id: string; scope: string; rows: number; when: string; dataset: string };
+
+function formatBytes(bytes: number) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function statusBadge(status: string) {
+  if (status === "COMPLETED") {
+    return <Badge className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"><CheckCircle2 className="h-3 w-3" />Completed</Badge>;
+  }
+  if (status === "FAILED") {
+    return <Badge variant="outline" className="gap-1 border-destructive/30 bg-destructive/5 text-destructive"><XCircle className="h-3 w-3" />Failed</Badge>;
+  }
+  return <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" />In progress</Badge>;
+}
 
 function BackupsPage() {
   const { user } = useAuth();
   const { active } = useTenant();
   const schoolId = active.id;
+  const qc = useQueryClient();
 
   const [exports, setExports] = useState<ExportItem[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [auto, setAuto] = useState(true);
-  const [encrypt, setEncrypt] = useState(true);
-  const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [importForm, setImportForm] = useState({ dataset: "Student register", source: "CSV", fileName: "" });
   const [exportForm, setExportForm] = useState({ dataset: "Student register", format: "CSV", rows: "842" });
+  const [restoreTarget, setRestoreTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
-  const queueImport = () => {
-    if (!importForm.fileName.trim()) {
-      toast.error("Please provide the import file name");
-      return;
+  const canManage = !!user && ADMIN_ROLES.has(user.role);
+
+  const { data: backups = [], isLoading } = useQuery({
+    queryKey: ["backups", schoolId],
+    queryFn: () => api.backup.list(schoolId),
+    enabled: !!schoolId && canManage,
+    refetchInterval: (query) =>
+      (query.state.data as any[] | undefined)?.some((b) => b.status === "IN_PROGRESS") ? 3000 : false,
+  });
+
+  const createMut = useMutation({
+    mutationFn: () => api.backup.create(schoolId),
+    onSuccess: () => {
+      toast.success("Backup started");
+      void qc.invalidateQueries({ queryKey: ["backups", schoolId] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Backup failed to start"),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: (id: string) => api.backup.restore(schoolId, id),
+    onSuccess: () => {
+      toast.success("Restore complete");
+      setRestoreTarget(null);
+      void qc.invalidateQueries({ queryKey: ["backups", schoolId] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Restore failed");
+      setRestoreTarget(null);
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.backup.remove(schoolId, id),
+    onSuccess: () => {
+      toast.success("Backup deleted");
+      setDeleteTarget(null);
+      void qc.invalidateQueries({ queryKey: ["backups", schoolId] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Delete failed");
+      setDeleteTarget(null);
+    },
+  });
+
+  const handleSnapshotDownload = async (backup: any) => {
+    setDownloading(backup.id);
+    try {
+      await api.backup.download(schoolId, backup.id, backup.fileName ?? `backup-${backup.id}.json.gz`);
+    } catch {
+      toast.error("Download failed — please try again");
+    } finally {
+      setDownloading(null);
     }
-    toast.success(`${importForm.dataset} import queued from ${importForm.fileName}`);
-    setImportForm({ dataset: "Student register", source: "CSV", fileName: "" });
-    setImportOpen(false);
   };
 
   const queueExport = () => {
@@ -99,9 +170,9 @@ function BackupsPage() {
         const data = await api.audit.list(schoolId);
         rows = (data as any[]).map((a) => ({
           "ID": a.id, "Action": a.action || a.title || "",
-          "User": a.user || a.performedBy || "",
-          "Date": a.date || a.createdAt || "",
-          "Details": a.details || a.description || "",
+          "User": a.actor || a.user || a.performedBy || "",
+          "Date": a.createdAt || a.date || "",
+          "Details": a.target || a.details || a.description || "",
         }));
       }
 
@@ -118,37 +189,61 @@ function BackupsPage() {
     }
   };
 
-  if (user?.role !== "super_admin") {
+  if (!canManage) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">Backups and data management are restricted to System Administrators.</p>
+        <p className="text-sm text-muted-foreground">Backups and data management are restricted to school administrators.</p>
         <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
       </div>
     );
   }
 
+  const list = backups as any[];
+  const lastCompleted = list.find((b) => b.status === "COMPLETED");
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Backups & Data"
-        description="Encrypted snapshots, exports, imports, and disaster recovery."
+        description="Tenant-scoped snapshots, restore, and ad-hoc exports."
         actions={
-          <>
-            <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="mr-1 h-4 w-4" />Import</Button>
-            <Button onClick={() => toast.success("Snapshot started - ETA 3 min")}><HardDrive className="mr-1 h-4 w-4" />Backup now</Button>
-          </>
+          <Button onClick={() => createMut.mutate()} disabled={createMut.isPending}>
+            {createMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <HardDrive className="mr-1 h-4 w-4" />}
+            Backup now
+          </Button>
         }
       />
 
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-        <EmptyState
-          icon={HardDrive}
-          title="Automatic backups aren't configured yet"
-          description="Once a backup schedule is set up, last backup time, retention, storage used, and recovery point will show here."
-          className="py-6"
-        />
+        {lastCompleted ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Last successful backup</p>
+              <p className="mt-1 text-sm font-medium">{new Date(lastCompleted.completedAt ?? lastCompleted.createdAt).toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Size</p>
+              <p className="mt-1 text-sm font-medium">{formatBytes(lastCompleted.sizeBytes)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Tables covered</p>
+              <p className="mt-1 text-sm font-medium">{lastCompleted.tableCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Rows captured</p>
+              <p className="mt-1 text-sm font-medium">{Number(lastCompleted.rowCount).toLocaleString()}</p>
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            icon={HardDrive}
+            title={isLoading ? "Loading backup status…" : "No backups yet"}
+            description="Click “Backup now” to take the first snapshot, or wait for the nightly automatic run at 02:00."
+            className="py-6"
+          />
+        )}
       </div>
 
       <Tabs defaultValue="snapshots" className="space-y-4">
@@ -159,11 +254,53 @@ function BackupsPage() {
         </TabsList>
 
         <TabsContent value="snapshots" className="rounded-xl border border-border bg-card">
-          <EmptyState
-            icon={HardDrive}
-            title="No snapshots yet"
-            description="Backup snapshots will be listed here once the first one completes."
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading snapshots…</span>
+            </div>
+          ) : list.length === 0 ? (
+            <EmptyState
+              icon={HardDrive}
+              title="No snapshots yet"
+              description="Backup snapshots will be listed here once the first one completes."
+            />
+          ) : (
+            <ul className="divide-y divide-border">
+              {list.map((b) => (
+                <li key={b.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{new Date(b.createdAt).toLocaleString()}</p>
+                      {statusBadge(b.status)}
+                      <Badge variant="outline" className="text-[10px] uppercase">{b.triggeredBy}</Badge>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {b.status === "COMPLETED"
+                        ? `${formatBytes(b.sizeBytes)} · ${b.tableCount} tables · ${Number(b.rowCount).toLocaleString()} rows · by ${b.createdBy ?? "System"}`
+                        : b.status === "FAILED"
+                          ? b.errorMessage ?? "Backup failed"
+                          : "In progress…"}
+                    </p>
+                  </div>
+                  {b.status === "COMPLETED" && (
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" disabled={downloading === b.id} onClick={() => handleSnapshotDownload(b)}>
+                        {downloading === b.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
+                        Download
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setRestoreTarget(b)}>
+                        <RotateCcw className="mr-1 h-3 w-3" />
+                        Restore
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(b)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </TabsContent>
 
         <TabsContent value="exports" className="space-y-3">
@@ -195,16 +332,18 @@ function BackupsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Nightly automatic backup</p>
-              <p className="text-xs text-muted-foreground">Runs at 02:00 CAT daily.</p>
+              <p className="text-xs text-muted-foreground">Runs for every active school at 02:00 CAT. The most recent 14 completed backups are kept per school; older ones are pruned automatically.</p>
             </div>
-            <Switch checked={auto} onCheckedChange={(value) => { setAuto(value); toast.success(`Auto-backup ${value ? "enabled" : "disabled"}`); }} />
+            <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+              <CheckCircle2 className="h-3 w-3" />Active
+            </Badge>
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div>
-              <p className="font-medium">AES-256 encryption at rest</p>
-              <p className="text-xs text-muted-foreground">Snapshots encrypted with tenant-specific keys.</p>
+              <p className="font-medium">Encryption at rest</p>
+              <p className="text-xs text-muted-foreground">Not yet available — snapshot files are stored unencrypted on the application server's disk.</p>
             </div>
-            <Switch checked={encrypt} onCheckedChange={(value) => { setEncrypt(value); toast.success(`Encryption ${value ? "enabled" : "disabled"}`); }} />
+            <Badge variant="outline" className="text-muted-foreground">Not available</Badge>
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div>
@@ -215,44 +354,6 @@ function BackupsPage() {
           </div>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Import dataset</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <div>
-              <Label>Dataset</Label>
-              <Select value={importForm.dataset} onValueChange={(value) => setImportForm({ ...importForm, dataset: value })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Student register", "Fee ledger", "Attendance archive", "Inventory master"].map((dataset) => (
-                    <SelectItem key={dataset} value={dataset}>{dataset}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Source format</Label>
-              <Select value={importForm.source} onValueChange={(value) => setImportForm({ ...importForm, source: value })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["CSV", "XLSX", "JSON"].map((source) => (
-                    <SelectItem key={source} value={source}>{source}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>File name</Label>
-              <Input className="mt-1" value={importForm.fileName} onChange={(event) => setImportForm({ ...importForm, fileName: event.target.value })} placeholder="students_term2.csv" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
-            <Button onClick={queueImport}>Queue import</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
         <DialogContent className="sm:max-w-md">
@@ -274,7 +375,7 @@ function BackupsPage() {
               <Select value={exportForm.format} onValueChange={(value) => setExportForm({ ...exportForm, format: value })}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["CSV", "XLSX", "PDF"].map((format) => (
+                  {["CSV"].map((format) => (
                     <SelectItem key={format} value={format}>{format}</SelectItem>
                   ))}
                 </SelectContent>
@@ -291,6 +392,52 @@ function BackupsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!restoreTarget} onOpenChange={(open) => !open && setRestoreTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore this snapshot?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This replaces every current record for this school with the state captured on{" "}
+              {restoreTarget && new Date(restoreTarget.createdAt).toLocaleString()}. Anything created or
+              changed since then will be lost. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restoreMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={restoreMut.isPending}
+              onClick={() => restoreTarget && restoreMut.mutate(restoreTarget.id)}
+            >
+              {restoreMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The snapshot file and its record will be permanently removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMut.isPending}
+              onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+            >
+              {deleteMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

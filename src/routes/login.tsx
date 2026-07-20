@@ -12,6 +12,8 @@ import {
   FileBadge,
   Wallet,
   ShieldCheck,
+  Sparkles,
+  LockKeyhole,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,10 +60,10 @@ function consumePendingSlug(): string | null {
 }
 
 const FEATURES = [
-  { icon: CalendarCheck, label: "Real-time attendance & gradebook" },
-  { icon: FileBadge, label: "ECZ-aligned report cards" },
-  { icon: Wallet, label: "Fee billing & reconciliation" },
-  { icon: ShieldCheck, label: "Role-based access, every campus" },
+  { icon: CalendarCheck, label: "Real-time attendance & gradebook", hint: "Live" },
+  { icon: FileBadge, label: "ECZ-aligned report cards", hint: "Compliant" },
+  { icon: Wallet, label: "Fee billing & reconciliation", hint: "Transparent" },
+  { icon: ShieldCheck, label: "Role-based access, every campus", hint: "Secure" },
 ];
 
 function LoginPage() {
@@ -82,11 +84,14 @@ function LoginPage() {
   useEffect(() => {
     const slug = detectSubdomainSlug() ?? consumePendingSlug();
     if (!slug) return;
-    api.public.schoolBySlug(slug)
-      .then((data: any) => {
+    api.public
+      .schoolBySlug(slug)
+      .then((data: Partial<SchoolBranding>) => {
         if (data?.id) setSchoolBranding(data as SchoolBranding);
       })
-      .catch(() => { /* ignore — unknown slug */ });
+      .catch(() => {
+        /* ignore — unknown slug */
+      });
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -99,27 +104,26 @@ function LoginPage() {
       completeSignIn(auth);
       toast.success(`Welcome back, ${auth.name}!`);
       navigate({ to: "/" });
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message ??
-          err?.response?.data?.error ??
-          "Invalid email address or password.",
-      );
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: { message?: string; error?: string } } })?.response
+        ?.data;
+      setError(data?.message ?? data?.error ?? "Invalid email address or password.");
     } finally {
       setLoading(false);
     }
   };
 
-  const brandPrimary = schoolBranding?.primaryColor ?? "#111113";
+  const brandPrimary = schoolBranding?.primaryColor ?? "var(--primary)";
+  const brandAccent = schoolBranding?.secondaryColor ?? "var(--accent)";
   const leftPanelBg = schoolBranding
-    ? `color-mix(in srgb, ${brandPrimary} 88%, black)`
+    ? `color-mix(in srgb, ${brandPrimary} 90%, black)`
     : "color-mix(in oklab, var(--foreground) 94%, black)";
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
+    <div className="relative grid min-h-screen bg-background lg:grid-cols-[1.1fr_1fr]">
       {/* ── Left branding panel ──────────────────────────────────────── */}
       <div
-        className="relative hidden lg:flex flex-col justify-between p-16 overflow-hidden select-none"
+        className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-14 lg:select-none"
         style={{ background: leftPanelBg }}
       >
         {/* Decorative dot grid */}
@@ -136,11 +140,17 @@ function LoginPage() {
         {/* Decorative glow blobs */}
         <div
           className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full blur-[110px]"
-          style={{ background: "color-mix(in oklab, var(--primary) 55%, transparent)", opacity: 0.35 }}
+          style={{
+            background: "color-mix(in oklab, var(--primary) 55%, transparent)",
+            opacity: 0.35,
+          }}
         />
         <div
           className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full blur-[100px]"
-          style={{ background: "color-mix(in oklab, var(--accent) 55%, transparent)", opacity: 0.22 }}
+          style={{
+            background: "color-mix(in oklab, var(--accent) 55%, transparent)",
+            opacity: 0.22,
+          }}
         />
 
         {/* Logo */}
@@ -193,17 +203,20 @@ function LoginPage() {
           )}
 
           <p className="text-[14px] text-white/40 leading-relaxed">
-            Admissions through graduation — attendance, assessments, fees, and
-            reporting, unified in one secure system of record.
+            Admissions through graduation — attendance, assessments, fees, and reporting, unified in
+            one secure system of record.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            {FEATURES.map(({ icon: Icon, label }) => (
+            {FEATURES.map(({ icon: Icon, label, hint }) => (
               <div
                 key={label}
                 className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3.5 backdrop-blur-sm"
               >
-                <Icon className="h-4 w-4 text-white/50" />
+                <div className="flex items-center justify-between">
+                  <Icon className="h-4 w-4 text-white/50" />
+                  <span className="text-[9px] uppercase tracking-wider text-white/25">{hint}</span>
+                </div>
                 <p className="mt-2 text-[12.5px] leading-snug text-white/60">{label}</p>
               </div>
             ))}
@@ -223,28 +236,37 @@ function LoginPage() {
       </div>
 
       {/* ── Right form panel ─────────────────────────────────────────── */}
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-16 sm:px-10">
-        <div className="w-full max-w-[380px] animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {/* Mobile logo */}
-          <div className="mb-10 flex items-center gap-3 lg:hidden">
-            {schoolBranding?.logoUrl ? (
-              <img
-                src={schoolBranding.logoUrl}
-                alt={schoolBranding.name}
-                className="h-9 w-9 rounded-lg object-contain"
-                style={{ background: brandPrimary + "22" }}
-              />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <GraduationCap className="h-4.5 w-4.5" />
-              </div>
-            )}
-            <p className="text-[15px] font-semibold">{schoolBranding?.name ?? "SRMS"}</p>
+      <div className="relative flex min-h-screen flex-col items-center justify-center px-6 py-16 sm:px-10">
+        <div className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {/* Mobile brand header */}
+          <div className="mb-9 flex flex-col items-center gap-3 text-center lg:hidden">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-medium"
+              style={{ background: `linear-gradient(135deg, ${brandPrimary}, ${brandAccent})` }}
+            >
+              {schoolBranding?.logoUrl ? (
+                <img
+                  src={schoolBranding.logoUrl}
+                  alt={schoolBranding.name}
+                  className="h-7 w-7 rounded-md object-contain"
+                  style={{ background: "rgba(255,255,255,0.15)" }}
+                />
+              ) : (
+                <GraduationCap className="h-6 w-6" />
+              )}
+            </div>
+            <div>
+              <p className="text-base font-semibold tracking-tight">
+                {schoolBranding?.name ?? "SRMS"}
+              </p>
+              <p className="text-xs text-muted-foreground">School Records Management System</p>
+            </div>
           </div>
 
-          <div className="space-y-7 rounded-2xl border border-border/60 bg-card/60 p-7 shadow-soft backdrop-blur-sm sm:p-8">
-            {/* Heading */}
-            <div className="space-y-1.5">
+          <div className="surface-card-strong space-y-7 rounded-2xl p-7 sm:p-8">
+            {/* Accent divider + heading (matches app PageHeader style) */}
+            <div className="hero-divider" />
+            <div className="space-y-2">
               <h2 className="text-[22px] font-semibold tracking-tight text-foreground leading-tight">
                 Sign in
               </h2>
@@ -266,11 +288,14 @@ function LoginPage() {
             {/* Form */}
             <form onSubmit={submit} className="space-y-4" suppressHydrationWarning>
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-sm font-medium text-foreground">
+                <Label
+                  htmlFor="email"
+                  className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                >
                   Email address
                 </Label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="group relative">
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
                   <Input
                     id="email"
                     type="email"
@@ -284,14 +309,21 @@ function LoginPage() {
                     autoFocus
                     required
                     disabled={loading}
-                    className={`h-10 pl-9 text-sm ${error ? "border-destructive/40 focus-visible:ring-destructive/20" : ""}`}
+                    className={`h-11 pl-10 text-sm transition-shadow ${
+                      error
+                        ? "border-destructive/40 focus-visible:ring-destructive/20"
+                        : "focus-visible:ring-primary/25"
+                    }`}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                  <Label
+                    htmlFor="password"
+                    className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                  >
                     Password
                   </Label>
                   <button
@@ -302,8 +334,8 @@ function LoginPage() {
                     Forgot password?
                   </button>
                 </div>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="group relative">
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -314,7 +346,11 @@ function LoginPage() {
                     }}
                     placeholder="••••••••"
                     autoComplete="current-password"
-                    className={`h-10 pl-9 pr-10 text-sm ${error ? "border-destructive/40 focus-visible:ring-destructive/20" : ""}`}
+                    className={`h-11 pl-10 pr-11 text-sm transition-shadow ${
+                      error
+                        ? "border-destructive/40 focus-visible:ring-destructive/20"
+                        : "focus-visible:ring-primary/25"
+                    }`}
                     required
                     disabled={loading}
                   />
@@ -332,14 +368,16 @@ function LoginPage() {
 
               {showForgot && (
                 <p className="rounded-lg bg-muted/60 px-3.5 py-2.5 text-xs text-muted-foreground leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200">
-                  Contact your school administrator to reset your password — they can
-                  set a temporary one from the user management panel.
+                  Contact your school administrator to reset your password — they can set a
+                  temporary one from the user management panel.
                 </p>
               )}
 
               <Button
                 type="submit"
-                className="group w-full h-10 text-sm font-medium bg-foreground text-background hover:bg-foreground/90 hover:translate-y-0 shadow-none hover:shadow-none"
+                variant="default"
+                size="lg"
+                className="group w-full text-sm font-semibold shadow-sm hover:shadow-md"
                 disabled={loading || !email.trim() || !password}
               >
                 {loading ? (
@@ -355,6 +393,33 @@ function LoginPage() {
                 )}
               </Button>
             </form>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 text-muted-foreground/50">
+              <span className="h-px flex-1 bg-border/70" />
+              <span className="text-[11px] font-medium uppercase tracking-wider">
+                Secured by SRMS
+              </span>
+              <span className="h-px flex-1 bg-border/70" />
+            </div>
+
+            {/* Trust row */}
+            <div className="flex items-center justify-center gap-5 text-muted-foreground/55">
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <LockKeyhole className="h-3.5 w-3.5" />
+                Encrypted
+              </span>
+              <span className="h-3 w-px bg-border/70" />
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <Sparkles className="h-3.5 w-3.5" />
+                ECZ aligned
+              </span>
+              <span className="h-3 w-px bg-border/70" />
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                99.9% uptime
+              </span>
+            </div>
 
             <p className="text-xs text-muted-foreground/70 text-center">
               Need access? Contact your school administrator or{" "}
