@@ -4,17 +4,12 @@ import { CalendarDays, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/calendar")({
   head: () => ({ meta: [{ title: "Calendar - SRMS" }] }),
@@ -177,58 +172,91 @@ function CalendarPage() {
         title="Academic Calendar"
         description={`Term ${active.currentTerm} - ${active.currentYear} - ${active.shortCode}`}
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-1 h-4 w-4" />Add event</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Add calendar event</DialogTitle></DialogHeader>
+          <>
+          <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add event</Button>
+          <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+            <DialogTitle>Add calendar event</DialogTitle>
+            <DialogContent>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <Label>Event title *</Label>
-                  <Input className="mt-1" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Sports Day" maxLength={100} />
+                  <TextField
+                    label="Event title *"
+                    value={form.title}
+                    onChange={(event) => setForm({ ...form, title: event.target.value })}
+                    placeholder="Sports Day"
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
+                    fullWidth
+                    size="small"
+                  />
                 </div>
+                <TextField
+                  select
+                  label="Category"
+                  value={form.category}
+                  onChange={(event) => setForm({ ...form, category: event.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {Object.keys(CATEGORY_COLORS).map((category) => <MenuItem key={category} value={category}>{category}</MenuItem>)}
+                </TextField>
+                <TextField
+                  type="date"
+                  label="Date *"
+                  value={form.date}
+                  onChange={(event) => setForm({ ...form, date: event.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="time"
+                  label="Start time"
+                  value={form.startTime}
+                  onChange={(event) => setForm({ ...form, startTime: event.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="time"
+                  label="End time"
+                  value={form.endTime}
+                  onChange={(event) => setForm({ ...form, endTime: event.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Location / venue"
+                  value={form.location}
+                  onChange={(event) => setForm({ ...form, location: event.target.value })}
+                  placeholder="School grounds, Hall A, Board room"
+                  slotProps={{ htmlInput: { maxLength: 100 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Visibility"
+                  value={form.visibility}
+                  onChange={(event) => setForm({ ...form, visibility: event.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["All staff", "Teachers only", "Management only", "Parents & students", "Public"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                </TextField>
+                <TextField
+                  label="Attendees / target group"
+                  value={form.attendees}
+                  onChange={(event) => setForm({ ...form, attendees: event.target.value })}
+                  placeholder="All, Form 3-6, Parents, Board members"
+                  slotProps={{ htmlInput: { maxLength: 100 } }}
+                  fullWidth
+                  size="small"
+                />
                 <div>
-                  <Label>Category</Label>
-                  <Select value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(CATEGORY_COLORS).map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Date *</Label>
-                  <Input type="date" className="mt-1" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} />
-                </div>
-                <div>
-                  <Label>Start time</Label>
-                  <Input type="time" className="mt-1" value={form.startTime} onChange={(event) => setForm({ ...form, startTime: event.target.value })} />
-                </div>
-                <div>
-                  <Label>End time</Label>
-                  <Input type="time" className="mt-1" value={form.endTime} onChange={(event) => setForm({ ...form, endTime: event.target.value })} />
-                </div>
-                <div>
-                  <Label>Location / venue</Label>
-                  <Input className="mt-1" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="School grounds, Hall A, Board room" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Visibility</Label>
-                  <Select value={form.visibility} onValueChange={(value) => setForm({ ...form, visibility: value })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["All staff", "Teachers only", "Management only", "Parents & students", "Public"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Attendees / target group</Label>
-                  <Input className="mt-1" value={form.attendees} onChange={(event) => setForm({ ...form, attendees: event.target.value })} placeholder="All, Form 3-6, Parents, Board members" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Event owner</Label>
-                  <div className="mt-1 space-y-1.5">
+                  <p className="mb-1 text-sm font-medium">Event owner</p>
+                  <div className="space-y-1.5">
                     <PersonCombobox
                       options={staffOptions}
                       loading={pickerUsersLoading}
@@ -236,24 +264,46 @@ function CalendarPage() {
                       emptyText="No staff found."
                       onSelect={(option) => setForm((prev) => ({ ...prev, owner: option.label }))}
                     />
-                    <Input value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} placeholder="Deputy Head, Sports Office, PTA Chair" maxLength={100} />
+                    <TextField
+                      value={form.owner}
+                      onChange={(event) => setForm({ ...form, owner: event.target.value })}
+                      placeholder="Deputy Head, Sports Office, PTA Chair"
+                      slotProps={{ htmlInput: { maxLength: 100 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                 </div>
-                <div>
-                  <Label>Transport / logistics</Label>
-                  <Input className="mt-1" value={form.transport} onChange={(event) => setForm({ ...form, transport: event.target.value })} placeholder="2 buses, PA system, hall setup, security team" maxLength={120} />
-                </div>
+                <TextField
+                  label="Transport / logistics"
+                  value={form.transport}
+                  onChange={(event) => setForm({ ...form, transport: event.target.value })}
+                  placeholder="2 buses, PA system, hall setup, security team"
+                  slotProps={{ htmlInput: { maxLength: 120 } }}
+                  fullWidth
+                  size="small"
+                />
                 <div className="col-span-2">
-                  <Label>Description / notes</Label>
-                  <Textarea className="mt-1" rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Agenda, dress code, student briefing, parent note, or operational checklist" maxLength={500} />
+                  <TextField
+                    label="Description / notes"
+                    multiline
+                    minRows={4}
+                    value={form.description}
+                    onChange={(event) => setForm({ ...form, description: event.target.value })}
+                    placeholder="Agenda, dress code, student briefing, parent note, or operational checklist"
+                    slotProps={{ htmlInput: { maxLength: 500 } }}
+                    fullWidth
+                    size="small"
+                  />
                 </div>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={addEvent} disabled={createMut.isPending}>Add event</Button>
-              </DialogFooter>
             </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={addEvent} disabled={createMut.isPending}>Add event</Button>
+            </DialogActions>
           </Dialog>
+          </>
         }
       />
 
@@ -265,9 +315,9 @@ function CalendarPage() {
               {MONTH_NAMES[month]} {year}
             </h2>
             <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={goToPrev}>Prev</Button>
-              <Button variant="outline" size="sm" onClick={goToToday}>Today</Button>
-              <Button variant="outline" size="sm" onClick={goToNext}>Next</Button>
+              <Button variant="outlined" size="small" onClick={goToPrev}>Prev</Button>
+              <Button variant="outlined" size="small" onClick={goToToday}>Today</Button>
+              <Button variant="outlined" size="small" onClick={goToNext}>Next</Button>
             </div>
           </div>
 
@@ -317,7 +367,7 @@ function CalendarPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{event.title}</p>
-                    <Badge variant="secondary" className="mt-1 text-[10px]">{event.category}</Badge>
+                    <Chip size="small" label={event.category} sx={{ ...badgeSx("secondary"), mt: 0.5, fontSize: 10 }} />
                     <div className="mt-1 text-xs text-muted-foreground">
                       {[timeLabel, venueLabel, audienceLabel].filter(Boolean).join(" - ")}
                     </div>

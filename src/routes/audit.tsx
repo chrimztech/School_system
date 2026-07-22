@@ -3,13 +3,13 @@ import { useState } from "react";
 import { Search, Activity, AlertCircle, CheckCircle2, FileText, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
+import { Button, Chip, TextField, InputAdornment } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({ meta: [{ title: "Audit Log — SRMS" }] }),
@@ -39,9 +39,7 @@ function AuditPage() {
         title="Audit Log"
         description="Every meaningful action is recorded for 7 years (MoE requirement)"
         actions={isSystemAdmin ? (
-          <Button variant="outline" asChild>
-            <Link to="/platform-audit">Open platform audit</Link>
-          </Button>
+          <Button variant="outlined" component={Link} to="/platform-audit">Open platform audit</Button>
         ) : undefined}
       />
 
@@ -55,9 +53,15 @@ function AuditPage() {
       <div className="rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b border-border p-4">
           <h2 className="text-sm font-semibold">Activity stream</h2>
-          <div className="relative max-w-xs flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search actor or action" className="pl-9" />
+          <div className="max-w-xs flex-1">
+            <TextField
+              size="small"
+              fullWidth
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search actor or action"
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+            />
           </div>
         </div>
         {isLoading ? (
@@ -81,7 +85,7 @@ function AuditPage() {
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">{e.target}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Badge variant="outline" className="text-[10px] uppercase">{e.role}</Badge>
+                  <Chip size="small" label={e.role} sx={{ ...badgeSx("outline"), fontSize: 10, textTransform: "uppercase" }} />
                   <span className="whitespace-nowrap text-xs text-muted-foreground">
                     {e.createdAt ? new Date(e.createdAt).toLocaleString() : e.ts}
                   </span>

@@ -1,20 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Pencil, Trash2, Loader2, Building2, ChevronDown, ChevronRight, BookMarked, ArrowRightLeft, UserCog, School } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Building2, ChevronDown, ChevronRight, BookMarked, ArrowRightLeft, UserCog, School, Crown } from "lucide-react";
 import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import {
+  Button,
+  Chip,
+  IconButton,
+  MenuItem,
+  TextField,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+} from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/departments")({
   head: () => ({ meta: [{ title: "Departments — SRMS" }] }),
@@ -46,22 +51,23 @@ function SubjectRow({
       <div className="flex items-center gap-3">
         <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">{s.code}</span>
         <span className="text-sm font-medium">{s.name}</span>
-        {s.phase && <Badge variant="outline" className="text-xs">{PHASE_LABEL[s.phase] ?? s.phase}</Badge>}
-        {(s.compulsory ?? s.isCore) && <Badge className="text-xs">Core</Badge>}
+        {s.phase && <Chip size="small" label={PHASE_LABEL[s.phase] ?? s.phase} sx={{ ...badgeSx("outline"), fontSize: 12 }} />}
+        {(s.compulsory ?? s.isCore) && <Chip size="small" label="Core" sx={{ ...badgeSx("default"), fontSize: 12 }} />}
       </div>
       <Button
-        variant="ghost" size="sm"
-        className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        variant="text" color="inherit" size="small"
+        startIcon={<ArrowRightLeft size={12} />}
+        sx={{ height: 28, fontSize: 12 }}
         onClick={() => onMove(s, currentDept)}
       >
-        <ArrowRightLeft className="h-3 w-3" />Move
+        Move
       </Button>
     </div>
   );
 }
 
 function DeptDialog({
-  open, onClose, title, form, setForm, save, editTarget, isPending, teachers,
+  open, onClose, title, form, setForm, save, editTarget, isPending,
 }: {
   open: boolean;
   onClose: () => void;
@@ -71,53 +77,41 @@ function DeptDialog({
   save: () => void;
   editTarget: any | null;
   isPending: boolean;
-  teachers: any[];
 }) {
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogContent>
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Name *</Label>
-              <Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Sciences" maxLength={60} />
-            </div>
-            <div>
-              <Label>Code</Label>
-              <Input className="mt-1" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="SCI" maxLength={10} />
-            </div>
+            <TextField label="Name *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Sciences" slotProps={{ htmlInput: { maxLength: 60 } }} fullWidth size="small" />
+            <TextField label="Code" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="SCI" slotProps={{ htmlInput: { maxLength: 10 } }} fullWidth size="small" />
           </div>
-          <div>
-            <Label>Head of Department</Label>
-            <Select
-              value={form.headTeacherId || "__none__"}
-              onValueChange={(v) => setForm((f) => ({ ...f, headTeacherId: v === "__none__" ? "" : v }))}
-            >
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Select a teacher…" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">— None —</SelectItem>
-                {teachers.map((t: any) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.firstName} {t.lastName}{t.department ? ` (${t.department})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Description</Label>
-            <Textarea className="mt-1 min-h-16 resize-none" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Brief description…" maxLength={200} />
-          </div>
+          {!editTarget && (
+            <p className="text-xs text-muted-foreground">
+              Add teachers to this department from the Staff/Teachers page once it's created, then promote one of them to Head of Department from the list below.
+            </p>
+          )}
+          <TextField
+            label="Description"
+            multiline
+            minRows={2}
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Brief description…"
+            slotProps={{ htmlInput: { maxLength: 200 } }}
+            fullWidth
+            size="small"
+          />
         </div>
-        <DialogFooter className="mt-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {editTarget ? "Save changes" : "Add department"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="inherit" onClick={onClose}>Cancel</Button>
+        <Button variant="contained" onClick={save} disabled={isPending}>
+          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {editTarget ? "Save changes" : "Add department"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -308,8 +302,8 @@ function DepartmentsPage() {
         description={isHOD ? "Manage the teachers and subjects in the department you head" : "Academic departments — manage faculty groupings and subject assignments"}
         actions={
           !isHOD && (
-            <Button onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
-              <Plus className="mr-1 h-4 w-4" />Add department
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
+              Add department
             </Button>
           )
         }
@@ -331,165 +325,168 @@ function DepartmentsPage() {
         save={save}
         editTarget={editTarget}
         isPending={createMut.isPending || updateMut.isPending}
-        teachers={teachers}
       />
 
       {/* Assign teacher to subject dialog */}
-      <Dialog open={!!assigningTeacher} onOpenChange={(v) => { if (!v) setAssigningTeacher(null); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Assign subject</DialogTitle>
-          </DialogHeader>
+      <Dialog open={!!assigningTeacher} onClose={() => setAssigningTeacher(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Assign subject</DialogTitle>
+        <DialogContent>
           <div className="space-y-3 text-sm">
             <p>
               Assign <strong>{assigningTeacher?.teacher?.firstName} {assigningTeacher?.teacher?.lastName}</strong> to a subject in this department.
             </p>
             <div>
-              <Label>Subject</Label>
               {assigningTeacher?.deptSubjects && assigningTeacher.deptSubjects.length > 0 ? (
-                <Select
+                <TextField
+                  select
+                  label="Subject"
                   value={assigningTeacher?.selectedSubject ?? ""}
-                  onValueChange={(v) => setAssigningTeacher((a) => a ? { ...a, selectedSubject: v } : a)}
+                  onChange={(e) => setAssigningTeacher((a) => a ? { ...a, selectedSubject: e.target.value } : a)}
+                  fullWidth
+                  size="small"
                 >
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__clear__">— No subject (clear) —</SelectItem>
-                    {assigningTeacher.deptSubjects.map((s: any) => (
-                      <SelectItem key={s.id} value={s.name}>{s.name}{s.code ? ` (${s.code})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <MenuItem value="__clear__">— No subject (clear) —</MenuItem>
+                  {assigningTeacher.deptSubjects.map((s: any) => (
+                    <MenuItem key={s.id} value={s.name}>{s.name}{s.code ? ` (${s.code})` : ""}</MenuItem>
+                  ))}
+                </TextField>
               ) : (
-                <p className="mt-1 text-xs text-amber-600">
-                  No subjects in this department yet. Add subjects on the Subjects page first.
-                </p>
+                <>
+                  <p className="text-sm font-medium">Subject</p>
+                  <p className="mt-1 text-xs text-amber-600">
+                    No subjects in this department yet. Add subjects on the Subjects page first.
+                  </p>
+                </>
               )}
             </div>
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setAssigningTeacher(null)}>Cancel</Button>
-            <Button
-              disabled={assignSubjectMut.isPending || !assigningTeacher?.selectedSubject}
-              onClick={() => {
-                if (!assigningTeacher) return;
-                const subj = assigningTeacher.selectedSubject === "__clear__" ? null : assigningTeacher.selectedSubject;
-                assignSubjectMut.mutate({ id: assigningTeacher.teacher.id, subject: subj });
-              }}
-            >
-              {assignSubjectMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAssigningTeacher(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={assignSubjectMut.isPending || !assigningTeacher?.selectedSubject}
+            onClick={() => {
+              if (!assigningTeacher) return;
+              const subj = assigningTeacher.selectedSubject === "__clear__" ? null : assigningTeacher.selectedSubject;
+              assignSubjectMut.mutate({ id: assigningTeacher.teacher.id, subject: subj });
+            }}
+          >
+            {assignSubjectMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Assign teacher to class dialog */}
-      <Dialog open={!!assigningClass} onOpenChange={(v) => { if (!v) setAssigningClass(null); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Assign to class</DialogTitle>
-          </DialogHeader>
+      <Dialog open={!!assigningClass} onClose={() => setAssigningClass(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Assign to class</DialogTitle>
+        <DialogContent>
           <div className="space-y-3 text-sm">
             <p>
               Assign <strong>{assigningClass?.teacher?.firstName} {assigningClass?.teacher?.lastName}</strong> to teach a class.
             </p>
             <div>
-              <Label>Class</Label>
               {classes.length > 0 ? (
-                <Select
+                <TextField
+                  select
+                  label="Class"
                   value={assigningClass?.selectedClassId ?? ""}
-                  onValueChange={(v) => setAssigningClass((a) => a ? { ...a, selectedClassId: v } : a)}
+                  onChange={(e) => setAssigningClass((a) => a ? { ...a, selectedClassId: e.target.value } : a)}
+                  fullWidth
+                  size="small"
                 >
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select class…" /></SelectTrigger>
-                  <SelectContent>
-                    {classes.map((c: any) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}{c.section ? ` — ${c.section}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {classes.map((c: any) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}{c.section ? ` — ${c.section}` : ""}
+                    </MenuItem>
+                  ))}
+                </TextField>
               ) : (
-                <p className="mt-1 text-xs text-amber-600">No classes found. Add classes on the Classes page first.</p>
+                <>
+                  <p className="text-sm font-medium">Class</p>
+                  <p className="mt-1 text-xs text-amber-600">No classes found. Add classes on the Classes page first.</p>
+                </>
               )}
             </div>
             <div>
-              <Label>Subject to teach in this class</Label>
               {assigningClass?.deptSubjects && assigningClass.deptSubjects.length > 0 ? (
-                <Select
+                <TextField
+                  select
+                  label="Subject to teach in this class"
                   value={assigningClass?.selectedSubject ?? ""}
-                  onValueChange={(v) => setAssigningClass((a) => a ? { ...a, selectedSubject: v } : a)}
+                  onChange={(e) => setAssigningClass((a) => a ? { ...a, selectedSubject: e.target.value } : a)}
+                  fullWidth
+                  size="small"
                 >
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject…" /></SelectTrigger>
-                  <SelectContent>
-                    {assigningClass.deptSubjects.map((s: any) => (
-                      <SelectItem key={s.id} value={s.name}>{s.name}{s.code ? ` (${s.code})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {assigningClass.deptSubjects.map((s: any) => (
+                    <MenuItem key={s.id} value={s.name}>{s.name}{s.code ? ` (${s.code})` : ""}</MenuItem>
+                  ))}
+                </TextField>
               ) : (
-                <p className="mt-1 text-xs text-muted-foreground">No subjects in this department yet.</p>
+                <>
+                  <p className="text-sm font-medium">Subject to teach in this class</p>
+                  <p className="mt-1 text-xs text-muted-foreground">No subjects in this department yet.</p>
+                </>
               )}
             </div>
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setAssigningClass(null)}>Cancel</Button>
-            <Button
-              disabled={assignClassMut.isPending || !assigningClass?.selectedClassId || !assigningClass?.selectedSubject}
-              onClick={() => {
-                if (!assigningClass) return;
-                const t = assigningClass.teacher;
-                const cls = classes.find((c: any) => c.id === assigningClass.selectedClassId);
-                assignClassMut.mutate({
-                  classId: assigningClass.selectedClassId,
-                  teacherId: t.id,
-                  teacherName: `${t.firstName} ${t.lastName}`,
-                  subjectName: assigningClass.selectedSubject,
-                  className: cls?.name ?? "",
-                });
-              }}
-            >
-              {assignClassMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Assign
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAssigningClass(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={assignClassMut.isPending || !assigningClass?.selectedClassId || !assigningClass?.selectedSubject}
+            onClick={() => {
+              if (!assigningClass) return;
+              const t = assigningClass.teacher;
+              const cls = classes.find((c: any) => c.id === assigningClass.selectedClassId);
+              assignClassMut.mutate({
+                classId: assigningClass.selectedClassId,
+                teacherId: t.id,
+                teacherName: `${t.firstName} ${t.lastName}`,
+                subjectName: assigningClass.selectedSubject,
+                className: cls?.name ?? "",
+              });
+            }}
+          >
+            {assignClassMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Assign
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Reassign dialog */}
-      <Dialog open={!!reassigning} onOpenChange={(v) => { if (!v) setReassigning(null); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Move subject</DialogTitle>
-          </DialogHeader>
+      <Dialog open={!!reassigning} onClose={() => setReassigning(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Move subject</DialogTitle>
+        <DialogContent>
           <div className="space-y-3 text-sm">
             <p>Move <strong>{reassigning?.subject?.name}</strong> to a different department.</p>
-            <div>
-              <Label>Target department</Label>
-              <Select
-                value={reassigning?.targetDept ?? ""}
-                onValueChange={(v) => setReassigning((r) => r ? { ...r, targetDept: v } : r)}
-              >
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {depts.map((d: any) => (
-                    <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setReassigning(null)}>Cancel</Button>
-            <Button
-              disabled={reassignMut.isPending || !reassigning?.targetDept}
-              onClick={() => reassigning && reassignMut.mutate({ id: reassigning.subject.id, dept: reassigning.targetDept })}
+            <TextField
+              select
+              label="Target department"
+              value={reassigning?.targetDept ?? ""}
+              onChange={(e) => setReassigning((r) => r ? { ...r, targetDept: e.target.value } : r)}
+              fullWidth
+              size="small"
             >
-              {reassignMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Move subject
-            </Button>
-          </DialogFooter>
+              {depts.map((d: any) => (
+                <MenuItem key={d.id} value={d.name}>{d.name}</MenuItem>
+              ))}
+            </TextField>
+          </div>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setReassigning(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={reassignMut.isPending || !reassigning?.targetDept}
+            onClick={() => reassigning && reassignMut.mutate({ id: reassigning.subject.id, dept: reassigning.targetDept })}
+          >
+            {reassignMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Move subject
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {isLoading ? (
@@ -508,8 +505,8 @@ function DepartmentsPage() {
             <>
               <p className="text-sm font-medium text-muted-foreground">No departments yet.</p>
               <p className="text-xs text-muted-foreground">Add your first department to start grouping subjects by faculty.</p>
-              <Button size="sm" onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
-                <Plus className="mr-1 h-3.5 w-3.5" />Add department
+              <Button variant="contained" size="small" startIcon={<Plus size={14} />} onClick={() => { setForm(emptyForm()); setEditTarget(null); setAddOpen(true); }}>
+                Add department
               </Button>
             </>
           )}
@@ -535,13 +532,17 @@ function DepartmentsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm">{d.name}</span>
-                      {d.code && <Badge variant="secondary" className="font-mono text-xs">{d.code}</Badge>}
-                      <Badge variant={(deptSubjects.length + deptTeachers.length) > 0 ? "outline" : "secondary"} className="text-xs">
-                        {deptSubjects.length} subject{deptSubjects.length !== 1 ? "s" : ""}
-                      </Badge>
-                      <Badge variant={deptTeachers.length > 0 ? "outline" : "secondary"} className="text-xs">
-                        {deptTeachers.length} teacher{deptTeachers.length !== 1 ? "s" : ""}
-                      </Badge>
+                      {d.code && <Chip size="small" label={d.code} sx={{ ...badgeSx("secondary"), fontFamily: "monospace", fontSize: 12 }} />}
+                      <Chip
+                        size="small"
+                        label={`${deptSubjects.length} subject${deptSubjects.length !== 1 ? "s" : ""}`}
+                        sx={{ ...badgeSx((deptSubjects.length + deptTeachers.length) > 0 ? "outline" : "secondary"), fontSize: 12 }}
+                      />
+                      <Chip
+                        size="small"
+                        label={`${deptTeachers.length} teacher${deptTeachers.length !== 1 ? "s" : ""}`}
+                        sx={{ ...badgeSx(deptTeachers.length > 0 ? "outline" : "secondary"), fontSize: 12 }}
+                      />
                     </div>
                     {d.headTeacherId && (() => {
                       const head = teachers.find((t: any) => t.id === d.headTeacherId);
@@ -550,17 +551,18 @@ function DepartmentsPage() {
                   </div>
                   {!isHOD && (
                     <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(d)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm"
-                        className="text-destructive hover:text-destructive"
+                      <IconButton size="small" aria-label={`Edit ${d.name}`} onClick={() => openEdit(d)}>
+                        <Pencil size={14} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        aria-label={`Delete ${d.name}`}
+                        sx={{ color: "error.main" }}
                         disabled={deleteMut.isPending}
                         onClick={() => deleteMut.mutate(d.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                        <Trash2 size={14} />
+                      </IconButton>
                     </div>
                   )}
                 </div>
@@ -583,26 +585,44 @@ function DepartmentsPage() {
                                 <span className="ml-2 text-xs text-muted-foreground">{t.staffNumber}</span>
                               </div>
                               {t.subject
-                                ? <Badge variant="secondary" className="text-xs">{t.subject}</Badge>
+                                ? <Chip size="small" label={t.subject} sx={{ ...badgeSx("secondary"), fontSize: 12 }} />
                                 : <span className="text-xs text-muted-foreground italic">No subject</span>}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {!isHOD && (
+                                <Button
+                                  variant="text"
+                                  color={d.headTeacherId === t.id ? "warning" : "inherit"}
+                                  size="small"
+                                  startIcon={<Crown size={12} />}
+                                  sx={{ height: 28, fontSize: 12 }}
+                                  disabled={updateMut.isPending}
+                                  onClick={() => updateMut.mutate({
+                                    id: d.id,
+                                    data: { headTeacherId: d.headTeacherId === t.id ? "" : t.id },
+                                  })}
+                                >
+                                  {d.headTeacherId === t.id ? "Remove HOD" : "Make HOD"}
+                                </Button>
+                              )}
                               <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                variant="text"
+                                color="inherit"
+                                size="small"
+                                startIcon={<Pencil size={12} />}
+                                sx={{ height: 28, fontSize: 12 }}
                                 onClick={() => setAssigningTeacher({ teacher: t, deptSubjects, selectedSubject: t.subject ?? "" })}
                               >
-                                <Pencil className="h-3 w-3" />
                                 Subject
                               </Button>
                               <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                variant="text"
+                                color="inherit"
+                                size="small"
+                                startIcon={<School size={12} />}
+                                sx={{ height: 28, fontSize: 12 }}
                                 onClick={() => setAssigningClass({ teacher: t, deptSubjects, selectedClassId: "", selectedSubject: t.subject ?? "" })}
                               >
-                                <School className="h-3 w-3" />
                                 Class
                               </Button>
                             </div>
@@ -647,14 +667,10 @@ function DepartmentsPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm text-amber-700 dark:text-amber-400">Unassigned</span>
                     {unassigned.length > 0 && (
-                      <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400">
-                        {unassigned.length} subject{unassigned.length !== 1 ? "s" : ""}
-                      </Badge>
+                      <Chip size="small" label={`${unassigned.length} subject${unassigned.length !== 1 ? "s" : ""}`} sx={{ ...badgeSx("warning"), fontSize: 12 }} />
                     )}
                     {unassignedTeachers.length > 0 && (
-                      <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400">
-                        {unassignedTeachers.length} teacher{unassignedTeachers.length !== 1 ? "s" : ""}
-                      </Badge>
+                      <Chip size="small" label={`${unassignedTeachers.length} teacher${unassignedTeachers.length !== 1 ? "s" : ""}`} sx={{ ...badgeSx("warning"), fontSize: 12 }} />
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">Not linked to any department</p>

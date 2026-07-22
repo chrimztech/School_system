@@ -3,17 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Clock3, Database, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import { Box, Button, MenuItem, Paper, Stack, TextField, Tooltip, Typography, alpha, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
+import { badgeSx } from "@/lib/utils";
 
 type SavedReport = {
   id: string;
@@ -80,6 +76,10 @@ function ReportingPage() {
     return counts;
   }, {});
   const topSchedule = Object.entries(mostCommonSchedule).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "None";
+  const scheduleBreakdown = Object.entries(mostCommonSchedule).sort((a, b) => b[1] - a[1]);
+  const maxScheduleCount = Math.max(1, ...scheduleBreakdown.map(([, count]) => count));
+  const draftReports = reports.length - activeReports;
+  const activeRatePct = reports.length > 0 ? Math.round((activeReports / reports.length) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -87,46 +87,52 @@ function ReportingPage() {
         title="Reporting & BI"
         description="Create, schedule, and manage institutional reports with self-service analytics and export tools."
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>Build new report</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader><DialogTitle>Create scheduled report</DialogTitle></DialogHeader>
+          <>
+          <Button variant="contained" onClick={() => setOpen(true)}>Build new report</Button>
+          <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Create scheduled report</DialogTitle>
+            <DialogContent>
               <div className="grid gap-3">
-                <div>
-                  <Label>Report name *</Label>
-                  <Input className="mt-1" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Board governance pack" />
-                </div>
-                <div>
-                  <Label>Owner</Label>
-                  <Select value={form.owner} onValueChange={(value) => setForm({ ...form, owner: value })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Admin", "Finance", "Academic", "HR"].map((owner) => (
-                        <SelectItem key={owner} value={owner}>{owner}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Schedule</Label>
-                  <Select value={form.schedule} onValueChange={(value) => setForm({ ...form, schedule: value })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Daily", "Weekly", "Monthly", "Quarterly"].map((schedule) => (
-                        <SelectItem key={schedule} value={schedule}>{schedule}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  label="Report name *"
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  placeholder="Board governance pack"
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Owner"
+                  value={form.owner}
+                  onChange={(event) => setForm({ ...form, owner: event.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["Admin", "Finance", "Academic", "HR"].map((owner) => (
+                    <MenuItem key={owner} value={owner}>{owner}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="Schedule"
+                  value={form.schedule}
+                  onChange={(event) => setForm({ ...form, schedule: event.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["Daily", "Weekly", "Monthly", "Quarterly"].map((schedule) => (
+                    <MenuItem key={schedule} value={schedule}>{schedule}</MenuItem>
+                  ))}
+                </TextField>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={addReport} disabled={createReportMutation.isPending}>Create report</Button>
-              </DialogFooter>
             </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="contained" onClick={addReport} disabled={createReportMutation.isPending}>Create report</Button>
+            </DialogActions>
           </Dialog>
+          </>
         }
       />
 
@@ -138,58 +144,121 @@ function ReportingPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Scheduling snapshot</h2>
-              <p className="text-xs text-muted-foreground">Most common schedule currently saved for this school.</p>
-            </div>
-            <Badge variant="secondary">Live</Badge>
-          </div>
-          <div className="rounded-lg border border-border p-4">
-            <p className="text-xs text-muted-foreground">Top cadence</p>
-            <p className="mt-1 text-lg font-semibold">{topSchedule}</p>
-          </div>
-        </div>
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 4, gridColumn: { lg: "span 2" } }}>
+          <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", mb: 3 }}>
+            <Box>
+              <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Scheduling snapshot</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Saved reports by cadence — {topSchedule} is the most common.
+              </Typography>
+            </Box>
+            <Chip size="small" label="Live" sx={badgeSx("secondary")} />
+          </Stack>
 
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Coverage</h2>
-              <p className="text-xs text-muted-foreground">Current saved-report mix by status.</p>
-            </div>
-            <Badge variant="outline">{reports.length === 0 ? "Empty" : "Tracked"}</Badge>
-          </div>
-          <div className="space-y-3">
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs text-muted-foreground">Active</p>
-              <p className="mt-1 text-sm font-medium">{activeReports}</p>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <p className="text-xs text-muted-foreground">Draft</p>
-              <p className="mt-1 text-sm font-medium">{reports.filter((report) => report.status === "Draft").length}</p>
-            </div>
-          </div>
-        </div>
+          {scheduleBreakdown.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No scheduled reports yet.
+            </Typography>
+          ) : (
+            <Stack spacing={2}>
+              {scheduleBreakdown.map(([schedule, count]) => {
+                const widthPct = Math.max(4, (count / maxScheduleCount) * 100);
+                const isTop = schedule === topSchedule;
+                return (
+                  <Box key={schedule}>
+                    <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between", mb: 0.5 }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: isTop ? 600 : 500, color: "text.primary" }}>
+                        {schedule}
+                      </Typography>
+                      <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.primary", fontVariantNumeric: "tabular-nums" }}>
+                        {count}
+                      </Typography>
+                    </Stack>
+                    <Tooltip title={`${schedule}: ${count} report${count === 1 ? "" : "s"}`} placement="top" arrow>
+                      <Box sx={{ height: 10, borderRadius: 999, bgcolor: alpha("#2370bd", 0.14), overflow: "hidden" }}>
+                        <Box
+                          sx={{
+                            height: "100%",
+                            width: `${widthPct}%`,
+                            borderRadius: 999,
+                            bgcolor: "#2370bd",
+                            transition: "width 300ms ease",
+                          }}
+                        />
+                      </Box>
+                    </Tooltip>
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 4 }}>
+          <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", mb: 3 }}>
+            <Box>
+              <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Coverage</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Share of saved reports that are active.
+              </Typography>
+            </Box>
+            <Chip size="small" label={reports.length === 0 ? "Empty" : "Tracked"} sx={badgeSx("outline")} />
+          </Stack>
+
+          <Typography sx={{ fontSize: 34, fontWeight: 600, lineHeight: 1, color: "text.primary" }}>
+            {activeRatePct}%
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {activeReports} of {reports.length || 0} reports active
+          </Typography>
+
+          <Tooltip title={`${activeRatePct}% active`} placement="top" arrow>
+            <Box sx={{ mt: 2, height: 10, borderRadius: 999, bgcolor: alpha("#40ae67", 0.16), overflow: "hidden" }}>
+              <Box
+                sx={{
+                  height: "100%",
+                  width: `${activeRatePct}%`,
+                  borderRadius: 999,
+                  bgcolor: "#40ae67",
+                  transition: "width 300ms ease",
+                }}
+              />
+            </Box>
+          </Tooltip>
+
+          <Stack direction="row" spacing={2.5} sx={{ mt: 2.5 }}>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+              <Box sx={{ height: 8, width: 8, borderRadius: "50%", bgcolor: "#40ae67" }} />
+              <Typography variant="caption" color="text.secondary">Active ({activeReports})</Typography>
+            </Stack>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+              <Box sx={{ height: 8, width: 8, borderRadius: "50%", bgcolor: alpha("#40ae67", 0.16) }} />
+              <Typography variant="caption" color="text.secondary">Draft ({draftReports})</Typography>
+            </Stack>
+          </Stack>
+        </Paper>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Saved reports</h2>
-            <p className="text-xs text-muted-foreground">Manage report templates and schedules.</p>
-          </div>
-          <Badge variant="outline">{reports.length} total</Badge>
-        </div>
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 4 }}>
+        <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+          <Box>
+            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Saved reports</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Manage report templates and schedules.
+            </Typography>
+          </Box>
+          <Chip size="small" label={`${reports.length} total`} sx={badgeSx("outline")} />
+        </Stack>
+        <TableContainer>
         <Table>
-          <TableHeader>
+          <TableHead>
             <TableRow>
-              <TableHead>Report</TableHead>
-              <TableHead>Schedule</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Status</TableHead>
+              <TableCell>Report</TableCell>
+              <TableCell>Schedule</TableCell>
+              <TableCell>Owner</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Loading reports...</TableCell></TableRow>
@@ -201,13 +270,14 @@ function ReportingPage() {
                 <TableCell>{report.schedule}</TableCell>
                 <TableCell>{report.owner}</TableCell>
                 <TableCell>
-                  <Badge variant={report.status === "Active" ? "secondary" : "outline"}>{report.status}</Badge>
+                  <Chip size="small" label={report.status} sx={badgeSx(report.status === "Active" ? "secondary" : "outline")} />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-      </div>
+        </TableContainer>
+      </Paper>
     </div>
   );
 }

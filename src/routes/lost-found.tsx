@@ -4,20 +4,12 @@ import { PackageSearch, PackageCheck, Archive, Plus, Search, Loader2 } from "luc
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Box, Button, Chip, InputAdornment, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, type BadgeTone, downloadCsv } from "@/lib/utils";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/lost-found")({
@@ -32,15 +24,15 @@ const LOCATIONS = ["Main gate", "Library", "Canteen", "Assembly hall", "Classroo
 const FOUND_BY_OPTIONS = ["Gate guard", "Canteen staff", "Hostel matron", "Cleaner", "Student (anon)", "Other"];
 
 function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    Unclaimed: "bg-warning/15 text-warning-foreground",
-    UNCLAIMED: "bg-warning/15 text-warning-foreground",
-    Claimed: "bg-success/15 text-success",
-    CLAIMED: "bg-success/15 text-success",
-    Disposed: "bg-muted text-muted-foreground",
-    DISPOSED: "bg-muted text-muted-foreground",
+  const map: Record<string, BadgeTone> = {
+    Unclaimed: "warning",
+    UNCLAIMED: "warning",
+    Claimed: "success",
+    CLAIMED: "success",
+    Disposed: "secondary",
+    DISPOSED: "secondary",
   };
-  return <Badge className={map[status] ?? ""}>{status}</Badge>;
+  return <Chip size="small" label={status} sx={badgeSx(map[status] ?? "secondary")} />;
 }
 
 function LostFoundPage() {
@@ -52,6 +44,7 @@ function LostFoundPage() {
   const [claimOpen, setClaimOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState("unclaimed");
 
   const [logForm, setLogForm] = useState({
     description: "", category: "Other" as ItemCategory,
@@ -162,74 +155,80 @@ function LostFoundPage() {
         title="Lost & Found"
         description="Register of lost items found on campus, claims, and disposal records."
         actions={
-          <Dialog open={logOpen} onOpenChange={setLogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Log found item</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Log found item</DialogTitle></DialogHeader>
+          <>
+          <Button startIcon={<Plus size={16} />} onClick={() => setLogOpen(true)}>Log found item</Button>
+          <Dialog open={logOpen} onClose={() => setLogOpen(false)} maxWidth="lg" fullWidth>
+            <DialogTitle>Log found item</DialogTitle>
+            <DialogContent>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <Label>Item description *</Label>
-                  <Textarea className="mt-1" value={logForm.description} onChange={(e) => setLogForm({ ...logForm, description: e.target.value })} placeholder="Blue school jersey, size M, name written inside..." rows={2} maxLength={300} />
+                  <TextField label="Item description *" multiline minRows={2} value={logForm.description} onChange={(e) => setLogForm({ ...logForm, description: e.target.value })} placeholder="Blue school jersey, size M, name written inside..." slotProps={{ htmlInput: { maxLength: 300 } }} fullWidth size="small" />
                 </div>
+                <TextField
+                  select
+                  label="Category"
+                  value={logForm.category}
+                  onChange={(e) => setLogForm({ ...logForm, category: e.target.value as ItemCategory })}
+                  fullWidth
+                  size="small"
+                >
+                  {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </TextField>
+                <TextField label="Colour" value={logForm.color} onChange={(e) => setLogForm({ ...logForm, color: e.target.value })} placeholder="e.g. Blue, Silver" slotProps={{ htmlInput: { maxLength: 50 } }} fullWidth size="small" />
+                <TextField label="Brand / make" value={logForm.brand} onChange={(e) => setLogForm({ ...logForm, brand: e.target.value })} placeholder="e.g. Samsung, Nike" slotProps={{ htmlInput: { maxLength: 50 } }} fullWidth size="small" />
+                <TextField label="Estimated value (K)" type="number" slotProps={{ htmlInput: { min: 0 } }} value={logForm.estimatedValue} onChange={(e) => setLogForm({ ...logForm, estimatedValue: e.target.value })} placeholder="0" fullWidth size="small" />
+                <TextField
+                  type="date"
+                  label="Date found *"
+                  value={logForm.foundDate}
+                  onChange={(e) => setLogForm({ ...logForm, foundDate: e.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="time"
+                  label="Time found"
+                  value={logForm.foundTime}
+                  onChange={(e) => setLogForm({ ...logForm, foundTime: e.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Location found"
+                  value={logForm.location}
+                  onChange={(e) => setLogForm({ ...logForm, location: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {LOCATIONS.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                </TextField>
+                <TextField
+                  select
+                  label="Found by"
+                  value={logForm.foundBy}
+                  onChange={(e) => setLogForm({ ...logForm, foundBy: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {FOUND_BY_OPTIONS.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                </TextField>
+                <TextField label="Storage location" value={logForm.storageLocation} onChange={(e) => setLogForm({ ...logForm, storageLocation: e.target.value })} placeholder="Reception" slotProps={{ htmlInput: { maxLength: 80 } }} fullWidth size="small" />
+                <TextField
+                  select
+                  label="Return method"
+                  value={logForm.returnMethod}
+                  onChange={(e) => setLogForm({ ...logForm, returnMethod: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["Counter collection", "Parent collection", "Delivery to class", "Postal"].map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                </TextField>
                 <div>
-                  <Label>Category</Label>
-                  <Select value={logForm.category} onValueChange={(v) => setLogForm({ ...logForm, category: v as ItemCategory })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Colour</Label>
-                  <Input className="mt-1" value={logForm.color} onChange={(e) => setLogForm({ ...logForm, color: e.target.value })} placeholder="e.g. Blue, Silver" maxLength={50} />
-                </div>
-                <div>
-                  <Label>Brand / make</Label>
-                  <Input className="mt-1" value={logForm.brand} onChange={(e) => setLogForm({ ...logForm, brand: e.target.value })} placeholder="e.g. Samsung, Nike" maxLength={50} />
-                </div>
-                <div>
-                  <Label>Estimated value (K)</Label>
-                  <Input type="number" min={0} className="mt-1" value={logForm.estimatedValue} onChange={(e) => setLogForm({ ...logForm, estimatedValue: e.target.value })} placeholder="0" />
-                </div>
-                <div>
-                  <Label>Date found *</Label>
-                  <Input type="date" className="mt-1" value={logForm.foundDate} onChange={(e) => setLogForm({ ...logForm, foundDate: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Time found</Label>
-                  <Input type="time" className="mt-1" value={logForm.foundTime} onChange={(e) => setLogForm({ ...logForm, foundTime: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Location found</Label>
-                  <Select value={logForm.location} onValueChange={(v) => setLogForm({ ...logForm, location: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{LOCATIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Found by</Label>
-                  <Select value={logForm.foundBy} onValueChange={(v) => setLogForm({ ...logForm, foundBy: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{FOUND_BY_OPTIONS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Storage location</Label>
-                  <Input className="mt-1" value={logForm.storageLocation} onChange={(e) => setLogForm({ ...logForm, storageLocation: e.target.value })} placeholder="Reception" maxLength={80} />
-                </div>
-                <div>
-                  <Label>Return method</Label>
-                  <Select value={logForm.returnMethod} onValueChange={(v) => setLogForm({ ...logForm, returnMethod: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Counter collection", "Parent collection", "Delivery to class", "Postal"].map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Known owner name</Label>
-                  <div className="mt-1 space-y-1.5">
+                  <p className="text-sm font-medium mb-1">Known owner name</p>
+                  <div className="space-y-1.5">
                     <PersonCombobox
                       options={studentOptions}
                       loading={pickerStudentsLoading}
@@ -237,39 +236,39 @@ function LostFoundPage() {
                       emptyText="No students found."
                       onSelect={(option) => setLogForm((prev) => ({ ...prev, ownerName: option.label }))}
                     />
-                    <Input value={logForm.ownerName} onChange={(e) => setLogForm({ ...logForm, ownerName: e.target.value })} placeholder="If identifiable" maxLength={100} />
+                    <TextField value={logForm.ownerName} onChange={(e) => setLogForm({ ...logForm, ownerName: e.target.value })} placeholder="If identifiable" slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
                   </div>
                 </div>
-                <div>
-                  <Label>Owner contact</Label>
-                  <Input className="mt-1" value={logForm.ownerContact} onChange={(e) => setLogForm({ ...logForm, ownerContact: e.target.value })} placeholder="Phone or class" maxLength={80} />
-                </div>
+                <TextField label="Owner contact" value={logForm.ownerContact} onChange={(e) => setLogForm({ ...logForm, ownerContact: e.target.value })} placeholder="Phone or class" slotProps={{ htmlInput: { maxLength: 80 } }} fullWidth size="small" />
                 <div className="col-span-2">
-                  <Label>Additional notes</Label>
-                  <Input className="mt-1" value={logForm.notes} onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })} placeholder="Any other identifying information" maxLength={200} />
+                  <TextField label="Additional notes" value={logForm.notes} onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })} placeholder="Any other identifying information" slotProps={{ htmlInput: { maxLength: 200 } }} fullWidth size="small" />
                 </div>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setLogOpen(false)}>Cancel</Button>
-                <Button onClick={logItem} disabled={createMutation.isPending}>
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Log item
-                </Button>
-              </DialogFooter>
             </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setLogOpen(false)}>Cancel</Button>
+              <Button
+                onClick={logItem}
+                disabled={createMutation.isPending}
+                startIcon={createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+              >
+                Log item
+              </Button>
+            </DialogActions>
           </Dialog>
+          </>
         }
       />
 
-      <Dialog open={claimOpen} onOpenChange={setClaimOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Record claim</DialogTitle></DialogHeader>
+      <Dialog open={claimOpen} onClose={() => setClaimOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Record claim</DialogTitle>
+        <DialogContent>
           {selectedItem && (
             <div className="space-y-3">
               <p className="rounded-md bg-muted px-3 py-2 text-sm">{selectedItem.description}</p>
               <div>
-                <Label>Claimed by (name + class/role) *</Label>
-                <div className="mt-1 space-y-1.5">
+                <p className="text-sm font-medium mb-1">Claimed by (name + class/role) *</p>
+                <div className="space-y-1.5">
                   <PersonCombobox
                     options={studentOptions}
                     loading={pickerStudentsLoading}
@@ -281,23 +280,23 @@ function LostFoundPage() {
                       setClaimForm((prev) => ({ ...prev, claimedBy: grade ? `${option.label} (${grade})` : option.label }));
                     }}
                   />
-                  <Input value={claimForm.claimedBy} onChange={(e) => setClaimForm({ ...claimForm, claimedBy: e.target.value })} placeholder="Chanda Mwale (Form 3B)" maxLength={100} />
+                  <TextField value={claimForm.claimedBy} onChange={(e) => setClaimForm({ ...claimForm, claimedBy: e.target.value })} placeholder="Chanda Mwale (Form 3B)" slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
                 </div>
               </div>
-              <div>
-                <Label>Notes</Label>
-                <Input className="mt-1" value={claimForm.notes} onChange={(e) => setClaimForm({ ...claimForm, notes: e.target.value })} placeholder="ID verified, signed log..." maxLength={200} />
-              </div>
+              <TextField label="Notes" value={claimForm.notes} onChange={(e) => setClaimForm({ ...claimForm, notes: e.target.value })} placeholder="ID verified, signed log..." slotProps={{ htmlInput: { maxLength: 200 } }} fullWidth size="small" />
             </div>
           )}
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setClaimOpen(false)}>Cancel</Button>
-            <Button onClick={recordClaim} disabled={claimMutation.isPending}>
-              {claimMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm claim
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setClaimOpen(false)}>Cancel</Button>
+          <Button
+            onClick={recordClaim}
+            disabled={claimMutation.isPending}
+            startIcon={claimMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Confirm claim
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -312,60 +311,66 @@ function LostFoundPage() {
           <Loader2 className="h-5 w-5 animate-spin" /><span>Loading register…</span>
         </div>
       ) : (
-        <Tabs defaultValue="unclaimed">
-          <TabsList>
-            <TabsTrigger value="unclaimed">Unclaimed ({unclaimed.length})</TabsTrigger>
-            <TabsTrigger value="claimed">Claimed ({claimed.length})</TabsTrigger>
-            <TabsTrigger value="all">All items</TabsTrigger>
-          </TabsList>
+        <Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="unclaimed" label={`Unclaimed (${unclaimed.length})`} />
+          <Tab value="claimed" label={`Claimed (${claimed.length})`} />
+          <Tab value="all" label="All items" />
+        </Tabs>
 
-          <TabsContent value="unclaimed" className="rounded-xl border border-border bg-card">
+        {tab === "unclaimed" && (
+          <Box className="rounded-xl border border-border bg-card">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Description</TableHead><TableHead>Category</TableHead><TableHead>Location</TableHead>
-                  <TableHead>Date found</TableHead><TableHead>Found by</TableHead><TableHead>Notes</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableCell>Description</TableCell><TableCell>Category</TableCell><TableCell>Location</TableCell>
+                  <TableCell>Date found</TableCell><TableCell>Found by</TableCell><TableCell>Notes</TableCell>
+                  <TableCell className="text-right">Actions</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {unclaimed.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No unclaimed items.</TableCell></TableRow>
                 ) : unclaimed.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium max-w-[160px] truncate" title={item.description}>{item.description}</TableCell>
-                    <TableCell><Badge variant="outline">{item.category}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={item.category} sx={badgeSx("outline")} /></TableCell>
                     <TableCell className="text-muted-foreground">{item.location}</TableCell>
                     <TableCell>{(item.foundDate ?? item.dateFound ?? "").slice(0, 10)}</TableCell>
                     <TableCell className="text-muted-foreground">{item.foundBy}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate" title={item.notes}>{item.notes || "—"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button size="sm" onClick={() => openClaim(item)}>Claim</Button>
-                        <Button size="sm" variant="outline" onClick={() => toast.success("Item marked as disposed")}>Dispose</Button>
+                        <Button size="small" onClick={() => openClaim(item)}>Claim</Button>
+                        <Button size="small" variant="outlined" onClick={() => toast.success("Item marked as disposed")}>Dispose</Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </TabsContent>
+            </TableContainer>
+          </Box>
+        )}
 
-          <TabsContent value="claimed" className="rounded-xl border border-border bg-card">
+        {tab === "claimed" && (
+          <Box className="rounded-xl border border-border bg-card">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Description</TableHead><TableHead>Category</TableHead><TableHead>Claimed by</TableHead>
-                  <TableHead>Claim date</TableHead><TableHead>Found at</TableHead><TableHead>Notes</TableHead>
+                  <TableCell>Description</TableCell><TableCell>Category</TableCell><TableCell>Claimed by</TableCell>
+                  <TableCell>Claim date</TableCell><TableCell>Found at</TableCell><TableCell>Notes</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {claimed.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No claimed items.</TableCell></TableRow>
                 ) : claimed.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium max-w-[160px] truncate" title={item.description}>{item.description}</TableCell>
-                    <TableCell><Badge variant="outline">{item.category}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={item.category} sx={badgeSx("outline")} /></TableCell>
                     <TableCell>{item.claimedBy}</TableCell>
                     <TableCell>{(item.claimDate ?? item.dateClaimedAt ?? "").slice(0, 10)}</TableCell>
                     <TableCell className="text-muted-foreground">{item.location}</TableCell>
@@ -374,28 +379,38 @@ function LostFoundPage() {
                 ))}
               </TableBody>
             </Table>
-          </TabsContent>
+            </TableContainer>
+          </Box>
+        )}
 
-          <TabsContent value="all" className="rounded-xl border border-border bg-card">
+        {tab === "all" && (
+          <Box className="rounded-xl border border-border bg-card">
             <div className="flex items-center gap-3 border-b border-border p-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search description, category, or location" className="pl-9" />
+              <div className="flex-1">
+                <TextField
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search description, category, or location"
+                  fullWidth
+                  size="small"
+                  slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+                />
               </div>
-              <Button variant="outline" size="sm" onClick={() => { downloadCsv(items.map((i: any) => ({ Description: i.description, Category: i.category, Location: i.location, "Date Found": (i.foundDate ?? i.dateFound ?? "").slice(0, 10), Status: i.status, "Claimed By": i.claimedBy ?? "" })), "lost-found-register"); toast.success("Lost & found register exported"); }}>Export CSV</Button>
+              <Button variant="outlined" size="small" onClick={() => { downloadCsv(items.map((i: any) => ({ Description: i.description, Category: i.category, Location: i.location, "Date Found": (i.foundDate ?? i.dateFound ?? "").slice(0, 10), Status: i.status, "Claimed By": i.claimedBy ?? "" })), "lost-found-register"); toast.success("Lost & found register exported"); }}>Export CSV</Button>
             </div>
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Description</TableHead><TableHead>Category</TableHead><TableHead>Location</TableHead>
-                  <TableHead>Date found</TableHead><TableHead>Status</TableHead><TableHead>Claimed by</TableHead>
+                  <TableCell>Description</TableCell><TableCell>Category</TableCell><TableCell>Location</TableCell>
+                  <TableCell>Date found</TableCell><TableCell>Status</TableCell><TableCell>Claimed by</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {filtered.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium max-w-[160px] truncate" title={item.description}>{item.description}</TableCell>
-                    <TableCell><Badge variant="outline">{item.category}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={item.category} sx={badgeSx("outline")} /></TableCell>
                     <TableCell className="text-muted-foreground">{item.location}</TableCell>
                     <TableCell>{(item.foundDate ?? item.dateFound ?? "").slice(0, 10)}</TableCell>
                     <TableCell>{statusBadge(item.status ?? "Unclaimed")}</TableCell>
@@ -407,8 +422,10 @@ function LostFoundPage() {
                 )}
               </TableBody>
             </Table>
-          </TabsContent>
-        </Tabs>
+            </TableContainer>
+          </Box>
+        )}
+        </Box>
       )}
     </div>
     </AccessGuard>

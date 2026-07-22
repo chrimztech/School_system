@@ -1,15 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { GraduationCap, Languages, CalendarCheck2, Award, BookOpen, AlertTriangle } from "lucide-react";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   PHASES, PATHWAYS, CHANGES_2025,
   PRIMARY_GRADING, SECONDARY_GRADING, ALEVEL_GRADING, ECE_GRADING,
 } from "@/lib/curriculum";
 import { useTenant } from "@/lib/tenant";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/curriculum")({
   head: () => ({ meta: [{ title: "Curriculum Framework — SRMS" }] }),
@@ -17,6 +26,7 @@ export const Route = createFileRoute("/curriculum")({
 });
 
 function CurriculumPage() {
+  const [tab, setTab] = useState("phases");
   const { active } = useTenant();
 
   return (
@@ -34,17 +44,18 @@ function CurriculumPage() {
         </span>
       </div>
 
-      <Tabs defaultValue="phases" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="phases">Phases &amp; Grades</TabsTrigger>
-          <TabsTrigger value="pathways">Pathways</TabsTrigger>
-          <TabsTrigger value="grading">Grading Scales</TabsTrigger>
-          <TabsTrigger value="exams">ECZ Examinations</TabsTrigger>
-          <TabsTrigger value="changes">2025 Changes</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2 }}>
+        <Tab value="phases" label="Phases & Grades" />
+        <Tab value="pathways" label="Pathways" />
+        <Tab value="grading" label="Grading Scales" />
+        <Tab value="exams" label="ECZ Examinations" />
+        <Tab value="changes" label="2025 Changes" />
+      </Tabs>
 
-        {/* ── Phases ────────────────────────────────────────────────── */}
-        <TabsContent value="phases" className="space-y-4">
+      {/* ── Phases ────────────────────────────────────────────────── */}
+      {tab === "phases" && (
+        <Box sx={{ mt: 1.5 }}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {PHASES.map((p) => (
               <div key={p.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -56,7 +67,7 @@ function CurriculumPage() {
                   <GraduationCap className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1">
-                  {p.grades.map((g) => <Badge key={g} variant="secondary" className="text-xs">{g}</Badge>)}
+                  {p.grades.map((g) => <Chip key={g} size="small" label={g} sx={badgeSx("secondary")} />)}
                 </div>
                 <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
                   <p className="flex items-center gap-2"><CalendarCheck2 className="h-3.5 w-3.5 shrink-0" />{p.ageRange}</p>
@@ -67,10 +78,12 @@ function CurriculumPage() {
               </div>
             ))}
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* ── Pathways ──────────────────────────────────────────────── */}
-        <TabsContent value="pathways" className="space-y-4">
+      {/* ── Pathways ──────────────────────────────────────────────── */}
+      {tab === "pathways" && (
+        <Box sx={{ mt: 1.5 }}>
           <p className="text-sm text-muted-foreground">
             From O-Level onwards learners choose between two broad tracks. Both tracks lead to an ECZ School Certificate.
           </p>
@@ -99,10 +112,12 @@ function CurriculumPage() {
               </div>
             ))}
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* ── Grading Scales ────────────────────────────────────────── */}
-        <TabsContent value="grading" className="space-y-4">
+      {/* ── Grading Scales ────────────────────────────────────────── */}
+      {tab === "grading" && (
+        <Box sx={{ mt: 1.5 }}>
           <p className="text-sm text-muted-foreground">Four separate grading systems apply across the phases. A-Level uses its own letter scale distinct from O-Level.</p>
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
             <ScaleCard
@@ -130,21 +145,24 @@ function CurriculumPage() {
               rows={ALEVEL_GRADING.map((b) => ({ symbol: b.symbol, range: `${b.min}–${b.max}%`, descriptor: b.descriptor }))}
             />
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* ── ECZ Examinations ──────────────────────────────────────── */}
-        <TabsContent value="exams">
+      {/* ── ECZ Examinations ──────────────────────────────────────── */}
+      {tab === "exams" && (
+        <Box sx={{ mt: 1.5 }}>
           <div className="rounded-xl border border-border bg-card shadow-sm">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Phase</TableHead>
-                  <TableHead>Examination</TableHead>
-                  <TableHead>Sat at</TableHead>
-                  <TableHead>Awarding body</TableHead>
-                  <TableHead>Outcome</TableHead>
+                  <TableCell>Phase</TableCell>
+                  <TableCell>Examination</TableCell>
+                  <TableCell>Sat at</TableCell>
+                  <TableCell>Awarding body</TableCell>
+                  <TableCell>Outcome</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 <TableRow>
                   <TableCell>
@@ -191,28 +209,32 @@ function CurriculumPage() {
                 </TableRow>
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* ── 2025 Changes ──────────────────────────────────────────── */}
-        <TabsContent value="changes" className="space-y-4">
+      {/* ── 2025 Changes ──────────────────────────────────────────── */}
+      {tab === "changes" && (
+        <Box sx={{ mt: 1.5 }}>
           <p className="text-sm text-muted-foreground">
             Summary of what changed when Zambia moved from the 2013 CDC framework to the 2025 ECF. Share this with staff and parents during the transition period.
           </p>
           <div className="rounded-xl border border-border bg-card shadow-sm">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead className="w-32">Area</TableHead>
-                  <TableHead className="w-64">Change</TableHead>
-                  <TableHead>Detail</TableHead>
+                  <TableCell className="w-32">Area</TableCell>
+                  <TableCell className="w-64">Change</TableCell>
+                  <TableCell>Detail</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {CHANGES_2025.map((c, i) => (
                   <TableRow key={i}>
                     <TableCell>
-                      <Badge variant="outline" className="text-xs">{c.area}</Badge>
+                      <Chip size="small" label={c.area} sx={badgeSx("outline")} />
                     </TableCell>
                     <TableCell className="font-medium text-sm">{c.change}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{c.detail}</TableCell>
@@ -220,9 +242,11 @@ function CurriculumPage() {
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
   );
 }
@@ -242,14 +266,15 @@ function ScaleCard({
         <p className="text-sm font-semibold">{title}</p>
         <p className="text-xs opacity-80">{subtitle}</p>
       </div>
+      <TableContainer>
       <Table>
-        <TableHeader>
+        <TableHead>
           <TableRow>
-            <TableHead className="w-14">Grade</TableHead>
-            <TableHead>Range</TableHead>
-            <TableHead>Descriptor</TableHead>
+            <TableCell className="w-14">Grade</TableCell>
+            <TableCell>Range</TableCell>
+            <TableCell>Descriptor</TableCell>
           </TableRow>
-        </TableHeader>
+        </TableHead>
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.symbol}>
@@ -260,6 +285,7 @@ function ScaleCard({
           ))}
         </TableBody>
       </Table>
+      </TableContainer>
     </div>
   );
 }

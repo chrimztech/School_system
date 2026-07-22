@@ -6,7 +6,8 @@ export type BackendAuthSession = {
   token: string;
   id: string;
   name: string;
-  email: string;
+  email?: string | null;
+  phone?: string | null;
   role: string;
   schoolId?: string | null;
   initials?: string | null;
@@ -15,7 +16,7 @@ export type BackendAuthSession = {
 export type BackendAppUser = {
   id: string;
   name: string;
-  email: string;
+  email?: string | null;
   role: string;
   initials?: string | null;
   schoolId?: string | null;
@@ -292,9 +293,9 @@ export const api = {
   },
 
   // Auth
-  login: (email: string, password: string) =>
+  login: (identifier: string, password: string) =>
     unwrap<BackendAuthSession>(
-      apiClient.post("/api/auth/login", { email, password })
+      apiClient.post("/api/auth/login", { identifier, password })
     ),
   auth: {
     me: () => unwrap<BackendAppUser>(apiClient.get("/api/auth/me")),
@@ -332,7 +333,7 @@ export const api = {
   // School users
   users: {
     list: (schoolId: string) => unwrap<BackendAppUser[]>(apiClient.get(schoolPath(schoolId, "users"))),
-    create: (schoolId: string, data: { name: string; email: string; role: string; password?: string; phone?: string }) =>
+    create: (schoolId: string, data: { name: string; email?: string; role: string; password?: string; phone?: string }) =>
       unwrap<BackendAppUser>(apiClient.post(schoolPath(schoolId, "users"), data)),
     updateForSchool: (schoolId: string, userId: string, data: { role?: string; phone?: string; active?: boolean; password?: string }) =>
       unwrap<BackendAppUser>(apiClient.patch(schoolPath(schoolId, `users/${userId}`), data)),
@@ -354,8 +355,8 @@ export const api = {
     list: (schoolId: string, teacherEmail?: string) =>
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "students"), { params: teacherEmail ? { teacherEmail } : undefined })),
     get: (schoolId: string, id: string) => unwrap<any>(apiClient.get(schoolPath(schoolId, `students/${id}`))),
-    listByGuardian: (schoolId: string, email: string) =>
-      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "students/by-guardian"), { params: { email } })),
+    listByGuardian: (schoolId: string, identifier: { email?: string; phone?: string }) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "students/by-guardian"), { params: identifier })),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "students"), data)),
     bulkCreate: (schoolId: string, data: any[]) => unwrap<{ imported: number; errors: { row: number; error: string }[] }>(apiClient.post(schoolPath(schoolId, "students/bulk"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `students/${id}`), data)),

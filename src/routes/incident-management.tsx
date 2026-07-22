@@ -4,19 +4,13 @@ import { AlertTriangle, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/incident-management")({
   head: () => ({ meta: [{ title: "Incident Management — SRMS" }] }),
@@ -123,62 +117,31 @@ function IncidentManagementPage() {
         title="Incident management"
         description="Track incidents, coordinate response, and keep audit-ready records for school safety and operations."
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Log new incident</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Log new incident</DialogTitle></DialogHeader>
+          <>
+            <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Log new incident</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Log new incident</DialogTitle>
+              <DialogContent>
               <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <Label>Incident title *</Label>
-                  <Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Brief description of the incident" maxLength={120} />
-                </div>
+                <TextField label="Incident title *" fullWidth size="small" className="col-span-2" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Brief description of the incident" slotProps={{ htmlInput: { maxLength: 120 } }} />
+                <TextField type="date" label="Incident date" fullWidth size="small" value={form.incidentDate} onChange={(e) => setForm({ ...form, incidentDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField type="time" label="Incident time" fullWidth size="small" value={form.incidentTime} onChange={(e) => setForm({ ...form, incidentTime: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField select label="Type" fullWidth size="small" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as typeof TYPES[number] })}>
+                  {TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+                <TextField select label="Severity" fullWidth size="small" value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value as typeof SEVERITIES[number] })}>
+                  {SEVERITIES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </TextField>
+                <TextField select label="Reported by" fullWidth size="small" value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })}>
+                  {OWNERS.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                </TextField>
+                <TextField label="Location / venue" fullWidth size="small" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Sports field, Block C" slotProps={{ htmlInput: { maxLength: 80 } }} />
+                <TextField select label="Injury occurred" fullWidth size="small" value={form.injuryOccurred} onChange={(e) => setForm({ ...form, injuryOccurred: e.target.value })}>
+                  <MenuItem value="no">No injury</MenuItem>
+                  <MenuItem value="yes">Yes — injury reported</MenuItem>
+                </TextField>
                 <div>
-                  <Label>Incident date</Label>
-                  <Input type="date" className="mt-1" value={form.incidentDate} onChange={(e) => setForm({ ...form, incidentDate: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Incident time</Label>
-                  <Input type="time" className="mt-1" value={form.incidentTime} onChange={(e) => setForm({ ...form, incidentTime: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Type</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as typeof TYPES[number] })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Severity</Label>
-                  <Select value={form.severity} onValueChange={(v) => setForm({ ...form, severity: v as typeof SEVERITIES[number] })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{SEVERITIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Reported by</Label>
-                  <Select value={form.reportedBy} onValueChange={(v) => setForm({ ...form, reportedBy: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{OWNERS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Location / venue</Label>
-                  <Input className="mt-1" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Sports field, Block C" maxLength={80} />
-                </div>
-                <div>
-                  <Label>Injury occurred</Label>
-                  <Select value={form.injuryOccurred} onValueChange={(v) => setForm({ ...form, injuryOccurred: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No injury</SelectItem>
-                      <SelectItem value="yes">Yes — injury reported</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Injured party</Label>
+                  <span className="mb-1 block text-sm font-medium leading-none">Injured party</span>
                   <div className="mt-1 space-y-1.5">
                     <PersonCombobox
                       options={studentOptions}
@@ -188,11 +151,11 @@ function IncidentManagementPage() {
                       disabled={form.injuryOccurred !== "yes"}
                       onSelect={(option) => setForm((prev) => ({ ...prev, injuredParty: option.label }))}
                     />
-                    <Input value={form.injuredParty} onChange={(e) => setForm({ ...form, injuredParty: e.target.value })} placeholder="Name(s) if injury occurred" maxLength={120} disabled={form.injuryOccurred !== "yes"} />
+                    <TextField fullWidth size="small" value={form.injuredParty} onChange={(e) => setForm({ ...form, injuredParty: e.target.value })} placeholder="Name(s) if injury occurred" slotProps={{ htmlInput: { maxLength: 120 } }} disabled={form.injuryOccurred !== "yes"} />
                   </div>
                 </div>
                 <div>
-                  <Label>Investigation assigned to</Label>
+                  <span className="mb-1 block text-sm font-medium leading-none">Investigation assigned to</span>
                   <div className="mt-1 space-y-1.5">
                     <PersonCombobox
                       options={staffOptions}
@@ -201,42 +164,25 @@ function IncidentManagementPage() {
                       emptyText="No staff found."
                       onSelect={(option) => setForm((prev) => ({ ...prev, investigationAssignedTo: option.label }))}
                     />
-                    <Input value={form.investigationAssignedTo} onChange={(e) => setForm({ ...form, investigationAssignedTo: e.target.value })} placeholder="e.g. Deputy Head, Security" maxLength={100} />
+                    <TextField fullWidth size="small" value={form.investigationAssignedTo} onChange={(e) => setForm({ ...form, investigationAssignedTo: e.target.value })} placeholder="e.g. Deputy Head, Security" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   </div>
                 </div>
-                <div>
-                  <Label>Evidence / case reference</Label>
-                  <Input className="mt-1" value={form.evidenceRef} onChange={(e) => setForm({ ...form, evidenceRef: e.target.value })} placeholder="e.g. CCTV footage #, police ref" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Notify parent / guardian</Label>
-                  <Select value={form.notifyParent} onValueChange={(v) => setForm({ ...form, notifyParent: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">Not required</SelectItem>
-                      <SelectItem value="yes">Yes — notify parent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <Label>Incident details</Label>
-                  <Textarea className="mt-1" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Full context, people involved, sequence of events..." maxLength={600} />
-                </div>
-                <div className="col-span-2">
-                  <Label>Root cause analysis</Label>
-                  <Textarea className="mt-1" rows={2} value={form.rootCauseAnalysis} onChange={(e) => setForm({ ...form, rootCauseAnalysis: e.target.value })} placeholder="Identify contributing factors and systemic causes" maxLength={400} />
-                </div>
-                <div className="col-span-2">
-                  <Label>Preventive / corrective action</Label>
-                  <Textarea className="mt-1" rows={2} value={form.preventiveAction} onChange={(e) => setForm({ ...form, preventiveAction: e.target.value })} placeholder="Steps taken or recommended to prevent recurrence" maxLength={400} />
-                </div>
+                <TextField label="Evidence / case reference" fullWidth size="small" value={form.evidenceRef} onChange={(e) => setForm({ ...form, evidenceRef: e.target.value })} placeholder="e.g. CCTV footage #, police ref" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                <TextField select label="Notify parent / guardian" fullWidth size="small" value={form.notifyParent} onChange={(e) => setForm({ ...form, notifyParent: e.target.value })}>
+                  <MenuItem value="no">Not required</MenuItem>
+                  <MenuItem value="yes">Yes — notify parent</MenuItem>
+                </TextField>
+                <TextField label="Incident details" fullWidth size="small" multiline minRows={2} className="col-span-2" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Full context, people involved, sequence of events..." slotProps={{ htmlInput: { maxLength: 600 } }} />
+                <TextField label="Root cause analysis" fullWidth size="small" multiline minRows={2} className="col-span-2" value={form.rootCauseAnalysis} onChange={(e) => setForm({ ...form, rootCauseAnalysis: e.target.value })} placeholder="Identify contributing factors and systemic causes" slotProps={{ htmlInput: { maxLength: 400 } }} />
+                <TextField label="Preventive / corrective action" fullWidth size="small" multiline minRows={2} className="col-span-2" value={form.preventiveAction} onChange={(e) => setForm({ ...form, preventiveAction: e.target.value })} placeholder="Steps taken or recommended to prevent recurrence" slotProps={{ htmlInput: { maxLength: 400 } }} />
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              </DialogContent>
+              <DialogActions className="mt-2">
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button onClick={logIncident} disabled={createMut.isPending}>Log incident</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogActions>
+            </Dialog>
+          </>
         }
       />
 
@@ -254,18 +200,19 @@ function IncidentManagementPage() {
               <h2 className="text-sm font-semibold text-foreground">Active incident queue</h2>
               <p className="text-xs text-muted-foreground">Open issues with assigned owners and severity.</p>
             </div>
-            <Badge variant="destructive">Priority</Badge>
+            <Chip size="small" label="Priority" sx={badgeSx("destructive")} />
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Issue</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Reported by</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
+                <TableCell>Issue</TableCell>
+                <TableCell>Severity</TableCell>
+                <TableCell>Reported by</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -277,22 +224,30 @@ function IncidentManagementPage() {
                     {incident.location && <div className="text-xs text-muted-foreground">{incident.location}</div>}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={incident.severity === "High" ? "destructive" : incident.severity === "Medium" ? "warning" : "outline"}>
-                      {incident.severity}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={incident.severity}
+                      sx={badgeSx(incident.severity === "High" ? "destructive" : incident.severity === "Medium" ? "warning" : "outline")}
+                    />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{incident.reportedBy}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{incident.incidentDate || incident.date}</TableCell>
                   <TableCell>
-                    <Select value={incident.status} onValueChange={(v) => { updateMut.mutate({ id: incident.id, status: v }); toast.success(`Incident status updated to ${v}`); }}>
-                      <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      size="small"
+                      className="w-32"
+                      value={incident.status}
+                      onChange={(e) => { updateMut.mutate({ id: incident.id, status: e.target.value }); toast.success(`Incident status updated to ${e.target.value}`); }}
+                    >
+                      {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </TextField>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -301,7 +256,7 @@ function IncidentManagementPage() {
               <h2 className="text-sm font-semibold text-foreground">Response readiness</h2>
               <p className="text-xs text-muted-foreground">Incident playbooks and escalation steps.</p>
             </div>
-            <Badge variant="secondary">Audit ready</Badge>
+            <Chip size="small" label="Audit ready" sx={badgeSx("secondary")} />
           </div>
           <div className="space-y-4">
             <div className="rounded-xl bg-muted/70 p-4">
@@ -312,7 +267,7 @@ function IncidentManagementPage() {
               <p className="font-medium text-foreground">Incident review</p>
               <p className="mt-2 text-sm text-muted-foreground">All reports logged and ready for review.</p>
             </div>
-            <Button variant="outline" asChild><Link to="/risk-register">Escalate to risk register</Link></Button>
+            <Button component={Link} to="/risk-register" variant="outlined">Escalate to risk register</Button>
           </div>
         </div>
       </div>

@@ -2,19 +2,26 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { BellRing, Layers3, ShieldAlert, ShieldCheck, Sparkles, Workflow } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import LinearProgress from "@mui/material/LinearProgress";
+import Switch from "@mui/material/Switch";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx } from "@/lib/utils";
 
 type RolloutState = "Enabled" | "Pilot" | "Disabled";
 type Rollout = {
@@ -33,6 +40,7 @@ export const Route = createFileRoute("/platform-config")({
 
 function PlatformConfigPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState("rollouts");
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const [rollouts, setRollouts] = useState<Rollout[]>([]);
@@ -102,7 +110,7 @@ function PlatformConfigPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -239,11 +247,8 @@ function PlatformConfigPage() {
         description="Control global defaults, release rollouts, security baselines, and tenant-wide communication settings."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/platform-ops">Open platform ops</Link>
-            </Button>
-            <Button onClick={publishBanner}>
-              <BellRing className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/platform-ops">Open platform ops</Button>
+            <Button onClick={publishBanner} startIcon={<BellRing className="h-4 w-4" />}>
               Publish banner
             </Button>
           </>
@@ -257,26 +262,27 @@ function PlatformConfigPage() {
         <StatCard label="Active digests" value={stats.digestsEnabled} accent="accent" icon={<BellRing className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="rollouts" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="rollouts">Feature Rollouts</TabsTrigger>
-          <TabsTrigger value="security">Identity & Security</TabsTrigger>
-          <TabsTrigger value="communications">Communications</TabsTrigger>
-          <TabsTrigger value="defaults">Platform Defaults</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="rollouts" label="Feature Rollouts" />
+        <Tab value="security" label="Identity & Security" />
+        <Tab value="communications" label="Communications" />
+        <Tab value="defaults" label="Platform Defaults" />
+      </Tabs>
 
-        <TabsContent value="rollouts" className="rounded-xl border border-border bg-card">
+      {tab === "rollouts" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Capability</TableHead>
-                <TableHead>Audience</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Coverage</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Capability</TableCell>
+                <TableCell>Audience</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Coverage</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {rollouts.map((rollout) => (
                 <TableRow key={rollout.id}>
@@ -294,16 +300,18 @@ function PlatformConfigPage() {
                         <span>{rollout.coverage}%</span>
                         <span className="text-muted-foreground">{rollout.state}</span>
                       </div>
-                      <Progress value={rollout.coverage} className="h-2" />
+                      <LinearProgress variant="determinate" value={rollout.coverage} sx={{ height: 8, borderRadius: 999 }} />
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={rollout.state === "Enabled" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : rollout.state === "Pilot" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                      {rollout.state}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={rollout.state}
+                      sx={badgeSx(rollout.state === "Enabled" ? "success" : rollout.state === "Pilot" ? "warning" : "secondary")}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => cycleRollout(rollout.id)}>
+                    <Button variant="outlined" size="small" onClick={() => cycleRollout(rollout.id)}>
                       {rollout.state === "Disabled" ? "Start pilot" : rollout.state === "Pilot" ? "Enable globally" : "Disable"}
                     </Button>
                   </TableCell>
@@ -311,9 +319,12 @@ function PlatformConfigPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="security" className="grid gap-4 lg:grid-cols-2">
+      {tab === "security" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Baseline policies</p>
             <div className="mt-4 space-y-4">
@@ -322,21 +333,21 @@ function PlatformConfigPage() {
                   <p className="font-medium">Require MFA for all admins</p>
                   <p className="text-sm text-muted-foreground">Applies to system admins and school admins.</p>
                 </div>
-                <Switch checked={security.mfaRequired} onCheckedChange={(value) => setSecurity((current) => ({ ...current, mfaRequired: value }))} />
+                <Switch checked={security.mfaRequired} onChange={(e) => setSecurity((current) => ({ ...current, mfaRequired: e.target.checked }))} />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
                 <div>
                   <p className="font-medium">Send login anomaly alerts</p>
                   <p className="text-sm text-muted-foreground">Notify security ops on suspicious access patterns.</p>
                 </div>
-                <Switch checked={security.loginAlerts} onCheckedChange={(value) => setSecurity((current) => ({ ...current, loginAlerts: value }))} />
+                <Switch checked={security.loginAlerts} onChange={(e) => setSecurity((current) => ({ ...current, loginAlerts: e.target.checked }))} />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
                 <div>
                   <p className="font-medium">Restrict system admin IP ranges</p>
                   <p className="text-sm text-muted-foreground">Only permit platform-admin login from approved networks.</p>
                 </div>
-                <Switch checked={security.ipAllowlist} onCheckedChange={(value) => setSecurity((current) => ({ ...current, ipAllowlist: value }))} />
+                <Switch checked={security.ipAllowlist} onChange={(e) => setSecurity((current) => ({ ...current, ipAllowlist: e.target.checked }))} />
               </div>
             </div>
           </div>
@@ -344,38 +355,50 @@ function PlatformConfigPage() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Session controls</p>
             <div className="mt-4 grid gap-4">
-              <div>
-                <Label>Admin session lifetime (hours)</Label>
-                <Input className="mt-1" value={security.sessionHours} onChange={(event) => setSecurity((current) => ({ ...current, sessionHours: event.target.value }))} />
-              </div>
-              <div>
-                <Label>Password rotation (days)</Label>
-                <Input className="mt-1" value={security.passwordDays} onChange={(event) => setSecurity((current) => ({ ...current, passwordDays: event.target.value }))} />
-              </div>
+              <TextField
+                label="Admin session lifetime (hours)"
+                value={security.sessionHours}
+                onChange={(event) => setSecurity((current) => ({ ...current, sessionHours: event.target.value }))}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Password rotation (days)"
+                value={security.passwordDays}
+                onChange={(event) => setSecurity((current) => ({ ...current, passwordDays: event.target.value }))}
+                fullWidth
+                size="small"
+              />
             </div>
             <div className="mt-5 flex gap-2">
               <Button onClick={saveSecurity}>Save policy</Button>
-              <Button variant="outline" asChild>
-                <Link to="/security">Open security ops</Link>
-              </Button>
+              <Button variant="outlined" component={Link} to="/security">Open security ops</Button>
             </div>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="communications" className="grid gap-4 lg:grid-cols-2">
+      {tab === "communications" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Status messaging</p>
             <div className="mt-4 grid gap-4">
-              <div>
-                <Label>System banner</Label>
-                <Input className="mt-1" value={comms.banner} onChange={(event) => setComms((current) => ({ ...current, banner: event.target.value }))} />
-              </div>
-              <div>
-                <Label>Maintenance window</Label>
-                <Input className="mt-1" value={comms.maintenanceWindow} onChange={(event) => setComms((current) => ({ ...current, maintenanceWindow: event.target.value }))} />
-              </div>
+              <TextField
+                label="System banner"
+                value={comms.banner}
+                onChange={(event) => setComms((current) => ({ ...current, banner: event.target.value }))}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Maintenance window"
+                value={comms.maintenanceWindow}
+                onChange={(event) => setComms((current) => ({ ...current, maintenanceWindow: event.target.value }))}
+                fullWidth
+                size="small"
+              />
             </div>
-            <Button className="mt-5" onClick={publishBanner}>Publish update</Button>
+            <Button sx={{ mt: 2.5 }} onClick={publishBanner}>Publish update</Button>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -386,45 +409,57 @@ function PlatformConfigPage() {
                   <p className="font-medium">Release digest</p>
                   <p className="text-sm text-muted-foreground">Send weekly change summaries to platform stakeholders.</p>
                 </div>
-                <Switch checked={comms.releaseDigest} onCheckedChange={(value) => setComms((current) => ({ ...current, releaseDigest: value }))} />
+                <Switch checked={comms.releaseDigest} onChange={(e) => setComms((current) => ({ ...current, releaseDigest: e.target.checked }))} />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
                 <div>
                   <p className="font-medium">Incident digest</p>
                   <p className="text-sm text-muted-foreground">Summarise major incidents and tenant impact daily.</p>
                 </div>
-                <Switch checked={comms.incidentDigest} onCheckedChange={(value) => setComms((current) => ({ ...current, incidentDigest: value }))} />
+                <Switch checked={comms.incidentDigest} onChange={(e) => setComms((current) => ({ ...current, incidentDigest: e.target.checked }))} />
               </div>
             </div>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="defaults" className="grid gap-4 lg:grid-cols-2">
+      {tab === "defaults" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Commercial and workflow defaults</p>
             <div className="mt-4 grid gap-4">
-              <div>
-                <Label>Default plan for new trials</Label>
-                <Input className="mt-1" value={defaults.defaultPlan} onChange={(event) => setDefaults((current) => ({ ...current, defaultPlan: event.target.value }))} />
-              </div>
-              <div>
-                <Label>Approval model</Label>
-                <Input className="mt-1" value={defaults.approvalMode} onChange={(event) => setDefaults((current) => ({ ...current, approvalMode: event.target.value }))} />
-              </div>
-              <div>
-                <Label>Default archive retention (days)</Label>
-                <Input className="mt-1" value={defaults.archiveDays} onChange={(event) => setDefaults((current) => ({ ...current, archiveDays: event.target.value }))} />
-              </div>
-              <div>
-                <Label>Ticket routing strategy</Label>
-                <Input className="mt-1" value={defaults.ticketRouting} onChange={(event) => setDefaults((current) => ({ ...current, ticketRouting: event.target.value }))} />
-              </div>
+              <TextField
+                label="Default plan for new trials"
+                value={defaults.defaultPlan}
+                onChange={(event) => setDefaults((current) => ({ ...current, defaultPlan: event.target.value }))}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Approval model"
+                value={defaults.approvalMode}
+                onChange={(event) => setDefaults((current) => ({ ...current, approvalMode: event.target.value }))}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Default archive retention (days)"
+                value={defaults.archiveDays}
+                onChange={(event) => setDefaults((current) => ({ ...current, archiveDays: event.target.value }))}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Ticket routing strategy"
+                value={defaults.ticketRouting}
+                onChange={(event) => setDefaults((current) => ({ ...current, ticketRouting: event.target.value }))}
+                fullWidth
+                size="small"
+              />
             </div>
             <div className="mt-5 flex gap-2">
               <Button onClick={saveDefaults}>Save defaults</Button>
-              <Button variant="outline" asChild>
-                <Link to="/plan-catalog">Open plan catalog</Link>
-              </Button>
+              <Button variant="outlined" component={Link} to="/plan-catalog">Open plan catalog</Button>
             </div>
           </div>
 
@@ -434,19 +469,13 @@ function PlatformConfigPage() {
               Operational cross-links
             </div>
             <div className="mt-4 space-y-3">
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/tenant-lifecycle">Tenant lifecycle</Link>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/platform-audit">Platform audit</Link>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/support-desk">Support desk</Link>
-              </Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/tenant-lifecycle">Tenant lifecycle</Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/platform-audit">Platform audit</Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/support-desk">Support desk</Button>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
     </div>
   );
 }

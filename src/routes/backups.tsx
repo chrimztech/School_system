@@ -11,18 +11,8 @@ import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
-import { downloadCsv } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { downloadCsv, badgeSx } from "@/lib/utils";
+import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, Box, Tabs, Tab } from "@mui/material";
 
 export const Route = createFileRoute("/backups")({
   head: () => ({ meta: [{ title: "Backups & Data - SRMS" }] }),
@@ -42,12 +32,12 @@ function formatBytes(bytes: number) {
 
 function statusBadge(status: string) {
   if (status === "COMPLETED") {
-    return <Badge className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"><CheckCircle2 className="h-3 w-3" />Completed</Badge>;
+    return <Chip size="small" icon={<CheckCircle2 size={12} />} label="Completed" sx={badgeSx("success")} />;
   }
   if (status === "FAILED") {
-    return <Badge variant="outline" className="gap-1 border-destructive/30 bg-destructive/5 text-destructive"><XCircle className="h-3 w-3" />Failed</Badge>;
+    return <Chip size="small" icon={<XCircle size={12} />} label="Failed" sx={badgeSx("destructive")} />;
   }
-  return <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" />In progress</Badge>;
+  return <Chip size="small" icon={<Clock size={12} />} label="In progress" sx={badgeSx("outline")} />;
 }
 
 function BackupsPage() {
@@ -56,6 +46,7 @@ function BackupsPage() {
   const schoolId = active.id;
   const qc = useQueryClient();
 
+  const [tab, setTab] = useState("snapshots");
   const [exports, setExports] = useState<ExportItem[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -195,7 +186,7 @@ function BackupsPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">Backups and data management are restricted to school administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -209,8 +200,12 @@ function BackupsPage() {
         title="Backups & Data"
         description="Tenant-scoped snapshots, restore, and ad-hoc exports."
         actions={
-          <Button onClick={() => createMut.mutate()} disabled={createMut.isPending}>
-            {createMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <HardDrive className="mr-1 h-4 w-4" />}
+          <Button
+            variant="contained"
+            startIcon={createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <HardDrive size={16} />}
+            onClick={() => createMut.mutate()}
+            disabled={createMut.isPending}
+          >
             Backup now
           </Button>
         }
@@ -246,14 +241,15 @@ function BackupsPage() {
         )}
       </div>
 
-      <Tabs defaultValue="snapshots" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
-          <TabsTrigger value="exports">Exports</TabsTrigger>
-          <TabsTrigger value="policy">Policy</TabsTrigger>
-        </TabsList>
+      <Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="snapshots" label="Snapshots" />
+          <Tab value="exports" label="Exports" />
+          <Tab value="policy" label="Policy" />
+        </Tabs>
 
-        <TabsContent value="snapshots" className="rounded-xl border border-border bg-card">
+        {tab === "snapshots" && (
+        <Box className="rounded-xl border border-border bg-card">
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading snapshots…</span>
@@ -272,7 +268,7 @@ function BackupsPage() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium">{new Date(b.createdAt).toLocaleString()}</p>
                       {statusBadge(b.status)}
-                      <Badge variant="outline" className="text-[10px] uppercase">{b.triggeredBy}</Badge>
+                      <Chip size="small" label={b.triggeredBy} sx={{ ...badgeSx("outline"), fontSize: 10, textTransform: "uppercase" }} />
                     </div>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {b.status === "COMPLETED"
@@ -284,26 +280,32 @@ function BackupsPage() {
                   </div>
                   {b.status === "COMPLETED" && (
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" disabled={downloading === b.id} onClick={() => handleSnapshotDownload(b)}>
-                        {downloading === b.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={downloading === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download size={12} />}
+                        disabled={downloading === b.id}
+                        onClick={() => handleSnapshotDownload(b)}
+                      >
                         Download
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => setRestoreTarget(b)}>
-                        <RotateCcw className="mr-1 h-3 w-3" />
+                      <Button variant="outlined" size="small" startIcon={<RotateCcw size={12} />} onClick={() => setRestoreTarget(b)}>
                         Restore
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(b)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <IconButton size="small" aria-label="Delete backup" sx={{ color: "error.main" }} onClick={() => setDeleteTarget(b)}>
+                        <Trash2 size={12} />
+                      </IconButton>
                     </div>
                   )}
                 </li>
               ))}
             </ul>
           )}
-        </TabsContent>
+        </Box>
+        )}
 
-        <TabsContent value="exports" className="space-y-3">
+        {tab === "exports" && (
+        <Box className="space-y-3">
           {exports.map((item) => (
             <div key={item.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
               <div>
@@ -311,133 +313,137 @@ function BackupsPage() {
                 <p className="text-xs text-muted-foreground">{item.rows.toLocaleString()} rows · {item.when}</p>
               </div>
               <Button
-                variant="outline"
-                size="sm"
+                variant="outlined"
+                size="small"
+                startIcon={downloading === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download size={12} />}
                 disabled={downloading === item.id}
                 onClick={() => handleDownload(item)}
               >
-                {downloading === item.id
-                  ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  : <Download className="mr-1 h-3 w-3" />}
                 Download
               </Button>
             </div>
           ))}
-          <Button onClick={() => setExportOpen(true)} className="w-full" variant="outline">
+          <Button onClick={() => setExportOpen(true)} sx={{ width: "100%" }} variant="outlined">
             Create custom export
           </Button>
-        </TabsContent>
+        </Box>
+        )}
 
-        <TabsContent value="policy" className="space-y-4 rounded-xl border border-border bg-card p-6">
+        {tab === "policy" && (
+        <Box className="space-y-4 rounded-xl border border-border bg-card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Nightly automatic backup</p>
               <p className="text-xs text-muted-foreground">Runs for every active school at 02:00 CAT. The most recent 14 completed backups are kept per school; older ones are pruned automatically.</p>
             </div>
-            <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
-              <CheckCircle2 className="h-3 w-3" />Active
-            </Badge>
+            <Chip size="small" icon={<CheckCircle2 size={12} />} label="Active" sx={badgeSx("success")} />
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div>
               <p className="font-medium">Encryption at rest</p>
               <p className="text-xs text-muted-foreground">Not yet available — snapshot files are stored unencrypted on the application server's disk.</p>
             </div>
-            <Badge variant="outline" className="text-muted-foreground">Not available</Badge>
+            <Chip size="small" label="Not available" sx={badgeSx("outline")} />
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div>
               <p className="font-medium">Cross-region replication</p>
               <p className="text-xs text-muted-foreground">Mirror snapshots to a second data centre.</p>
             </div>
-            <Button size="sm" variant="outline" onClick={() => toast.info("Upgrade required")}>Upgrade</Button>
+            <Button size="small" variant="outlined" onClick={() => toast.info("Upgrade required")}>Upgrade</Button>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+        )}
+      </Box>
 
-      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Create custom export</DialogTitle></DialogHeader>
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create custom export</DialogTitle>
+        <DialogContent>
           <div className="grid gap-3">
-            <div>
-              <Label>Dataset</Label>
-              <Select value={exportForm.dataset} onValueChange={(value) => setExportForm({ ...exportForm, dataset: value })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Student register", "Fee ledger", "Attendance archive", "Audit log"].map((dataset) => (
-                    <SelectItem key={dataset} value={dataset}>{dataset}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Export format</Label>
-              <Select value={exportForm.format} onValueChange={(value) => setExportForm({ ...exportForm, format: value })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["CSV"].map((format) => (
-                    <SelectItem key={format} value={format}>{format}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Estimated rows</Label>
-              <Input className="mt-1" type="number" min={1} value={exportForm.rows} onChange={(event) => setExportForm({ ...exportForm, rows: event.target.value })} />
-            </div>
+            <TextField
+              select
+              label="Dataset"
+              value={exportForm.dataset}
+              onChange={(event) => setExportForm({ ...exportForm, dataset: event.target.value })}
+              fullWidth
+              size="small"
+            >
+              {["Student register", "Fee ledger", "Attendance archive", "Audit log"].map((dataset) => (
+                <MenuItem key={dataset} value={dataset}>{dataset}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Export format"
+              value={exportForm.format}
+              onChange={(event) => setExportForm({ ...exportForm, format: event.target.value })}
+              fullWidth
+              size="small"
+            >
+              {["CSV"].map((format) => (
+                <MenuItem key={format} value={format}>{format}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Estimated rows"
+              type="number"
+              slotProps={{ htmlInput: { min: 1 } }}
+              value={exportForm.rows}
+              onChange={(event) => setExportForm({ ...exportForm, rows: event.target.value })}
+              fullWidth
+              size="small"
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setExportOpen(false)}>Cancel</Button>
-            <Button onClick={queueExport}>Queue export</Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setExportOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={queueExport}>Queue export</Button>
+        </DialogActions>
       </Dialog>
 
-      <AlertDialog open={!!restoreTarget} onOpenChange={(open) => !open && setRestoreTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Restore this snapshot?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This replaces every current record for this school with the state captured on{" "}
-              {restoreTarget && new Date(restoreTarget.createdAt).toLocaleString()}. Anything created or
-              changed since then will be lost. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={restoreMut.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={restoreMut.isPending}
-              onClick={() => restoreTarget && restoreMut.mutate(restoreTarget.id)}
-            >
-              {restoreMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-              Restore
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={!!restoreTarget} onClose={() => setRestoreTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Restore this snapshot?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This replaces every current record for this school with the state captured on{" "}
+            {restoreTarget && new Date(restoreTarget.createdAt).toLocaleString()}. Anything created or
+            changed since then will be lost. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={restoreMut.isPending} onClick={() => setRestoreTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={restoreMut.isPending}
+            onClick={() => restoreTarget && restoreMut.mutate(restoreTarget.id)}
+          >
+            {restoreMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            Restore
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this backup?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The snapshot file and its record will be permanently removed. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMut.isPending}
-              onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
-            >
-              {deleteMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Delete this backup?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            The snapshot file and its record will be permanently removed. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={deleteMut.isPending} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteMut.isPending}
+            onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+          >
+            {deleteMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

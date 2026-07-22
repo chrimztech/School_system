@@ -1,19 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ArrowRightCircle, Building2, ShieldAlert, Siren, Workflow, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import LinearProgress from "@mui/material/LinearProgress";
+import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 
 type LifecycleStage = "Trial" | "Implementation" | "Go-live" | "Live" | "Recovery" | "Suspended";
 
@@ -33,10 +41,10 @@ function inferStage(status: string, campuses: number): LifecycleStage {
   return campuses > 1 ? "Live" : "Go-live";
 }
 
-function stageTone(stage: LifecycleStage) {
-  if (stage === "Live") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  if (stage === "Recovery" || stage === "Suspended") return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
-  return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+function stageTone(stage: LifecycleStage): BadgeTone {
+  if (stage === "Live") return "success";
+  if (stage === "Recovery" || stage === "Suspended") return "destructive";
+  return "warning";
 }
 
 export const Route = createFileRoute("/tenant-lifecycle")({
@@ -50,6 +58,7 @@ function TenantLifecyclePage() {
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const overrides = (workspace?.tenantLifecycleOverrides ?? {}) as Record<string, LifecycleOverride>;
+  const [tab, setTab] = useState("pipeline");
 
   if (user?.role !== "super_admin") {
     return (
@@ -57,7 +66,7 @@ function TenantLifecyclePage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button variant="outlined" component={Link} to="/">Go to dashboard</Button>
       </div>
     );
   }
@@ -226,11 +235,11 @@ function TenantLifecyclePage() {
         description="Track onboarding, implementation, go-live readiness, recovery, and suspended accounts across the full school portfolio."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/onboarding">Open onboarding</Link>
+            <Button variant="outlined" component={Link} to="/onboarding">
+              Open onboarding
             </Button>
-            <Button asChild>
-              <Link to="/tenant-success">Open tenant success</Link>
+            <Button variant="contained" component={Link} to="/tenant-success">
+              Open tenant success
             </Button>
           </>
         )}
@@ -243,26 +252,27 @@ function TenantLifecyclePage() {
         <StatCard label="Suspended accounts" value={stats.suspendedAccounts} accent="accent" icon={<Wrench className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="pipeline" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-          <TabsTrigger value="launch">Launch readiness</TabsTrigger>
-          <TabsTrigger value="recovery">Recovery & suspension</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="pipeline" label="Pipeline" />
+        <Tab value="launch" label="Launch readiness" />
+        <Tab value="recovery" label="Recovery & suspension" />
+      </Tabs>
 
-        <TabsContent value="pipeline" className="rounded-xl border border-border bg-card">
+      {tab === "pipeline" && (
+        <div className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>School</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Readiness</TableHead>
-                <TableHead>Blocker</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>School</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Plan</TableCell>
+                <TableCell>Stage</TableCell>
+                <TableCell>Readiness</TableCell>
+                <TableCell>Blocker</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {lifecycle.map((record) => (
                 <TableRow key={record.tenant.id}>
@@ -273,41 +283,46 @@ function TenantLifecyclePage() {
                     </div>
                   </TableCell>
                   <TableCell className="w-52">
-                    <Select value={record.owner} onValueChange={(value) => setOwner(record.tenant.id, value)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {implementationOwners.map((owner) => <SelectItem key={owner} value={owner}>{owner}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      value={record.owner}
+                      onChange={(e) => setOwner(record.tenant.id, e.target.value)}
+                      size="small"
+                      fullWidth
+                    >
+                      {implementationOwners.map((owner) => <MenuItem key={owner} value={owner}>{owner}</MenuItem>)}
+                    </TextField>
                   </TableCell>
                   <TableCell>{PLAN_CATALOG[record.tenant.subscription.planId].name}</TableCell>
-                  <TableCell><Badge className={stageTone(record.stage)}>{record.stage}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={record.stage} sx={badgeSx(stageTone(record.stage))} /></TableCell>
                   <TableCell className="w-44">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span>{record.readiness}%</span>
                         <span className="text-muted-foreground">{record.stage}</span>
                       </div>
-                      <Progress value={record.readiness} className="h-2" />
+                      <LinearProgress variant="determinate" value={record.readiness} sx={{ height: 8, borderRadius: 999 }} />
                     </div>
                   </TableCell>
                   <TableCell>{record.blocker}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => advanceStage(record.tenant.id)}>
-                        <ArrowRightCircle className="mr-1 h-4 w-4" />
+                      <Button size="small" variant="outlined" startIcon={<ArrowRightCircle size={16} />} onClick={() => advanceStage(record.tenant.id)}>
                         Advance
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => queueRecovery(record.tenant.id)}>Recovery</Button>
+                      <Button size="small" variant="outlined" onClick={() => queueRecovery(record.tenant.id)}>Recovery</Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        <TabsContent value="launch" className="grid gap-4 lg:grid-cols-2">
+      {tab === "launch" && (
+        <div className="grid gap-4 lg:grid-cols-2">
           {lifecycle.filter((record) => record.stage === "Trial" || record.stage === "Implementation" || record.stage === "Go-live").map((record) => (
             <div key={record.tenant.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -315,14 +330,14 @@ function TenantLifecyclePage() {
                   <p className="font-semibold">{record.tenant.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{record.owner}</p>
                 </div>
-                <Badge className={stageTone(record.stage)}>{record.stage}</Badge>
+                <Chip size="small" label={record.stage} sx={badgeSx(stageTone(record.stage))} />
               </div>
               <div className="mt-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Launch readiness</span>
                   <span>{record.readiness}%</span>
                 </div>
-                <Progress value={record.readiness} className="mt-2 h-2" />
+                <LinearProgress variant="determinate" value={record.readiness} sx={{ mt: 1, height: 8, borderRadius: 999 }} />
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg bg-muted/50 p-3">
@@ -336,16 +351,18 @@ function TenantLifecyclePage() {
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{record.blocker}</p>
               <div className="mt-4 flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => advanceStage(record.tenant.id)}>Advance stage</Button>
-                <Button size="sm" asChild>
-                  <Link to="/support-desk">Open support</Link>
+                <Button size="small" variant="outlined" onClick={() => advanceStage(record.tenant.id)}>Advance stage</Button>
+                <Button size="small" variant="contained" component={Link} to="/support-desk">
+                  Open support
                 </Button>
               </div>
             </div>
           ))}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="recovery" className="grid gap-4 lg:grid-cols-3">
+      {tab === "recovery" && (
+        <div className="grid gap-4 lg:grid-cols-3">
           {lifecycle.filter((record) => record.stage === "Recovery" || record.stage === "Suspended").map((record) => (
             <div key={record.tenant.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -353,7 +370,7 @@ function TenantLifecyclePage() {
                   <p className="font-semibold">{record.tenant.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{record.owner}</p>
                 </div>
-                <Badge className={stageTone(record.stage)}>{record.stage}</Badge>
+                <Chip size="small" label={record.stage} sx={badgeSx(stageTone(record.stage))} />
               </div>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -371,15 +388,15 @@ function TenantLifecyclePage() {
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{record.blocker}</p>
               <div className="mt-4 flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => advanceStage(record.tenant.id)}>Re-activate path</Button>
-                <Button size="sm" asChild>
-                  <Link to="/tenant-success">Open success</Link>
+                <Button size="small" variant="outlined" onClick={() => advanceStage(record.tenant.id)}>Re-activate path</Button>
+                <Button size="small" variant="contained" component={Link} to="/tenant-success">
+                  Open success
                 </Button>
               </div>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,28 +9,12 @@ import {
 import { toast } from "sonner";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Button, Chip, IconButton, InputAdornment, LinearProgress, MenuItem, Switch, TextField,
+  Dialog, DialogContent, DialogActions, DialogTitle, Menu, Divider, Tabs, Tab,
+  TableContainer, Table, TableHead, TableBody, TableRow, TableCell,
+} from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -54,7 +38,7 @@ const CYCLES: BillingCycle[] = ["monthly", "annual"];
 
 function PlanBadge({ planId }: { planId: PlanId }) {
   const ui = PLAN_UI[planId];
-  return <Badge className={ui.badgeClass}>{PLAN_CATALOG[planId].name}</Badge>;
+  return <Chip size="small" label={PLAN_CATALOG[planId].name} className={ui.badgeClass} sx={{ height: "auto", "& .MuiChip-label": { px: 1.25, py: 0.4 } }} />;
 }
 
 function StatusBadge({ status }: { status: SubscriptionStatus }) {
@@ -65,7 +49,7 @@ function StatusBadge({ status }: { status: SubscriptionStatus }) {
     past_due: <AlertTriangle className="h-3 w-3" />,
     suspended: <XCircle className="h-3 w-3" />,
   }[status];
-  return <Badge className={`${ui.badgeClass} flex items-center gap-1`}>{icon}{ui.label}</Badge>;
+  return <Chip size="small" icon={icon} label={ui.label} className={ui.badgeClass} sx={{ height: "auto", "& .MuiChip-label": { px: 1.25, py: 0.4 } }} />;
 }
 
 type EditForm = {
@@ -148,6 +132,8 @@ function SysAdminPage() {
   });
 
   const [q, setQ] = useState("");
+  const [rowMenuAnchor, setRowMenuAnchor] = useState<HTMLElement | null>(null);
+  const [rowMenuTenantId, setRowMenuTenantId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; shortCode: string } | null>(null);
@@ -158,6 +144,7 @@ function SysAdminPage() {
   });
   const [editFeatures, setEditFeatures] = useState<TenantFeatureFlags>(buildFeatureFlags("core"));
   const [showFeatures, setShowFeatures] = useState(false);
+  const [tab, setTab] = useState("schools");
 
   if (user?.role !== "super_admin") {
     return (
@@ -165,7 +152,7 @@ function SysAdminPage() {
         <XCircle className="h-10 w-10 text-destructive" />
         <p className="font-semibold text-lg">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -306,97 +293,107 @@ function SysAdminPage() {
         description="Manage all subscriber schools, plans, billing, and platform health."
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/platform-ops"><Activity className="mr-2 h-4 w-4" />Platform ops</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/onboarding"><Plus className="mr-2 h-4 w-4" />Onboard school</Link>
-            </Button>
+            <Button variant="outlined" component={Link} to="/platform-ops" startIcon={<Activity size={16} />}>Platform ops</Button>
+            <Button variant="contained" component={Link} to="/onboarding" startIcon={<Plus size={16} />}>Onboard school</Button>
           </>
         }
       />
 
       {/* Edit subscription dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit subscription — {tenants.find((t) => t.id === selectedId)?.name}</DialogTitle>
-          </DialogHeader>
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit subscription — {tenants.find((t) => t.id === selectedId)?.name}</DialogTitle>
+        <DialogContent>
           <div className="grid gap-3">
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Plan</Label>
-                <Select value={editForm.planId} onValueChange={(v) => {
-                  const p = v as PlanId;
+              <TextField
+                select
+                label="Plan"
+                value={editForm.planId}
+                onChange={(e) => {
+                  const p = e.target.value as PlanId;
                   setEditForm((f) => ({
                     ...f,
                     planId: p,
                     amount: String(f.billingCycle === "annual" ? PLAN_CATALOG[p].annualPrice : PLAN_CATALOG[p].monthlyPrice),
                   }));
                   setEditFeatures(buildFeatureFlags(p));
-                }}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PLAN_IDS.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {PLAN_CATALOG[p].name} — K{PLAN_CATALOG[p].monthlyPrice.toLocaleString()}/mo
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Status</Label>
-                <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v as SubscriptionStatus })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_UI[s].label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+                }}
+                fullWidth
+                size="small"
+              >
+                {PLAN_IDS.map((p) => (
+                  <MenuItem key={p} value={p}>
+                    {PLAN_CATALOG[p].name} — K{PLAN_CATALOG[p].monthlyPrice.toLocaleString()}/mo
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Status"
+                value={editForm.status}
+                onChange={(e) => setEditForm({ ...editForm, status: e.target.value as SubscriptionStatus })}
+                fullWidth
+                size="small"
+              >
+                {STATUSES.map((s) => <MenuItem key={s} value={s}>{STATUS_UI[s].label}</MenuItem>)}
+              </TextField>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Billing cycle</Label>
-                <Select value={editForm.billingCycle} onValueChange={(v) => {
-                  const billingCycle = v as BillingCycle;
+              <TextField
+                select
+                label="Billing cycle"
+                value={editForm.billingCycle}
+                onChange={(e) => {
+                  const billingCycle = e.target.value as BillingCycle;
                   const plan = PLAN_CATALOG[editForm.planId];
                   setEditForm((current) => ({
                     ...current,
                     billingCycle,
                     amount: String(billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice),
                   }));
-                }}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CYCLES.map((c) => <SelectItem key={c} value={c}>{c === "monthly" ? "Monthly" : "Annual"}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Amount (ZMW)</Label>
-                <Input type="number" min={0} className="mt-1" value={editForm.amount}
-                  onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} />
-              </div>
+                }}
+                fullWidth
+                size="small"
+              >
+                {CYCLES.map((c) => <MenuItem key={c} value={c}>{c === "monthly" ? "Monthly" : "Annual"}</MenuItem>)}
+              </TextField>
+              <TextField
+                type="number"
+                label="Amount (ZMW)"
+                slotProps={{ htmlInput: { min: 0 } }}
+                value={editForm.amount}
+                onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                fullWidth
+                size="small"
+              />
             </div>
-            <div>
-              <Label>Renewal date</Label>
-              <Input className="mt-1" value={editForm.renewalDate}
-                onChange={(e) => setEditForm({ ...editForm, renewalDate: e.target.value })}
-                placeholder="01 Jan 2027" maxLength={30} />
-            </div>
-            <div>
-              <Label>Billing contact email</Label>
-              <Input className="mt-1" value={editForm.billingContact}
-                onChange={(e) => setEditForm({ ...editForm, billingContact: e.target.value })}
-                placeholder="bursar@school.zm" maxLength={100} />
-            </div>
-            <div>
-              <Label>Notes</Label>
-              <Input className="mt-1" value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                placeholder="Optional internal note" maxLength={200} />
-            </div>
+            <TextField
+              label="Renewal date"
+              value={editForm.renewalDate}
+              onChange={(e) => setEditForm({ ...editForm, renewalDate: e.target.value })}
+              placeholder="01 Jan 2027"
+              slotProps={{ htmlInput: { maxLength: 30 } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Billing contact email"
+              value={editForm.billingContact}
+              onChange={(e) => setEditForm({ ...editForm, billingContact: e.target.value })}
+              placeholder="bursar@school.zm"
+              slotProps={{ htmlInput: { maxLength: 100 } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Notes"
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              placeholder="Optional internal note"
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+              fullWidth
+              size="small"
+            />
           </div>
 
           {/* Feature overrides */}
@@ -428,7 +425,7 @@ function SysAdminPage() {
                           <div key={fk} className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-0">
                             <Switch
                               checked={editFeatures[fk]}
-                              onCheckedChange={(v) => setEditFeatures((f) => ({ ...f, [fk]: v }))}
+                              onChange={(e) => setEditFeatures((f) => ({ ...f, [fk]: e.target.checked }))}
                               disabled={!inPlan}
                               className="shrink-0"
                             />
@@ -438,9 +435,12 @@ function SysAdminPage() {
                             {inPlan ? (
                               <span className="text-[9px] text-success font-medium shrink-0">In plan</span>
                             ) : (
-                              <Badge className={`${PLAN_UI[meta.availableFrom].badgeClass} text-[9px] shrink-0`}>
-                                {PLAN_CATALOG[meta.availableFrom].name}+
-                              </Badge>
+                              <Chip
+                                size="small"
+                                label={`${PLAN_CATALOG[meta.availableFrom].name}+`}
+                                className={PLAN_UI[meta.availableFrom].badgeClass}
+                                sx={{ height: "auto", flexShrink: 0, "& .MuiChip-label": { px: 1, py: 0.2, fontSize: 9 } }}
+                              />
                             )}
                           </div>
                         );
@@ -451,12 +451,11 @@ function SysAdminPage() {
               </div>
             )}
           </div>
-
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={saveEdit}>Save changes</Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions className="mt-2">
+          <Button variant="outlined" color="inherit" onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={saveEdit}>Save changes</Button>
+        </DialogActions>
       </Dialog>
 
       {/* Stats */}
@@ -496,38 +495,44 @@ function SysAdminPage() {
         </div>
       )}
 
-      <Tabs defaultValue="schools">
-        <TabsList>
-          <TabsTrigger value="schools">Schools ({tenants.length})</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          <TabsTrigger value="plans">Plans & pricing</TabsTrigger>
-          <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="schools" label={`Schools (${tenants.length})`} />
+        <Tab value="revenue" label="Revenue" />
+        <Tab value="plans" label="Plans & pricing" />
+        <Tab value="testimonials" label="Testimonials" />
+      </Tabs>
 
-        {/* SCHOOLS */}
-        <TabsContent value="schools" className="rounded-xl border border-border bg-card">
+      {/* SCHOOLS */}
+      {tab === "schools" && (
+        <div className="rounded-xl border border-border bg-card">
           <div className="flex items-center gap-3 border-b border-border p-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)}
-                placeholder="Search school name, district, or code" className="pl-9" />
+            <div className="flex-1">
+              <TextField
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search school name, district, or code"
+                fullWidth
+                size="small"
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+              />
             </div>
-            <Button variant="outline" size="sm" onClick={exportSubscribers}>Export CSV</Button>
+            <Button variant="outlined" size="small" onClick={exportSubscribers}>Export CSV</Button>
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>School</TableHead>
-                <TableHead>Structure</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Students</TableHead>
-                <TableHead>Monthly fee</TableHead>
-                <TableHead>Renewal</TableHead>
-                <TableHead>Support</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>School</TableCell>
+                <TableCell>Structure</TableCell>
+                <TableCell>Plan</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Students</TableCell>
+                <TableCell>Monthly fee</TableCell>
+                <TableCell>Renewal</TableCell>
+                <TableCell>Support</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {filtered.map((t) => (
                 <TableRow key={t.id} className={t.subscription.status === "suspended" ? "opacity-60" : ""}>
@@ -569,37 +574,13 @@ function SysAdminPage() {
                   <TableCell className="text-muted-foreground text-xs">{t.subscription.renewalDate}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{t.subscription.supportLevel}</TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openTenantWorkspace(t.id, "/")}>Open workspace</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openTenantWorkspace(t.id, "/billing")}>Open billing</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openTenantWorkspace(t.id, "/access")}>Manage users</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => openEdit(t.id)}>Edit subscription</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {t.subscription.status !== "active" && (
-                          <DropdownMenuItem onClick={() => quickStatus(t.id, "active")}>Activate</DropdownMenuItem>
-                        )}
-                        {t.subscription.status !== "past_due" && (
-                          <DropdownMenuItem onClick={() => quickStatus(t.id, "past_due")}>Mark past due</DropdownMenuItem>
-                        )}
-                        {t.subscription.status !== "suspended" ? (
-                          <DropdownMenuItem className="text-destructive" onClick={() => quickStatus(t.id, "suspended")}>Suspend</DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => quickStatus(t.id, "active")}>Reactivate</DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => { setDeleteTarget({ id: t.id, name: t.name, shortCode: t.shortCode }); setDeleteConfirmText(""); }}
-                        >
-                          Delete school permanently
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <IconButton
+                      size="small"
+                      aria-label={`Actions for ${t.name}`}
+                      onClick={(e) => { setRowMenuAnchor(e.currentTarget); setRowMenuTenantId(t.id); }}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -612,47 +593,88 @@ function SysAdminPage() {
               )}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) { setDeleteTarget(null); setDeleteConfirmText(""); } }}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-destructive">Delete school permanently</DialogTitle>
-            </DialogHeader>
+      <Menu
+          anchorEl={rowMenuAnchor}
+          open={Boolean(rowMenuAnchor)}
+          onClose={() => { setRowMenuAnchor(null); setRowMenuTenantId(null); }}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          {(() => {
+            const t = tenants.find((x) => x.id === rowMenuTenantId);
+            if (!t) return null;
+            const closeMenu = () => { setRowMenuAnchor(null); setRowMenuTenantId(null); };
+            return [
+              <MenuItem key="workspace" onClick={() => { openTenantWorkspace(t.id, "/"); closeMenu(); }}>Open workspace</MenuItem>,
+              <MenuItem key="billing" onClick={() => { openTenantWorkspace(t.id, "/billing"); closeMenu(); }}>Open billing</MenuItem>,
+              <MenuItem key="access" onClick={() => { openTenantWorkspace(t.id, "/access"); closeMenu(); }}>Manage users</MenuItem>,
+              <Divider key="d1" />,
+              <MenuItem key="edit" onClick={() => { openEdit(t.id); closeMenu(); }}>Edit subscription</MenuItem>,
+              <Divider key="d2" />,
+              ...(t.subscription.status !== "active"
+                ? [<MenuItem key="activate" onClick={() => { quickStatus(t.id, "active"); closeMenu(); }}>Activate</MenuItem>]
+                : []),
+              ...(t.subscription.status !== "past_due"
+                ? [<MenuItem key="pastdue" onClick={() => { quickStatus(t.id, "past_due"); closeMenu(); }}>Mark past due</MenuItem>]
+                : []),
+              t.subscription.status !== "suspended" ? (
+                <MenuItem key="suspend" className="text-destructive" onClick={() => { quickStatus(t.id, "suspended"); closeMenu(); }}>Suspend</MenuItem>
+              ) : (
+                <MenuItem key="reactivate" onClick={() => { quickStatus(t.id, "active"); closeMenu(); }}>Reactivate</MenuItem>
+              ),
+              <Divider key="d3" />,
+              <MenuItem
+                key="delete"
+                className="text-destructive"
+                onClick={() => { setDeleteTarget({ id: t.id, name: t.name, shortCode: t.shortCode }); setDeleteConfirmText(""); closeMenu(); }}
+              >
+                Delete school permanently
+              </MenuItem>,
+            ];
+          })()}
+        </Menu>
+
+        <Dialog open={!!deleteTarget} onClose={() => { setDeleteTarget(null); setDeleteConfirmText(""); }} maxWidth="sm" fullWidth>
+          <DialogTitle className="text-destructive">Delete school permanently</DialogTitle>
+          <DialogContent>
             <div className="space-y-3 text-sm">
               <p>
                 This permanently erases <strong>{deleteTarget?.name}</strong> and every record tied to
                 it — students, teachers, classes, fees, attendance, everything. There is no undo and
                 no way for a platform admin to recover it afterwards.
               </p>
-              <div>
-                <Label>
-                  Type <span className="font-mono font-semibold">{deleteTarget?.shortCode}</span> to confirm
-                </Label>
-                <Input
-                  className="mt-1 font-mono"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
+              <TextField
+                label={<>Type <span className="font-mono font-semibold">{deleteTarget?.shortCode}</span> to confirm</>}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                autoComplete="off"
+                fullWidth
+                size="small"
+                slotProps={{ htmlInput: { className: "font-mono" } }}
+              />
             </div>
-            <DialogFooter className="mt-2">
-              <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteConfirmText(""); }}>Cancel</Button>
-              <Button
-                variant="destructive"
-                disabled={deleteSchool.isPending || deleteConfirmText !== deleteTarget?.shortCode}
-                onClick={() => deleteTarget && deleteSchool.mutate(deleteTarget.id)}
-              >
-                {deleteSchool.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Delete permanently
-              </Button>
-            </DialogFooter>
           </DialogContent>
-        </Dialog>
+          <DialogActions className="mt-2">
+            <Button variant="outlined" color="inherit" onClick={() => { setDeleteTarget(null); setDeleteConfirmText(""); }}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="error"
+              disabled={deleteSchool.isPending || deleteConfirmText !== deleteTarget?.shortCode}
+              onClick={() => deleteTarget && deleteSchool.mutate(deleteTarget.id)}
+            >
+              {deleteSchool.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete permanently
+            </Button>
+          </DialogActions>
+      </Dialog>
 
-        {/* REVENUE */}
-        <TabsContent value="revenue" className="space-y-4">
+      {/* REVENUE */}
+      {tab === "revenue" && (
+        <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             {/* MRR by plan */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-4">
@@ -666,7 +688,7 @@ function SysAdminPage() {
                     </div>
                     <span className="font-medium">K{planMrr.toLocaleString()}/mo</span>
                   </div>
-                  <Progress value={mrr > 0 ? (planMrr / mrr) * 100 : 0} className="h-2" />
+                  <LinearProgress variant="determinate" value={mrr > 0 ? (planMrr / mrr) * 100 : 0} sx={{ height: 8, borderRadius: 999 }} />
                 </div>
               ))}
               <div className="border-t border-border pt-3 flex items-center justify-between">
@@ -712,18 +734,19 @@ function SysAdminPage() {
             <div className="border-b border-border px-4 py-3">
               <p className="font-semibold">Per-school revenue detail</p>
             </div>
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>School</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Cycle</TableHead>
-                  <TableHead>Monthly</TableHead>
-                  <TableHead>Annual (projected)</TableHead>
-                  <TableHead>SMS quota used</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableCell>School</TableCell>
+                  <TableCell>Plan</TableCell>
+                  <TableCell>Cycle</TableCell>
+                  <TableCell>Monthly</TableCell>
+                  <TableCell>Annual (projected)</TableCell>
+                  <TableCell>SMS quota used</TableCell>
+                  <TableCell>Status</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {tenants.map((t) => {
                   const smsPct = t.subscription.smsQuota > 0 ? Math.round((t.subscription.smsUsed / t.subscription.smsQuota) * 100) : 0;
@@ -736,7 +759,7 @@ function SysAdminPage() {
                       <TableCell>K{(t.subscription.amount * 12).toLocaleString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Progress value={smsPct} className="h-1.5 w-16" />
+                          <LinearProgress variant="determinate" value={smsPct} sx={{ height: 6, width: 64, borderRadius: 999 }} />
                           <span className="text-xs text-muted-foreground">{smsPct}%</span>
                         </div>
                       </TableCell>
@@ -746,11 +769,14 @@ function SysAdminPage() {
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* PLANS */}
-        <TabsContent value="plans" className="space-y-4">
+      {/* PLANS */}
+      {tab === "plans" && (
+        <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {PLAN_IDS.map((planId) => {
               const plan = PLAN_CATALOG[planId];
@@ -770,7 +796,7 @@ function SysAdminPage() {
                       <p className="font-bold text-lg">{plan.name}</p>
                       <p className="text-xs text-muted-foreground">{plan.badge}</p>
                     </div>
-                    <Badge className={ui.badgeClass}>{schoolCount} school{schoolCount !== 1 ? "s" : ""}</Badge>
+                    <Chip size="small" label={`${schoolCount} school${schoolCount !== 1 ? "s" : ""}`} className={ui.badgeClass} sx={{ height: "auto", "& .MuiChip-label": { px: 1.25, py: 0.4 } }} />
                   </div>
                   <div>
                     <p className="text-3xl font-bold">K{plan.monthlyPrice.toLocaleString()}</p>
@@ -793,37 +819,27 @@ function SysAdminPage() {
               );
             })}
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* TESTIMONIALS */}
-        <TabsContent value="testimonials" className="space-y-4">
+      {/* TESTIMONIALS */}
+      {tab === "testimonials" && (
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Shown on the login page — only approved testimonials are public.</p>
-            <Dialog open={testimonialOpen} onOpenChange={setTestimonialOpen}>
-              <Button onClick={() => setTestimonialOpen(true)}><Plus className="mr-1.5 h-4 w-4" />Add testimonial</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setTestimonialOpen(true)}>Add testimonial</Button>
+            <Dialog open={testimonialOpen} onClose={() => setTestimonialOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Add testimonial</DialogTitle>
               <DialogContent>
-                <DialogHeader><DialogTitle>Add testimonial</DialogTitle></DialogHeader>
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Author name *</Label>
-                      <Input className="mt-1" value={testimonialForm.authorName} onChange={(e) => setTestimonialForm({ ...testimonialForm, authorName: e.target.value })} placeholder="Beatrice N." />
-                    </div>
-                    <div>
-                      <Label>Role</Label>
-                      <Input className="mt-1" value={testimonialForm.authorRole} onChange={(e) => setTestimonialForm({ ...testimonialForm, authorRole: e.target.value })} placeholder="Head Teacher" />
-                    </div>
+                    <TextField label="Author name *" value={testimonialForm.authorName} onChange={(e) => setTestimonialForm({ ...testimonialForm, authorName: e.target.value })} placeholder="Beatrice N." fullWidth size="small" />
+                    <TextField label="Role" value={testimonialForm.authorRole} onChange={(e) => setTestimonialForm({ ...testimonialForm, authorRole: e.target.value })} placeholder="Head Teacher" fullWidth size="small" />
                   </div>
+                  <TextField label="School" value={testimonialForm.schoolName} onChange={(e) => setTestimonialForm({ ...testimonialForm, schoolName: e.target.value })} placeholder="Combined School, Lusaka" fullWidth size="small" />
+                  <TextField label="Quote *" multiline minRows={3} value={testimonialForm.quote} onChange={(e) => setTestimonialForm({ ...testimonialForm, quote: e.target.value })} placeholder="SRMS transformed how we manage our learners..." fullWidth size="small" />
                   <div>
-                    <Label>School</Label>
-                    <Input className="mt-1" value={testimonialForm.schoolName} onChange={(e) => setTestimonialForm({ ...testimonialForm, schoolName: e.target.value })} placeholder="Combined School, Lusaka" />
-                  </div>
-                  <div>
-                    <Label>Quote *</Label>
-                    <Textarea className="mt-1" rows={3} value={testimonialForm.quote} onChange={(e) => setTestimonialForm({ ...testimonialForm, quote: e.target.value })} placeholder="SRMS transformed how we manage our learners..." />
-                  </div>
-                  <div>
-                    <Label>Rating</Label>
+                    <p className="text-sm font-medium mb-1">Rating</p>
                     <div className="mt-1 flex gap-1">
                       {[1, 2, 3, 4, 5].map((n) => (
                         <button key={n} type="button" onClick={() => setTestimonialForm({ ...testimonialForm, rating: n })}>
@@ -833,36 +849,38 @@ function SysAdminPage() {
                     </div>
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setTestimonialOpen(false)}>Cancel</Button>
-                  <Button
-                    disabled={createTestimonialMutation.isPending}
-                    onClick={() => {
-                      if (!testimonialForm.authorName.trim() || !testimonialForm.quote.trim()) {
-                        toast.error("Author name and quote are required");
-                        return;
-                      }
-                      createTestimonialMutation.mutate(testimonialForm);
-                    }}
-                  >
-                    Add testimonial
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setTestimonialOpen(false)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  disabled={createTestimonialMutation.isPending}
+                  onClick={() => {
+                    if (!testimonialForm.authorName.trim() || !testimonialForm.quote.trim()) {
+                      toast.error("Author name and quote are required");
+                      return;
+                    }
+                    createTestimonialMutation.mutate(testimonialForm);
+                  }}
+                >
+                  Add testimonial
+                </Button>
+              </DialogActions>
             </Dialog>
           </div>
 
           <div className="rounded-xl border border-border bg-card">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Author</TableHead>
-                  <TableHead>Quote</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Approved</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableCell>Author</TableCell>
+                  <TableCell>Quote</TableCell>
+                  <TableCell>Rating</TableCell>
+                  <TableCell>Approved</TableCell>
+                  <TableCell className="text-right">Actions</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {(testimonials as any[]).map((t: any) => (
                   <TableRow key={t.id}>
@@ -881,19 +899,19 @@ function SysAdminPage() {
                     <TableCell>
                       <Switch
                         checked={t.approved}
-                        onCheckedChange={(approved) => toggleTestimonialApprovalMutation.mutate({ id: t.id, testimonial: t, approved })}
+                        onChange={(e) => toggleTestimonialApprovalMutation.mutate({ id: t.id, testimonial: t, approved: e.target.checked })}
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="icon"
-                        variant="ghost"
+                      <IconButton
+                        size="small"
+                        aria-label={`Remove testimonial from ${t.authorName}`}
                         onClick={() => {
                           if (window.confirm(`Remove testimonial from ${t.authorName}?`)) deleteTestimonialMutation.mutate(t.id);
                         }}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -906,9 +924,10 @@ function SysAdminPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -933,12 +952,16 @@ function SysAdminPage() {
           { label: "Plan catalog", icon: <Layers className="h-4 w-4" />, to: "/plan-catalog" },
           { label: "Support desk", icon: <LifeBuoy className="h-4 w-4" />, to: "/support-desk" },
         ].map((link) => (
-          <Button key={link.label} variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-            <Link to={link.to}>
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">{link.icon}</span>
-              <span className="text-xs text-center leading-tight">{link.label}</span>
-              <ArrowUpRight className="h-3 w-3 text-muted-foreground" />
-            </Link>
+          <Button
+            key={link.label}
+            variant="outlined"
+            component={Link}
+            to={link.to}
+            sx={{ height: "auto", flexDirection: "column", gap: 1, py: 2 }}
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">{link.icon}</span>
+            <span className="text-xs text-center leading-tight">{link.label}</span>
+            <ArrowUpRight className="h-3 w-3 text-muted-foreground" />
           </Button>
         ))}
       </div>

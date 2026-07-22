@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@mui/material";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/payment-result")({
@@ -67,8 +67,8 @@ function PaymentResultPage() {
             <p className="mt-1 text-sm text-muted-foreground">We're still waiting for confirmation from the payment provider. This page will update automatically.</p>
           </>
         )}
-        <Button asChild className="mt-6">
-          <Link to="/">Back to dashboard</Link>
+        <Button component={Link} to="/" variant="contained" sx={{ mt: 3 }}>
+          Back to dashboard
         </Button>
       </div>
     </div>

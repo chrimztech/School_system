@@ -16,42 +16,32 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
+  Chip,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  TextField,
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
+  DialogActions,
   DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
+  Menu,
+  ListItemIcon,
+  Divider,
+  TableContainer,
   Table,
-  TableBody,
-  TableCell,
   TableHead,
-  TableHeader,
+  TableBody,
   TableRow,
-} from "@/components/ui/table";
+  TableCell,
+} from "@mui/material";
+
+import { PageHeader, StatCard } from "@/components/page-header";
 import { api, type BackendAppUser } from "@/lib/api";
 import { ROLE_META, type Role, useAuth } from "@/lib/auth";
+import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { AccessGuard } from "@/components/access-guard";
 
@@ -117,9 +107,36 @@ function normaliseRole(role: string | null | undefined): Role {
   }
 }
 
+const ROLE_CHIP_COLORS: Record<Role, { bg: string; fg: string }> = {
+  super_admin: { bg: "rgba(168,85,247,0.15)", fg: "#7e22ce" },
+  school_admin: { bg: "rgba(59,130,246,0.15)", fg: "#1d4ed8" },
+  teacher: { bg: "rgba(16,185,129,0.15)", fg: "#047857" },
+  hod: { bg: "rgba(20,184,166,0.15)", fg: "#0f766e" },
+  finance: { bg: "rgba(245,158,11,0.15)", fg: "#b45309" },
+  parent: { bg: "rgba(244,63,94,0.15)", fg: "#be123c" },
+  principal: { bg: "rgba(99,102,241,0.15)", fg: "#4338ca" },
+  deputy_head: { bg: "rgba(99,102,241,0.15)", fg: "#4338ca" },
+  career_guidance: { bg: "rgba(6,182,212,0.15)", fg: "#0e7490" },
+};
+
 function RoleBadge({ role }: { role: Role }) {
   const meta = ROLE_META[role];
-  return <Badge className={meta.tone}>{meta.label}</Badge>;
+  const colors = ROLE_CHIP_COLORS[role];
+  return (
+    <Chip
+      size="small"
+      label={meta.label}
+      sx={{
+        bgcolor: colors.bg,
+        color: colors.fg,
+        border: "1px solid transparent",
+        fontSize: 11,
+        fontWeight: 600,
+        height: "auto",
+        "& .MuiChip-label": { px: 1.25, py: 0.4 },
+      }}
+    />
+  );
 }
 
 function UserManagementPage() {
@@ -148,6 +165,7 @@ function UserManagementPage() {
   });
   const [resetTarget, setResetTarget] = useState<BackendAppUser | null>(null);
   const [resetPassword, setResetPassword] = useState("");
+  const [actionsAnchor, setActionsAnchor] = useState<{ element: HTMLElement; record: BackendAppUser } | null>(null);
 
   const schoolOptions = useMemo(
     () => tenants.map((tenant) => ({ id: tenant.id, name: tenant.name })),
@@ -213,8 +231,8 @@ function UserManagementPage() {
         <p className="text-sm text-muted-foreground">
           This area is restricted to System Administrators.
         </p>
-        <Button asChild variant="outline">
-          <Link to="/">Go to dashboard</Link>
+        <Button component={Link} to="/" variant="outlined">
+          Go to dashboard
         </Button>
       </div>
     );
@@ -233,7 +251,7 @@ function UserManagementPage() {
       const schoolName = record.schoolId ? schoolNameById[record.schoolId] ?? record.schoolId : "Platform";
       return [
         record.name,
-        record.email,
+        record.email ?? "",
         record.phone ?? "",
         schoolName,
         role.replaceAll("_", " "),
@@ -372,11 +390,8 @@ function UserManagementPage() {
         description="Manage platform administrators and school accounts across every active tenant."
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/sys-admin">Open system admin</Link>
-            </Button>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/sys-admin">Open system admin</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setCreateOpen(true)}>
               Add user
             </Button>
           </>
@@ -392,43 +407,46 @@ function UserManagementPage() {
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+          <div className="flex-1">
+            <TextField
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search user name, email, phone, role, or school"
-              className="pl-9"
+              fullWidth
+              size="small"
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
             />
           </div>
-          <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as Role | "all")}>
-            <SelectTrigger className="w-full md:w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All roles</SelectItem>
-              {ROLE_OPTIONS.map((role) => (
-                <SelectItem key={role} value={role}>
-                  {ROLE_META[role].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <TextField
+            select
+            value={roleFilter}
+            onChange={(event) => setRoleFilter(event.target.value as Role | "all")}
+            size="small"
+            className="w-full md:w-56"
+          >
+            <MenuItem value="all">All roles</MenuItem>
+            {ROLE_OPTIONS.map((role) => (
+              <MenuItem key={role} value={role}>
+                {ROLE_META[role].label}
+              </MenuItem>
+            ))}
+          </TextField>
         </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card">
+        <TableContainer>
         <Table>
-          <TableHeader>
+          <TableHead>
             <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>School</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableCell>User</TableCell>
+              <TableCell>Role</TableCell>
+              <TableCell>School</TableCell>
+              <TableCell>Phone</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell className="text-right">Actions</TableCell>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {usersQuery.isLoading ? (
               <TableRow>
@@ -465,48 +483,20 @@ function UserManagementPage() {
                     <TableCell>{schoolName}</TableCell>
                     <TableCell>{record.phone || "-"}</TableCell>
                     <TableCell>
-                      <Badge className={active ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                        {active ? "Active" : "Inactive"}
-                      </Badge>
+                      <Chip
+                        size="small"
+                        label={active ? "Active" : "Inactive"}
+                        sx={badgeSx(active ? "success" : "secondary")}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(record)}>
-                            <UserCog className="mr-2 h-4 w-4" />
-                            Edit access
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setResetTarget(record)}>
-                            <KeyRound className="mr-2 h-4 w-4" />
-                            Reset password
-                          </DropdownMenuItem>
-                          {record.schoolId ? (
-                            <DropdownMenuItem onClick={() => openSchoolAccess(record)}>
-                              <Building2 className="mr-2 h-4 w-4" />
-                              Manage school users
-                            </DropdownMenuItem>
-                          ) : null}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => toggleActive(record)} className={!active ? "" : "text-destructive focus:text-destructive"}>
-                            {active ? (
-                              <>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Reactivate
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <IconButton
+                        size="small"
+                        aria-label={`Actions for ${record.name}`}
+                        onClick={(event) => setActionsAnchor({ element: event.currentTarget, record })}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 );
@@ -514,118 +504,169 @@ function UserManagementPage() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create user account</DialogTitle>
-          </DialogHeader>
+      <Menu
+        anchorEl={actionsAnchor?.element ?? null}
+        open={Boolean(actionsAnchor)}
+        onClose={() => setActionsAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        {actionsAnchor ? (
+          [
+            <MenuItem
+              key="edit"
+              onClick={() => {
+                openEdit(actionsAnchor.record);
+                setActionsAnchor(null);
+              }}
+            >
+              <ListItemIcon><UserCog className="h-4 w-4" /></ListItemIcon>
+              Edit access
+            </MenuItem>,
+            <MenuItem
+              key="reset"
+              onClick={() => {
+                setResetTarget(actionsAnchor.record);
+                setActionsAnchor(null);
+              }}
+            >
+              <ListItemIcon><KeyRound className="h-4 w-4" /></ListItemIcon>
+              Reset password
+            </MenuItem>,
+            actionsAnchor.record.schoolId ? (
+              <MenuItem
+                key="manage-school"
+                onClick={() => {
+                  openSchoolAccess(actionsAnchor.record);
+                  setActionsAnchor(null);
+                }}
+              >
+                <ListItemIcon><Building2 className="h-4 w-4" /></ListItemIcon>
+                Manage school users
+              </MenuItem>
+            ) : null,
+            <Divider key="divider" />,
+            <MenuItem
+              key="toggle-active"
+              onClick={() => {
+                toggleActive(actionsAnchor.record);
+                setActionsAnchor(null);
+              }}
+              sx={actionsAnchor.record.active !== false ? { color: "error.main" } : undefined}
+            >
+              {actionsAnchor.record.active !== false ? (
+                <>
+                  <ListItemIcon><XCircle className="h-4 w-4" /></ListItemIcon>
+                  Deactivate
+                </>
+              ) : (
+                <>
+                  <ListItemIcon><CheckCircle2 className="h-4 w-4" /></ListItemIcon>
+                  Reactivate
+                </>
+              )}
+            </MenuItem>,
+          ]
+        ) : null}
+      </Menu>
+
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create user account</DialogTitle>
+        <DialogContent>
           <div className="grid gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Name</Label>
-                <Input
-                  className="mt-1"
-                  value={createForm.name}
-                  onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  className="mt-1"
-                  type="email"
-                  value={createForm.email}
-                  onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
-                />
-              </div>
+              <TextField
+                label="Name"
+                value={createForm.name}
+                onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                type="email"
+                label="Email"
+                value={createForm.email}
+                onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
+                fullWidth
+                size="small"
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Role</Label>
-                <Select
-                  value={createForm.role}
-                  onValueChange={(value) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      role: value as Role,
-                      schoolId:
-                        value === "super_admin"
-                          ? ""
-                          : current.schoolId || schoolOptions[0]?.id || "",
-                    }))
-                  }
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLE_OPTIONS.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {ROLE_META[role].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Phone</Label>
-                <Input
-                  className="mt-1"
-                  value={createForm.phone}
-                  onChange={(event) => setCreateForm((current) => ({ ...current, phone: event.target.value }))}
-                />
-              </div>
+              <TextField
+                select
+                label="Role"
+                value={createForm.role}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    role: event.target.value as Role,
+                    schoolId:
+                      event.target.value === "super_admin"
+                        ? ""
+                        : current.schoolId || schoolOptions[0]?.id || "",
+                  }))
+                }
+                fullWidth
+                size="small"
+              >
+                {ROLE_OPTIONS.map((role) => (
+                  <MenuItem key={role} value={role}>
+                    {ROLE_META[role].label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Phone"
+                value={createForm.phone}
+                onChange={(event) => setCreateForm((current) => ({ ...current, phone: event.target.value }))}
+                fullWidth
+                size="small"
+              />
             </div>
             {createForm.role !== "super_admin" ? (
-              <div>
-                <Label>School</Label>
-                <Select
-                  value={createForm.schoolId}
-                  onValueChange={(value) => setCreateForm((current) => ({ ...current, schoolId: value }))}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select school" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {schoolOptions.map((school) => (
-                      <SelectItem key={school.id} value={school.id}>
-                        {school.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TextField
+                select
+                label="School"
+                value={createForm.schoolId}
+                onChange={(event) => setCreateForm((current) => ({ ...current, schoolId: event.target.value }))}
+                fullWidth
+                size="small"
+              >
+                {schoolOptions.map((school) => (
+                  <MenuItem key={school.id} value={school.id}>
+                    {school.name}
+                  </MenuItem>
+                ))}
+              </TextField>
             ) : null}
-            <div>
-              <Label>Temporary password</Label>
-                <Input
-                  className="mt-1"
-                  type="password"
-                  value={createForm.password}
-                  onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
-                  placeholder="Optional - defaults to password123"
-                />
-            </div>
+            <TextField
+              type="password"
+              label="Temporary password"
+              value={createForm.password}
+              onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
+              placeholder="Optional - defaults to password123"
+              fullWidth
+              size="small"
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateUser} disabled={createUserMutation.isPending}>
-              {createUserMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Create user
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setCreateOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleCreateUser} disabled={createUserMutation.isPending}>
+            {createUserMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Create user
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit user access</DialogTitle>
-          </DialogHeader>
+      <Dialog open={Boolean(editTarget)} onClose={() => setEditTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit user access</DialogTitle>
+        <DialogContent>
           {editTarget ? (
             <div className="grid gap-3">
               <div className="rounded-lg border border-border bg-muted/40 p-3">
@@ -633,61 +674,52 @@ function UserManagementPage() {
                 <p className="text-sm text-muted-foreground">{editTarget.email}</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Role</Label>
-                  <Select
-                    value={editForm.role}
-                    onValueChange={(value) =>
-                      setEditForm((current) => ({
-                        ...current,
-                        role: value as Role,
-                        schoolId:
-                          value === "super_admin"
-                            ? ""
-                            : current.schoolId || editTarget.schoolId || schoolOptions[0]?.id || "",
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLE_OPTIONS.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {ROLE_META[role].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Phone</Label>
-                  <Input
-                    className="mt-1"
-                    value={editForm.phone}
-                    onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))}
-                  />
-                </div>
+                <TextField
+                  select
+                  label="Role"
+                  value={editForm.role}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      role: event.target.value as Role,
+                      schoolId:
+                        event.target.value === "super_admin"
+                          ? ""
+                          : current.schoolId || editTarget.schoolId || schoolOptions[0]?.id || "",
+                    }))
+                  }
+                  fullWidth
+                  size="small"
+                >
+                  {ROLE_OPTIONS.map((role) => (
+                    <MenuItem key={role} value={role}>
+                      {ROLE_META[role].label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Phone"
+                  value={editForm.phone}
+                  onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))}
+                  fullWidth
+                  size="small"
+                />
               </div>
               {editForm.role !== "super_admin" ? (
-                <div>
-                  <Label>School</Label>
-                  <Select
-                    value={editForm.schoolId}
-                    onValueChange={(value) => setEditForm((current) => ({ ...current, schoolId: value }))}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select school" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {schoolOptions.map((school) => (
-                        <SelectItem key={school.id} value={school.id}>
-                          {school.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  select
+                  label="School"
+                  value={editForm.schoolId}
+                  onChange={(event) => setEditForm((current) => ({ ...current, schoolId: event.target.value }))}
+                  fullWidth
+                  size="small"
+                >
+                  {schoolOptions.map((school) => (
+                    <MenuItem key={school.id} value={school.id}>
+                      {school.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
               ) : null}
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div>
@@ -697,8 +729,9 @@ function UserManagementPage() {
                   </p>
                 </div>
                 <Button
-                  variant={editForm.active ? "outline" : "secondary"}
-                  size="sm"
+                  variant="outlined"
+                  color={editForm.active ? undefined : "inherit"}
+                  size="small"
                   onClick={() => setEditForm((current) => ({ ...current, active: !current.active }))}
                 >
                   {editForm.active ? "Active" : "Inactive"}
@@ -706,56 +739,54 @@ function UserManagementPage() {
               </div>
             </div>
           ) : null}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTarget(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={updateUserMutation.isPending}>
-              {updateUserMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save changes
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setEditTarget(null)}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleSaveEdit} disabled={updateUserMutation.isPending}>
+            {updateUserMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save changes
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(resetTarget)} onOpenChange={(open) => !open && setResetTarget(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reset password</DialogTitle>
-          </DialogHeader>
+      <Dialog open={Boolean(resetTarget)} onClose={() => setResetTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Reset password</DialogTitle>
+        <DialogContent>
           {resetTarget ? (
             <div className="grid gap-3">
               <div className="rounded-lg border border-border bg-muted/40 p-3">
                 <p className="font-medium">{resetTarget.name}</p>
                 <p className="text-sm text-muted-foreground">{resetTarget.email}</p>
               </div>
-              <div>
-                <Label>Temporary password</Label>
-                <Input
-                  className="mt-1"
-                  value={resetPassword}
-                  onChange={(event) => setResetPassword(event.target.value)}
-                  placeholder="e.g. Welcome2026!"
-                />
-              </div>
+              <TextField
+                label="Temporary password"
+                value={resetPassword}
+                onChange={(event) => setResetPassword(event.target.value)}
+                placeholder="e.g. Welcome2026!"
+                fullWidth
+                size="small"
+              />
             </div>
           ) : null}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setResetTarget(null);
-                setResetPassword("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleResetPassword} disabled={updateUserMutation.isPending}>
-              {updateUserMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Reset password
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={() => {
+              setResetTarget(null);
+              setResetPassword("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleResetPassword} disabled={updateUserMutation.isPending}>
+            {updateUserMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Reset password
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
     </AccessGuard>

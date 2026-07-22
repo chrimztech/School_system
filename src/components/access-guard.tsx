@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { PackageX, ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@mui/material";
 import { useAuth } from "@/lib/auth";
 import { useTenant, isTenantModuleEnabled } from "@/lib/tenant";
 
@@ -18,8 +18,8 @@ export function AccessGuard({ module, children }: { module: string; children: Re
         <p className="text-sm text-muted-foreground">
           You don't have permission to view this page. Contact your school administrator.
         </p>
-        <Button asChild variant="outline">
-          <Link to="/">Go to dashboard</Link>
+        <Button component={Link} to="/" variant="outlined">
+          Go to dashboard
         </Button>
       </div>
     );
@@ -33,8 +33,8 @@ export function AccessGuard({ module, children }: { module: string; children: Re
         <p className="text-sm text-muted-foreground">
           This module isn't enabled for {active.name}. A school administrator can turn it on in Settings.
         </p>
-        <Button asChild variant="outline">
-          <Link to="/settings">Go to Settings</Link>
+        <Button component={Link} to="/settings" variant="outlined">
+          Go to Settings
         </Button>
       </div>
     );

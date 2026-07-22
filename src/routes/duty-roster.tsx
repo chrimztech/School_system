@@ -4,18 +4,13 @@ import { useState } from "react";
 import { CalendarDays, Clock, Shield, Users, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { Chip, Button, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/duty-roster")({
   head: () => ({ meta: [{ title: "Duty Roster — SRMS" }] }),
@@ -46,6 +41,7 @@ function DutyRosterPage() {
   const { active } = useTenant();
   const qc = useQueryClient();
   const [assignOpen, setAssignOpen] = useState(false);
+  const [tab, setTab] = useState("weekly");
   const [form, setForm] = useState<{ day: Day; type: DutyType; staff: string; location: string; backupStaff: string; effectiveDate: string; rotationCycle: string; notes: string; approvalStatus: string }>({
     day: "Monday", type: "Gate", staff: "", location: LOCATIONS[0],
     backupStaff: "", effectiveDate: new Date().toISOString().slice(0, 10),
@@ -102,84 +98,77 @@ function DutyRosterPage() {
         title="Duty Roster"
         description="Weekly staff duty assignments — gate, assembly, break supervision, prep and evening."
         actions={
-          <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Assign duty</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Assign duty</DialogTitle></DialogHeader>
+          <>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setAssignOpen(true)}>Assign duty</Button>
+            <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Assign duty</DialogTitle>
+              <DialogContent>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Day</Label>
-                  <Select value={form.day} onValueChange={(v) => setForm({ ...form, day: v as Day })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Duty type</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as DutyType })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{DUTY_TYPES.map((t) => <SelectItem key={t} value={t}>{t} · {SLOT_TIMES[t]}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Primary staff</Label>
-                  <Input className="mt-1" value={form.staff} onChange={(e) => setForm({ ...form, staff: e.target.value })} placeholder="Staff member name" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Backup staff</Label>
-                  <Select value={form.backupStaff || "__none__"} onValueChange={(v) => setForm({ ...form, backupStaff: v === "__none__" ? "" : v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
-                      {STAFF.filter((s) => s !== form.staff).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Location</Label>
-                  <Select value={form.location} onValueChange={(v) => setForm({ ...form, location: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{LOCATIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Effective date</Label>
-                  <Input type="date" className="mt-1" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Rotation cycle</Label>
-                  <Select value={form.rotationCycle} onValueChange={(v) => setForm({ ...form, rotationCycle: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Weekly", "Fortnightly", "Monthly", "Per term", "Permanent"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Approval status</Label>
-                  <Select value={form.approvalStatus} onValueChange={(v) => setForm({ ...form, approvalStatus: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Draft", "Pending approval", "Approved"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <Label>Special instructions / notes</Label>
-                  <Input className="mt-1" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Check visitor IDs, assist with late bus arrivals" maxLength={200} />
-                </div>
+                <TextField select label="Day" value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value as Day })} fullWidth size="small">
+                  {DAYS.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                </TextField>
+                <TextField select label="Duty type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as DutyType })} fullWidth size="small">
+                  {DUTY_TYPES.map((t) => <MenuItem key={t} value={t}>{t} · {SLOT_TIMES[t]}</MenuItem>)}
+                </TextField>
+                <TextField
+                  label="Primary staff"
+                  value={form.staff}
+                  onChange={(e) => setForm({ ...form, staff: e.target.value })}
+                  placeholder="Staff member name"
+                  slotProps={{ htmlInput: { maxLength: 100 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Backup staff"
+                  value={form.backupStaff || "__none__"}
+                  onChange={(e) => setForm({ ...form, backupStaff: e.target.value === "__none__" ? "" : e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="__none__">None</MenuItem>
+                  {STAFF.filter((s) => s !== form.staff).map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </TextField>
+                <TextField select label="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} fullWidth size="small">
+                  {LOCATIONS.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                </TextField>
+                <TextField
+                  label="Effective date"
+                  type="date"
+                  value={form.effectiveDate}
+                  onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })}
+                  fullWidth
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                <TextField select label="Rotation cycle" value={form.rotationCycle} onChange={(e) => setForm({ ...form, rotationCycle: e.target.value })} fullWidth size="small">
+                  {["Weekly", "Fortnightly", "Monthly", "Per term", "Permanent"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </TextField>
+                <TextField select label="Approval status" value={form.approvalStatus} onChange={(e) => setForm({ ...form, approvalStatus: e.target.value })} fullWidth size="small">
+                  {["Draft", "Pending approval", "Approved"].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </TextField>
+                <TextField
+                  className="col-span-2"
+                  label="Special instructions / notes"
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder="e.g. Check visitor IDs, assist with late bus arrivals"
+                  slotProps={{ htmlInput: { maxLength: 200 } }}
+                  fullWidth
+                  size="small"
+                />
                 <div className="col-span-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                   Time slot: <span className="font-medium text-foreground">{SLOT_TIMES[form.type]}</span>
                 </div>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
-                <Button onClick={assignDuty} disabled={createMut.isPending}>Assign</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setAssignOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={assignDuty} disabled={createMut.isPending}>Assign</Button>
+              </DialogActions>
+            </Dialog>
+          </>
         }
       />
 
@@ -190,16 +179,16 @@ function DutyRosterPage() {
         <StatCard label="Unassigned slots" value={unassignedSlots} accent="warning" icon={<Clock className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="weekly">
-        <TabsList>
-          <TabsTrigger value="weekly">Weekly roster</TabsTrigger>
-          <TabsTrigger value="today">Today's duties</TabsTrigger>
-          <TabsTrigger value="bystaff">By staff</TabsTrigger>
-          <TabsTrigger value="types">Duty types</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="weekly" label="Weekly roster" />
+        <Tab value="today" label="Today's duties" />
+        <Tab value="bystaff" label="By staff" />
+        <Tab value="types" label="Duty types" />
+      </Tabs>
 
-        {/* WEEKLY GRID */}
-        <TabsContent value="weekly" className="overflow-x-auto rounded-xl border border-border bg-card">
+      {/* WEEKLY GRID */}
+      {tab === "weekly" && (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
           {isLoading ? (
             <p className="py-10 text-center text-sm text-muted-foreground">Loading...</p>
           ) : (
@@ -246,21 +235,24 @@ function DutyRosterPage() {
               </tbody>
             </table>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* TODAY */}
-        <TabsContent value="today" className="rounded-xl border border-border bg-card">
+      {/* TODAY */}
+      {tab === "today" && (
+        <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border p-3">
             <p className="text-sm font-medium">{today} — duty schedule</p>
           </div>
           {todayDuties.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">No duties assigned for today.</p>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Duty</TableHead><TableHead>Time</TableHead><TableHead>Staff</TableHead>
-                <TableHead>Location</TableHead><TableHead className="text-right">Action</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Duty</TableCell><TableCell>Time</TableCell><TableCell>Staff</TableCell>
+                <TableCell>Location</TableCell><TableCell className="text-right">Action</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {todayDuties.sort((a, b) => a.slot.localeCompare(b.slot)).map((d) => (
                   <TableRow key={d.id}>
@@ -271,22 +263,26 @@ function DutyRosterPage() {
                     <TableCell className="font-medium">{d.staff}</TableCell>
                     <TableCell>{d.location}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => toast.success(`Reminder sent to ${d.staff}`)}>Remind</Button>
+                      <Button size="small" variant="text" color="inherit" onClick={() => toast.success(`Reminder sent to ${d.staff}`)}>Remind</Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* BY STAFF */}
-        <TabsContent value="bystaff" className="rounded-xl border border-border bg-card">
+      {/* BY STAFF */}
+      {tab === "bystaff" && (
+        <div className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Staff</TableHead><TableHead>Total duties</TableHead><TableHead>Days</TableHead>
-              <TableHead>Duty types</TableHead><TableHead className="text-right">Action</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Staff</TableCell><TableCell>Total duties</TableCell><TableCell>Days</TableCell>
+              <TableCell>Duty types</TableCell><TableCell className="text-right">Action</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {[...new Set(normalizedDuties.map((d) => d.staff))].map((staff) => {
                 const staffDuties = normalizedDuties.filter((d) => d.staff === staff);
@@ -305,17 +301,20 @@ function DutyRosterPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => toast.info(`${staff}: ${staffDuties.length} duties this week`)}>Details</Button>
+                      <Button size="small" variant="text" color="inherit" onClick={() => toast.info(`${staff}: ${staffDuties.length} duties this week`)}>Details</Button>
                     </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        {/* DUTY TYPES */}
-        <TabsContent value="types" className="rounded-xl border border-border bg-card p-5">
+      {/* DUTY TYPES */}
+      {tab === "types" && (
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {DUTY_TYPES.map((type) => {
               const count = normalizedDuties.filter((d) => d.type === type).length;
@@ -331,7 +330,7 @@ function DutyRosterPage() {
                 <div key={type} className="rounded-lg border border-border p-4">
                   <div className="flex items-center justify-between">
                     <span className={`rounded px-2 py-0.5 text-xs font-semibold ${TYPE_COLOR[type]}`}>{type}</span>
-                    <Badge variant="secondary">{count} assigned</Badge>
+                    <Chip size="small" label={`${count} assigned`} sx={badgeSx("secondary")} />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{SLOT_TIMES[type]}</p>
                   <p className="mt-2 text-sm">{descriptions[type]}</p>
@@ -339,20 +338,21 @@ function DutyRosterPage() {
               );
             })}
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Full week list */}
       <div className="rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border p-3">
           <p className="text-sm font-medium">All assignments this week</p>
-          <Button size="sm" variant="outline" onClick={() => { window.print(); toast.success("Roster exported"); }}>Export PDF</Button>
+          <Button size="small" variant="outlined" onClick={() => { window.print(); toast.success("Roster exported"); }}>Export PDF</Button>
         </div>
+        <TableContainer>
         <Table>
-          <TableHeader><TableRow>
-            <TableHead>Day</TableHead><TableHead>Duty</TableHead><TableHead>Time</TableHead>
-            <TableHead>Staff</TableHead><TableHead>Location</TableHead><TableHead className="text-right">Remove</TableHead>
-          </TableRow></TableHeader>
+          <TableHead><TableRow>
+            <TableCell>Day</TableCell><TableCell>Duty</TableCell><TableCell>Time</TableCell>
+            <TableCell>Staff</TableCell><TableCell>Location</TableCell><TableCell className="text-right">Remove</TableCell>
+          </TableRow></TableHead>
           <TableBody>
             {DAYS.flatMap((day) => normalizedDuties.filter((d) => d.day === day)).map((d) => (
               <TableRow key={d.id}>
@@ -364,12 +364,13 @@ function DutyRosterPage() {
                 <TableCell className="font-medium">{d.staff}</TableCell>
                 <TableCell>{d.location}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" onClick={() => deleteMut.mutate({ id: d.id, staff: d.staff })}>Remove</Button>
+                  <Button size="small" variant="text" color="inherit" onClick={() => deleteMut.mutate({ id: d.id, staff: d.staff })}>Remove</Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       </div>
     </div>
     </AccessGuard>

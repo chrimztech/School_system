@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { BookOpen, LifeBuoy, Search } from "lucide-react";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import InputAdornment from "@mui/material/InputAdornment";
+import TextField from "@mui/material/TextField";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { badgeSx } from "@/lib/utils";
 
 type Article = {
   title: string;
@@ -39,8 +41,8 @@ function KnowledgeBasePage() {
         title="Knowledge Base"
         description="Searchable operating guides for school admins, finance teams, teachers and enterprise leadership."
         actions={
-          <Button asChild>
-            <Link to="/help"><LifeBuoy className="mr-2 h-4 w-4" />Open support desk</Link>
+          <Button variant="contained" component={Link} to="/help" startIcon={<LifeBuoy size={16} />}>
+            Open support desk
           </Button>
         }
       />
@@ -48,8 +50,14 @@ function KnowledgeBasePage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search backups, onboarding, fees, risk reviews..." />
+            <TextField
+              fullWidth
+              size="small"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search backups, onboarding, fees, risk reviews..."
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+            />
           </div>
           <div className="mt-4 space-y-3">
             {filtered.map((article) => (
@@ -59,12 +67,12 @@ function KnowledgeBasePage() {
                     <p className="font-semibold text-foreground">{article.title}</p>
                     <p className="mt-1 text-sm text-muted-foreground">{article.summary}</p>
                   </div>
-                  <Badge variant="outline">{article.audience}</Badge>
+                  <Chip size="small" label={article.audience} sx={badgeSx("outline")} />
                 </div>
                 <div className="mt-4 flex items-center justify-between">
-                  <Badge variant="secondary">{article.category}</Badge>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link to={article.route}>Open workflow</Link>
+                  <Chip size="small" label={article.category} sx={badgeSx("secondary")} />
+                  <Button size="small" variant="outlined" component={Link} to={article.route}>
+                    Open workflow
                   </Button>
                 </div>
               </div>
@@ -84,17 +92,17 @@ function KnowledgeBasePage() {
               Quick collections
             </div>
             <div className="mt-4 space-y-3">
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/onboarding">New school launch pack</Link>
+              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/onboarding">
+                New school launch pack
               </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/reporting">Reporting and BI guides</Link>
+              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/reporting">
+                Reporting and BI guides
               </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/security">Security operations handbook</Link>
+              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/security">
+                Security operations handbook
               </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/risk-register">Governance review toolkit</Link>
+              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/risk-register">
+                Governance review toolkit
               </Button>
             </div>
           </div>
@@ -104,8 +112,8 @@ function KnowledgeBasePage() {
             <p className="mt-2 text-sm text-muted-foreground">
               Open the support desk to submit a ticket, review FAQs, or escalate a production issue with the operations team.
             </p>
-            <Button className="mt-4 w-full" asChild>
-              <Link to="/help">Go to help & support</Link>
+            <Button className="mt-4" fullWidth variant="contained" component={Link} to="/help">
+              Go to help & support
             </Button>
           </div>
         </div>

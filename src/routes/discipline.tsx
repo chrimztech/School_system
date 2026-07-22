@@ -4,20 +4,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/discipline")({
   head: () => ({ meta: [{ title: "Discipline — SRMS" }] }),
@@ -169,18 +163,14 @@ function DisciplinePage() {
         description="Log offences, take action, notify parents and track repeats"
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/student-welfare">Welfare cases</Link>
-            </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> Log incident</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-3xl">
-                <DialogHeader><DialogTitle>Log disciplinary incident</DialogTitle></DialogHeader>
+            <Button variant="outlined" component={Link} to="/student-welfare">Welfare cases</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Log incident</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+                <DialogTitle>Log disciplinary incident</DialogTitle>
+                <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <Label>Find student</Label>
+                    <span className="mb-1 block text-sm font-medium leading-none">Find student</span>
                     <div className="mt-1">
                       <PersonCombobox
                         options={studentOptions}
@@ -191,56 +181,25 @@ function DisciplinePage() {
                       />
                     </div>
                   </div>
+                  <TextField label="Student name *" fullWidth size="small" value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} placeholder="Mwansa Tembo" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField select label="Class / grade" fullWidth size="small" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })}>
+                    {classList.length === 0 ? <MenuItem value="" disabled>No classes yet</MenuItem> : classList.map((c: string) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField type="date" label="Incident date" fullWidth size="small" value={form.incidentDate} onChange={(e) => setForm({ ...form, incidentDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                  <TextField type="time" label="Incident time" fullWidth size="small" value={form.incidentTime} onChange={(e) => setForm({ ...form, incidentTime: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                  <TextField label="Location / venue" fullWidth size="small" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Classroom 8A, Playground" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField select label="Severity" fullWidth size="small" value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value as typeof SEVERITIES[number] })}>
+                    {SEVERITIES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Offence category" fullWidth size="small" value={form.offenseCategory} onChange={(e) => setForm({ ...form, offenseCategory: e.target.value })}>
+                    {OFFENSE_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Action taken" fullWidth size="small" value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value })}>
+                    {availableActions.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                  </TextField>
+                  <TextField label="Offence description *" fullWidth size="small" multiline minRows={2} className="col-span-2" value={form.offense} onChange={(e) => setForm({ ...form, offense: e.target.value })} placeholder="Describe the incident in full detail" slotProps={{ htmlInput: { maxLength: 500 } }} />
                   <div>
-                    <Label>Student name *</Label>
-                    <Input className="mt-1" value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} placeholder="Mwansa Tembo" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Class / grade</Label>
-                    <Select value={form.grade} onValueChange={(v) => setForm({ ...form, grade: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{classList.length === 0 ? <SelectItem value="__empty__" disabled>No classes yet</SelectItem> : classList.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Incident date</Label>
-                    <Input type="date" className="mt-1" value={form.incidentDate} onChange={(e) => setForm({ ...form, incidentDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Incident time</Label>
-                    <Input type="time" className="mt-1" value={form.incidentTime} onChange={(e) => setForm({ ...form, incidentTime: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Location / venue</Label>
-                    <Input className="mt-1" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Classroom 8A, Playground" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Severity</Label>
-                    <Select value={form.severity} onValueChange={(v) => setForm({ ...form, severity: v as typeof SEVERITIES[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{SEVERITIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Offence category</Label>
-                    <Select value={form.offenseCategory} onValueChange={(v) => setForm({ ...form, offenseCategory: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{OFFENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Action taken</Label>
-                    <Select value={form.action} onValueChange={(v) => setForm({ ...form, action: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{availableActions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Offence description *</Label>
-                    <Textarea className="mt-1" rows={2} value={form.offense} onChange={(e) => setForm({ ...form, offense: e.target.value })} placeholder="Describe the incident in full detail" maxLength={500} />
-                  </div>
-                  <div>
-                    <Label>Reported by</Label>
+                    <span className="mb-1 block text-sm font-medium leading-none">Reported by</span>
                     <div className="mt-1 space-y-1.5">
                       <PersonCombobox
                         options={reporterOptions}
@@ -249,53 +208,29 @@ function DisciplinePage() {
                         emptyText="No staff found."
                         onSelect={selectReporter}
                       />
-                      <Input value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} placeholder="Reporting teacher / staff name" maxLength={100} />
+                      <TextField fullWidth size="small" value={form.reportedBy} onChange={(e) => setForm({ ...form, reportedBy: e.target.value })} placeholder="Reporting teacher / staff name" slotProps={{ htmlInput: { maxLength: 100 } }} />
                     </div>
                   </div>
-                  <div>
-                    <Label>Follow-up date</Label>
-                    <Input type="date" className="mt-1" value={form.followUpDate} onChange={(e) => setForm({ ...form, followUpDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Workflow status</Label>
-                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Open", "Monitoring", "Resolved"].map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Repeat count</Label>
-                    <Input type="number" min={1} className="mt-1" value={form.repeatCount} onChange={(e) => setForm({ ...form, repeatCount: e.target.value })} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Witness names (comma-separated)</Label>
-                    <Input className="mt-1" value={form.witnessNames} onChange={(e) => setForm({ ...form, witnessNames: e.target.value })} placeholder="e.g. Mr. Banda, Miss Mwale" maxLength={200} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Internal notes / support actions</Label>
-                    <Textarea className="mt-1" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Restorative actions, counseling referral, parent commitments, or dean comments" maxLength={400} />
-                  </div>
-                  <div>
-                    <Label>Parent / guardian notified</Label>
-                    <Select value={form.notified} onValueChange={(v) => setForm({ ...form, notified: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Yes — notified</SelectItem>
-                        <SelectItem value="no">Not yet — pending</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TextField type="date" label="Follow-up date" fullWidth size="small" value={form.followUpDate} onChange={(e) => setForm({ ...form, followUpDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                  <TextField select label="Workflow status" fullWidth size="small" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                    {["Open", "Monitoring", "Resolved"].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
+                  </TextField>
+                  <TextField type="number" label="Repeat count" fullWidth size="small" slotProps={{ htmlInput: { min: 1 } }} value={form.repeatCount} onChange={(e) => setForm({ ...form, repeatCount: e.target.value })} />
+                  <TextField label="Witness names (comma-separated)" fullWidth size="small" className="col-span-2" value={form.witnessNames} onChange={(e) => setForm({ ...form, witnessNames: e.target.value })} placeholder="e.g. Mr. Banda, Miss Mwale" slotProps={{ htmlInput: { maxLength: 200 } }} />
+                  <TextField label="Internal notes / support actions" fullWidth size="small" multiline minRows={3} className="col-span-2" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Restorative actions, counseling referral, parent commitments, or dean comments" slotProps={{ htmlInput: { maxLength: 400 } }} />
+                  <TextField select label="Parent / guardian notified" fullWidth size="small" value={form.notified} onChange={(e) => setForm({ ...form, notified: e.target.value })}>
+                    <MenuItem value="yes">Yes — notified</MenuItem>
+                    <MenuItem value="no">Not yet — pending</MenuItem>
+                  </TextField>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={logIncident} disabled={createMutation.isPending}>
+                </DialogContent>
+                <DialogActions>
+                  <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                  <Button variant="contained" onClick={logIncident} disabled={createMutation.isPending}>
                     {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Log incident
                   </Button>
-                </DialogFooter>
-              </DialogContent>
+                </DialogActions>
             </Dialog>
           </>
         }
@@ -313,19 +248,20 @@ function DisciplinePage() {
             <Loader2 className="h-5 w-5 animate-spin" /><span>Loading records…</span>
           </div>
         ) : (
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Student</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Offence</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Repeats</TableHead>
-                <TableHead>Parent notified</TableHead>
-                {!isTeacher && <TableHead className="text-right">Resolve</TableHead>}
+                <TableCell>Date</TableCell>
+                <TableCell>Student</TableCell>
+                <TableCell>Class</TableCell>
+                <TableCell>Offence</TableCell>
+                <TableCell>Action</TableCell>
+                <TableCell>Repeats</TableCell>
+                <TableCell>Parent notified</TableCell>
+                {!isTeacher && <TableCell className="text-right">Resolve</TableCell>}
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
                 {recs.map((d: any) => (
                   <TableRow key={d.id}>
@@ -339,17 +275,19 @@ function DisciplinePage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={d.action?.includes("suspension") || d.action === "Expulsion" ? "destructive" : "outline"}>{d.action}</Badge>
+                      <Chip size="small" label={d.action} sx={badgeSx(d.action?.includes("suspension") || d.action === "Expulsion" ? "destructive" : "outline")} />
                     </TableCell>
                   <TableCell>{(d.repeats ?? d.repeatCount ?? 1)}×</TableCell>
                   <TableCell>
-                    {(d.notified ?? d.parentNotified) ? <Badge variant="secondary">Sent</Badge> : <Badge variant="destructive">Pending</Badge>}
+                    {(d.notified ?? d.parentNotified)
+                      ? <Chip size="small" label="Sent" sx={badgeSx("secondary")} />
+                      : <Chip size="small" label="Pending" sx={badgeSx("destructive")} />}
                   </TableCell>
                   {!isTeacher && <TableCell className="text-right">
                     {(d.status ?? "Open") === "Resolved" ? (
                       <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success" />Resolved</span>
                     ) : (
-                      <Button size="sm" variant="ghost" disabled={resolveMutation.isPending} onClick={() => resolveMutation.mutate(d.id)}>
+                      <Button size="small" variant="text" color="inherit" disabled={resolveMutation.isPending} onClick={() => resolveMutation.mutate(d.id)}>
                         {resolveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Resolve"}
                       </Button>
                     )}
@@ -363,6 +301,7 @@ function DisciplinePage() {
               )}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </div>
     </div>

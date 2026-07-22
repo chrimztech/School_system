@@ -6,14 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Box, Button, Chip, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
@@ -33,6 +27,7 @@ function HRPage() {
 
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [tab, setTab] = useState("staff");
   const [form, setForm] = useState({
     name: "", role: "", dept: "", contract: "Permanent" as typeof CONTRACTS[number],
     status: "Active" as "Active" | "On leave", gender: "Male" as "Male" | "Female",
@@ -157,147 +152,127 @@ function HRPage() {
         description="Staff records, leave management, appraisals and recruitment."
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/staff-development">Staff development</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/duty-roster">Duty roster</Link>
-            </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Import staff</Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Add staff</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-3xl">
-                <DialogHeader><DialogTitle>Add staff member</DialogTitle></DialogHeader>
+            <Button variant="outlined" component={Link} to="/staff-development">Staff development</Button>
+            <Button variant="outlined" component={Link} to="/duty-roster">Duty roster</Button>
+            <Button variant="outlined" onClick={() => setImportOpen(true)} startIcon={<Upload className="h-4 w-4" />}>Import staff</Button>
+            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Add staff</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Add staff member</DialogTitle>
+              <DialogContent>
                 <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Full name *</Label>
-                    <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Mutale Mwale" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Role / position *</Label>
-                    <Input className="mt-1" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} placeholder="Biology Teacher" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Email *</Label>
-                    <Input type="email" className="mt-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="m.mwale@school.zm" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Phone</Label>
-                    <Input className="mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" maxLength={20} />
-                  </div>
-                  <div>
-                    <Label>National ID / NRC</Label>
-                    <Input className="mt-1" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} placeholder="123456/78/1" maxLength={30} />
-                  </div>
-                  <div>
-                    <Label>Gender</Label>
-                    <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v as "Male" | "Female" })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Male">Male</SelectItem>
-                        <SelectItem value="Female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Department</Label>
-                    <Select value={form.dept} onValueChange={(v) => setForm({ ...form, dept: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {deptNames.length === 0
-                          ? <SelectItem value="__none__" disabled>No departments — add on Departments page</SelectItem>
-                          : deptNames.map((d: string) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Contract type</Label>
-                    <Select value={form.contract} onValueChange={(v) => setForm({ ...form, contract: v as typeof CONTRACTS[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{CONTRACTS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Date joined</Label>
-                    <Input type="date" className="mt-1" value={form.dateJoined} onChange={(e) => setForm({ ...form, dateJoined: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Contract end date</Label>
-                    <Input type="date" className="mt-1" value={form.contractEndDate} onChange={(e) => setForm({ ...form, contractEndDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Salary band (K / month)</Label>
-                    <Input className="mt-1" value={form.salaryBand} onChange={(e) => setForm({ ...form, salaryBand: e.target.value })} placeholder="e.g. K 8,500 – K 12,000" maxLength={50} />
-                  </div>
-                  <div>
-                    <Label>Status</Label>
-                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as "Active" | "On leave" })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="On leave">On leave</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TextField label="Full name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Mutale Mwale" slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
+                  <TextField label="Role / position *" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} placeholder="Biology Teacher" slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
+                  <TextField type="email" label="Email *" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="m.mwale@school.zm" slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
+                  <TextField label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" slotProps={{ htmlInput: { maxLength: 20 } }} fullWidth size="small" />
+                  <TextField label="National ID / NRC" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} placeholder="123456/78/1" slotProps={{ htmlInput: { maxLength: 30 } }} fullWidth size="small" />
+                  <TextField
+                    select
+                    label="Gender"
+                    value={form.gender}
+                    onChange={(e) => setForm({ ...form, gender: e.target.value as "Male" | "Female" })}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="Male">Male</MenuItem>
+                    <MenuItem value="Female">Female</MenuItem>
+                  </TextField>
+                  <TextField
+                    select
+                    label="Department"
+                    value={form.dept}
+                    onChange={(e) => setForm({ ...form, dept: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {deptNames.length === 0
+                      ? <MenuItem value="__none__" disabled>No departments — add on Departments page</MenuItem>
+                      : deptNames.map((d: string) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Contract type"
+                    value={form.contract}
+                    onChange={(e) => setForm({ ...form, contract: e.target.value as typeof CONTRACTS[number] })}
+                    fullWidth
+                    size="small"
+                  >
+                    {CONTRACTS.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    type="date"
+                    label="Date joined"
+                    value={form.dateJoined}
+                    onChange={(e) => setForm({ ...form, dateJoined: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="date"
+                    label="Contract end date"
+                    value={form.contractEndDate}
+                    onChange={(e) => setForm({ ...form, contractEndDate: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField label="Salary band (K / month)" value={form.salaryBand} onChange={(e) => setForm({ ...form, salaryBand: e.target.value })} placeholder="e.g. K 8,500 – K 12,000" slotProps={{ htmlInput: { maxLength: 50 } }} fullWidth size="small" />
+                  <TextField
+                    select
+                    label="Status"
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value as "Active" | "On leave" })}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="Active">Active</MenuItem>
+                    <MenuItem value="On leave">On leave</MenuItem>
+                  </TextField>
                   <div className="col-span-2">
-                    <Label>Qualifications</Label>
-                    <Input className="mt-1" value={form.qualifications} onChange={(e) => setForm({ ...form, qualifications: e.target.value })} placeholder="e.g. BSc Ed. (UNZA), PGDip School Management" maxLength={200} />
+                    <TextField label="Qualifications" value={form.qualifications} onChange={(e) => setForm({ ...form, qualifications: e.target.value })} placeholder="e.g. BSc Ed. (UNZA), PGDip School Management" slotProps={{ htmlInput: { maxLength: 200 } }} fullWidth size="small" />
                   </div>
-                  <div>
-                    <Label>Emergency contact name</Label>
-                    <Input className="mt-1" value={form.emergencyContactName} onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })} placeholder="Next of kin full name" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Emergency contact phone</Label>
-                    <Input className="mt-1" value={form.emergencyContactPhone} onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })} placeholder="+260 966 000 000" maxLength={20} />
-                  </div>
-                  <div>
-                    <Label>TPIN</Label>
-                    <Input className="mt-1" value={form.tpin} onChange={(e) => setForm({ ...form, tpin: e.target.value })} placeholder="Tax Payer Identification No." maxLength={20} />
-                  </div>
-                  <div>
-                    <Label>Payment method</Label>
-                    <Select value={form.paymentMethod} onValueChange={(v) => setForm({ ...form, paymentMethod: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Bank transfer">Bank transfer</SelectItem>
-                        <SelectItem value="Mobile money">Mobile money</SelectItem>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Cheque">Cheque</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>NAPSA enrolled</Label>
-                    <Select value={form.napsaEnrolled} onValueChange={(v) => setForm({ ...form, napsaEnrolled: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Bank name</Label>
-                    <Input className="mt-1" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="e.g. Zanaco, FNB, Stanbic" maxLength={80} />
-                  </div>
+                  <TextField label="Emergency contact name" value={form.emergencyContactName} onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })} placeholder="Next of kin full name" slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
+                  <TextField label="Emergency contact phone" value={form.emergencyContactPhone} onChange={(e) => setForm({ ...form, emergencyContactPhone: e.target.value })} placeholder="+260 966 000 000" slotProps={{ htmlInput: { maxLength: 20 } }} fullWidth size="small" />
+                  <TextField label="TPIN" value={form.tpin} onChange={(e) => setForm({ ...form, tpin: e.target.value })} placeholder="Tax Payer Identification No." slotProps={{ htmlInput: { maxLength: 20 } }} fullWidth size="small" />
+                  <TextField
+                    select
+                    label="Payment method"
+                    value={form.paymentMethod}
+                    onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="Bank transfer">Bank transfer</MenuItem>
+                    <MenuItem value="Mobile money">Mobile money</MenuItem>
+                    <MenuItem value="Cash">Cash</MenuItem>
+                    <MenuItem value="Cheque">Cheque</MenuItem>
+                  </TextField>
+                  <TextField
+                    select
+                    label="NAPSA enrolled"
+                    value={form.napsaEnrolled}
+                    onChange={(e) => setForm({ ...form, napsaEnrolled: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="yes">Yes</MenuItem>
+                    <MenuItem value="no">No</MenuItem>
+                  </TextField>
+                  <TextField label="Bank name" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="e.g. Zanaco, FNB, Stanbic" slotProps={{ htmlInput: { maxLength: 80 } }} fullWidth size="small" />
                   <div className="col-span-2">
-                    <Label>Bank account number</Label>
-                    <Input className="mt-1" value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} placeholder="Account number" maxLength={30} />
+                    <TextField label="Bank account number" value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} placeholder="Account number" slotProps={{ htmlInput: { maxLength: 30 } }} fullWidth size="small" />
                   </div>
                 </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={addStaff} disabled={createMutation.isPending}>
-                    {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add staff
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions className="mt-2">
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button onClick={addStaff} disabled={createMutation.isPending}>
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Add staff
+                </Button>
+              </DialogActions>
             </Dialog>
           </>
         }
@@ -310,25 +285,27 @@ function HRPage() {
         <StatCard label="Open vacancies" value={0} accent="accent" icon={<BriefcaseBusiness className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="staff">
-        <TabsList>
-          <TabsTrigger value="staff">Staff directory</TabsTrigger>
-          <TabsTrigger value="leave">Leave</TabsTrigger>
-          <TabsTrigger value="appraisal">Appraisals</TabsTrigger>
-          <TabsTrigger value="jobs">Recruitment</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="staff" label="Staff directory" />
+        <Tab value="leave" label="Leave" />
+        <Tab value="appraisal" label="Appraisals" />
+        <Tab value="jobs" label="Recruitment" />
+      </Tabs>
 
-        <TabsContent value="staff" className="rounded-xl border border-border bg-card">
+      {tab === "staff" && (
+        <Box className="rounded-xl border border-border bg-card">
           {staffLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading staff…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Name</TableHead><TableHead>Role</TableHead><TableHead>Department</TableHead>
-                <TableHead>Joined</TableHead><TableHead>Contract</TableHead><TableHead>Status</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Name</TableCell><TableCell>Role</TableCell><TableCell>Department</TableCell>
+                <TableCell>Joined</TableCell><TableCell>Contract</TableCell><TableCell>Status</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {staff.map((s) => {
                   const rawStatus = (s.status ?? "active").toLowerCase().replace(/[_ ]/g, "");
@@ -343,9 +320,9 @@ function HRPage() {
                       <TableCell>{s.role}</TableCell>
                       <TableCell>{s.department ?? "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{s.joined ? String(s.joined).slice(0, 7) : "—"}</TableCell>
-                      <TableCell><Badge variant="outline">{s.contractType}</Badge></TableCell>
+                      <TableCell><Chip size="small" label={s.contractType} sx={badgeSx("outline")} /></TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={isActive ? "text-success" : "text-amber-600"}>{statusLabel}</Badge>
+                        <Chip size="small" label={statusLabel} sx={badgeSx(isActive ? "success" : "warning")} />
                       </TableCell>
                     </TableRow>
                   );
@@ -358,21 +335,25 @@ function HRPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="leave" className="rounded-xl border border-border bg-card">
+      {tab === "leave" && (
+        <Box className="rounded-xl border border-border bg-card">
           {leaveLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading leave records…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Ref</TableHead><TableHead>Staff</TableHead><TableHead>Type</TableHead>
-                <TableHead>From</TableHead><TableHead>To</TableHead><TableHead>Days</TableHead>
-                <TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Ref</TableCell><TableCell>Staff</TableCell><TableCell>Type</TableCell>
+                <TableCell>From</TableCell><TableCell>To</TableCell><TableCell>Days</TableCell>
+                <TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {leaves.map((l: any) => {
                   const isPending = (l.status ?? "").toLowerCase() === "pending";
@@ -384,12 +365,12 @@ function HRPage() {
                       <TableCell>{(l.from ?? l.startDate ?? "").slice(0, 10)}</TableCell>
                       <TableCell>{(l.to ?? l.endDate ?? "").slice(0, 10)}</TableCell>
                       <TableCell>{l.days ?? l.numberOfDays}</TableCell>
-                      <TableCell><Badge variant="outline">{l.status}</Badge></TableCell>
+                      <TableCell><Chip size="small" label={l.status} sx={badgeSx("outline")} /></TableCell>
                       <TableCell className="space-x-2 text-right">
                         {isPending ? (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => rejectMutation.mutate(l.id)} disabled={rejectMutation.isPending}>Reject</Button>
-                            <Button size="sm" onClick={() => approveMutation.mutate(l.id)} disabled={approveMutation.isPending}>Approve</Button>
+                            <Button size="small" variant="outlined" onClick={() => rejectMutation.mutate(l.id)} disabled={rejectMutation.isPending}>Reject</Button>
+                            <Button size="small" onClick={() => approveMutation.mutate(l.id)} disabled={approveMutation.isPending}>Approve</Button>
                           </>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </TableCell>
@@ -401,25 +382,31 @@ function HRPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="appraisal" className="space-y-3">
+      {tab === "appraisal" && (
+        <Box sx={{ mt: 1.5 }}>
           <EmptyState
             icon={Award}
             title="No appraisals recorded yet"
             description="Staff performance reviews and appraisal cycles will appear here."
           />
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="jobs" className="rounded-xl border border-border bg-card">
+      {tab === "jobs" && (
+        <Box className="rounded-xl border border-border bg-card">
           <EmptyState
             icon={BriefcaseBusiness}
             title="No open positions yet"
             description="Job postings and recruitment pipelines will appear here."
           />
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
 
       <ImportDialog
         open={importOpen}

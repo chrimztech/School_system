@@ -7,24 +7,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  Box, Chip, Button, MenuItem, TextField,
+  Dialog, DialogContent, DialogContentText, DialogActions, DialogTitle,
+  Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow,
+} from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader,
-  DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/accounting")({
@@ -265,36 +257,42 @@ function AccountingPage() {
         description={`Double-entry general ledger · ${active.currency ?? "ZMW"} · ZRA / NAPSA / NHIMA compliant`}
         actions={
           <>
-            <Button variant="outline" disabled title="Accounting export endpoint is not available yet.">
-              <Download className="mr-2 h-4 w-4" /> Export unavailable
+            <Button variant="outlined" disabled startIcon={<Download size={16} />} title="Accounting export endpoint is not available yet.">
+              Export unavailable
             </Button>
-            <Button variant="outline" asChild><Link to="/payroll"><Banknote className="mr-2 h-4 w-4" />Payroll</Link></Button>
-            <Dialog open={openJE} onOpenChange={setOpenJE}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />New journal</Button>
-              </DialogTrigger>
+            <Button variant="outlined" component={Link} to="/payroll" startIcon={<Banknote size={16} />}>Payroll</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpenJE(true)}>New journal</Button>
+            <Dialog open={openJE} onClose={() => setOpenJE(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>New journal entry</DialogTitle>
               <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>New journal entry</DialogTitle>
-                  <DialogDescription>Debits must equal credits before posting.</DialogDescription>
-                </DialogHeader>
+                <DialogContentText sx={{ mb: 2 }}>Debits must equal credits before posting.</DialogContentText>
                 <form onSubmit={(e) => { e.preventDefault(); addJE(e.currentTarget); }} className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Reference</Label><Input name="ref" placeholder="INV-0232" required /></div>
-                    <div><Label>Amount (K)</Label><Input name="amount" type="number" step="0.01" required /></div>
+                    <TextField name="ref" label="Reference" placeholder="INV-0232" required fullWidth size="small" />
+                    <TextField name="amount" type="number" label="Amount (K)" slotProps={{ htmlInput: { step: "0.01" } }} required fullWidth size="small" />
                   </div>
-                  <div><Label>Description</Label><Input name="desc" placeholder="Narration" required /></div>
+                  <TextField name="desc" label="Description" placeholder="Narration" required fullWidth size="small" />
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Debit account</Label>
-                      <Input name="debitAccount" value={jeDebitAccount} onChange={(e) => setJeDebitAccount(e.target.value)} placeholder="e.g. 1010" />
-                    </div>
-                    <div>
-                      <Label>Credit account</Label>
-                      <Input name="creditAccount" value={jeCreditAccount} onChange={(e) => setJeCreditAccount(e.target.value)} placeholder="e.g. 4000" />
-                    </div>
+                    <TextField
+                      name="debitAccount"
+                      label="Debit account"
+                      value={jeDebitAccount}
+                      onChange={(e) => setJeDebitAccount(e.target.value)}
+                      placeholder="e.g. 1010"
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      name="creditAccount"
+                      label="Credit account"
+                      value={jeCreditAccount}
+                      onChange={(e) => setJeCreditAccount(e.target.value)}
+                      placeholder="e.g. 4000"
+                      fullWidth
+                      size="small"
+                    />
                   </div>
-                  <DialogFooter><Button type="submit" disabled={createJEMutation.isPending}>Save draft</Button></DialogFooter>
+                  <DialogActions sx={{ px: 0 }}><Button type="submit" variant="contained" disabled={createJEMutation.isPending}>Save draft</Button></DialogActions>
                 </form>
               </DialogContent>
             </Dialog>
@@ -310,20 +308,20 @@ function AccountingPage() {
         <StatCard label="Pending expenses" value={k(pendingExpenses)} accent="destructive" icon={<Receipt className="h-4 w-4" />} hint={`${draftJournalCount} draft journal entr${draftJournalCount === 1 ? "y" : "ies"}`} />
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="coa">Chart of Accounts</TabsTrigger>
-          <TabsTrigger value="journal">Journal</TabsTrigger>
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="budgets">Budgets</TabsTrigger>
-          <TabsTrigger value="assets">Fixed Assets</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="tax">Tax & Compliance</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2 }}>
+        <Tab value="overview" label="Overview" />
+        <Tab value="coa" label="Chart of Accounts" />
+        <Tab value="journal" label="Journal" />
+        <Tab value="expenses" label="Expenses" />
+        <Tab value="budgets" label="Budgets" />
+        <Tab value="assets" label="Fixed Assets" />
+        <Tab value="reports" label="Reports" />
+        <Tab value="tax" label="Tax & Compliance" />
+      </Tabs>
 
-        {/* Overview */}
-        <TabsContent value="overview" className="space-y-4">
+      {/* Overview */}
+      {tab === "overview" && (
+        <Box className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
               <h3 className="mb-4 text-sm font-semibold">Cash inflow vs outflow · 2026</h3>
@@ -356,25 +354,30 @@ function AccountingPage() {
               </dl>
             </div>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* COA */}
-        <TabsContent value="coa">
+      {/* COA */}
+      {tab === "coa" && (
+        <Box>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* Journal */}
-        <TabsContent value="journal">
+      {/* Journal */}
+      {tab === "journal" && (
+        <Box>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>ID</TableHead><TableHead>Date</TableHead><TableHead>Ref</TableHead>
-                <TableHead>Description</TableHead><TableHead>Debit a/c</TableHead><TableHead>Credit a/c</TableHead>
-                <TableHead className="text-right">Debit</TableHead>
-                <TableHead className="text-right">Credit</TableHead><TableHead>Status</TableHead><TableHead></TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>ID</TableCell><TableCell>Date</TableCell><TableCell>Ref</TableCell>
+                <TableCell>Description</TableCell><TableCell>Debit a/c</TableCell><TableCell>Credit a/c</TableCell>
+                <TableCell className="text-right">Debit</TableCell>
+                <TableCell className="text-right">Credit</TableCell><TableCell>Status</TableCell><TableCell></TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {journal.map((j) => (
                   <TableRow key={j.id}>
@@ -386,9 +389,9 @@ function AccountingPage() {
                     <TableCell className="font-mono text-xs">{j.creditAccount || "—"}</TableCell>
                     <TableCell className="text-right font-mono">{k(j.debit)}</TableCell>
                     <TableCell className="text-right font-mono">{k(j.credit)}</TableCell>
-                    <TableCell><Badge variant={j.status === "Posted" ? "secondary" : "outline"}>{j.status}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={j.status} sx={badgeSx(j.status === "Posted" ? "secondary" : "outline")} /></TableCell>
                     <TableCell className="text-right">
-                      {j.status === "Draft" && <Button size="sm" variant="ghost" onClick={() => onPost(j.id)}>Post</Button>}
+                      {j.status === "Draft" && <Button size="small" variant="text" color="inherit" onClick={() => onPost(j.id)}>Post</Button>}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -401,45 +404,43 @@ function AccountingPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* Expenses */}
-        <TabsContent value="expenses" className="space-y-4">
+      {/* Expenses */}
+      {tab === "expenses" && (
+        <Box className="space-y-4">
           <div className="flex justify-end">
-            <Dialog open={openExp} onOpenChange={setOpenExp}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Record expense</Button>
-              </DialogTrigger>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpenExp(true)}>Record expense</Button>
+            <Dialog open={openExp} onClose={() => setOpenExp(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Record expense</DialogTitle>
               <DialogContent>
-                <DialogHeader><DialogTitle>Record expense</DialogTitle></DialogHeader>
                 <form onSubmit={(e) => { e.preventDefault(); addExp(e.currentTarget); }} className="grid gap-3">
-                  <div><Label>Vendor</Label><Input name="vendor" required /></div>
+                  <TextField name="vendor" label="Vendor" required fullWidth size="small" />
                   <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Category</Label>
-                      <Select name="category" defaultValue="Utilities"><SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{["Utilities","Stationery","Internet","Transport/Fuel","Maintenance","Boarding","Other"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div><Label>Amount (K)</Label><Input name="amount" type="number" required /></div>
+                    <TextField select name="category" label="Category" defaultValue="Utilities" fullWidth size="small">
+                      {["Utilities", "Stationery", "Internet", "Transport/Fuel", "Maintenance", "Boarding", "Other"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </TextField>
+                    <TextField name="amount" type="number" label="Amount (K)" required fullWidth size="small" />
                   </div>
-                  <div><Label>Method</Label>
-                    <Select name="method" defaultValue="Bank Transfer"><SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{["Bank Transfer","Cash","MoMo","Fleet Card","Cheque"].map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <DialogFooter><Button type="submit" disabled={createExpMutation.isPending}>Save</Button></DialogFooter>
+                  <TextField select name="method" label="Method" defaultValue="Bank Transfer" fullWidth size="small">
+                    {["Bank Transfer", "Cash", "MoMo", "Fleet Card", "Cheque"].map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                  </TextField>
+                  <DialogActions sx={{ px: 0 }}><Button type="submit" variant="contained" disabled={createExpMutation.isPending}>Save</Button></DialogActions>
                 </form>
               </DialogContent>
             </Dialog>
           </div>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>ID</TableHead><TableHead>Date</TableHead><TableHead>Vendor</TableHead>
-                <TableHead>Category</TableHead><TableHead className="text-right">Amount</TableHead>
-                <TableHead>Method</TableHead><TableHead>Status</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>ID</TableCell><TableCell>Date</TableCell><TableCell>Vendor</TableCell>
+                <TableCell>Category</TableCell><TableCell className="text-right">Amount</TableCell>
+                <TableCell>Method</TableCell><TableCell>Status</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {expenses.map((e) => (
                   <TableRow key={e.id}>
@@ -449,7 +450,7 @@ function AccountingPage() {
                     <TableCell>{e.category}</TableCell>
                     <TableCell className="text-right font-mono">{k(e.amount)}</TableCell>
                     <TableCell>{e.method}</TableCell>
-                    <TableCell><Badge variant={e.status === "Paid" ? "secondary" : "outline"}>{e.status}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={e.status} sx={badgeSx(e.status === "Paid" ? "secondary" : "outline")} /></TableCell>
                   </TableRow>
                 ))}
                 {expenses.length === 0 && (
@@ -461,26 +462,33 @@ function AccountingPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* Budgets */}
-        <TabsContent value="budgets">
+      {/* Budgets */}
+      {tab === "budgets" && (
+        <Box>
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold">Budget vs actual · YTD</h3>
             <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* Assets */}
-        <TabsContent value="assets">
+      {/* Assets */}
+      {tab === "assets" && (
+        <Box>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* Reports */}
-        <TabsContent value="reports" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Reports */}
+      {tab === "reports" && (
+        <Box className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             { name: "Trial Balance",       icon: Scale,      desc: "Posted journal entries grouped by account code", action: () => openReport("Trial Balance", `trial-balance-${active.shortCode}`, buildTrialBalance()) },
             { name: "Profit & Loss",       icon: TrendingUp, desc: "Fee income by category vs. recorded expenses", action: () => openReport("Profit & Loss", `profit-and-loss-${active.shortCode}`, buildProfitAndLoss()) },
@@ -504,10 +512,12 @@ function AccountingPage() {
               {!r.disabled && <p className="mt-3 text-xs text-primary">View report →</p>}
             </button>
           ))}
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* Tax */}
-        <TabsContent value="tax" className="space-y-4">
+      {/* Tax */}
+      {tab === "tax" && (
+        <Box className="space-y-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h3 className="text-sm font-semibold">No compliance ledger endpoint available</h3>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -520,15 +530,13 @@ function AccountingPage() {
               <ActivityTile label="Fee payments" value={`${feePayments.length}`} helper="Fee collection records currently available from the backend." />
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
 
-      <Dialog open={!!reportPreview} onOpenChange={(v) => { if (!v) setReportPreview(null); }}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader className="print:hidden">
-            <DialogTitle>{reportPreview?.title}</DialogTitle>
-            <DialogDescription>Preview the report below, then print it to PDF or download it as a spreadsheet.</DialogDescription>
-          </DialogHeader>
+      <Dialog open={!!reportPreview} onClose={() => setReportPreview(null)} maxWidth="lg" fullWidth>
+        <DialogTitle className="print:hidden">{reportPreview?.title}</DialogTitle>
+        <DialogContent>
+          <DialogContentText className="print:hidden" sx={{ mb: 2 }}>Preview the report below, then print it to PDF or download it as a spreadsheet.</DialogContentText>
           {reportPreview && (
             <div className="print-area max-h-[65vh] overflow-y-auto rounded-xl border border-border bg-card print:max-h-none print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
               <SchoolDocumentHeader
@@ -536,14 +544,15 @@ function AccountingPage() {
                 subtitle={`Generated ${new Date().toLocaleDateString()} · Term ${active.currentTerm} ${active.currentYear}`}
               />
               <div className="overflow-x-auto p-4">
+                <TableContainer>
                 <Table>
-                  <TableHeader>
+                  <TableHead>
                     <TableRow>
                       {Object.keys(reportPreview.rows[0] ?? {}).map((col) => (
-                        <TableHead key={col}>{col}</TableHead>
+                        <TableCell key={col}>{col}</TableCell>
                       ))}
                     </TableRow>
-                  </TableHeader>
+                  </TableHead>
                   <TableBody>
                     {reportPreview.rows.map((row, i) => (
                       <TableRow key={i} className={i % 2 === 1 ? "bg-muted/30" : undefined}>
@@ -554,18 +563,19 @@ function AccountingPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </TableContainer>
               </div>
             </div>
           )}
-          <DialogFooter className="mt-2 print:hidden">
-            <Button variant="outline" onClick={() => reportPreview && downloadCsv(reportPreview.rows, reportPreview.filename)}>
-              <Download className="mr-1.5 h-4 w-4" />CSV
-            </Button>
-            <Button onClick={() => window.print()}>
-              <Printer className="mr-1.5 h-4 w-4" />Print / Save as PDF
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions className="print:hidden">
+          <Button variant="outlined" color="inherit" startIcon={<Download size={16} />} onClick={() => reportPreview && downloadCsv(reportPreview.rows, reportPreview.filename)}>
+            CSV
+          </Button>
+          <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => window.print()}>
+            Print / Save as PDF
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
     </AccessGuard>

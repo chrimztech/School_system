@@ -2,17 +2,25 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { BookText, LifeBuoy, ShieldAlert, Siren, Ticket, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import TableContainer from "@mui/material/TableContainer";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendPlatformAuditEvent } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 
 type TicketPriority = "Low" | "Medium" | "High" | "Critical";
 type TicketStatus = "New" | "Investigating" | "Waiting on school" | "Escalated" | "Resolved";
@@ -39,11 +47,11 @@ const knowledgeRoutes = [
   { label: "General knowledge base", route: "/knowledge-base" },
 ];
 
-function priorityTone(priority: TicketPriority) {
-  if (priority === "Critical") return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
-  if (priority === "High") return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-  if (priority === "Medium") return "bg-sky-500/15 text-sky-700 dark:text-sky-300";
-  return "bg-slate-500/15 text-slate-700 dark:text-slate-300";
+function priorityTone(priority: TicketPriority): BadgeTone {
+  if (priority === "Critical") return "destructive";
+  if (priority === "High") return "warning";
+  if (priority === "Medium") return "default";
+  return "secondary";
 }
 
 export const Route = createFileRoute("/support-desk")({
@@ -54,6 +62,7 @@ export const Route = createFileRoute("/support-desk")({
 function SupportDeskPage() {
   const { user } = useAuth();
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState("queue");
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const tickets = (workspace?.supportTickets ?? []) as DeskTicket[];
@@ -64,7 +73,7 @@ function SupportDeskPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -200,11 +209,8 @@ function SupportDeskPage() {
         description="Run the shared support queue for tenant incidents, commercial requests, onboarding blockers, and escalations."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/knowledge-base">Open knowledge base</Link>
-            </Button>
-            <Button onClick={runSlaSweep}>
-              <LifeBuoy className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/knowledge-base">Open knowledge base</Button>
+            <Button onClick={runSlaSweep} startIcon={<LifeBuoy className="h-4 w-4" />}>
               Run SLA sweep
             </Button>
           </>
@@ -219,29 +225,30 @@ function SupportDeskPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ticket ID, school, category, owner, or subject" />
+        <TextField fullWidth size="small" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ticket ID, school, category, owner, or subject" />
       </div>
 
-      <Tabs defaultValue="queue" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="queue">Queue</TabsTrigger>
-          <TabsTrigger value="escalations">Escalations</TabsTrigger>
-          <TabsTrigger value="knowledge">Knowledge links</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="queue" label="Queue" />
+        <Tab value="escalations" label="Escalations" />
+        <Tab value="knowledge" label="Knowledge links" />
+      </Tabs>
 
-        <TabsContent value="queue" className="rounded-xl border border-border bg-card">
+      {tab === "queue" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Ticket</TableHead>
-                <TableHead>School</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Knowledge</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Ticket</TableCell>
+                <TableCell>School</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Priority</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Knowledge</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {filtered.map((ticket) => (
                 <TableRow key={ticket.id}>
@@ -258,38 +265,31 @@ function SupportDeskPage() {
                     </div>
                   </TableCell>
                   <TableCell className="w-48">
-                    <Select value={ticket.owner} onValueChange={(value) => updateOwner(ticket.id, value)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {owners.map((owner) => <SelectItem key={owner} value={owner}>{owner}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <TextField select size="small" fullWidth value={ticket.owner} onChange={(event) => updateOwner(ticket.id, event.target.value)}>
+                      {owners.map((owner) => <MenuItem key={owner} value={owner}>{owner}</MenuItem>)}
+                    </TextField>
                   </TableCell>
                   <TableCell className="w-36">
-                    <Select value={ticket.priority} onValueChange={(value) => updatePriority(ticket.id, value as TicketPriority)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {(["Low", "Medium", "High", "Critical"] as TicketPriority[]).map((priority) => (
-                          <SelectItem key={priority} value={priority}>{priority}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <TextField select size="small" fullWidth value={ticket.priority} onChange={(event) => updatePriority(ticket.id, event.target.value as TicketPriority)}>
+                      {(["Low", "Medium", "High", "Critical"] as TicketPriority[]).map((priority) => (
+                        <MenuItem key={priority} value={priority}>{priority}</MenuItem>
+                      ))}
+                    </TextField>
                   </TableCell>
                   <TableCell>
-                    <Badge className={ticket.status === "Resolved" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : ticket.status === "Escalated" ? "bg-rose-500/15 text-rose-700 dark:text-rose-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}>
-                      {ticket.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={ticket.status}
+                      sx={badgeSx(ticket.status === "Resolved" ? "success" : ticket.status === "Escalated" ? "destructive" : "warning")}
+                    />
                   </TableCell>
                   <TableCell className="w-52">
-                    <Select value={ticket.article} onValueChange={(value) => attachArticle(ticket.id, value)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {knowledgeRoutes.map((route) => <SelectItem key={route.label} value={route.label}>{route.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <TextField select size="small" fullWidth value={ticket.article} onChange={(event) => attachArticle(ticket.id, event.target.value)}>
+                      {knowledgeRoutes.map((route) => <MenuItem key={route.label} value={route.label}>{route.label}</MenuItem>)}
+                    </TextField>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => advanceTicket(ticket.id)}>
+                    <Button size="small" variant="outlined" onClick={() => advanceTicket(ticket.id)}>
                       {ticket.status === "Resolved" ? "Closed" : ticket.status === "New" ? "Start" : "Resolve"}
                     </Button>
                   </TableCell>
@@ -297,9 +297,12 @@ function SupportDeskPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="escalations" className="grid gap-4 lg:grid-cols-3">
+      {tab === "escalations" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           {filtered.filter((ticket) => ticket.priority === "Critical" || ticket.ageHours > ticket.slaHours).map((ticket) => (
             <div key={ticket.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -307,7 +310,7 @@ function SupportDeskPage() {
                   <p className="font-semibold">{ticket.subject}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{ticket.tenantName}</p>
                 </div>
-                <Badge className={priorityTone(ticket.priority)}>{ticket.priority}</Badge>
+                <Chip size="small" label={ticket.priority} sx={badgeSx(priorityTone(ticket.priority))} />
               </div>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -324,16 +327,16 @@ function SupportDeskPage() {
                 </div>
               </div>
               <div className="mt-5 flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => advanceTicket(ticket.id)}>Update</Button>
-                <Button size="sm" className="flex-1" asChild>
-                  <Link to="/platform-ops">Open platform ops</Link>
-                </Button>
+                <Button variant="outlined" size="small" sx={{ flex: 1 }} onClick={() => advanceTicket(ticket.id)}>Update</Button>
+                <Button size="small" sx={{ flex: 1 }} component={Link} to="/platform-ops">Open platform ops</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="knowledge" className="grid gap-4 lg:grid-cols-2">
+      {tab === "knowledge" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <BookText className="h-4 w-4" />
@@ -347,9 +350,7 @@ function SupportDeskPage() {
                       <p className="font-medium">{route.label}</p>
                       <p className="text-sm text-muted-foreground">Open the linked operational workflow.</p>
                     </div>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={route.route}>Open</Link>
-                    </Button>
+                    <Button size="small" variant="outlined" component={Link} to={route.route}>Open</Button>
                   </div>
                 </div>
               ))}
@@ -365,21 +366,17 @@ function SupportDeskPage() {
               <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
                 <p className="font-medium">Support + success handoff</p>
                 <p className="mt-1 text-sm text-muted-foreground">Use this when a billing or adoption issue could influence renewal confidence.</p>
-                <Button className="mt-4 w-full" variant="outline" asChild>
-                  <Link to="/tenant-success">Open tenant success</Link>
-                </Button>
+                <Button sx={{ mt: 2, width: "100%" }} variant="outlined" component={Link} to="/tenant-success">Open tenant success</Button>
               </div>
               <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
                 <p className="font-medium">Commercial packaging questions</p>
                 <p className="mt-1 text-sm text-muted-foreground">Link plan comparisons and add-on pricing when a school asks for expansion or discounts.</p>
-                <Button className="mt-4 w-full" variant="outline" asChild>
-                  <Link to="/plan-catalog">Open plan catalog</Link>
-                </Button>
+                <Button sx={{ mt: 2, width: "100%" }} variant="outlined" component={Link} to="/plan-catalog">Open plan catalog</Button>
               </div>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
     </div>
   );
 }

@@ -3,13 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert, AlertTriangle, Lock, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button, Chip, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/security")({
   head: () => ({ meta: [{ title: "Security — SRMS" }] }),
@@ -37,7 +37,7 @@ function SecurityPage() {
         description="Manage access, incident signals and platform security posture from one secure operations dashboard."
         actions={
           <>
-            <Button variant="outline" asChild><Link to="/risk-register">Risk register</Link></Button>
+            <Button component={Link} to="/risk-register" variant="outlined">Risk register</Button>
             <Button onClick={() => toast.info("Security assessment queued")}>Run security assessment</Button>
           </>
         }
@@ -57,26 +57,31 @@ function SecurityPage() {
               <h2 className="text-sm font-semibold text-foreground">Incidents</h2>
               <p className="text-xs text-muted-foreground">Security and safety incidents requiring attention.</p>
             </div>
-            <Badge variant={openIncidents > 0 ? "destructive" : "secondary"}>{openIncidents} open</Badge>
+            <Chip size="small" label={`${openIncidents} open`} sx={badgeSx(openIncidents > 0 ? "destructive" : "secondary")} />
           </div>
           {incidents.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">No incidents recorded.</div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Severity</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Date</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {(incidents as any[]).slice(0, 10).map((inc: any) => (
                   <TableRow key={inc.id}>
                     <TableCell className="font-medium">{inc.title ?? inc.description ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant={inc.severity === "High" ? "destructive" : inc.severity === "Medium" ? "warning" : "secondary"}>{inc.severity ?? "—"}</Badge>
+                      <Chip
+                        size="small"
+                        label={inc.severity ?? "—"}
+                        sx={badgeSx(inc.severity === "High" ? "destructive" : inc.severity === "Medium" ? "warning" : "secondary")}
+                      />
                     </TableCell>
                     <TableCell>{inc.status ?? "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{inc.incidentDate ?? inc.createdAt?.slice(0, 10)}</TableCell>
@@ -84,6 +89,7 @@ function SecurityPage() {
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
         </div>
 
@@ -93,31 +99,37 @@ function SecurityPage() {
               <h2 className="text-sm font-semibold text-foreground">Risk register</h2>
               <p className="text-xs text-muted-foreground">Top risks requiring mitigation.</p>
             </div>
-            <Badge variant={openRisks > 0 ? "destructive" : "secondary"}>{openRisks} open</Badge>
+            <Chip size="small" label={`${openRisks} open`} sx={badgeSx(openRisks > 0 ? "destructive" : "secondary")} />
           </div>
           {riskItems.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">No risk items recorded.</div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Risk</TableHead>
-                  <TableHead>Likelihood</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableCell>Risk</TableCell>
+                  <TableCell>Likelihood</TableCell>
+                  <TableCell>Status</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {(riskItems as any[]).slice(0, 10).map((r: any) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.title ?? r.description ?? "—"}</TableCell>
                     <TableCell>{r.likelihood ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant={(r.status ?? "").toLowerCase() === "open" ? "destructive" : "secondary"}>{r.status ?? "—"}</Badge>
+                      <Chip
+                        size="small"
+                        label={r.status ?? "—"}
+                        sx={badgeSx((r.status ?? "").toLowerCase() === "open" ? "destructive" : "secondary")}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
         </div>
       </div>
@@ -130,8 +142,8 @@ function SecurityPage() {
           </div>
           <p className="mt-3 text-sm text-muted-foreground">{users.length} active accounts. Password policies and access controls are enforced server-side via JWT authentication.</p>
           <div className="mt-4 flex flex-col gap-3">
-            <Button variant="outline" asChild><Link to="/policy-library">Review password policy</Link></Button>
-            <Button variant="outline" asChild><Link to="/access">Audit role assignments</Link></Button>
+            <Button component={Link} to="/policy-library" variant="outlined">Review password policy</Button>
+            <Button component={Link} to="/access" variant="outlined">Audit role assignments</Button>
           </div>
         </div>
 
@@ -142,8 +154,8 @@ function SecurityPage() {
           </div>
           <p className="mt-3 text-sm text-muted-foreground">User privileges are aligned to current role-based access controls.</p>
           <div className="mt-4 flex flex-col gap-3">
-            <Button variant="outline" asChild><Link to="/access">Review role assignments</Link></Button>
-            <Button variant="outline" asChild><Link to="/user-management">Global user management</Link></Button>
+            <Button component={Link} to="/access" variant="outlined">Review role assignments</Button>
+            <Button component={Link} to="/user-management" variant="outlined">Global user management</Button>
           </div>
         </div>
 
@@ -154,8 +166,8 @@ function SecurityPage() {
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Incident playbooks available for data breach, fraud, and safety events.</p>
           <div className="mt-4 flex flex-col gap-3">
-            <Button variant="outline" asChild><Link to="/incident-management">Open response centre</Link></Button>
-            <Button variant="outline" asChild><Link to="/audit">View audit log</Link></Button>
+            <Button component={Link} to="/incident-management" variant="outlined">Open response centre</Button>
+            <Button component={Link} to="/audit" variant="outlined">View audit log</Button>
           </div>
         </div>
       </div>

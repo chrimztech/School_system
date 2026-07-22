@@ -1,17 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BadgeCheck, Globe2, Handshake, ShieldAlert, TrendingUp, Users2 } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 
 type PartnerTier = "Referral" | "Implementation" | "Strategic";
 type PartnerStatus = "Active" | "Probation" | "Paused";
@@ -38,16 +47,16 @@ type Deal = {
   owner: string;
 };
 
-function tierTone(tier: PartnerTier) {
-  if (tier === "Strategic") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  if (tier === "Implementation") return "bg-sky-500/15 text-sky-700 dark:text-sky-300";
-  return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+function tierTone(tier: PartnerTier): BadgeTone {
+  if (tier === "Strategic") return "success";
+  if (tier === "Implementation") return "default";
+  return "warning";
 }
 
-function statusTone(status: PartnerStatus) {
-  if (status === "Active") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  if (status === "Probation") return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-  return "bg-slate-500/15 text-slate-700 dark:text-slate-300";
+function statusTone(status: PartnerStatus): BadgeTone {
+  if (status === "Active") return "success";
+  if (status === "Probation") return "warning";
+  return "secondary";
 }
 
 function supportPriorityForStatus(status: PartnerStatus): "Low" | "Medium" | "High" | "Critical" {
@@ -63,6 +72,7 @@ export const Route = createFileRoute("/partner-management")({
 
 function PartnerManagementPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState("partners");
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const partners = (workspace?.partners ?? []) as Partner[];
@@ -74,7 +84,7 @@ function PartnerManagementPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -237,11 +247,8 @@ function PartnerManagementPage() {
         description="Run reseller, implementation, and strategic partner relationships, pipeline, enablement, and tenant handoff quality."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/contract-center">Open contract center</Link>
-            </Button>
-            <Button onClick={invitePartner}>
-              <Handshake className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/contract-center">Open contract center</Button>
+            <Button onClick={invitePartner} startIcon={<Handshake className="h-4 w-4" />}>
               Invite partner
             </Button>
           </>
@@ -255,26 +262,27 @@ function PartnerManagementPage() {
         <StatCard label="Certified staff" value={stats.certifiedUsers} accent="warning" icon={<BadgeCheck className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="partners" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="partners">Partners</TabsTrigger>
-          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-          <TabsTrigger value="enablement">Enablement</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="partners" label="Partners" />
+        <Tab value="pipeline" label="Pipeline" />
+        <Tab value="enablement" label="Enablement" />
+      </Tabs>
 
-        <TabsContent value="partners" className="rounded-xl border border-border bg-card">
+      {tab === "partners" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Partner</TableHead>
-                <TableHead>Region</TableHead>
-                <TableHead>Tier</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Tenants</TableHead>
-                <TableHead>Pipeline</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Partner</TableCell>
+                <TableCell>Region</TableCell>
+                <TableCell>Tier</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Tenants</TableCell>
+                <TableCell>Pipeline</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {partners.map((partner) => (
                 <TableRow key={partner.id}>
@@ -285,40 +293,48 @@ function PartnerManagementPage() {
                     </div>
                   </TableCell>
                   <TableCell>{partner.region}</TableCell>
-                  <TableCell><Badge className={tierTone(partner.tier)}>{partner.tier}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={partner.tier} sx={badgeSx(tierTone(partner.tier))} /></TableCell>
                   <TableCell className="w-44">
-                    <Select value={partner.status} onValueChange={(value) => updatePartnerStatus(partner.id, value as PartnerStatus)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Probation">Probation</SelectItem>
-                        <SelectItem value="Paused">Paused</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      value={partner.status}
+                      onChange={(event) => updatePartnerStatus(partner.id, event.target.value as PartnerStatus)}
+                      size="small"
+                      fullWidth
+                      slotProps={{ htmlInput: { sx: { fontSize: 12 } } }}
+                    >
+                      <MenuItem value="Active">Active</MenuItem>
+                      <MenuItem value="Probation">Probation</MenuItem>
+                      <MenuItem value="Paused">Paused</MenuItem>
+                    </TextField>
                   </TableCell>
                   <TableCell>{partner.managedTenants}</TableCell>
                   <TableCell className="font-medium">K{partner.pipelineValue.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    <Badge className={statusTone(partner.status)}>{partner.status}</Badge>
+                    <Chip size="small" label={partner.status} sx={badgeSx(statusTone(partner.status))} />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="pipeline" className="rounded-xl border border-border bg-card">
+      {tab === "pipeline" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Opportunity</TableHead>
-                <TableHead>Partner</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Value</TableHead>
-                <TableHead className="text-right">Advance</TableHead>
+                <TableCell>Opportunity</TableCell>
+                <TableCell>Partner</TableCell>
+                <TableCell>Stage</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Value</TableCell>
+                <TableCell className="text-right">Advance</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {deals.map((deal) => (
                 <TableRow key={deal.id}>
@@ -333,7 +349,7 @@ function PartnerManagementPage() {
                   <TableCell>{deal.owner}</TableCell>
                   <TableCell className="font-medium">K{deal.value.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" disabled={deal.stage === "Won"} onClick={() => advanceDeal(deal.id)}>
+                    <Button size="small" variant="outlined" disabled={deal.stage === "Won"} onClick={() => advanceDeal(deal.id)}>
                       {deal.stage === "Won" ? "Won" : "Advance"}
                     </Button>
                   </TableCell>
@@ -341,9 +357,12 @@ function PartnerManagementPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="enablement" className="grid gap-4 lg:grid-cols-3">
+      {tab === "enablement" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           {partners.map((partner) => (
             <div key={partner.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -368,15 +387,13 @@ function PartnerManagementPage() {
                 </div>
               </div>
               <div className="mt-4 flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => scheduleTraining(partner)}>Schedule training</Button>
-                <Button size="sm" asChild>
-                  <Link to="/tenant-lifecycle">View handoffs</Link>
-                </Button>
+                <Button size="small" variant="outlined" onClick={() => scheduleTraining(partner)}>Schedule training</Button>
+                <Button size="small" component={Link} to="/tenant-lifecycle">View handoffs</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
     </div>
   );
 }

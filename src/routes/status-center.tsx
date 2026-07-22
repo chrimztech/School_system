@@ -1,17 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, Clock3, Megaphone, ShieldAlert, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Switch from "@mui/material/Switch";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendPlatformAuditEvent, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 
 type IncidentLevel = "Minor" | "Major" | "Critical";
 type IncidentState = "Monitoring" | "Investigating" | "Resolved";
@@ -33,10 +41,10 @@ type MaintenanceWindow = {
   published: boolean;
 };
 
-function levelTone(level: IncidentLevel) {
-  if (level === "Critical") return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
-  if (level === "Major") return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-  return "bg-sky-500/15 text-sky-700 dark:text-sky-300";
+function levelTone(level: IncidentLevel): BadgeTone {
+  if (level === "Critical") return "destructive";
+  if (level === "Major") return "warning";
+  return "default";
 }
 
 export const Route = createFileRoute("/status-center")({
@@ -46,6 +54,7 @@ export const Route = createFileRoute("/status-center")({
 
 function StatusCenterPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState("incidents");
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const incidents = (workspace?.statusIncidents ?? []) as StatusIncident[];
@@ -58,7 +67,7 @@ function StatusCenterPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -202,11 +211,8 @@ function StatusCenterPage() {
         description="Manage incident communication, planned maintenance notices, and the platform-facing service status narrative."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/platform-ops">Open platform ops</Link>
-            </Button>
-            <Button onClick={broadcastUpdate}>
-              <Megaphone className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/platform-ops">Open platform ops</Button>
+            <Button variant="contained" startIcon={<Megaphone size={16} />} onClick={broadcastUpdate}>
               Broadcast update
             </Button>
           </>
@@ -228,30 +234,31 @@ function StatusCenterPage() {
           </div>
           <Switch
             checked={statusPageEnabled}
-            onCheckedChange={toggleStatusPage}
+            onChange={(e) => toggleStatusPage(e.target.checked)}
           />
         </div>
       </div>
 
-      <Tabs defaultValue="incidents" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="incidents">Incidents</TabsTrigger>
-          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="audiences">Audience targeting</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="incidents" label="Incidents" />
+        <Tab value="maintenance" label="Maintenance" />
+        <Tab value="audiences" label="Audience targeting" />
+      </Tabs>
 
-        <TabsContent value="incidents" className="rounded-xl border border-border bg-card">
+      {tab === "incidents" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Incident</TableHead>
-                <TableHead>Audience</TableHead>
-                <TableHead>Level</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead className="text-right">Advance</TableHead>
+                <TableCell>Incident</TableCell>
+                <TableCell>Audience</TableCell>
+                <TableCell>Level</TableCell>
+                <TableCell>State</TableCell>
+                <TableCell>Updated</TableCell>
+                <TableCell className="text-right">Advance</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {incidents.map((incident) => (
                 <TableRow key={incident.id}>
@@ -262,11 +269,11 @@ function StatusCenterPage() {
                     </div>
                   </TableCell>
                   <TableCell>{incident.audience}</TableCell>
-                  <TableCell><Badge className={levelTone(incident.level)}>{incident.level}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={incident.level} sx={badgeSx(levelTone(incident.level))} /></TableCell>
                   <TableCell>{incident.state}</TableCell>
                   <TableCell>{incident.updatedAt}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" disabled={incident.state === "Resolved"} onClick={() => advanceIncident(incident.id)}>
+                    <Button size="small" variant="outlined" disabled={incident.state === "Resolved"} onClick={() => advanceIncident(incident.id)}>
                       {incident.state === "Investigating" ? "Monitor" : incident.state === "Monitoring" ? "Resolve" : "Resolved"}
                     </Button>
                   </TableCell>
@@ -274,9 +281,12 @@ function StatusCenterPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="maintenance" className="grid gap-4 lg:grid-cols-2">
+      {tab === "maintenance" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           {maintenance.map((window) => (
             <div key={window.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -284,24 +294,26 @@ function StatusCenterPage() {
                   <p className="font-semibold">{window.title}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{window.window}</p>
                 </div>
-                <Badge className={window.published ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                  {window.published ? "Published" : "Draft"}
-                </Badge>
+                <Chip
+                  size="small"
+                  label={window.published ? "Published" : "Draft"}
+                  sx={badgeSx(window.published ? "success" : "secondary")}
+                />
               </div>
               <p className="mt-4 text-sm text-muted-foreground">Audience: {window.audience}</p>
               <div className="mt-4 flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => toggleMaintenance(window.id)}>
+                <Button size="small" variant="outlined" onClick={() => toggleMaintenance(window.id)}>
                   {window.published ? "Unpublish" : "Publish"}
                 </Button>
-                <Button size="sm" asChild>
-                  <Link to="/support-desk">Coordinate support</Link>
-                </Button>
+                <Button size="small" variant="contained" component={Link} to="/support-desk">Coordinate support</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="audiences" className="grid gap-4 lg:grid-cols-3">
+      {tab === "audiences" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           {[
             { label: "All schools", note: "Use for broad outages and maintenance affecting every tenant." },
             { label: "District tenants", note: "Use for analytics rollups, district exports, and oversight modules." },
@@ -310,13 +322,13 @@ function StatusCenterPage() {
             <div key={audience.label} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <p className="font-semibold">{audience.label}</p>
               <p className="mt-2 text-sm text-muted-foreground">{audience.note}</p>
-              <Button className="mt-4 w-full" variant="outline" onClick={() => loadAudience(audience.label)}>
+              <Button sx={{ mt: 2, width: "100%" }} variant="outlined" onClick={() => loadAudience(audience.label)}>
                 Load segment
               </Button>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
     </div>
   );
 }

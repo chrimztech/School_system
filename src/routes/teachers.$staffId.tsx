@@ -4,22 +4,8 @@ import { ArrowLeft, Mail, Phone, BookOpen, CalendarCheck, Users, Loader2, Pencil
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button, Chip, Breadcrumbs, IconButton, Link as MuiLink, Typography, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -108,109 +94,106 @@ function EditTeacherDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader><DialogTitle>Edit teacher</DialogTitle></DialogHeader>
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+      <DialogTitle>Edit teacher</DialogTitle>
+      <DialogContent>
         <div className="overflow-y-auto flex-1 pr-1">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>First name *</Label>
-              <Input className="mt-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} maxLength={60} />
-            </div>
-            <div>
-              <Label>Last name *</Label>
-              <Input className="mt-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} maxLength={60} />
-            </div>
+            <TextField label="First name *" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} slotProps={{ htmlInput: { maxLength: 60 } }} fullWidth size="small" />
+            <TextField label="Last name *" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} slotProps={{ htmlInput: { maxLength: 60 } }} fullWidth size="small" />
             <div className="col-span-2">
-              <Label>Subjects (comma-separated)</Label>
-              <Input className="mt-1" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Mathematics, Physics" />
+              <TextField label="Subjects (comma-separated)" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Mathematics, Physics" fullWidth size="small" />
             </div>
-            <div>
-              <Label>Department</Label>
-              <Select value={form.department || "__none__"} onValueChange={(v) => setForm({ ...form, department: v === "__none__" ? "" : v })}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— None —</SelectItem>
-                  {departments.map((d: any) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Qualification</Label>
-              <Select value={form.qualification} onValueChange={(v) => setForm({ ...form, qualification: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>{QUALIFICATIONS.map((q) => <SelectItem key={q} value={q}>{q}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Gender</Label>
-              <Select value={form.gender} onValueChange={(v) => setForm({ ...form, gender: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>{GENDERS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">On duty</SelectItem>
-                  <SelectItem value="on_leave">On leave</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                  <SelectItem value="terminated">Terminated</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input type="email" className="mt-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} maxLength={100} />
-            </div>
-            <div>
-              <Label>Phone</Label>
-              <Input className="mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} maxLength={20} />
-            </div>
-            <div>
-              <Label>National ID / NRC</Label>
-              <Input className="mt-1" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} maxLength={30} />
-            </div>
-            <div>
-              <Label>Date joined</Label>
-              <Input type="date" className="mt-1" value={form.dateJoined} onChange={(e) => setForm({ ...form, dateJoined: e.target.value })} />
-            </div>
-            <div>
-              <Label>Base salary (K)</Label>
-              <Input type="number" min={0} className="mt-1" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
-            </div>
-            <div>
-              <Label>Teaching licence / ECZ no.</Label>
-              <Input className="mt-1" value={form.professionalLicenseNo} onChange={(e) => setForm({ ...form, professionalLicenseNo: e.target.value })} maxLength={40} />
-            </div>
-            <div>
-              <Label>Years of teaching experience</Label>
-              <Input type="number" min={0} className="mt-1" value={form.teachingExperienceYears} onChange={(e) => setForm({ ...form, teachingExperienceYears: e.target.value })} />
-            </div>
-            <div>
-              <Label>Bank name</Label>
-              <Input className="mt-1" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} maxLength={60} />
-            </div>
-            <div>
-              <Label>Bank account no.</Label>
-              <Input className="mt-1" value={form.bankAccount} onChange={(e) => setForm({ ...form, bankAccount: e.target.value })} maxLength={40} />
-            </div>
+            <TextField
+              select
+              label="Department"
+              value={form.department || "__none__"}
+              onChange={(e) => setForm({ ...form, department: e.target.value === "__none__" ? "" : e.target.value })}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="__none__">— None —</MenuItem>
+              {departments.map((d: any) => <MenuItem key={d.id} value={d.name}>{d.name}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              label="Qualification"
+              value={form.qualification}
+              onChange={(e) => setForm({ ...form, qualification: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              {QUALIFICATIONS.map((q) => <MenuItem key={q} value={q}>{q}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              label="Gender"
+              value={form.gender}
+              onChange={(e) => setForm({ ...form, gender: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              {GENDERS.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              label="Status"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="active">On duty</MenuItem>
+              <MenuItem value="on_leave">On leave</MenuItem>
+              <MenuItem value="suspended">Suspended</MenuItem>
+              <MenuItem value="terminated">Terminated</MenuItem>
+            </TextField>
+            <TextField type="email" label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
+            <TextField label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} slotProps={{ htmlInput: { maxLength: 20 } }} fullWidth size="small" />
+            <TextField label="National ID / NRC" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} slotProps={{ htmlInput: { maxLength: 30 } }} fullWidth size="small" />
+            <TextField
+              type="date"
+              label="Date joined"
+              value={form.dateJoined}
+              onChange={(e) => setForm({ ...form, dateJoined: e.target.value })}
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              type="number"
+              label="Base salary (K)"
+              slotProps={{ htmlInput: { min: 0 } }}
+              value={form.salary}
+              onChange={(e) => setForm({ ...form, salary: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField label="Teaching licence / ECZ no." value={form.professionalLicenseNo} onChange={(e) => setForm({ ...form, professionalLicenseNo: e.target.value })} slotProps={{ htmlInput: { maxLength: 40 } }} fullWidth size="small" />
+            <TextField
+              type="number"
+              label="Years of teaching experience"
+              slotProps={{ htmlInput: { min: 0 } }}
+              value={form.teachingExperienceYears}
+              onChange={(e) => setForm({ ...form, teachingExperienceYears: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField label="Bank name" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} slotProps={{ htmlInput: { maxLength: 60 } }} fullWidth size="small" />
+            <TextField label="Bank account no." value={form.bankAccount} onChange={(e) => setForm({ ...form, bankAccount: e.target.value })} slotProps={{ htmlInput: { maxLength: 40 } }} fullWidth size="small" />
             <div className="col-span-2">
-              <Label>Residential address</Label>
-              <Input className="mt-1" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} maxLength={200} />
+              <TextField label="Residential address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} fullWidth size="small" />
             </div>
           </div>
         </div>
-        <DialogFooter className="mt-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save changes
-          </Button>
-        </DialogFooter>
       </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="inherit" onClick={onClose}>Cancel</Button>
+        <Button variant="contained" onClick={save} disabled={isPending}>
+          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Save changes
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -303,9 +286,7 @@ function TeacherProfilePage() {
   if (!teacher) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/teachers"><ArrowLeft className="mr-1 h-4 w-4" />Teachers</Link>
-        </Button>
+        <Button variant="text" color="inherit" size="small" component={Link} to="/teachers" startIcon={<ArrowLeft className="h-4 w-4" />}>Teachers</Button>
         <p className="text-center text-muted-foreground">Teacher not found.</p>
       </div>
     );
@@ -319,22 +300,15 @@ function TeacherProfilePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-          <Link to="/teachers" aria-label="Back to Teachers"><ArrowLeft className="h-4 w-4" /></Link>
-        </Button>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link to="/teachers">Teachers</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{teacherName}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        <IconButton component={Link} to="/teachers" aria-label="Back to Teachers" size="small" sx={{ flexShrink: 0 }}>
+          <ArrowLeft className="h-4 w-4" />
+        </IconButton>
+        <Breadcrumbs>
+          <MuiLink component={Link} to="/teachers" underline="hover" color="inherit" sx={{ fontSize: "inherit" }}>
+            Teachers
+          </MuiLink>
+          <Typography color="text.primary" sx={{ fontSize: "inherit" }}>{teacherName}</Typography>
+        </Breadcrumbs>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm" style={{ background: `linear-gradient(135deg, ${active.primaryColor}08, transparent)` }}>
@@ -347,20 +321,18 @@ function TeacherProfilePage() {
               <h1 className="text-xl font-semibold">{teacherName}</h1>
               <p className="font-mono text-sm text-muted-foreground">{record.staffNumber}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <Badge variant={status === "active" ? "secondary" : "outline"}>
-                  {status === "active" ? "On duty" : status === "on_leave" ? "On leave" : "Inactive"}
-                </Badge>
+                <Chip
+                  size="small"
+                  label={status === "active" ? "On duty" : status === "on_leave" ? "On leave" : "Inactive"}
+                  sx={badgeSx(status === "active" ? "secondary" : "outline")}
+                />
                 <span className="text-sm text-muted-foreground">{record.qualification}</span>
               </div>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="mr-1 h-4 w-4" />Edit
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/timetable"><BookOpen className="mr-1 h-4 w-4" />View timetable</Link>
-            </Button>
+            <Button variant="outlined" size="small" onClick={() => setEditOpen(true)} startIcon={<Pencil className="h-4 w-4" />}>Edit</Button>
+            <Button variant="outlined" size="small" component={Link} to="/timetable" startIcon={<BookOpen className="h-4 w-4" />}>View timetable</Button>
           </div>
         </div>
       </div>
@@ -374,27 +346,28 @@ function TeacherProfilePage() {
         isPending={updateMutation.isPending}
       />
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="classes">Classes</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="classes" label="Classes" />
+        <Tab value="details" label="Details" />
+        <Tab value="attendance" label="Attendance" />
+      </Tabs>
 
-        <TabsContent value="classes" className="rounded-xl border border-border bg-card p-5 shadow-sm">
+      {tab === "classes" && (
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold">Class assignments · Term {active.currentTerm}</h2>
           {assignments.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">No class assignments recorded yet.</div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Grade</TableHead>
-                  <TableHead>Section</TableHead>
-                  <TableHead>Subject</TableHead>
+                  <TableCell>Class</TableCell>
+                  <TableCell>Grade</TableCell>
+                  <TableCell>Section</TableCell>
+                  <TableCell>Subject</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {assignments.map((a) => (
                   <TableRow key={a.id}>
@@ -406,11 +379,13 @@ function TeacherProfilePage() {
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="details">
-          <div className="grid gap-4 lg:grid-cols-2">
+      {tab === "details" && (
+        <div className="grid gap-4 lg:grid-cols-2">
             {/* Personal & professional */}
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3 text-sm">
               <h2 className="font-semibold">Personal & professional</h2>
@@ -433,7 +408,7 @@ function TeacherProfilePage() {
                 <p className="text-muted-foreground mb-1">Subjects</p>
                 <div className="flex flex-wrap gap-1">
                   {subjects.length > 0 ? subjects.map((s) => (
-                    <Badge key={s} variant="secondary">{s}</Badge>
+                    <Chip key={s} size="small" label={s} sx={badgeSx("secondary")} />
                   )) : <span className="text-muted-foreground">No subject allocation</span>}
                 </div>
               </div>
@@ -473,22 +448,24 @@ function TeacherProfilePage() {
               </div>
             )}
           </div>
-        </TabsContent>
+      )}
 
-        <TabsContent value="attendance" className="rounded-xl border border-border bg-card p-5 shadow-sm">
+      {tab === "attendance" && (
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold">Attendance history</h2>
           {attendanceHistory.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">No attendance records found.</div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Remarks</TableHead>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Class</TableCell>
+                  <TableCell>Remarks</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {(attendanceHistory as any[]).slice(0, 30).map((a: any) => {
                   const status = (a.status ?? "present").toLowerCase();
@@ -496,9 +473,11 @@ function TeacherProfilePage() {
                     <TableRow key={a.id}>
                       <TableCell className="text-xs text-muted-foreground">{a.date ?? (a.createdAt ?? "").slice(0, 10)}</TableCell>
                       <TableCell>
-                        <Badge className={`text-[10px] ${status === "present" ? "bg-emerald-500/15 text-emerald-700" : status === "late" ? "bg-amber-500/15 text-amber-700" : "bg-destructive/15 text-destructive"}`}>
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </Badge>
+                        <Chip
+                          size="small"
+                          label={status.charAt(0).toUpperCase() + status.slice(1)}
+                          sx={{ ...badgeSx(status === "present" ? "success" : status === "late" ? "warning" : "destructive"), fontSize: 10 }}
+                        />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{a.className ?? a.classId ?? "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{a.remarks ?? ""}</TableCell>
@@ -507,9 +486,10 @@ function TeacherProfilePage() {
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">

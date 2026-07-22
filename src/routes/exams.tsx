@@ -5,19 +5,11 @@ import { ClipboardCheck, MapPin, Users, FileSpreadsheet, Plus, Loader2, UserPlus
 import { toast } from "sonner";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button, Chip, Checkbox, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
-import { downloadCsv } from "@/lib/utils";
+import { downloadCsv, badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/exams")({
   head: () => ({ meta: [{ title: "Exams — SRMS" }] }),
@@ -39,12 +31,9 @@ function SeatingPlanTab({ papers }: { papers: any[] }) {
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Select value={paper.id} onValueChange={setSelectedId}>
-          <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {papers.map((p) => <SelectItem key={p.id} value={p.id}>{p.subject} — {p.grade} ({p.examDate})</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <TextField select value={paper.id} onChange={(e) => setSelectedId(e.target.value)} size="small" sx={{ width: 288 }}>
+          {papers.map((p) => <MenuItem key={p.id} value={p.id}>{p.subject} — {p.grade} ({p.examDate})</MenuItem>)}
+        </TextField>
         <span className="text-sm text-muted-foreground">{paper.room} · {count} candidates · {cols} cols × {Math.ceil(count / cols)} rows</span>
       </div>
       {count > 0 ? (
@@ -59,8 +48,8 @@ function SeatingPlanTab({ papers }: { papers: any[] }) {
         <p className="py-4 text-sm text-muted-foreground">Candidate count not set for this paper.</p>
       )}
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="outline" onClick={() => toast.success("Seating plan reshuffled")}>Reshuffle</Button>
-        <Button onClick={() => toast.success("Plan emailed to invigilators")}>Publish</Button>
+        <Button variant="outlined" onClick={() => toast.success("Seating plan reshuffled")}>Reshuffle</Button>
+        <Button variant="contained" onClick={() => toast.success("Plan emailed to invigilators")}>Publish</Button>
       </div>
     </>
   );
@@ -118,23 +107,19 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
   if (!paper) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Candidates — {paper.subject} ({paper.grade})</DialogTitle>
-        </DialogHeader>
+    <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="lg" fullWidth>
+      <DialogTitle>Candidates — {paper.subject} ({paper.grade})</DialogTitle>
+      <DialogContent>
         <div className="space-y-5 overflow-y-auto max-h-[70vh] pr-1">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-border bg-muted/30 p-4">
               <p className="text-sm font-medium mb-2">Add examination class</p>
               <div className="flex gap-2">
-                <Select value={classId} onValueChange={setClassId}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Select class" /></SelectTrigger>
-                  <SelectContent>
-                    {(classes as any[]).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}{c.section ? ` ${c.section}` : ""}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button size="sm" disabled={!classId || addFromClassMut.isPending} onClick={() => addFromClassMut.mutate()}>
+                <TextField select value={classId} onChange={(e) => setClassId(e.target.value)} size="small" sx={{ flex: 1 }}>
+                  <MenuItem value="" disabled>Select class</MenuItem>
+                  {(classes as any[]).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}{c.section ? ` ${c.section}` : ""}</MenuItem>)}
+                </TextField>
+                <Button variant="contained" size="small" disabled={!classId || addFromClassMut.isPending} onClick={() => addFromClassMut.mutate()}>
                   {addFromClassMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
                 </Button>
               </div>
@@ -148,14 +133,15 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
                 ) : availableGce.map((g) => (
                   <label key={g.id} className="flex items-center gap-2 text-xs">
                     <Checkbox
+                      size="small"
                       checked={selectedGce.includes(g.id)}
-                      onCheckedChange={(v) => setSelectedGce((prev) => v ? [...prev, g.id] : prev.filter((id) => id !== g.id))}
+                      onChange={(e) => setSelectedGce((prev) => e.target.checked ? [...prev, g.id] : prev.filter((id) => id !== g.id))}
                     />
                     {g.firstName} {g.lastName} {g.examNumber ? `· ${g.examNumber}` : ""}
                   </label>
                 ))}
               </div>
-              <Button size="sm" className="mt-2" disabled={selectedGce.length === 0 || addGceMut.isPending} onClick={() => addGceMut.mutate()}>
+              <Button variant="contained" size="small" sx={{ mt: 1 }} disabled={selectedGce.length === 0 || addGceMut.isPending} onClick={() => addGceMut.mutate()}>
                 {addGceMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Add ${selectedGce.length || ""} selected`}
               </Button>
             </div>
@@ -164,10 +150,11 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
           <div>
             <p className="text-sm font-medium mb-2">Registered candidates ({(candidates as any[]).length})</p>
             <div className="overflow-x-auto rounded-xl border border-border">
+              <TableContainer>
               <Table>
-                <TableHeader><TableRow>
-                  <TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Grade</TableHead><TableHead className="text-right">Remove</TableHead>
-                </TableRow></TableHeader>
+                <TableHead><TableRow>
+                  <TableCell>Name</TableCell><TableCell>Type</TableCell><TableCell>Grade</TableCell><TableCell className="text-right">Remove</TableCell>
+                </TableRow></TableHead>
                 <TableBody>
                   {isLoading ? (
                     <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -176,24 +163,25 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
                   ) : (candidates as any[]).map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.candidateName}</TableCell>
-                      <TableCell><Badge variant={c.candidateType === "GCE" ? "secondary" : "outline"} className="text-[10px]">{c.candidateType}</Badge></TableCell>
+                      <TableCell><Chip size="small" label={c.candidateType} sx={{ ...badgeSx(c.candidateType === "GCE" ? "secondary" : "outline"), fontSize: 10 }} /></TableCell>
                       <TableCell>{c.grade}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" disabled={removeMut.isPending} onClick={() => removeMut.mutate(c.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <IconButton size="small" aria-label={`Remove ${c.candidateName}`} disabled={removeMut.isPending} onClick={() => removeMut.mutate(c.id)}>
+                          <Trash2 size={14} />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              </TableContainer>
             </div>
           </div>
         </div>
-        <DialogFooter className="mt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-        </DialogFooter>
       </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="inherit" onClick={() => onOpenChange(false)}>Close</Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -223,28 +211,29 @@ function GceAddDialog({ open, onOpenChange, schoolId, onDone }: { open: boolean;
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="sm" fullWidth>
+      <DialogTitle>Add GCE candidate</DialogTitle>
       <DialogContent>
-        <DialogHeader><DialogTitle>Add GCE candidate</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>First name *</Label><Input className="mt-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></div>
-          <div><Label>Last name *</Label><Input className="mt-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></div>
-          <div><Label>Grade *</Label><Input className="mt-1" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="Grade 12" /></div>
-          <div><Label>Exam number</Label><Input className="mt-1" value={form.examNumber} onChange={(e) => setForm({ ...form, examNumber: e.target.value })} /></div>
-          <div><Label>NRC</Label><Input className="mt-1" value={form.nrc} onChange={(e) => setForm({ ...form, nrc: e.target.value })} /></div>
-          <div><Label>Phone</Label><Input className="mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-          <div className="col-span-2"><Label>Subjects</Label><Input className="mt-1" value={form.subjects} onChange={(e) => setForm({ ...form, subjects: e.target.value })} placeholder="Mathematics, English, Biology" /></div>
+          <TextField label="First name *" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} fullWidth size="small" />
+          <TextField label="Last name *" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} fullWidth size="small" />
+          <TextField label="Grade *" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="Grade 12" fullWidth size="small" />
+          <TextField label="Exam number" value={form.examNumber} onChange={(e) => setForm({ ...form, examNumber: e.target.value })} fullWidth size="small" />
+          <TextField label="NRC" value={form.nrc} onChange={(e) => setForm({ ...form, nrc: e.target.value })} fullWidth size="small" />
+          <TextField label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} fullWidth size="small" />
+          <TextField className="col-span-2" label="Subjects" value={form.subjects} onChange={(e) => setForm({ ...form, subjects: e.target.value })} placeholder="Mathematics, English, Biology" fullWidth size="small" />
         </div>
-        <DialogFooter className="mt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            disabled={!form.firstName.trim() || !form.lastName.trim() || !form.grade.trim() || createMut.isPending}
-            onClick={() => createMut.mutate()}
-          >
-            {createMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Add candidate
-          </Button>
-        </DialogFooter>
       </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="inherit" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button
+          variant="contained"
+          disabled={!form.firstName.trim() || !form.lastName.trim() || !form.grade.trim() || createMut.isPending}
+          onClick={() => createMut.mutate()}
+        >
+          {createMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Add candidate
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -269,16 +258,17 @@ function GceRoster({ schoolId }: { schoolId: string }) {
           <p className="text-sm text-muted-foreground">Private / repeat candidates registered directly with ECZ, not tied to a class.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Import CSV</Button>
-          <Button onClick={() => setAddOpen(true)}><UserPlus className="mr-2 h-4 w-4" />Add candidate</Button>
+          <Button variant="outlined" startIcon={<Upload size={16} />} onClick={() => setImportOpen(true)}>Import CSV</Button>
+          <Button variant="contained" startIcon={<UserPlus size={16} />} onClick={() => setAddOpen(true)}>Add candidate</Button>
         </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <TableContainer>
         <Table>
-          <TableHeader><TableRow>
-            <TableHead>Name</TableHead><TableHead>Exam number</TableHead><TableHead>Grade</TableHead>
-            <TableHead>Subjects</TableHead><TableHead>Status</TableHead>
-          </TableRow></TableHeader>
+          <TableHead><TableRow>
+            <TableCell>Name</TableCell><TableCell>Exam number</TableCell><TableCell>Grade</TableCell>
+            <TableCell>Subjects</TableCell><TableCell>Status</TableCell>
+          </TableRow></TableHead>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -290,11 +280,12 @@ function GceRoster({ schoolId }: { schoolId: string }) {
                 <TableCell className="font-mono text-xs">{c.examNumber || "—"}</TableCell>
                 <TableCell>{c.grade}</TableCell>
                 <TableCell className="text-muted-foreground">{c.subjects || "—"}</TableCell>
-                <TableCell><Badge variant="secondary" className="text-[10px]">{c.status}</Badge></TableCell>
+                <TableCell><Chip size="small" label={c.status} sx={{ ...badgeSx("secondary"), fontSize: 10 }} /></TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       </div>
 
       <GceAddDialog open={addOpen} onOpenChange={setAddOpen} schoolId={schoolId} onDone={invalidate} />
@@ -381,7 +372,7 @@ function EczTab({ papers, schoolId }: { papers: any[]; schoolId: string }) {
               <h3 className="font-semibold">ECZ Candidate Registration</h3>
               <p className="text-sm text-muted-foreground">{eczPapers.length} ECZ paper{eczPapers.length !== 1 ? "s" : ""} · {eczPapers.reduce((a, p) => a + (Number(p.candidates) || 0), 0)} total candidates</p>
             </div>
-            <Button onClick={() => { downloadCsv(eczPapers.map((p) => ({ "Paper Code": p.code, Subject: p.subject, Grade: p.grade, Candidates: p.candidates, "Exam Date": p.examDate, "Start Time": p.startTime, Duration: p.duration, Room: p.room, Invigilator: p.invigilator, "Exam Board": p.examBoard })), "ecz-candidate-batch"); toast.success("Candidate file (.csv) exported for ECZ portal upload"); }}>Export ECZ batch</Button>
+            <Button variant="contained" onClick={() => { downloadCsv(eczPapers.map((p) => ({ "Paper Code": p.code, Subject: p.subject, Grade: p.grade, Candidates: p.candidates, "Exam Date": p.examDate, "Start Time": p.startTime, Duration: p.duration, Room: p.room, Invigilator: p.invigilator, "Exam Board": p.examBoard })), "ecz-candidate-batch"); toast.success("Candidate file (.csv) exported for ECZ portal upload"); }}>Export ECZ batch</Button>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {Object.entries(byGrade).map(([grade, { candidates }]) => (
@@ -389,7 +380,7 @@ function EczTab({ papers, schoolId }: { papers: any[]; schoolId: string }) {
                 <p className="text-xs uppercase text-muted-foreground">{grade}</p>
                 <p className="mt-1 text-2xl font-bold">{candidates}</p>
                 <p className="text-xs text-muted-foreground">candidates</p>
-                <Badge variant="secondary" className="mt-2">Scheduled</Badge>
+                <Chip size="small" label="Scheduled" sx={{ ...badgeSx("secondary"), mt: 1 }} />
               </div>
             ))}
           </div>
@@ -406,6 +397,7 @@ const PAPER_TYPES = ["Paper 1", "Paper 2", "Paper 3", "Practical", "Oral", "Cour
 function ExamsPage() {
   const { active } = useTenant();
   const qc = useQueryClient();
+  const [tab, setTab] = useState("schedule");
   const [open, setOpen] = useState(false);
   const [candidatesPaper, setCandidatesPaper] = useState<any>(null);
   const [form, setForm] = useState({
@@ -449,105 +441,147 @@ function ExamsPage() {
         description="ECZ & internal exam scheduling, seating plans, invigilation roster and candidate registers."
         actions={
           <>
-            <Button variant="outline" onClick={() => { window.print(); toast.success("Seating plan PDF generated"); }}>
-              <FileSpreadsheet className="mr-2 h-4 w-4" />Seating plan
+            <Button variant="outlined" startIcon={<FileSpreadsheet size={16} />} onClick={() => { window.print(); toast.success("Seating plan PDF generated"); }}>
+              Seating plan
             </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Schedule paper</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Schedule exam paper</DialogTitle></DialogHeader>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Schedule paper</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Schedule exam paper</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <Label>Subject / paper title *</Label>
-                    <Input className="mt-1" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Mathematics Paper 1" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Grade</Label>
-                    <Select value={form.grade} onValueChange={(v) => setForm({ ...form, grade: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{GRADES.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Exam board</Label>
-                    <Select value={form.examBoard} onValueChange={(v) => setForm({ ...form, examBoard: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{EXAM_BOARDS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Date *</Label>
-                    <Input type="date" className="mt-1" value={form.examDate} onChange={(e) => setForm({ ...form, examDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Start time</Label>
-                    <Input type="time" className="mt-1" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Duration</Label>
-                    <Select value={form.duration} onValueChange={(v) => setForm({ ...form, duration: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{DURATIONS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Paper type</Label>
-                    <Select value={form.paperType} onValueChange={(v) => setForm({ ...form, paperType: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{PAPER_TYPES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Room / venue</Label>
-                    <Select value={form.room} onValueChange={(v) => setForm({ ...form, room: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{ROOMS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Candidates</Label>
-                    <Input type="number" className="mt-1" value={form.candidates} onChange={(e) => setForm({ ...form, candidates: e.target.value })} min={1} />
-                  </div>
-                  <div>
-                    <Label>Total marks</Label>
-                    <Input type="number" className="mt-1" value={form.totalMarks} onChange={(e) => setForm({ ...form, totalMarks: e.target.value })} min={1} />
-                  </div>
-                  <div>
-                    <Label>Pass mark</Label>
-                    <Input type="number" className="mt-1" value={form.passMark} onChange={(e) => setForm({ ...form, passMark: e.target.value })} min={0} />
-                  </div>
-                  <div>
-                    <Label>Exam fee (K)</Label>
-                    <Input type="number" className="mt-1" value={form.examFee} onChange={(e) => setForm({ ...form, examFee: e.target.value })} placeholder="0" min={0} />
-                  </div>
-                  <div>
-                    <Label>Syllabus / paper code</Label>
-                    <Input className="mt-1" value={form.syllabusCode} onChange={(e) => setForm({ ...form, syllabusCode: e.target.value })} placeholder="ECZ-MATH-7P1" maxLength={30} />
-                  </div>
-                  <div>
-                    <Label>Lead invigilator</Label>
-                    <Input className="mt-1" value={form.invigilator} onChange={(e) => setForm({ ...form, invigilator: e.target.value })} placeholder="e.g. Mr. Phiri" maxLength={80} />
-                  </div>
-                  <div>
-                    <Label>Second invigilator</Label>
-                    <Input className="mt-1" value={form.secondInvigilator} onChange={(e) => setForm({ ...form, secondInvigilator: e.target.value })} placeholder="Name of assistant invigilator" maxLength={80} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Mark scheme / answer sheet location</Label>
-                    <Input className="mt-1" value={form.markSchemeLocation} onChange={(e) => setForm({ ...form, markSchemeLocation: e.target.value })} placeholder="e.g. Server: /exams/2026/Math-P1-MS.pdf" maxLength={200} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Special arrangements / notes</Label>
-                    <Input className="mt-1" value={form.specialArrangements} onChange={(e) => setForm({ ...form, specialArrangements: e.target.value })} placeholder="e.g. 3 SEN candidates need extra time" maxLength={200} />
-                  </div>
+                  <TextField
+                    className="col-span-2"
+                    label="Subject / paper title *"
+                    value={form.subject}
+                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                    placeholder="Mathematics Paper 1"
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField select label="Grade" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} fullWidth size="small">
+                    {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Exam board" value={form.examBoard} onChange={(e) => setForm({ ...form, examBoard: e.target.value })} fullWidth size="small">
+                    {EXAM_BOARDS.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Date *"
+                    type="date"
+                    value={form.examDate}
+                    onChange={(e) => setForm({ ...form, examDate: e.target.value })}
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                  <TextField
+                    label="Start time"
+                    type="time"
+                    value={form.startTime}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                  <TextField select label="Duration" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} fullWidth size="small">
+                    {DURATIONS.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Paper type" value={form.paperType} onChange={(e) => setForm({ ...form, paperType: e.target.value })} fullWidth size="small">
+                    {PAPER_TYPES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Room / venue" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} fullWidth size="small">
+                    {ROOMS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Candidates"
+                    type="number"
+                    value={form.candidates}
+                    onChange={(e) => setForm({ ...form, candidates: e.target.value })}
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Total marks"
+                    type="number"
+                    value={form.totalMarks}
+                    onChange={(e) => setForm({ ...form, totalMarks: e.target.value })}
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Pass mark"
+                    type="number"
+                    value={form.passMark}
+                    onChange={(e) => setForm({ ...form, passMark: e.target.value })}
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Exam fee (K)"
+                    type="number"
+                    value={form.examFee}
+                    onChange={(e) => setForm({ ...form, examFee: e.target.value })}
+                    placeholder="0"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Syllabus / paper code"
+                    value={form.syllabusCode}
+                    onChange={(e) => setForm({ ...form, syllabusCode: e.target.value })}
+                    placeholder="ECZ-MATH-7P1"
+                    slotProps={{ htmlInput: { maxLength: 30 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Lead invigilator"
+                    value={form.invigilator}
+                    onChange={(e) => setForm({ ...form, invigilator: e.target.value })}
+                    placeholder="e.g. Mr. Phiri"
+                    slotProps={{ htmlInput: { maxLength: 80 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Second invigilator"
+                    value={form.secondInvigilator}
+                    onChange={(e) => setForm({ ...form, secondInvigilator: e.target.value })}
+                    placeholder="Name of assistant invigilator"
+                    slotProps={{ htmlInput: { maxLength: 80 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    className="col-span-2"
+                    label="Mark scheme / answer sheet location"
+                    value={form.markSchemeLocation}
+                    onChange={(e) => setForm({ ...form, markSchemeLocation: e.target.value })}
+                    placeholder="e.g. Server: /exams/2026/Math-P1-MS.pdf"
+                    slotProps={{ htmlInput: { maxLength: 200 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    className="col-span-2"
+                    label="Special arrangements / notes"
+                    value={form.specialArrangements}
+                    onChange={(e) => setForm({ ...form, specialArrangements: e.target.value })}
+                    placeholder="e.g. 3 SEN candidates need extra time"
+                    slotProps={{ htmlInput: { maxLength: 200 } }}
+                    fullWidth
+                    size="small"
+                  />
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={schedulePaper}>Schedule paper</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={schedulePaper}>Schedule paper</Button>
+              </DialogActions>
             </Dialog>
           </>
         }
@@ -560,21 +594,23 @@ function ExamsPage() {
         <StatCard label="ECZ papers" value={(papers as any[]).filter((p: any) => p.examBoard === "ECZ").length} hint="Registered with ECZ" accent="success" />
       </div>
 
-      <Tabs defaultValue="schedule">
-        <TabsList>
-          <TabsTrigger value="schedule">Timetable</TabsTrigger>
-          <TabsTrigger value="seating">Seating plan</TabsTrigger>
-          <TabsTrigger value="invig">Invigilation</TabsTrigger>
-          <TabsTrigger value="ecz">ECZ candidates</TabsTrigger>
-        </TabsList>
+      <Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="schedule" label="Timetable" />
+          <Tab value="seating" label="Seating plan" />
+          <Tab value="invig" label="Invigilation" />
+          <Tab value="ecz" label="ECZ candidates" />
+        </Tabs>
 
-        <TabsContent value="schedule" className="rounded-xl border border-border bg-card">
+        {tab === "schedule" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Paper code</TableHead><TableHead>Subject</TableHead><TableHead>Grade</TableHead>
-              <TableHead>Date</TableHead><TableHead>Start</TableHead><TableHead>Duration</TableHead>
-              <TableHead>Room</TableHead><TableHead>Candidates</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Paper code</TableCell><TableCell>Subject</TableCell><TableCell>Grade</TableCell>
+              <TableCell>Date</TableCell><TableCell>Start</TableCell><TableCell>Duration</TableCell>
+              <TableCell>Room</TableCell><TableCell>Candidates</TableCell><TableCell>Status</TableCell><TableCell className="text-right">Actions</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -590,26 +626,32 @@ function ExamsPage() {
                   <TableCell>{p.candidates}</TableCell>
                   <TableCell><span className="text-xs text-muted-foreground">{p.status}</span></TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setCandidatesPaper(p)}>
-                      <UserPlus className="mr-1.5 h-3.5 w-3.5" />Manage
+                    <Button size="small" variant="text" color="inherit" startIcon={<UserPlus size={14} />} onClick={() => setCandidatesPaper(p)}>
+                      Manage
                     </Button>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+        )}
 
-        <TabsContent value="seating" className="rounded-xl border border-border bg-card p-5">
+        {tab === "seating" && (
+        <Box className="rounded-xl border border-border bg-card p-5">
           <SeatingPlanTab papers={papers as any[]} />
-        </TabsContent>
+        </Box>
+        )}
 
-        <TabsContent value="invig" className="rounded-xl border border-border bg-card">
+        {tab === "invig" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Paper</TableHead><TableHead>Date</TableHead><TableHead>Lead invigilator</TableHead>
-              <TableHead>Assistants</TableHead><TableHead className="text-right">Confirm</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Paper</TableCell><TableCell>Date</TableCell><TableCell>Lead invigilator</TableCell>
+              <TableCell>Assistants</TableCell><TableCell className="text-right">Confirm</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {(papers as any[]).map((p: any) => (
                 <TableRow key={p.id}>
@@ -621,7 +663,7 @@ function ExamsPage() {
                     {p.status === "CONFIRMED" ? (
                       <span className="text-xs text-muted-foreground">Confirmed</span>
                     ) : (
-                      <Button size="sm" variant="ghost" disabled={confirmMut.isPending} onClick={() => confirmMut.mutate(p.id)}>
+                      <Button size="small" variant="text" color="inherit" disabled={confirmMut.isPending} onClick={() => confirmMut.mutate(p.id)}>
                         {confirmMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm"}
                       </Button>
                     )}
@@ -630,12 +672,16 @@ function ExamsPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+        )}
 
-        <TabsContent value="ecz" className="rounded-xl border border-border bg-card p-5">
+        {tab === "ecz" && (
+        <Box className="rounded-xl border border-border bg-card p-5">
           <EczTab papers={papers as any[]} schoolId={active.id} />
-        </TabsContent>
-      </Tabs>
+        </Box>
+        )}
+      </Box>
 
       <CandidatesDialog
         open={!!candidatesPaper}

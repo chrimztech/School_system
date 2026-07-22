@@ -17,7 +17,7 @@ export type Role =
 export type AppUser = {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   role: Role;
   initials: string;
   tenantId?: string;
@@ -168,7 +168,9 @@ function normaliseRole(role: string | null | undefined): Role {
 }
 
 function mergeUser(users: AppUser[], nextUser: AppUser) {
-  const existing = users.findIndex((user) => user.id === nextUser.id || user.email.toLowerCase() === nextUser.email.toLowerCase());
+  const existing = users.findIndex((user) =>
+    user.id === nextUser.id ||
+    (!!user.email && !!nextUser.email && user.email.toLowerCase() === nextUser.email.toLowerCase()));
   if (existing === -1) return [nextUser, ...users];
   return users.map((user, index) => (index === existing ? { ...user, ...nextUser } : user));
 }
@@ -224,7 +226,7 @@ function toAppUser(session: BackendAuthSession | BackendAppUser): AppUser {
   return {
     id: session.id,
     name: session.name,
-    email: session.email,
+    email: session.email ?? undefined,
     role: normaliseRole(session.role),
     initials: session.initials?.trim() || initialsFor(session.name),
     tenantId: session.schoolId ?? undefined,
@@ -342,7 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSystemAdmin,
       loadingSession,
       signIn: (email) => {
-        const nextUser = allUsers.find((record) => record.email.toLowerCase() === email.toLowerCase());
+        const nextUser = allUsers.find((record) => record.email?.toLowerCase() === email.toLowerCase());
         if (!nextUser) return false;
         setAllUsers((prev) => mergeUser(prev, nextUser));
         setUser(nextUser);

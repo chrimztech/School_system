@@ -28,53 +28,35 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
+  Button,
+  Chip,
+  Checkbox,
+  InputAdornment,
+  LinearProgress,
+  MenuItem,
+  TextField,
   Dialog,
+  DialogActions,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
+  DialogContentText,
   DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Drawer,
+  Box,
+  Typography,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+} from "@mui/material";
 import { gradingBandForPercentage, useTenant, type GradingBand } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { ImportDialog, type ImportColumn, type ImportResult } from "@/components/import-dialog";
-import { gradeBadgeClass } from "@/lib/utils";
+import { badgeSx, gradeChipSx, type BadgeTone } from "@/lib/utils";
 
 export const Route = createFileRoute("/assessments")({
   head: () => ({ meta: [{ title: "Results Operations — SRMS" }] }),
@@ -125,36 +107,31 @@ type WorkflowStatus = "DRAFT" | "SUBMITTED" | "VERIFIED" | "REJECTED" | "PUBLISH
 
 const WORKFLOW_META: Record<
   WorkflowStatus,
-  { label: string; className: string; icon: typeof CheckCircle2 }
+  { label: string; tone: BadgeTone; icon: typeof CheckCircle2 }
 > = {
   DRAFT: {
     label: "Draft",
-    className:
-      "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200",
+    tone: "secondary",
     icon: CircleDotDashed,
   },
   SUBMITTED: {
     label: "Awaiting HOD",
-    className:
-      "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200",
+    tone: "warning",
     icon: Clock3,
   },
   VERIFIED: {
     label: "Ready to publish",
-    className:
-      "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200",
+    tone: "default",
     icon: ShieldCheck,
   },
   REJECTED: {
     label: "Corrections needed",
-    className:
-      "border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200",
+    tone: "destructive",
     icon: AlertCircle,
   },
   PUBLISHED: {
     label: "Published",
-    className:
-      "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200",
+    tone: "success",
     icon: FileCheck2,
   },
 };
@@ -168,10 +145,12 @@ function WorkflowBadge({ status }: { status: unknown }) {
   const meta = WORKFLOW_META[normalizedStatus(status)];
   const Icon = meta.icon;
   return (
-    <Badge variant="outline" className={`gap-1.5 whitespace-nowrap font-medium ${meta.className}`}>
-      <Icon className="h-3 w-3" />
-      {meta.label}
-    </Badge>
+    <Chip
+      size="small"
+      icon={<Icon className="h-3 w-3" />}
+      label={meta.label}
+      sx={{ ...badgeSx(meta.tone), fontWeight: 500, whiteSpace: "nowrap" }}
+    />
   );
 }
 
@@ -275,10 +254,12 @@ function ReleasePipeline({
             Every release is verified, locked and traceable before it reaches families.
           </p>
         </div>
-        <Badge variant="outline" className="gap-1.5 bg-background/70 text-[10px] uppercase tracking-[0.1em]">
-          <CalendarDays className="h-3 w-3" />
-          {publicationMode === "SEPARATE" ? "Mid-term + end-of-term" : "Combined term"}
-        </Badge>
+        <Chip
+          size="small"
+          icon={<CalendarDays size={12} />}
+          label={publicationMode === "SEPARATE" ? "Mid-term + end-of-term" : "Combined term"}
+          sx={{ ...badgeSx("outline"), bgcolor: "background.paper", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}
+        />
       </div>
       <div className="grid gap-0 px-5 py-5 sm:grid-cols-4 sm:px-6">
         {stages.map((stage, index) => {
@@ -331,7 +312,7 @@ function GradingPolicySnapshot({ bands }: { bands: GradingBand[] }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold">Achievement scale</p>
-            <Badge variant="secondary" className="text-[10px]">Admin controlled</Badge>
+            <Chip size="small" label="Admin controlled" sx={{ ...badgeSx("secondary"), fontSize: 10 }} />
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Zambia MoE 2023 bands are applied automatically. Teachers enter marks only.
@@ -341,9 +322,11 @@ function GradingPolicySnapshot({ bands }: { bands: GradingBand[] }) {
       <div className="grid grid-cols-4 gap-2 p-4">
         {bands.map((band) => (
           <div key={band.grade} className="rounded-xl border border-border/80 bg-background/70 px-2 py-2 text-center">
-            <Badge className={`h-6 min-w-7 justify-center px-1.5 text-xs ${gradeBadgeClass(band.grade)}`}>
-              {band.grade}
-            </Badge>
+            <Chip
+              size="small"
+              label={band.grade}
+              sx={{ ...gradeChipSx(band.grade), height: 24, minWidth: 28, fontSize: 12 }}
+            />
             <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
               {band.min}–{band.max}%
             </p>
@@ -449,7 +432,7 @@ function ResultsSheet({
       const score = existing ? String(existing.score ?? "") : "";
       const absent = existing?.absent ?? false;
       const grade = absent
-        ? "—"
+        ? "X"
         : (existing?.grade ??
           (score !== ""
             ? computeGrade(Number(score), assessment.maxScore, active.gradingBands)
@@ -476,7 +459,7 @@ function ResultsSheet({
             absent: value as boolean,
             score: value ? "" : r.score,
             grade: value
-              ? "—"
+              ? "X"
               : r.score !== ""
                 ? computeGrade(Number(r.score), assessment.maxScore, active.gradingBands)
                 : "",
@@ -715,7 +698,7 @@ function ResultsSheet({
             score: update.score,
             absent: update.absent,
             grade: update.absent
-              ? "—"
+              ? "X"
               : computeGrade(Number(update.score), assessment.maxScore, active.gradingBands),
           };
         }),
@@ -739,15 +722,15 @@ function ResultsSheet({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={(v) => !v && requestClose()}>
-        <SheetContent
-          side="right"
-          className="flex w-full max-w-4xl flex-col gap-0 p-0 sm:max-w-4xl"
+      <Drawer anchor="right" open={open} onClose={() => requestClose()}>
+        <Box
+          className="flex w-full flex-col gap-0"
+          sx={{ width: { xs: "100vw", sm: 900 }, maxWidth: "100vw", height: "100%" }}
         >
-          <SheetHeader className="shrink-0 border-b border-border bg-gradient-to-br from-primary/[0.07] via-card to-card px-5 py-5 text-left sm:px-7">
+          <Box className="shrink-0 border-b border-border bg-gradient-to-br from-primary/[0.07] via-card to-card px-5 py-5 text-left sm:px-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <SheetTitle className="text-base leading-snug">{assessment?.title}</SheetTitle>
+                <Typography variant="h6" className="text-base leading-snug">{assessment?.title}</Typography>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {assessment?.classId ?? assessment?.class} ·{" "}
                   {assessment?.subjectName ?? assessment?.subject} · Max {assessment?.maxScore}{" "}
@@ -755,13 +738,15 @@ function ResultsSheet({
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <WorkflowBadge status={workflowStatus} />
-                  <Badge variant="secondary" className="gap-1.5">
-                    <CalendarDays className="h-3 w-3" />
-                    {effectiveReportingPeriod(assessment, active.resultPublicationMode).replace(
+                  <Chip
+                    size="small"
+                    icon={<CalendarDays size={12} />}
+                    label={effectiveReportingPeriod(assessment, active.resultPublicationMode).replace(
                       "_",
                       " ",
                     )}
-                  </Badge>
+                    sx={badgeSx("secondary")}
+                  />
                 </div>
               </div>
               <button
@@ -784,7 +769,7 @@ function ResultsSheet({
                   </div>
                   <p className="text-2xl font-semibold tracking-tight">{completion}%</p>
                 </div>
-                <Progress value={completion} className="mb-4 h-2" />
+                <LinearProgress variant="determinate" value={completion} sx={{ mb: 2, height: 8, borderRadius: 999 }} />
                 <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
                   <div className="rounded-lg bg-muted/50 px-3 py-1.5">
                     <p className="text-lg font-bold leading-tight">
@@ -811,14 +796,16 @@ function ResultsSheet({
                       {Object.entries(stats.byGrade).map(
                         ([g, count]) =>
                           count > 0 && (
-                            <Badge
+                            <Chip
                               key={g}
-                              variant="outline"
-                              className={`gap-1 ${gradeBadgeClass(g)}`}
-                            >
-                              {g}
-                              <span className="font-bold">{count}</span>
-                            </Badge>
+                              size="small"
+                              label={
+                                <>
+                                  {g} <span className="font-bold">{count}</span>
+                                </>
+                              }
+                              sx={gradeChipSx(g)}
+                            />
                           ),
                       )}
                     </div>
@@ -835,18 +822,19 @@ function ResultsSheet({
                 HOD correction note: {assessment.reviewNote}
               </p>
             )}
-          </SheetHeader>
+          </Box>
 
           <div className="flex-1 overflow-y-auto bg-muted/15">
             {!isLoading && rows.length > 0 && (
               <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/95 px-5 py-3 backdrop-blur sm:px-7">
                 <div className="relative min-w-0 flex-1 sm:max-w-xs">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
+                  <TextField
+                    fullWidth
+                    size="small"
                     value={learnerSearch}
                     onChange={(event) => setLearnerSearch(event.target.value)}
                     placeholder="Find a learner…"
-                    className="h-9 bg-background pl-9"
+                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
                   />
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -856,25 +844,22 @@ function ResultsSheet({
                         Paste a spreadsheet column or press Enter to move down
                       </span>
                       <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
+                        variant="outlined"
+                        size="small"
+                        sx={{ height: 32 }}
+                        startIcon={<FileSpreadsheet size={14} />}
                         onClick={() => setCsvImportOpen(true)}
                       >
-                        <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
                         Import CSV
                       </Button>
                     </>
                   )}
                   {hasUnsavedChanges && (
-                    <Badge
-                      variant="outline"
-                      className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
-                    >
-                      Unsaved
-                    </Badge>
+                    <Chip size="small" label="Unsaved" sx={badgeSx("warning")} />
                   )}
-                  {invalidCount > 0 && <Badge variant="destructive">{invalidCount} invalid</Badge>}
+                  {invalidCount > 0 && (
+                    <Chip size="small" label={`${invalidCount} invalid`} sx={badgeSx("destructive")} />
+                  )}
                   <span>
                     {visibleRows.length} learner{visibleRows.length === 1 ? "" : "s"}
                   </span>
@@ -895,16 +880,17 @@ function ResultsSheet({
                 <p className="text-xs opacity-60">Make sure students are enrolled in this class</p>
               </div>
             ) : (
+              <TableContainer>
               <Table>
-                <TableHeader>
+                <TableHead>
                   <TableRow>
-                    <TableHead className="w-8 text-center">#</TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead className="w-28">Score /{assessment?.maxScore}</TableHead>
-                    <TableHead className="w-16 text-center">Grade</TableHead>
-                    <TableHead className="w-16 text-center">Absent</TableHead>
+                    <TableCell className="w-8 text-center">#</TableCell>
+                    <TableCell>Student</TableCell>
+                    <TableCell className="w-28">Score /{assessment?.maxScore}</TableCell>
+                    <TableCell className="w-16 text-center">Grade</TableCell>
+                    <TableCell className="w-16 text-center">Absent</TableCell>
                   </TableRow>
-                </TableHeader>
+                </TableHead>
                 <TableBody>
                   {visibleRows.map((r, i) => {
                     const invalid =
@@ -921,10 +907,9 @@ function ResultsSheet({
                         </TableCell>
                         <TableCell className="font-medium text-sm">{r.studentName}</TableCell>
                         <TableCell>
-                          <Input
+                          <TextField
                             type="number"
-                            min={0}
-                            max={assessment?.maxScore}
+                            size="small"
                             value={r.score}
                             disabled={r.absent || !canEdit}
                             onChange={(e) => updateRow(r.studentId, "score", e.target.value)}
@@ -940,30 +925,38 @@ function ResultsSheet({
                                   '[data-result-score="true"]',
                                 ),
                               );
-                              const currentIndex = inputs.indexOf(event.currentTarget);
+                              const currentIndex = inputs.indexOf(event.currentTarget as unknown as HTMLInputElement);
                               inputs[currentIndex + 1]?.focus();
                               inputs[currentIndex + 1]?.select();
                             }}
-                            data-result-score="true"
-                            className={`h-9 w-24 text-sm tabular-nums ${invalid ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                            error={invalid}
                             placeholder="0"
-                            aria-invalid={invalid}
-                            aria-label={`${r.studentName} score out of ${assessment?.maxScore}`}
+                            sx={{ width: 96 }}
+                            slotProps={{
+                              htmlInput: {
+                                min: 0,
+                                max: assessment?.maxScore,
+                                "data-result-score": "true",
+                                "aria-label": `${r.studentName} score out of ${assessment?.maxScore}`,
+                                className: "tabular-nums",
+                              },
+                            }}
                           />
                         </TableCell>
                         <TableCell className="text-center">
                           {r.grade ? (
-                            <Badge className={gradeBadgeClass(r.grade)}>{r.grade}</Badge>
+                            <Chip size="small" label={r.grade} sx={gradeChipSx(r.grade)} />
                           ) : (
                             <span className="text-sm text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell className="text-center">
                           <Checkbox
+                            size="small"
                             checked={r.absent}
                             disabled={!canEdit}
-                            onCheckedChange={(checked) =>
-                              updateRow(r.studentId, "absent", !!checked)
+                            onChange={(e) =>
+                              updateRow(r.studentId, "absent", e.target.checked)
                             }
                           />
                         </TableCell>
@@ -982,6 +975,7 @@ function ResultsSheet({
                   )}
                 </TableBody>
               </Table>
+              </TableContainer>
             )}
           </div>
 
@@ -1008,20 +1002,20 @@ function ResultsSheet({
                   )}
                 </div>
                 <div className="flex flex-wrap justify-end gap-2">
-                  <Button variant="ghost" onClick={requestClose}>
+                  <Button variant="text" color="inherit" onClick={requestClose}>
                     {canEdit ? "Cancel" : "Close"}
                   </Button>
                   {canEdit && (
                     <Button
-                      variant="outline"
+                      variant="outlined"
                       onClick={() => handleSave(false)}
                       disabled={saveMutation.isPending || invalidCount > 0}
-                    >
-                      {saveMutation.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      startIcon={saveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        <CheckCircle2 size={16} />
                       )}
+                    >
                       Save draft
                     </Button>
                   )}
@@ -1031,26 +1025,26 @@ function ResultsSheet({
                       disabled={
                         saveMutation.isPending || stats.marked !== stats.total || invalidCount > 0
                       }
+                      startIcon={<Send size={16} />}
                     >
-                      <Send className="mr-2 h-4 w-4" />
                       Send to HOD
                     </Button>
                   )}
                   {canVerify && (
                     <>
                       <Button
-                        variant="outline"
+                        variant="outlined"
                         onClick={() => setReturnDialogOpen(true)}
                         disabled={rejectMutation.isPending}
+                        startIcon={<AlertCircle size={16} />}
                       >
-                        <AlertCircle className="mr-2 h-4 w-4" />
                         Return to teacher
                       </Button>
                       <Button
                         onClick={() => verifyMutation.mutate()}
                         disabled={verifyMutation.isPending || invalidCount > 0}
+                        startIcon={<ShieldCheck size={16} />}
                       >
-                        <ShieldCheck className="mr-2 h-4 w-4" />
                         Verify results
                       </Button>
                     </>
@@ -1059,8 +1053,8 @@ function ResultsSheet({
                     <Button
                       onClick={() => setPublicationDialogOpen(true)}
                       disabled={publishMutation.isPending}
+                      startIcon={<Upload size={16} />}
                     >
-                      <Upload className="mr-2 h-4 w-4" />
                       Publish reporting cycle
                     </Button>
                   )}
@@ -1068,8 +1062,8 @@ function ResultsSheet({
               </div>
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </Box>
+      </Drawer>
 
       <ImportDialog
         open={csvImportOpen}
@@ -1080,89 +1074,94 @@ function ResultsSheet({
         onImport={handleCsvImport}
       />
 
-      <AlertDialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-300">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-            <AlertDialogTitle>Discard unsaved marks?</AlertDialogTitle>
-            <AlertDialogDescription className="leading-6">
-              Scores changed in this mark sheet have not been saved. Closing now will permanently
-              discard those edits.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Continue editing</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                setDiscardDialogOpen(false);
-                onClose();
-              }}
-            >
-              Discard changes
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={discardDialogOpen} onClose={() => setDiscardDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-300">
+            <AlertCircle className="h-5 w-5" />
+          </div>
+          Discard unsaved marks?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText className="leading-6">
+            Scores changed in this mark sheet have not been saved. Closing now will permanently
+            discard those edits.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setDiscardDialogOpen(false)}>
+            Continue editing
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              setDiscardDialogOpen(false);
+              onClose();
+            }}
+          >
+            Discard changes
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Return results for correction</DialogTitle>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Give the teacher a specific, actionable note. The mark sheet will unlock for
-              correction.
-            </p>
-          </DialogHeader>
+      <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Return results for correction</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }} className="text-sm leading-6 text-muted-foreground">
+            Give the teacher a specific, actionable note. The mark sheet will unlock for
+            correction.
+          </DialogContentText>
           <div className="space-y-2">
-            <Label htmlFor="hod-return-note">Correction note</Label>
-            <Textarea
+            <TextField
+              label="Correction note"
               id="hod-return-note"
               value={returnNote}
               onChange={(event) => setReturnNote(event.target.value)}
               placeholder="For example: Recheck Chanda Mwila's score against question 4 and complete the two missing learner rows."
-              rows={4}
-              maxLength={500}
+              multiline
+              minRows={4}
+              slotProps={{ htmlInput: { maxLength: 500 } }}
+              fullWidth
+              size="small"
             />
             <p className="text-right text-[11px] text-muted-foreground">{returnNote.length}/500</p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={!returnNote.trim() || rejectMutation.isPending}
-              onClick={() =>
-                rejectMutation.mutate(returnNote.trim(), {
-                  onSuccess: () => {
-                    setReturnDialogOpen(false);
-                    setReturnNote("");
-                  },
-                })
-              }
-            >
-              {rejectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Return to teacher
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setReturnDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!returnNote.trim() || rejectMutation.isPending}
+            onClick={() =>
+              rejectMutation.mutate(returnNote.trim(), {
+                onSuccess: () => {
+                  setReturnDialogOpen(false);
+                  setReturnNote("");
+                },
+              })
+            }
+            startIcon={rejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Return to teacher
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      <AlertDialog open={publicationDialogOpen} onOpenChange={setPublicationDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-              <Upload className="h-5 w-5" />
-            </div>
-            <AlertDialogTitle>Publish this reporting cycle?</AlertDialogTitle>
-            <AlertDialogDescription className="leading-6">
-              This publishes every verified result in the class cycle and makes the report cards
-              visible to parents. The published snapshot is locked for audit integrity.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+      <Dialog open={publicationDialogOpen} onClose={() => setPublicationDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+            <Upload className="h-5 w-5" />
+          </div>
+          Publish this reporting cycle?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }} className="leading-6">
+            This publishes every verified result in the class cycle and makes the report cards
+            visible to parents. The published snapshot is locked for audit integrity.
+          </DialogContentText>
           <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">
             <p className="font-medium">
               {assessment?.classId ?? assessment?.class} ·{" "}
@@ -1173,19 +1172,22 @@ function ResultsSheet({
               release
             </p>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep reviewing</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
-              disabled={publishMutation.isPending}
-              onClick={() => publishMutation.mutate()}
-            >
-              {publishMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Publish to report cards
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setPublicationDialogOpen(false)}>
+            Keep reviewing
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={publishMutation.isPending}
+            onClick={() => publishMutation.mutate()}
+            startIcon={publishMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Publish to report cards
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
@@ -1210,9 +1212,18 @@ function AssessmentsPage() {
     queryFn: () => api.classes.assignments(schoolId, teacherEmail as string),
     enabled: isTeacher && !!teacherEmail,
   });
-  const subjectOptions: string[] = isTeacher
-    ? Array.from(new Set((teacherAssignments as any[]).map((a) => a.subjectName).filter(Boolean)))
-    : [...SUBJECTS];
+  const subjectOptionsForClass = (classId: string): string[] =>
+    Array.from(
+      new Set(
+        (teacherAssignments as any[])
+          .filter((a) => !classId || a.className === classId)
+          .map((a) => a.subjectName)
+          .filter(Boolean),
+      ),
+    );
+  const subjectOptionsAll: string[] = Array.from(
+    new Set((teacherAssignments as any[]).map((a) => a.subjectName).filter(Boolean)),
+  );
 
   const { data: classesData = [] } = useQuery({
     queryKey: ["classes", schoolId, teacherEmail],
@@ -1247,12 +1258,18 @@ function AssessmentsPage() {
     syllabusReference: "",
     gradingScheme: "Zambia MoE 2023",
     retakeAllowed: "no",
-    markingCompletedBy: "",
+    markingCompletedBy: loggedInTeacherName,
     reportingPeriod: (active.resultPublicationMode === "COMBINED" ? "COMBINED" : "END_TERM") as
       | "MIDTERM"
       | "END_TERM"
       | "COMBINED",
   });
+
+  const subjectOptions: string[] = isTeacher
+    ? (subjectOptionsForClass(form.classId).length > 0
+        ? subjectOptionsForClass(form.classId)
+        : subjectOptionsAll)
+    : [...SUBJECTS];
 
   const firstClass = classList[0] as string | undefined;
   useEffect(() => {
@@ -1261,16 +1278,20 @@ function AssessmentsPage() {
   }, [firstClass]);
   useEffect(() => {
     if (loggedInTeacherName)
-      setForm((prev) =>
-        prev.teacherAssigned === "" ? { ...prev, teacherAssigned: loggedInTeacherName } : prev,
-      );
+      setForm((prev) => ({
+        ...prev,
+        teacherAssigned: prev.teacherAssigned === "" ? loggedInTeacherName : prev.teacherAssigned,
+        markingCompletedBy: prev.markingCompletedBy === "" ? loggedInTeacherName : prev.markingCompletedBy,
+      }));
   }, [loggedInTeacherName]);
+  // Re-narrows Subject to what the teacher actually teaches in the selected Class, so
+  // switching Class can't leave a mismatched Class/Subject pair (the backend rejects those).
   useEffect(() => {
     if (isTeacher && subjectOptions.length > 0 && !subjectOptions.includes(form.subject)) {
       setForm((prev) => ({ ...prev, subject: subjectOptions[0] }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTeacher, subjectOptions.join("|")]);
+  }, [isTeacher, form.classId, subjectOptions.join("|")]);
 
   const { data: assessments = [], isLoading } = useQuery({
     queryKey: ["assessments", schoolId],
@@ -1299,7 +1320,7 @@ function AssessmentsPage() {
         syllabusReference: "",
         gradingScheme: "Zambia MoE 2023",
         retakeAllowed: "no",
-        markingCompletedBy: "",
+        markingCompletedBy: loggedInTeacherName,
         reportingPeriod: active.resultPublicationMode === "COMBINED" ? "COMBINED" : "END_TERM",
       });
       setOpen(false);
@@ -1458,157 +1479,137 @@ function AssessmentsPage() {
           description="A controlled, role-based path from classroom marks to published learner reports."
           actions={
             <>
-              <Button variant="outline" asChild>
-                <Link to="/report-card" search={{ studentId: "" }}>
-                  <FileText className="mr-2 h-4 w-4" /> Report cards
-                </Link>
+              <Button
+                component={Link as any}
+                to="/report-card"
+                search={{ studentId: "" }}
+                variant="outlined"
+                startIcon={<FileText size={16} />}
+              >
+                Report cards
               </Button>
               {canManage && (
-                <Dialog open={open} onOpenChange={setOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" /> Add assessment
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-h-[92vh] max-w-3xl gap-0 overflow-hidden p-0">
-                    <DialogHeader className="border-b border-border bg-gradient-to-r from-primary/[0.08] to-transparent px-6 py-5">
+                <>
+                  <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add assessment</Button>
+                  <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+                    <DialogTitle className="border-b border-border bg-gradient-to-r from-primary/[0.08] to-transparent px-6 py-5">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                           <ClipboardList className="h-5 w-5" />
                         </div>
                         <div>
-                          <DialogTitle>Create assessment</DialogTitle>
+                          <Typography variant="h6" component="div">Create assessment</Typography>
                           <p className="mt-1 text-sm text-muted-foreground">
                             Define the mark sheet and reporting cycle. Grading is applied
                             automatically from the admin policy.
                           </p>
                         </div>
                       </div>
-                    </DialogHeader>
-                    <div className="grid max-h-[68vh] grid-cols-1 gap-4 overflow-y-auto p-6 md:grid-cols-2">
-                      <div className="md:col-span-2">
-                        <Label>Assessment title *</Label>
-                        <Input
-                          className="mt-1"
-                          value={form.title}
-                          onChange={(e) => setForm({ ...form, title: e.target.value })}
-                          placeholder="e.g. Form 3A — Term 1 Maths CAT"
-                          maxLength={120}
-                        />
-                      </div>
-                      <div>
-                        <Label>Class</Label>
-                        <Select
-                          value={form.classId}
-                          onValueChange={(v) => setForm({ ...form, classId: v })}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Select class" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {classList.map((c) => (
-                              <SelectItem key={c} value={c}>
-                                {c}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Type</Label>
-                        <Select
-                          value={form.type}
-                          onValueChange={(v) =>
-                            setForm({
-                              ...form,
-                              type: v as typeof form.type,
-                              reportingPeriod:
-                                active.resultPublicationMode === "COMBINED"
-                                  ? "COMBINED"
-                                  : v === "midterm"
-                                    ? "MIDTERM"
-                                    : form.reportingPeriod,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TYPES.map((t) => (
-                              <SelectItem key={t} value={t}>
-                                {t.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Subject</Label>
-                        <Select
-                          value={form.subject}
-                          onValueChange={(v) => setForm({ ...form, subject: v })}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {subjectOptions.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Term</Label>
-                        <Select
-                          value={form.term}
-                          onValueChange={(v) => setForm({ ...form, term: v })}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TERM_OPTIONS.map((t) => (
-                              <SelectItem key={t.value} value={t.value}>
-                                {t.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    </DialogTitle>
+                    <DialogContent className="max-h-[68vh] overflow-y-auto">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <TextField
+                        className="md:col-span-2"
+                        label="Assessment title *"
+                        value={form.title}
+                        onChange={(e) => setForm({ ...form, title: e.target.value })}
+                        placeholder="e.g. Form 3A — Term 1 Maths CAT"
+                        slotProps={{ htmlInput: { maxLength: 120 } }}
+                        fullWidth
+                        size="small"
+                      />
+                      <TextField
+                        select
+                        label="Class"
+                        value={form.classId}
+                        onChange={(e) => setForm({ ...form, classId: e.target.value })}
+                        fullWidth
+                        size="small"
+                      >
+                        <MenuItem value="" disabled>Select class</MenuItem>
+                        {classList.map((c) => (
+                          <MenuItem key={c} value={c}>
+                            {c}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <TextField
+                        select
+                        label="Type"
+                        value={form.type}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            type: e.target.value as typeof form.type,
+                            reportingPeriod:
+                              active.resultPublicationMode === "COMBINED"
+                                ? "COMBINED"
+                                : e.target.value === "midterm"
+                                  ? "MIDTERM"
+                                  : form.reportingPeriod,
+                          })
+                        }
+                        fullWidth
+                        size="small"
+                      >
+                        {TYPES.map((t) => (
+                          <MenuItem key={t} value={t}>
+                            {t.toUpperCase()}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <TextField
+                        select
+                        label="Subject"
+                        value={form.subject}
+                        onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                        fullWidth
+                        size="small"
+                      >
+                        {subjectOptions.map((s) => (
+                          <MenuItem key={s} value={s}>
+                            {s}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <TextField
+                        select
+                        label="Term"
+                        value={form.term}
+                        onChange={(e) => setForm({ ...form, term: e.target.value })}
+                        fullWidth
+                        size="small"
+                      >
+                        {TERM_OPTIONS.map((t) => (
+                          <MenuItem key={t.value} value={t.value}>
+                            {t.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                       {active.resultPublicationMode === "SEPARATE" && (
-                        <div>
-                          <Label>Reporting cycle</Label>
-                          <Select
-                            value={form.reportingPeriod}
-                            onValueChange={(v) =>
-                              setForm({ ...form, reportingPeriod: v as "MIDTERM" | "END_TERM" })
-                            }
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="MIDTERM">Mid-term</SelectItem>
-                              <SelectItem value="END_TERM">End-of-term</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <TextField
+                          select
+                          label="Reporting cycle"
+                          value={form.reportingPeriod}
+                          onChange={(e) =>
+                            setForm({ ...form, reportingPeriod: e.target.value as "MIDTERM" | "END_TERM" })
+                          }
+                          fullWidth
+                          size="small"
+                        >
+                          <MenuItem value="MIDTERM">Mid-term</MenuItem>
+                          <MenuItem value="END_TERM">End-of-term</MenuItem>
+                        </TextField>
                       )}
-                      <div>
-                        <Label>Max score</Label>
-                        <Input
-                          className="mt-1"
-                          type="number"
-                          value={form.maxScore}
-                          onChange={(e) => setForm({ ...form, maxScore: e.target.value })}
-                          min={1}
-                          max={200}
-                        />
-                      </div>
+                      <TextField
+                        label="Max score"
+                        type="number"
+                        value={form.maxScore}
+                        onChange={(e) => setForm({ ...form, maxScore: e.target.value })}
+                        slotProps={{ htmlInput: { min: 1, max: 200 } }}
+                        fullWidth
+                        size="small"
+                      />
 
                       <div className="md:col-span-2">
                         <button
@@ -1628,117 +1629,108 @@ function AssessmentsPage() {
 
                       {showAdvancedFields && (
                         <>
-                          <div>
-                            <Label>Teacher assigned</Label>
-                            <Input
-                              className="mt-1"
-                              value={form.teacherAssigned}
-                              onChange={(e) => setForm({ ...form, teacherAssigned: e.target.value })}
-                              placeholder="Teacher name"
-                              readOnly={isTeacher}
-                              title={isTeacher ? "Auto-filled from your account" : undefined}
-                              maxLength={80}
-                            />
-                          </div>
-                          <div>
-                            <Label>Date</Label>
-                            <Input
-                              className="mt-1"
-                              type="date"
-                              value={form.date}
-                              onChange={(e) => setForm({ ...form, date: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <Label>Weight (%)</Label>
-                            <Input
-                              className="mt-1"
-                              type="number"
-                              value={form.weight}
-                              onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                              min={0}
-                              max={100}
-                            />
-                          </div>
-                          <div>
-                            <Label>Duration (min)</Label>
-                            <Input
-                              className="mt-1"
-                              type="number"
-                              value={form.durationMinutes}
-                              onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
-                              min={0}
-                            />
-                          </div>
-                          <div>
-                            <Label>Grading scheme</Label>
-                            <Input
-                              className="mt-1"
-                              value="Zambia MoE 2023 (admin configured)"
-                              readOnly
-                            />
-                          </div>
-                          <div>
-                            <Label>Retake allowed</Label>
-                            <Select
-                              value={form.retakeAllowed}
-                              onValueChange={(v) => setForm({ ...form, retakeAllowed: v })}
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="no">No</SelectItem>
-                                <SelectItem value="yes">Yes — one retake</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>Marking completed by</Label>
-                            <Input
-                              className="mt-1"
-                              value={form.markingCompletedBy}
-                              onChange={(e) => setForm({ ...form, markingCompletedBy: e.target.value })}
-                              placeholder="Mrs. Phiri"
-                              maxLength={80}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label>Syllabus reference / topic coverage</Label>
-                            <Input
-                              className="mt-1"
-                              value={form.syllabusReference}
-                              onChange={(e) => setForm({ ...form, syllabusReference: e.target.value })}
-                              placeholder="e.g. ECZ Maths Syl. 4024 · Topics: Algebra, Simultaneous equations"
-                              maxLength={200}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label>Rubric / marking scheme description</Label>
-                            <Input
-                              className="mt-1"
-                              value={form.rubricDescription}
-                              onChange={(e) => setForm({ ...form, rubricDescription: e.target.value })}
-                              placeholder="e.g. Section A: 20 marks (MCQ), Section B: 20 marks (structured)"
-                              maxLength={250}
-                            />
-                          </div>
+                          <TextField
+                            label="Teacher assigned"
+                            value={form.teacherAssigned}
+                            onChange={(e) => setForm({ ...form, teacherAssigned: e.target.value })}
+                            placeholder="Teacher name"
+                            slotProps={{ htmlInput: { readOnly: isTeacher, maxLength: 80 } }}
+                            title={isTeacher ? "Auto-filled from your account" : undefined}
+                            fullWidth
+                            size="small"
+                          />
+                          <TextField
+                            label="Date"
+                            type="date"
+                            value={form.date}
+                            onChange={(e) => setForm({ ...form, date: e.target.value })}
+                            fullWidth
+                            size="small"
+                            slotProps={{ inputLabel: { shrink: true } }}
+                          />
+                          <TextField
+                            label="Weight (%)"
+                            type="number"
+                            value={form.weight}
+                            onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                            slotProps={{ htmlInput: { min: 0, max: 100 } }}
+                            fullWidth
+                            size="small"
+                          />
+                          <TextField
+                            label="Duration (min)"
+                            type="number"
+                            value={form.durationMinutes}
+                            onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
+                            slotProps={{ htmlInput: { min: 0 } }}
+                            fullWidth
+                            size="small"
+                          />
+                          <TextField
+                            label="Grading scheme"
+                            value="Zambia MoE 2023 (admin configured)"
+                            slotProps={{ htmlInput: { readOnly: true } }}
+                            fullWidth
+                            size="small"
+                          />
+                          <TextField
+                            select
+                            label="Retake allowed"
+                            value={form.retakeAllowed}
+                            onChange={(e) => setForm({ ...form, retakeAllowed: e.target.value })}
+                            fullWidth
+                            size="small"
+                          >
+                            <MenuItem value="no">No</MenuItem>
+                            <MenuItem value="yes">Yes — one retake</MenuItem>
+                          </TextField>
+                          <TextField
+                            label="Marking completed by"
+                            value={form.markingCompletedBy}
+                            onChange={(e) => setForm({ ...form, markingCompletedBy: e.target.value })}
+                            placeholder="Mrs. Phiri"
+                            slotProps={{ htmlInput: { maxLength: 80 } }}
+                            fullWidth
+                            size="small"
+                          />
+                          <TextField
+                            className="md:col-span-2"
+                            label="Syllabus reference / topic coverage"
+                            value={form.syllabusReference}
+                            onChange={(e) => setForm({ ...form, syllabusReference: e.target.value })}
+                            placeholder="e.g. ECZ Maths Syl. 4024 · Topics: Algebra, Simultaneous equations"
+                            slotProps={{ htmlInput: { maxLength: 200 } }}
+                            fullWidth
+                            size="small"
+                          />
+                          <TextField
+                            className="md:col-span-2"
+                            label="Rubric / marking scheme description"
+                            value={form.rubricDescription}
+                            onChange={(e) => setForm({ ...form, rubricDescription: e.target.value })}
+                            placeholder="e.g. Section A: 20 marks (MCQ), Section B: 20 marks (structured)"
+                            slotProps={{ htmlInput: { maxLength: 250 } }}
+                            fullWidth
+                            size="small"
+                          />
                         </>
                       )}
                     </div>
-                    <DialogFooter className="border-t border-border bg-muted/20 px-6 py-4">
-                      <Button variant="outline" onClick={() => setOpen(false)}>
+                    </DialogContent>
+                    <DialogActions className="border-t border-border bg-muted/20 px-6 py-4">
+                      <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={addAssessment} disabled={createMutation.isPending}>
-                        {createMutation.isPending && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
+                      <Button
+                        onClick={addAssessment}
+                        disabled={createMutation.isPending}
+                        startIcon={createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+                      >
                         Create assessment
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogActions>
+                  </Dialog>
+                </>
               )}
             </>
           }
@@ -1839,56 +1831,51 @@ function AssessmentsPage() {
             ))}
           </div>
           <div className="relative min-w-0 flex-1 lg:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <TextField
+              fullWidth
+              size="small"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search title, class, subject or teacher…"
-              className="h-10 border-0 bg-muted/60 pl-9 shadow-none focus-visible:ring-1"
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
             />
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-            <Select
+            <TextField
+              select
+              size="small"
               value={statusFilter}
-              onValueChange={(value) => {
-                setStatusFilter(value as "ALL" | WorkflowStatus);
-                if (value !== "ALL") setQueueView("ALL");
+              onChange={(event) => {
+                setStatusFilter(event.target.value as "ALL" | WorkflowStatus);
+                if (event.target.value !== "ALL") setQueueView("ALL");
               }}
+              sx={{ width: 170 }}
             >
-              <SelectTrigger className="h-10 w-[170px] bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All workflow stages</SelectItem>
-                {(Object.keys(WORKFLOW_META) as WorkflowStatus[]).map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {WORKFLOW_META[status].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
+              <MenuItem value="ALL">All workflow stages</MenuItem>
+              {(Object.keys(WORKFLOW_META) as WorkflowStatus[]).map((status) => (
+                <MenuItem key={status} value={status}>
+                  {WORKFLOW_META[status].label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              size="small"
               value={cycleFilter}
-              onValueChange={(value) => setCycleFilter(value as "ALL" | ReportingPeriod)}
+              onChange={(event) => setCycleFilter(event.target.value as "ALL" | ReportingPeriod)}
+              sx={{ width: 160 }}
             >
-              <SelectTrigger className="h-10 w-[160px] bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All reporting cycles</SelectItem>
-                {active.resultPublicationMode === "SEPARATE" ? (
-                  <>
-                    <SelectItem value="MIDTERM">Mid-term</SelectItem>
-                    <SelectItem value="END_TERM">End-of-term</SelectItem>
-                  </>
-                ) : (
-                  <SelectItem value="COMBINED">Combined term</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-            <Badge variant="secondary" className="h-8 px-3">
-              {filteredAssessments.length} shown
-            </Badge>
+              <MenuItem value="ALL">All reporting cycles</MenuItem>
+              {active.resultPublicationMode === "SEPARATE" ? (
+                <>
+                  <MenuItem value="MIDTERM">Mid-term</MenuItem>
+                  <MenuItem value="END_TERM">End-of-term</MenuItem>
+                </>
+              ) : (
+                <MenuItem value="COMBINED">Combined term</MenuItem>
+              )}
+            </TextField>
+            <Chip size="small" label={`${filteredAssessments.length} shown`} sx={{ ...badgeSx("secondary"), height: 32, px: 1.5 }} />
           </div>
         </div>
 
@@ -1945,7 +1932,7 @@ function AssessmentsPage() {
                       {submitted}/{total || submitted || 0}
                     </span>
                   </div>
-                  <Progress value={progress} className="h-1.5" />
+                  <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 999 }} />
                 </div>
                 <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-3">
                   <span className="text-xs font-medium text-primary">
@@ -1972,9 +1959,10 @@ function AssessmentsPage() {
                   : "Try another stage, cycle or search term."}
               </p>
               <Button
-                variant="ghost"
-                size="sm"
-                className="mt-2"
+                variant="text"
+                color="inherit"
+                size="small"
+                sx={{ mt: 1 }}
                 onClick={() => {
                   setSearchQuery("");
                   setStatusFilter("ALL");
@@ -1995,22 +1983,23 @@ function AssessmentsPage() {
               <span>Loading assessments…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Cycle</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Max</TableHead>
-                  <TableHead>Weight</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Results</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Class</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Cycle</TableCell>
+                  <TableCell>Subject</TableCell>
+                  <TableCell>Max</TableCell>
+                  <TableCell>Weight</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Results</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell className="text-right">Action</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {filteredAssessments.map((a: any) => {
                   const submitted = a.submittedCount ?? a.submitted ?? 0;
@@ -2032,7 +2021,7 @@ function AssessmentsPage() {
                       </TableCell>
                       <TableCell>{a.classId ?? a.class}</TableCell>
                       <TableCell>
-                        <Badge variant={typeColor[a.type] ?? "outline"}>{a.type}</Badge>
+                        <Chip size="small" label={a.type} sx={badgeSx(typeColor[a.type] ?? "outline")} />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {effectiveReportingPeriod(a, active.resultPublicationMode).replace(
@@ -2072,16 +2061,17 @@ function AssessmentsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          className="whitespace-nowrap text-xs text-primary"
+                          variant="text"
+                          color="primary"
+                          size="small"
+                          sx={{ whiteSpace: "nowrap", fontSize: 12 }}
+                          endIcon={<ChevronRight size={14} />}
                           onClick={(event) => {
                             event.stopPropagation();
                             setSelectedAssessment(a);
                           }}
                         >
                           {actionLabelFor(a)}
-                          <ChevronRight className="ml-1 h-3.5 w-3.5" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -2116,9 +2106,10 @@ function AssessmentsPage() {
                         </p>
                         {(actionQueueIsEmpty || hasListFilters) && (
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-3"
+                            variant="text"
+                            color="inherit"
+                            size="small"
+                            sx={{ mt: 1.5 }}
                             onClick={() => {
                               setSearchQuery("");
                               setStatusFilter("ALL");
@@ -2135,6 +2126,7 @@ function AssessmentsPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
         </div>
       </div>

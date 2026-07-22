@@ -2,15 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ClipboardCheck, FileText, FolderOpen, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import DialogTitle from "@mui/material/DialogTitle";
+import TableContainer from "@mui/material/TableContainer";
+import Table from "@mui/material/Table";
+import TableHead from "@mui/material/TableHead";
+import TableBody from "@mui/material/TableBody";
+import TableRow from "@mui/material/TableRow";
+import TableCell from "@mui/material/TableCell";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/policy-library")({
   head: () => ({ meta: [{ title: "Policy Library — SRMS" }] }),
@@ -53,46 +61,52 @@ function PolicyLibraryPage() {
         title="Policy library"
         description="Centralized repository for policies, guides and approval documents across the institution."
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>Upload policy</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader><DialogTitle>Upload policy</DialogTitle></DialogHeader>
+          <>
+          <Button variant="contained" onClick={() => setOpen(true)}>Upload policy</Button>
+          <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Upload policy</DialogTitle>
+            <DialogContent>
               <div className="grid gap-3">
-                <div>
-                  <Label>Policy title *</Label>
-                  <Input className="mt-1" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Safeguarding handbook" />
-                </div>
-                <div>
-                  <Label>Category</Label>
-                  <Select value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Governance", "Safety", "Procurement", "Discipline", "Finance", "ICT"].map((category) => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Review", "Approved", "Draft"].map((status) => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  label="Policy title *"
+                  value={form.title}
+                  onChange={(event) => setForm({ ...form, title: event.target.value })}
+                  placeholder="Safeguarding handbook"
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Category"
+                  value={form.category}
+                  onChange={(event) => setForm({ ...form, category: event.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["Governance", "Safety", "Procurement", "Discipline", "Finance", "ICT"].map((category) => (
+                    <MenuItem key={category} value={category}>{category}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="Status"
+                  value={form.status}
+                  onChange={(event) => setForm({ ...form, status: event.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["Review", "Approved", "Draft"].map((status) => (
+                    <MenuItem key={status} value={status}>{status}</MenuItem>
+                  ))}
+                </TextField>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={addPolicy}>Add policy</Button>
-              </DialogFooter>
             </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="contained" onClick={addPolicy}>Add policy</Button>
+            </DialogActions>
           </Dialog>
+          </>
         }
       />
 
@@ -137,28 +151,31 @@ function PolicyLibraryPage() {
             <h2 className="text-sm font-semibold text-foreground">Policy documents</h2>
             <p className="text-xs text-muted-foreground">Review and manage institution policies.</p>
           </div>
-          <Button variant="outline" onClick={() => setReviewOnly((value) => !value)}>
+          <Button variant="outlined" onClick={() => setReviewOnly((value) => !value)}>
             {reviewOnly ? "Show all" : "Review queue"}
           </Button>
         </div>
+        <TableContainer>
         <Table>
-          <TableHeader>
+          <TableHead>
             <TableRow>
-              <TableHead>Policy</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Updated</TableHead>
+              <TableCell>Policy</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Updated</TableCell>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {visibleDocs.map((doc) => (
               <TableRow key={doc.title}>
                 <TableCell>{doc.title}</TableCell>
                 <TableCell>{doc.category}</TableCell>
                 <TableCell>
-                  <Badge variant={doc.status === "Approved" ? "secondary" : doc.status === "Review" ? "warning" : "outline"}>
-                    {doc.status}
-                  </Badge>
+                  <Chip
+                    size="small"
+                    label={doc.status}
+                    sx={badgeSx(doc.status === "Approved" ? "secondary" : doc.status === "Review" ? "warning" : "outline")}
+                  />
                 </TableCell>
                 <TableCell>{doc.updated}</TableCell>
               </TableRow>
@@ -172,6 +189,7 @@ function PolicyLibraryPage() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </div>
     </div>
   );

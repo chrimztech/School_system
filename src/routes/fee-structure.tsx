@@ -4,19 +4,13 @@ import { DollarSign, Layers, Tag, CalendarDays, Plus, Loader2 } from "lucide-rea
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/fee-structure")({
   head: () => ({ meta: [{ title: "Fee Structure - SRMS" }] }),
@@ -168,6 +162,7 @@ function FeeStructurePage() {
   const [discountOpen, setDiscountOpen] = useState(false);
   const [billingOpen, setBillingOpen] = useState(false);
   const [editingBillingId, setEditingBillingId] = useState<string | null>(null);
+  const [tab, setTab] = useState("tariff");
 
   const [feeForm, setFeeForm] = useState({ category: FEE_CATEGORIES[0], customCategory: "", grade: GRADES[1], amount: "", frequency: "Per term" as FeeItem["frequency"], academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "" });
   const [levyForm, setLevyForm] = useState({ name: "", amount: "", grade: GRADES[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
@@ -295,13 +290,9 @@ function FeeStructurePage() {
         description="Configure tuition tariffs, levies, discount rules, and term billing schedules."
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/fees">Collections</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/bursaries">Bursaries</Link>
-            </Button>
-            <Button variant="outline" onClick={() => { window.print(); toast.success("Fee schedule exported to PDF"); }}>Export schedule</Button>
+            <Button variant="outlined" component={Link} to="/fees">Collections</Button>
+            <Button variant="outlined" component={Link} to="/bursaries">Bursaries</Button>
+            <Button variant="outlined" onClick={() => { window.print(); toast.success("Fee schedule exported to PDF"); }}>Export schedule</Button>
           </>
         }
       />
@@ -313,102 +304,146 @@ function FeeStructurePage() {
         <StatCard label="Discount rules" value={discounts.filter((d) => d.active).length} hint="Active" accent="warning" icon={<CalendarDays className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="tariff">
-        <TabsList>
-          <TabsTrigger value="tariff">Tariff schedule</TabsTrigger>
-          <TabsTrigger value="levies">Levies</TabsTrigger>
-          <TabsTrigger value="discounts">Discounts & bursaries</TabsTrigger>
-          <TabsTrigger value="billing">Billing schedule</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="tariff" label="Tariff schedule" />
+        <Tab value="levies" label="Levies" />
+        <Tab value="discounts" label="Discounts & bursaries" />
+        <Tab value="billing" label="Billing schedule" />
+      </Tabs>
 
-        {/* TARIFF */}
-        <TabsContent value="tariff" className="rounded-xl border border-border bg-card">
+      {/* TARIFF */}
+      {tab === "tariff" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Dialog open={feeOpen} onOpenChange={setFeeOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add fee</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Add fee item</DialogTitle></DialogHeader>
+            <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setFeeOpen(true)}>Add fee</Button>
+            <Dialog open={feeOpen} onClose={() => setFeeOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Add fee item</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label>Category</Label>
-                    <Select value={feeForm.category} onValueChange={(v) => setFeeForm({ ...feeForm, category: v, customCategory: "" })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {FEE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        <SelectItem value="__other__">Other (custom)…</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      label="Category"
+                      value={feeForm.category}
+                      onChange={(e) => setFeeForm({ ...feeForm, category: e.target.value, customCategory: "" })}
+                      fullWidth
+                      size="small"
+                    >
+                      {FEE_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                      <MenuItem value="__other__">Other (custom)…</MenuItem>
+                    </TextField>
                     {feeForm.category === "__other__" && (
-                      <Input
+                      <TextField
                         className="mt-2"
                         placeholder="e.g. Development fund"
                         value={feeForm.customCategory}
                         onChange={(e) => setFeeForm({ ...feeForm, customCategory: e.target.value })}
-                        maxLength={60}
+                        slotProps={{ htmlInput: { maxLength: 60 } }}
                         autoFocus
+                        fullWidth
+                        size="small"
                       />
                     )}
                   </div>
-                  <div>
-                    <Label>Grade</Label>
-                    <Select value={feeForm.grade} onValueChange={(v) => setFeeForm({ ...feeForm, grade: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{GRADES.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Amount (K) *</Label>
-                    <Input className="mt-1" type="number" min={1} value={feeForm.amount} onChange={(e) => setFeeForm({ ...feeForm, amount: e.target.value })} placeholder="3200" />
-                  </div>
-                  <div>
-                    <Label>Frequency</Label>
-                    <Select value={feeForm.frequency} onValueChange={(v) => setFeeForm({ ...feeForm, frequency: v as FeeItem["frequency"] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {(["Per term", "Annual", "Once-off"] as const).map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Academic year</Label>
-                    <Input className="mt-1" value={feeForm.academicYear} onChange={(e) => setFeeForm({ ...feeForm, academicYear: e.target.value })} placeholder="2026" maxLength={4} />
-                  </div>
-                  <div>
-                    <Label>Applicable term</Label>
-                    <Select value={feeForm.term} onValueChange={(v) => setFeeForm({ ...feeForm, term: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Term 1", "Term 2", "Term 3", "All terms"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Payment due date</Label>
-                    <Input type="date" className="mt-1" value={feeForm.dueDate} onChange={(e) => setFeeForm({ ...feeForm, dueDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Late penalty (K)</Label>
-                    <Input type="number" min={0} className="mt-1" value={feeForm.latePenaltyAmount} onChange={(e) => setFeeForm({ ...feeForm, latePenaltyAmount: e.target.value })} placeholder="250" />
-                  </div>
-                  <div>
-                    <Label>Penalty grace period (days)</Label>
-                    <Input type="number" min={0} className="mt-1" value={feeForm.penaltyGraceDays} onChange={(e) => setFeeForm({ ...feeForm, penaltyGraceDays: e.target.value })} placeholder="7" />
-                  </div>
+                  <TextField
+                    select
+                    label="Grade"
+                    value={feeForm.grade}
+                    onChange={(e) => setFeeForm({ ...feeForm, grade: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    type="number"
+                    label="Amount (K) *"
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    value={feeForm.amount}
+                    onChange={(e) => setFeeForm({ ...feeForm, amount: e.target.value })}
+                    placeholder="3200"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Frequency"
+                    value={feeForm.frequency}
+                    onChange={(e) => setFeeForm({ ...feeForm, frequency: e.target.value as FeeItem["frequency"] })}
+                    fullWidth
+                    size="small"
+                  >
+                    {(["Per term", "Annual", "Once-off"] as const).map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Academic year"
+                    value={feeForm.academicYear}
+                    onChange={(e) => setFeeForm({ ...feeForm, academicYear: e.target.value })}
+                    placeholder="2026"
+                    slotProps={{ htmlInput: { maxLength: 4 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Applicable term"
+                    value={feeForm.term}
+                    onChange={(e) => setFeeForm({ ...feeForm, term: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["Term 1", "Term 2", "Term 3", "All terms"].map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    type="date"
+                    label="Payment due date"
+                    value={feeForm.dueDate}
+                    onChange={(e) => setFeeForm({ ...feeForm, dueDate: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="number"
+                    label="Late penalty (K)"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={feeForm.latePenaltyAmount}
+                    onChange={(e) => setFeeForm({ ...feeForm, latePenaltyAmount: e.target.value })}
+                    placeholder="250"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="number"
+                    label="Penalty grace period (days)"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={feeForm.penaltyGraceDays}
+                    onChange={(e) => setFeeForm({ ...feeForm, penaltyGraceDays: e.target.value })}
+                    placeholder="7"
+                    fullWidth
+                    size="small"
+                  />
                   <div className="col-span-2">
-                    <Label>Notes / conditions</Label>
-                    <Input className="mt-1" value={feeForm.notes} onChange={(e) => setFeeForm({ ...feeForm, notes: e.target.value })} placeholder="e.g. Waived for bursary holders; boarding fee inclusive of meals" maxLength={200} />
+                    <TextField
+                      label="Notes / conditions"
+                      value={feeForm.notes}
+                      onChange={(e) => setFeeForm({ ...feeForm, notes: e.target.value })}
+                      placeholder="e.g. Waived for bursary holders; boarding fee inclusive of meals"
+                      slotProps={{ htmlInput: { maxLength: 200 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setFeeOpen(false)}>Cancel</Button>
-                  <Button onClick={addFee} disabled={createFeeMutation.isPending}>
-                    {createFeeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add fee
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setFeeOpen(false)}>Cancel</Button>
+                <Button onClick={addFee} disabled={createFeeMutation.isPending}>
+                  {createFeeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Add fee
+                </Button>
+              </DialogActions>
             </Dialog>
           </div>
           {feesLoading ? (
@@ -416,23 +451,24 @@ function FeeStructurePage() {
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading fee structure…</span>
             </div>
           ) : (
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Category</TableHead><TableHead>Grade</TableHead><TableHead>Amount</TableHead>
-              <TableHead>Frequency</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Category</TableCell><TableCell>Grade</TableCell><TableCell>Amount</TableCell>
+              <TableCell>Frequency</TableCell><TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {fees.map((f) => (
                 <TableRow key={f.id}>
                   <TableCell className="font-medium">{f.category}</TableCell>
                   <TableCell>{f.grade}</TableCell>
                   <TableCell>K {f.amount.toLocaleString()}</TableCell>
-                  <TableCell><Badge variant="secondary">{f.frequency}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={f.frequency} sx={badgeSx("secondary")} /></TableCell>
                   <TableCell>
-                    <Badge variant={f.status === "Active" ? "default" : "outline"}>{f.status}</Badge>
+                    <Chip size="small" label={f.status} sx={badgeSx(f.status === "Active" ? "default" : "outline")} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => toggleFeeStatus(f.id)}>
+                    <Button size="small" variant="text" color="inherit" onClick={() => toggleFeeStatus(f.id)}>
                       {f.status === "Active" ? "Deactivate" : "Activate"}
                     </Button>
                   </TableCell>
@@ -443,71 +479,102 @@ function FeeStructurePage() {
               )}
             </TableBody>
           </Table>
+          </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* LEVIES */}
-        <TabsContent value="levies" className="rounded-xl border border-border bg-card">
+      {/* LEVIES */}
+      {tab === "levies" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Dialog open={levyOpen} onOpenChange={setLevyOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add levy</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Add levy</DialogTitle></DialogHeader>
+            <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setLevyOpen(true)}>Add levy</Button>
+            <Dialog open={levyOpen} onClose={() => setLevyOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Add levy</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <Label>Levy name *</Label>
-                    <Input className="mt-1" value={levyForm.name} onChange={(e) => setLevyForm({ ...levyForm, name: e.target.value })} placeholder="Environmental sanitation levy" maxLength={80} />
+                    <TextField
+                      label="Levy name *"
+                      value={levyForm.name}
+                      onChange={(e) => setLevyForm({ ...levyForm, name: e.target.value })}
+                      placeholder="Environmental sanitation levy"
+                      slotProps={{ htmlInput: { maxLength: 80 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
-                  <div>
-                    <Label>Amount (K) *</Label>
-                    <Input className="mt-1" type="number" min={1} value={levyForm.amount} onChange={(e) => setLevyForm({ ...levyForm, amount: e.target.value })} placeholder="100" />
-                  </div>
-                  <div>
-                    <Label>Applies to</Label>
-                    <Select value={levyForm.grade} onValueChange={(v) => setLevyForm({ ...levyForm, grade: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{GRADES.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Applicable to</Label>
-                    <Select value={levyForm.applicableTo} onValueChange={(v) => setLevyForm({ ...levyForm, applicableTo: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["All students", "Boarding students", "Day scholars", "Sport participants", "ICT users", "Library members"].map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Effective from</Label>
-                    <Input type="date" className="mt-1" value={levyForm.effectiveFrom} onChange={(e) => setLevyForm({ ...levyForm, effectiveFrom: e.target.value })} />
-                  </div>
+                  <TextField
+                    type="number"
+                    label="Amount (K) *"
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    value={levyForm.amount}
+                    onChange={(e) => setLevyForm({ ...levyForm, amount: e.target.value })}
+                    placeholder="100"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Applies to"
+                    value={levyForm.grade}
+                    onChange={(e) => setLevyForm({ ...levyForm, grade: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Applicable to"
+                    value={levyForm.applicableTo}
+                    onChange={(e) => setLevyForm({ ...levyForm, applicableTo: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["All students", "Boarding students", "Day scholars", "Sport participants", "ICT users", "Library members"].map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    type="date"
+                    label="Effective from"
+                    value={levyForm.effectiveFrom}
+                    onChange={(e) => setLevyForm({ ...levyForm, effectiveFrom: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
                   <div className="col-span-2">
-                    <Label>Description / purpose</Label>
-                    <Input className="mt-1" value={levyForm.description} onChange={(e) => setLevyForm({ ...levyForm, description: e.target.value })} placeholder="Describe what this levy covers and how funds are used" maxLength={200} />
+                    <TextField
+                      label="Description / purpose"
+                      value={levyForm.description}
+                      onChange={(e) => setLevyForm({ ...levyForm, description: e.target.value })}
+                      placeholder="Describe what this levy covers and how funds are used"
+                      slotProps={{ htmlInput: { maxLength: 200 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                   <div className="col-span-2 flex items-center justify-between rounded-lg border border-border p-3">
                     <div>
                       <p className="text-sm font-medium">Mandatory</p>
                       <p className="text-xs text-muted-foreground">Cannot be waived by parents</p>
                     </div>
-                    <Switch checked={levyForm.mandatory} onCheckedChange={(v) => setLevyForm({ ...levyForm, mandatory: v })} />
+                    <Switch checked={levyForm.mandatory} onChange={(e) => setLevyForm({ ...levyForm, mandatory: e.target.checked })} />
                   </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setLevyOpen(false)}>Cancel</Button>
-                  <Button onClick={addLevy}>Add levy</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setLevyOpen(false)}>Cancel</Button>
+                <Button onClick={addLevy}>Add levy</Button>
+              </DialogActions>
             </Dialog>
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Levy name</TableHead><TableHead>Amount</TableHead><TableHead>Applies to</TableHead>
-              <TableHead>Mandatory</TableHead><TableHead className="text-right">Action</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Levy name</TableCell><TableCell>Amount</TableCell><TableCell>Applies to</TableCell>
+              <TableCell>Mandatory</TableCell><TableCell className="text-right">Action</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {levies.map((l) => (
                 <TableRow key={l.id}>
@@ -515,172 +582,246 @@ function FeeStructurePage() {
                   <TableCell>K {l.amount.toLocaleString()}</TableCell>
                   <TableCell>{l.grade}</TableCell>
                   <TableCell>
-                    <Badge variant={l.mandatory ? "default" : "secondary"}>{l.mandatory ? "Mandatory" : "Optional"}</Badge>
+                    <Chip size="small" label={l.mandatory ? "Mandatory" : "Optional"} sx={badgeSx(l.mandatory ? "default" : "secondary")} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => deleteLevyMutation.mutate({ id: l.id, name: l.name })}>Remove</Button>
+                    <Button size="small" variant="text" color="inherit" onClick={() => deleteLevyMutation.mutate({ id: l.id, name: l.name })}>Remove</Button>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        {/* DISCOUNTS */}
-        <TabsContent value="discounts" className="rounded-xl border border-border bg-card">
+      {/* DISCOUNTS */}
+      {tab === "discounts" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Dialog open={discountOpen} onOpenChange={setDiscountOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add discount rule</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Add discount rule</DialogTitle></DialogHeader>
+            <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setDiscountOpen(true)}>Add discount rule</Button>
+            <Dialog open={discountOpen} onClose={() => setDiscountOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Add discount rule</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <Label>Rule name *</Label>
-                    <Input className="mt-1" value={discountForm.name} onChange={(e) => setDiscountForm({ ...discountForm, name: e.target.value })} placeholder="Orphan & vulnerable child bursary" maxLength={80} />
+                    <TextField
+                      label="Rule name *"
+                      value={discountForm.name}
+                      onChange={(e) => setDiscountForm({ ...discountForm, name: e.target.value })}
+                      placeholder="Orphan & vulnerable child bursary"
+                      slotProps={{ htmlInput: { maxLength: 80 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
-                  <div>
-                    <Label>Type</Label>
-                    <Select value={discountForm.type} onValueChange={(v) => setDiscountForm({ ...discountForm, type: v as Discount["type"] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {(["Percentage", "Fixed"] as const).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Value {discountForm.type === "Percentage" ? "(%)" : "(K)"} *</Label>
-                    <Input className="mt-1" type="number" min={1} max={discountForm.type === "Percentage" ? 100 : undefined} value={discountForm.value} onChange={(e) => setDiscountForm({ ...discountForm, value: e.target.value })} placeholder="10" />
-                  </div>
-                  <div>
-                    <Label>Max beneficiaries</Label>
-                    <Input type="number" min={0} className="mt-1" value={discountForm.maxBeneficiaries} onChange={(e) => setDiscountForm({ ...discountForm, maxBeneficiaries: e.target.value })} placeholder="Unlimited if blank" />
-                  </div>
-                  <div>
-                    <Label>Board approval required</Label>
-                    <Select value={discountForm.requiresBoardApproval} onValueChange={(v) => setDiscountForm({ ...discountForm, requiresBoardApproval: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no">No - automatic on eligibility</SelectItem>
-                        <SelectItem value="yes">Yes - requires board sign-off</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Valid from</Label>
-                    <Input type="date" className="mt-1" value={discountForm.validFrom} onChange={(e) => setDiscountForm({ ...discountForm, validFrom: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Valid to</Label>
-                    <Input type="date" className="mt-1" value={discountForm.validTo} onChange={(e) => setDiscountForm({ ...discountForm, validTo: e.target.value })} />
-                  </div>
+                  <TextField
+                    select
+                    label="Type"
+                    value={discountForm.type}
+                    onChange={(e) => setDiscountForm({ ...discountForm, type: e.target.value as Discount["type"] })}
+                    fullWidth
+                    size="small"
+                  >
+                    {(["Percentage", "Fixed"] as const).map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    type="number"
+                    label={`Value ${discountForm.type === "Percentage" ? "(%)" : "(K)"} *`}
+                    slotProps={{ htmlInput: { min: 1, max: discountForm.type === "Percentage" ? 100 : undefined } }}
+                    value={discountForm.value}
+                    onChange={(e) => setDiscountForm({ ...discountForm, value: e.target.value })}
+                    placeholder="10"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="number"
+                    label="Max beneficiaries"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={discountForm.maxBeneficiaries}
+                    onChange={(e) => setDiscountForm({ ...discountForm, maxBeneficiaries: e.target.value })}
+                    placeholder="Unlimited if blank"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Board approval required"
+                    value={discountForm.requiresBoardApproval}
+                    onChange={(e) => setDiscountForm({ ...discountForm, requiresBoardApproval: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="no">No - automatic on eligibility</MenuItem>
+                    <MenuItem value="yes">Yes - requires board sign-off</MenuItem>
+                  </TextField>
+                  <TextField
+                    type="date"
+                    label="Valid from"
+                    value={discountForm.validFrom}
+                    onChange={(e) => setDiscountForm({ ...discountForm, validFrom: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="date"
+                    label="Valid to"
+                    value={discountForm.validTo}
+                    onChange={(e) => setDiscountForm({ ...discountForm, validTo: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
                   <div className="col-span-2">
-                    <Label>Condition / eligibility criteria</Label>
-                    <Input className="mt-1" value={discountForm.condition} onChange={(e) => setDiscountForm({ ...discountForm, condition: e.target.value })} placeholder="Verified by school management; must provide documentary proof" maxLength={200} />
+                    <TextField
+                      label="Condition / eligibility criteria"
+                      value={discountForm.condition}
+                      onChange={(e) => setDiscountForm({ ...discountForm, condition: e.target.value })}
+                      placeholder="Verified by school management; must provide documentary proof"
+                      slotProps={{ htmlInput: { maxLength: 200 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setDiscountOpen(false)}>Cancel</Button>
-                  <Button onClick={addDiscount}>Add rule</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setDiscountOpen(false)}>Cancel</Button>
+                <Button onClick={addDiscount}>Add rule</Button>
+              </DialogActions>
             </Dialog>
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Rule</TableHead><TableHead>Type</TableHead><TableHead>Value</TableHead>
-              <TableHead>Condition</TableHead><TableHead>Active</TableHead><TableHead className="text-right">Toggle</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Rule</TableCell><TableCell>Type</TableCell><TableCell>Value</TableCell>
+              <TableCell>Condition</TableCell><TableCell>Active</TableCell><TableCell className="text-right">Toggle</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {discounts.map((d) => (
                 <TableRow key={d.id} className={!d.active ? "opacity-50" : ""}>
                   <TableCell className="font-medium">{d.name}</TableCell>
-                  <TableCell><Badge variant="outline">{d.type}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={d.type} sx={badgeSx("outline")} /></TableCell>
                   <TableCell className="font-mono">{d.type === "Percentage" ? `${d.value}%` : `K ${d.value.toLocaleString()}`}</TableCell>
                   <TableCell className="max-w-xs truncate text-sm text-muted-foreground">{d.condition}</TableCell>
                   <TableCell>
-                    <Badge variant={d.active ? "default" : "secondary"}>{d.active ? "Active" : "Inactive"}</Badge>
+                    <Chip size="small" label={d.active ? "Active" : "Inactive"} sx={badgeSx(d.active ? "default" : "secondary")} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Switch checked={d.active} onCheckedChange={() => toggleDiscount(d.id)} />
+                    <Switch checked={d.active} onChange={() => toggleDiscount(d.id)} />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        {/* BILLING SCHEDULE */}
-        <TabsContent value="billing" className="rounded-xl border border-border bg-card">
+      {/* BILLING SCHEDULE */}
+      {tab === "billing" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border p-3">
             <p className="text-xs text-muted-foreground">Term billing rules determine fee due dates, late payment penalties, and automated reminder schedules sent to parents.</p>
-            <Dialog open={billingOpen} onOpenChange={(open) => {
-              setBillingOpen(open);
-              if (!open) {
+            <Button size="small" onClick={() => openBillingDialog()} startIcon={<Plus className="h-3.5 w-3.5" />}>Add billing rule</Button>
+            <Dialog
+              open={billingOpen}
+              onClose={() => {
+                setBillingOpen(false);
                 setEditingBillingId(null);
                 setBillingForm(emptyBillingForm);
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm" onClick={() => openBillingDialog()}><Plus className="mr-1 h-3.5 w-3.5" />Add billing rule</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>{editingBillingId ? "Edit billing rule" : "Add billing rule"}</DialogTitle></DialogHeader>
+              }}
+              maxWidth="lg"
+              fullWidth
+            >
+              <DialogTitle>{editingBillingId ? "Edit billing rule" : "Add billing rule"}</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Term *</Label>
-                    <Select value={billingForm.term} onValueChange={(v) => setBillingForm({ ...billingForm, term: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Term 1", "Term 2", "Term 3", "All terms"].map((term) => <SelectItem key={term} value={term}>{term}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Due date *</Label>
-                    <Input className="mt-1" value={billingForm.dueDate} onChange={(e) => setBillingForm({ ...billingForm, dueDate: e.target.value })} placeholder="2026-04-28" />
-                  </div>
-                  <div>
-                    <Label>Late fee (K)</Label>
-                    <Input type="number" min={0} className="mt-1" value={billingForm.lateFee} onChange={(e) => setBillingForm({ ...billingForm, lateFee: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Reminder days</Label>
-                    <Input type="number" min={0} className="mt-1" value={billingForm.reminderDays} onChange={(e) => setBillingForm({ ...billingForm, reminderDays: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Grace period days</Label>
-                    <Input type="number" min={0} className="mt-1" value={billingForm.gracePeriodDays} onChange={(e) => setBillingForm({ ...billingForm, gracePeriodDays: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Late fee method</Label>
-                    <Select value={billingForm.lateFeeMethod} onValueChange={(v) => setBillingForm({ ...billingForm, lateFeeMethod: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Fixed amount", "Percentage", "Compound"].map((method) => <SelectItem key={method} value={method}>{method}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TextField
+                    select
+                    label="Term *"
+                    value={billingForm.term}
+                    onChange={(e) => setBillingForm({ ...billingForm, term: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["Term 1", "Term 2", "Term 3", "All terms"].map((term) => <MenuItem key={term} value={term}>{term}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Due date *"
+                    value={billingForm.dueDate}
+                    onChange={(e) => setBillingForm({ ...billingForm, dueDate: e.target.value })}
+                    placeholder="2026-04-28"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="number"
+                    label="Late fee (K)"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={billingForm.lateFee}
+                    onChange={(e) => setBillingForm({ ...billingForm, lateFee: e.target.value })}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="number"
+                    label="Reminder days"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={billingForm.reminderDays}
+                    onChange={(e) => setBillingForm({ ...billingForm, reminderDays: e.target.value })}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="number"
+                    label="Grace period days"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={billingForm.gracePeriodDays}
+                    onChange={(e) => setBillingForm({ ...billingForm, gracePeriodDays: e.target.value })}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Late fee method"
+                    value={billingForm.lateFeeMethod}
+                    onChange={(e) => setBillingForm({ ...billingForm, lateFeeMethod: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["Fixed amount", "Percentage", "Compound"].map((method) => <MenuItem key={method} value={method}>{method}</MenuItem>)}
+                  </TextField>
                   <div className="col-span-2">
-                    <Label>Maximum penalty (K)</Label>
-                    <Input type="number" min={0} className="mt-1" value={billingForm.maxPenalty} onChange={(e) => setBillingForm({ ...billingForm, maxPenalty: e.target.value })} placeholder="Optional cap per term" />
+                    <TextField
+                      type="number"
+                      label="Maximum penalty (K)"
+                      slotProps={{ htmlInput: { min: 0 } }}
+                      value={billingForm.maxPenalty}
+                      onChange={(e) => setBillingForm({ ...billingForm, maxPenalty: e.target.value })}
+                      placeholder="Optional cap per term"
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setBillingOpen(false)}>Cancel</Button>
-                  <Button onClick={saveBillingRule} disabled={createBillingRuleMutation.isPending || updateBillingRuleMutation.isPending}>
-                    {editingBillingId ? "Save changes" : "Add billing rule"}
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setBillingOpen(false)}>Cancel</Button>
+                <Button onClick={saveBillingRule} disabled={createBillingRuleMutation.isPending || updateBillingRuleMutation.isPending}>
+                  {editingBillingId ? "Save changes" : "Add billing rule"}
+                </Button>
+              </DialogActions>
             </Dialog>
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Term</TableHead><TableHead>Due date</TableHead><TableHead>Late fee (K)</TableHead>
-              <TableHead>Reminder (days before)</TableHead><TableHead className="text-right">Action</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Term</TableCell><TableCell>Due date</TableCell><TableCell>Late fee (K)</TableCell>
+              <TableCell>Reminder (days before)</TableCell><TableCell className="text-right">Action</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {billing.map((b) => (
                 <TableRow key={b.id}>
@@ -689,7 +830,7 @@ function FeeStructurePage() {
                   <TableCell>K {b.lateFee.toLocaleString()}</TableCell>
                   <TableCell>{b.reminderDays} days</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => openBillingDialog(b)}>Edit</Button>
+                    <Button size="small" variant="text" color="inherit" onClick={() => openBillingDialog(b)}>Edit</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -698,6 +839,7 @@ function FeeStructurePage() {
               )}
             </TableBody>
           </Table>
+          </TableContainer>
           <div className="border-t border-border p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Late fee policy</p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -713,8 +855,9 @@ function FeeStructurePage() {
               ))}
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
     </AccessGuard>
   );

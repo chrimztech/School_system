@@ -4,21 +4,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button, Chip, Breadcrumbs, IconButton, Link as MuiLink, MenuItem, TextField, Typography, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { useTenant, formatGrade } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -104,9 +91,7 @@ function StudentProfilePage() {
   if (!student) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/students"><ArrowLeft className="mr-1 h-4 w-4" />Students</Link>
-        </Button>
+        <Button variant="text" color="inherit" size="small" component={Link} to="/students" startIcon={<ArrowLeft className="h-4 w-4" />}>Students</Button>
         <p className="text-center text-muted-foreground">Student not found.</p>
       </div>
     );
@@ -151,22 +136,15 @@ function StudentProfilePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-          <Link to="/students" aria-label="Back to Students"><ArrowLeft className="h-4 w-4" /></Link>
-        </Button>
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link to="/students">Students</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{fullName}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        <IconButton component={Link} to="/students" aria-label="Back to Students" size="small" sx={{ flexShrink: 0 }}>
+          <ArrowLeft className="h-4 w-4" />
+        </IconButton>
+        <Breadcrumbs>
+          <MuiLink component={Link} to="/students" underline="hover" color="inherit" sx={{ fontSize: "inherit" }}>
+            Students
+          </MuiLink>
+          <Typography color="text.primary" sx={{ fontSize: "inherit" }}>{fullName}</Typography>
+        </Breadcrumbs>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm" style={{ background: `linear-gradient(135deg, ${active.primaryColor}08, transparent)` }}>
@@ -179,19 +157,23 @@ function StudentProfilePage() {
               <h1 className="text-xl font-semibold">{fullName}</h1>
               <p className="font-mono text-sm text-muted-foreground">{s.admissionNumber}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <Badge variant={(s.status ?? "").toLowerCase() === "active" ? "secondary" : "outline"}>{s.status}</Badge>
+                <Chip
+                  size="small"
+                  label={s.status}
+                  sx={badgeSx((s.status ?? "").toLowerCase() === "active" ? "secondary" : "outline")}
+                />
                 <span className="text-sm text-muted-foreground">
                   {formatGrade(s.grade, active.type)}
                   {s.section ? ` · Section ${s.section}` : ""}
                 </span>
-                {s.preferredName && <Badge variant="outline">Prefers {s.preferredName}</Badge>}
+                {s.preferredName && (
+                  <Chip size="small" label={`Prefers ${s.preferredName}`} sx={badgeSx("outline")} />
+                )}
               </div>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/report-card" search={{ studentId }}><BookOpen className="mr-1 h-4 w-4" />Report card</Link>
-            </Button>
+            <Button variant="outlined" size="small" component={Link as any} to="/report-card" search={{ studentId }} startIcon={<BookOpen className="h-4 w-4" />}>Report card</Button>
           </div>
         </div>
       </div>
@@ -350,11 +332,11 @@ function StudentProfilePage() {
           <h2 className="text-sm font-semibold">Transport</h2>
           {currentEnrolment ? (
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={openTransportDialog}>Change route</Button>
+              <Button size="small" variant="outlined" onClick={openTransportDialog}>Change route</Button>
               <Button
-                size="sm"
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
+                size="small"
+                variant="text"
+                color="error"
                 onClick={() => {
                   if (window.confirm(`Remove ${fullName} from transport?`)) removeEnrolmentMutation.mutate(currentEnrolment.id);
                 }}
@@ -363,7 +345,7 @@ function StudentProfilePage() {
               </Button>
             </div>
           ) : (
-            <Button size="sm" onClick={openTransportDialog}><Bus className="mr-1 h-4 w-4" />Assign to route</Button>
+            <Button size="small" variant="contained" onClick={openTransportDialog} startIcon={<Bus className="h-4 w-4" />}>Assign to route</Button>
           )}
         </div>
         {currentEnrolment ? (
@@ -393,64 +375,75 @@ function StudentProfilePage() {
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold">Fee payment history</h2>
         {(feePayments as any[]).length > 0 ? (
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Status</TableHead>
+                <TableCell>Date</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Method</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {(feePayments as any[]).map((payment: any) => (
                 <TableRow key={payment.id}>
                   <TableCell className="text-muted-foreground">{(payment.paymentDate ?? payment.date ?? "").slice(0, 10)}</TableCell>
                   <TableCell className="font-medium">K {Number(payment.amount).toLocaleString()}</TableCell>
                   <TableCell>{payment.method}</TableCell>
-                  <TableCell><Badge variant="secondary">{payment.status ?? "completed"}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={payment.status ?? "completed"} sx={badgeSx("secondary")} /></TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         ) : (
           <p className="text-sm text-muted-foreground">No payments recorded.</p>
         )}
       </div>
 
-      <Dialog open={transportOpen} onOpenChange={setTransportOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>{currentEnrolment ? "Change route" : "Assign to route"}</DialogTitle></DialogHeader>
+      <Dialog open={transportOpen} onClose={() => setTransportOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{currentEnrolment ? "Change route" : "Assign to route"}</DialogTitle>
+        <DialogContent>
           <div className="space-y-3">
-            <div>
-              <Label>Route *</Label>
-              <Select value={transportForm.routeId} onValueChange={(v) => setTransportForm({ ...transportForm, routeId: v })}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder={(routes as any[]).length === 0 ? "No routes configured yet" : "Select a route"} /></SelectTrigger>
-                <SelectContent>
-                  {(routes as any[]).map((r: any) => {
-                    const vehicle = (vehicles as any[]).find((v: any) => v.id === r.vehicleId);
-                    return (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.routeName}{vehicle ? ` · ${vehicle.plateNumber}` : ""}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Pickup stop</Label>
-              <Input className="mt-1" value={transportForm.pickupStop} onChange={(e) => setTransportForm({ ...transportForm, pickupStop: e.target.value })} placeholder="Crossroads" maxLength={100} />
-            </div>
+            <TextField
+              select
+              label="Route *"
+              value={transportForm.routeId}
+              onChange={(e) => setTransportForm({ ...transportForm, routeId: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="" disabled>
+                {(routes as any[]).length === 0 ? "No routes configured yet" : "Select a route"}
+              </MenuItem>
+              {(routes as any[]).map((r: any) => {
+                const vehicle = (vehicles as any[]).find((v: any) => v.id === r.vehicleId);
+                return (
+                  <MenuItem key={r.id} value={r.id}>
+                    {r.routeName}{vehicle ? ` · ${vehicle.plateNumber}` : ""}
+                  </MenuItem>
+                );
+              })}
+            </TextField>
+            <TextField
+              label="Pickup stop"
+              value={transportForm.pickupStop}
+              onChange={(e) => setTransportForm({ ...transportForm, pickupStop: e.target.value })}
+              placeholder="Crossroads"
+              slotProps={{ htmlInput: { maxLength: 100 } }}
+              fullWidth
+              size="small"
+            />
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setTransportOpen(false)}>Cancel</Button>
-            <Button onClick={saveTransportAssignment} disabled={enrolMutation.isPending || updateEnrolmentMutation.isPending}>
-              {(enrolMutation.isPending || updateEnrolmentMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {currentEnrolment ? "Save changes" : "Assign"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setTransportOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={saveTransportAssignment} disabled={enrolMutation.isPending || updateEnrolmentMutation.isPending}>
+            {(enrolMutation.isPending || updateEnrolmentMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {currentEnrolment ? "Save changes" : "Assign"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
   );

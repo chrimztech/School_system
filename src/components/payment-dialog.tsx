@@ -3,11 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { CreditCard, Loader2, Smartphone, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
 import { api } from "@/lib/api";
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -53,12 +49,14 @@ export function PaymentDialog({
   const [cardForm, setCardForm] = useState(() => createCardForm(student));
   const [momoForm, setMomoForm] = useState(() => createMomoForm(student));
   const [momoPaymentId, setMomoPaymentId] = useState<string | null>(null);
+  const [tab, setTab] = useState("card");
 
   useEffect(() => {
     if (open) {
       setCardForm(createCardForm(student));
       setMomoForm(createMomoForm(student));
       setMomoPaymentId(null);
+      setTab("card");
     }
   }, [open, student]);
 
@@ -143,80 +141,120 @@ export function PaymentDialog({
         : "pending";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Pay fees for {fullName}</DialogTitle>
-        </DialogHeader>
+    <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="sm" fullWidth>
+      <DialogTitle>Pay fees for {fullName}</DialogTitle>
+      <DialogContent>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="fullWidth" sx={{ mb: 2 }}>
+          <Tab value="card" icon={<CreditCard size={14} />} iconPosition="start" label="Card" />
+          <Tab value="momo" icon={<Smartphone size={14} />} iconPosition="start" label="Mobile Money" />
+        </Tabs>
 
-        <Tabs defaultValue="card">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="card"><CreditCard className="mr-1.5 h-3.5 w-3.5" />Card</TabsTrigger>
-            <TabsTrigger value="momo"><Smartphone className="mr-1.5 h-3.5 w-3.5" />Mobile Money</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="card" className="space-y-3 pt-3">
-            <div>
-              <Label>Amount (K) *</Label>
-              <Input type="number" min={1} className="mt-1" value={cardForm.amount} onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} />
-            </div>
+        {tab === "card" && (
+          <div className="space-y-3 pt-3">
+            <TextField
+              label="Amount (K) *"
+              type="number"
+              slotProps={{ htmlInput: { min: 1 } }}
+              value={cardForm.amount}
+              onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })}
+              fullWidth
+              size="small"
+            />
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>First name *</Label>
-                <Input className="mt-1" value={cardForm.firstName} onChange={(e) => setCardForm({ ...cardForm, firstName: e.target.value })} maxLength={50} />
-              </div>
-              <div>
-                <Label>Last name *</Label>
-                <Input className="mt-1" value={cardForm.lastName} onChange={(e) => setCardForm({ ...cardForm, lastName: e.target.value })} maxLength={50} />
-              </div>
+              <TextField
+                label="First name *"
+                value={cardForm.firstName}
+                onChange={(e) => setCardForm({ ...cardForm, firstName: e.target.value })}
+                slotProps={{ htmlInput: { maxLength: 50 } }}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Last name *"
+                value={cardForm.lastName}
+                onChange={(e) => setCardForm({ ...cardForm, lastName: e.target.value })}
+                slotProps={{ htmlInput: { maxLength: 50 } }}
+                fullWidth
+                size="small"
+              />
             </div>
-            <div>
-              <Label>Email *</Label>
-              <Input type="email" className="mt-1" value={cardForm.email} onChange={(e) => setCardForm({ ...cardForm, email: e.target.value })} maxLength={100} />
-            </div>
-            <div>
-              <Label>Phone *</Label>
-              <Input className="mt-1" value={cardForm.phone} onChange={(e) => setCardForm({ ...cardForm, phone: e.target.value })} placeholder="+260 977 000 000" maxLength={20} />
-            </div>
+            <TextField
+              label="Email *"
+              type="email"
+              value={cardForm.email}
+              onChange={(e) => setCardForm({ ...cardForm, email: e.target.value })}
+              slotProps={{ htmlInput: { maxLength: 100 } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Phone *"
+              value={cardForm.phone}
+              onChange={(e) => setCardForm({ ...cardForm, phone: e.target.value })}
+              placeholder="+260 977 000 000"
+              slotProps={{ htmlInput: { maxLength: 20 } }}
+              fullWidth
+              size="small"
+            />
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>City</Label>
-                <Input className="mt-1" value={cardForm.city} onChange={(e) => setCardForm({ ...cardForm, city: e.target.value })} maxLength={50} />
-              </div>
-              <div>
-                <Label>Address</Label>
-                <Input className="mt-1" value={cardForm.address} onChange={(e) => setCardForm({ ...cardForm, address: e.target.value })} maxLength={150} />
-              </div>
+              <TextField
+                label="City"
+                value={cardForm.city}
+                onChange={(e) => setCardForm({ ...cardForm, city: e.target.value })}
+                slotProps={{ htmlInput: { maxLength: 50 } }}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Address"
+                value={cardForm.address}
+                onChange={(e) => setCardForm({ ...cardForm, address: e.target.value })}
+                slotProps={{ htmlInput: { maxLength: 150 } }}
+                fullWidth
+                size="small"
+              />
             </div>
             <p className="text-xs text-muted-foreground">You'll be redirected to a secure ZynlePay page to enter your card details.</p>
-            <DialogFooter className="mt-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button onClick={submitCard} disabled={initiateCardMutation.isPending}>
+            <DialogActions sx={{ mt: 2, px: 0 }}>
+              <Button variant="outlined" color="inherit" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button variant="contained" onClick={submitCard} disabled={initiateCardMutation.isPending}>
                 {initiateCardMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Continue to payment
               </Button>
-            </DialogFooter>
-          </TabsContent>
+            </DialogActions>
+          </div>
+        )}
 
-          <TabsContent value="momo" className="space-y-3 pt-3">
+        {tab === "momo" && (
+          <div className="space-y-3 pt-3">
             {momoState === "idle" && (
               <>
-                <div>
-                  <Label>Amount (K) *</Label>
-                  <Input type="number" min={1} className="mt-1" value={momoForm.amount} onChange={(e) => setMomoForm({ ...momoForm, amount: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Mobile money number *</Label>
-                  <Input className="mt-1" value={momoForm.phone} onChange={(e) => setMomoForm({ ...momoForm, phone: e.target.value })} placeholder="+260 977 000 000" maxLength={20} />
-                </div>
+                <TextField
+                  label="Amount (K) *"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  value={momoForm.amount}
+                  onChange={(e) => setMomoForm({ ...momoForm, amount: e.target.value })}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Mobile money number *"
+                  value={momoForm.phone}
+                  onChange={(e) => setMomoForm({ ...momoForm, phone: e.target.value })}
+                  placeholder="+260 977 000 000"
+                  slotProps={{ htmlInput: { maxLength: 20 } }}
+                  fullWidth
+                  size="small"
+                />
                 <p className="text-xs text-muted-foreground">You'll get a prompt on this phone to approve the payment.</p>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                  <Button onClick={submitMomo} disabled={initiateMomoMutation.isPending}>
+                <DialogActions sx={{ mt: 2, px: 0 }}>
+                  <Button variant="outlined" color="inherit" onClick={() => onOpenChange(false)}>Cancel</Button>
+                  <Button variant="contained" onClick={submitMomo} disabled={initiateMomoMutation.isPending}>
                     {initiateMomoMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Send payment request
                   </Button>
-                </DialogFooter>
+                </DialogActions>
               </>
             )}
             {momoState === "pending" && (
@@ -224,26 +262,27 @@ export function PaymentDialog({
                 <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
                 <p className="mt-3 text-sm font-medium">Waiting for approval on {momoForm.phone}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Enter your mobile money PIN on your phone to confirm. This page updates automatically.</p>
-                <Button variant="outline" size="sm" className="mt-4" onClick={() => onOpenChange(false)}>Close and check later</Button>
+                <Button variant="outlined" size="small" sx={{ mt: 2 }} onClick={() => onOpenChange(false)}>Close and check later</Button>
               </div>
             )}
             {momoState === "completed" && (
               <div className="py-6 text-center">
                 <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
                 <p className="mt-3 text-sm font-medium">Payment received</p>
-                <Button size="sm" className="mt-4" onClick={() => onOpenChange(false)}>Done</Button>
+                <Button variant="contained" size="small" sx={{ mt: 2 }} onClick={() => onOpenChange(false)}>Done</Button>
               </div>
             )}
             {momoState === "failed" && (
               <div className="py-6 text-center">
                 <XCircle className="mx-auto h-8 w-8 text-destructive" />
                 <p className="mt-3 text-sm font-medium">Payment failed or was declined</p>
-                <Button size="sm" variant="outline" className="mt-4" onClick={() => setMomoPaymentId(null)}>Try again</Button>
+                <Button size="small" variant="outlined" sx={{ mt: 2 }} onClick={() => setMomoPaymentId(null)}>Try again</Button>
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+

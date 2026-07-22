@@ -3,12 +3,18 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Building2, Globe2, Users2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import TableContainer from "@mui/material/TableContainer";
+import Table from "@mui/material/Table";
+import TableHead from "@mui/material/TableHead";
+import TableBody from "@mui/material/TableBody";
+import TableRow from "@mui/material/TableRow";
+import TableCell from "@mui/material/TableCell";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/district-management")({
   head: () => ({ meta: [{ title: "District Management — SRMS" }] }),
@@ -28,7 +34,7 @@ function DistrictManagementPage() {
       <PageHeader
         title="District management"
         description="Central oversight for multi-school operations, capacity planning and performance benchmarking."
-        actions={<Button onClick={() => toast.success("District roll-up sync queued")}>Sync school data</Button>}
+        actions={<Button variant="contained" onClick={() => toast.success("District roll-up sync queued")}>Sync school data</Button>}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -45,7 +51,7 @@ function DistrictManagementPage() {
               <h2 className="text-sm font-semibold text-foreground">Enrollment by school</h2>
               <p className="text-xs text-muted-foreground">Student headcount across the network.</p>
             </div>
-            <Badge variant="secondary">Live</Badge>
+            <Chip size="small" label="Live" sx={badgeSx("secondary")} />
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -66,7 +72,7 @@ function DistrictManagementPage() {
               <h2 className="text-sm font-semibold text-foreground">Network health</h2>
               <p className="text-xs text-muted-foreground">School performance and capacity risk.</p>
             </div>
-            <Badge variant="outline">Stable</Badge>
+            <Chip size="small" label="Stable" sx={badgeSx("outline")} />
           </div>
           <div className="space-y-4">
             <div className="rounded-xl bg-muted/70 p-4">
@@ -88,22 +94,23 @@ function DistrictManagementPage() {
             <p className="text-xs text-muted-foreground">{tenants.length} school{tenants.length !== 1 ? "s" : ""} on the platform.</p>
           </div>
           {tenants.length > 4 && (
-            <Button variant="outline" onClick={() => setShowAll((v) => !v)}>
+            <Button variant="outlined" onClick={() => setShowAll((v) => !v)}>
               {showAll ? "Show fewer" : `View all ${tenants.length}`}
             </Button>
           )}
         </div>
         <div className="overflow-hidden rounded-xl border border-border">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>School</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Province</TableHead>
-                <TableHead>Students</TableHead>
-                <TableHead>Status</TableHead>
+                <TableCell>School</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Province</TableCell>
+                <TableCell>Students</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {visibleSchools.map((t) => (
                 <TableRow key={t.id}>
@@ -112,14 +119,17 @@ function DistrictManagementPage() {
                   <TableCell>{t.province}</TableCell>
                   <TableCell>{t.totalStudents.toLocaleString()}</TableCell>
                   <TableCell>
-                    <Badge variant={t.subscription.status === "active" ? "secondary" : "outline"}>
-                      {t.subscription.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={t.subscription.status}
+                      sx={badgeSx(t.subscription.status === "active" ? "secondary" : "outline")}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         </div>
       </div>
     </div>

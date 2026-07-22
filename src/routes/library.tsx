@@ -4,17 +4,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Button, Chip, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/library")({
   head: () => ({ meta: [{ title: "Library — SRMS" }] }),
@@ -143,87 +139,160 @@ function LibraryPage() {
         title="School Library"
         description={`Catalogue and lending · ${active.shortCode}`}
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-1 h-4 w-4" />Add title</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Add new title</DialogTitle></DialogHeader>
+          <>
+            <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add title</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Add new title</DialogTitle>
+              <DialogContent>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <Label>Title *</Label>
-                  <Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="New General Mathematics 9" maxLength={150} />
+                  <TextField
+                    label="Title *"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    placeholder="New General Mathematics 9"
+                    slotProps={{ htmlInput: { maxLength: 150 } }}
+                    fullWidth
+                    size="small"
+                  />
                 </div>
-                <div>
-                  <Label>Author *</Label>
-                  <Input className="mt-1" value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="Channon, Smith" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Publisher</Label>
-                  <Input className="mt-1" value={form.publisher} onChange={(e) => setForm({ ...form, publisher: e.target.value })} placeholder="Longman Zambia" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Category</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Edition</Label>
-                  <Input className="mt-1" value={form.edition} onChange={(e) => setForm({ ...form, edition: e.target.value })} placeholder="3rd Edition" maxLength={30} />
-                </div>
-                <div>
-                  <Label>ISBN</Label>
-                  <Input className="mt-1" value={form.isbn} onChange={(e) => setForm({ ...form, isbn: e.target.value })} placeholder="9789982999999" maxLength={30} />
-                </div>
-                <div>
-                  <Label>Year published</Label>
-                  <Input type="number" className="mt-1" min={1900} max={new Date().getFullYear()} value={form.yearPublished} onChange={(e) => setForm({ ...form, yearPublished: e.target.value })} placeholder="2024" />
-                </div>
-                <div>
-                  <Label>No. of copies</Label>
-                  <Input type="number" className="mt-1" value={form.copies} onChange={(e) => setForm({ ...form, copies: e.target.value })} min={1} />
-                </div>
-                <div>
-                  <Label>Shelf location</Label>
-                  <Input className="mt-1" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Shelf B3" maxLength={40} />
-                </div>
-                <div>
-                  <Label>Reading level / grade range</Label>
-                  <Input className="mt-1" value={form.readingLevel} onChange={(e) => setForm({ ...form, readingLevel: e.target.value })} placeholder="e.g. Form 2–6, Junior" maxLength={40} />
-                </div>
-                <div>
-                  <Label>Condition</Label>
-                  <Select value={form.condition} onValueChange={(v) => setForm({ ...form, condition: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["New", "Good", "Fair", "Poor", "Damaged"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Acquisition cost (K)</Label>
-                  <Input type="number" min={0} className="mt-1" value={form.acquisitionCost} onChange={(e) => setForm({ ...form, acquisitionCost: e.target.value })} placeholder="e.g. 250" />
-                </div>
-                <div>
-                  <Label>Acquisition date</Label>
-                  <Input type="date" className="mt-1" value={form.acquisitionDate} onChange={(e) => setForm({ ...form, acquisitionDate: e.target.value })} />
-                </div>
+                <TextField
+                  label="Author *"
+                  value={form.author}
+                  onChange={(e) => setForm({ ...form, author: e.target.value })}
+                  placeholder="Channon, Smith"
+                  slotProps={{ htmlInput: { maxLength: 100 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Publisher"
+                  value={form.publisher}
+                  onChange={(e) => setForm({ ...form, publisher: e.target.value })}
+                  placeholder="Longman Zambia"
+                  slotProps={{ htmlInput: { maxLength: 100 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Category"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </TextField>
+                <TextField
+                  label="Edition"
+                  value={form.edition}
+                  onChange={(e) => setForm({ ...form, edition: e.target.value })}
+                  placeholder="3rd Edition"
+                  slotProps={{ htmlInput: { maxLength: 30 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="ISBN"
+                  value={form.isbn}
+                  onChange={(e) => setForm({ ...form, isbn: e.target.value })}
+                  placeholder="9789982999999"
+                  slotProps={{ htmlInput: { maxLength: 30 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="number"
+                  label="Year published"
+                  slotProps={{ htmlInput: { min: 1900, max: new Date().getFullYear() } }}
+                  value={form.yearPublished}
+                  onChange={(e) => setForm({ ...form, yearPublished: e.target.value })}
+                  placeholder="2024"
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="number"
+                  label="No. of copies"
+                  value={form.copies}
+                  onChange={(e) => setForm({ ...form, copies: e.target.value })}
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Shelf location"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  placeholder="Shelf B3"
+                  slotProps={{ htmlInput: { maxLength: 40 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Reading level / grade range"
+                  value={form.readingLevel}
+                  onChange={(e) => setForm({ ...form, readingLevel: e.target.value })}
+                  placeholder="e.g. Form 2–6, Junior"
+                  slotProps={{ htmlInput: { maxLength: 40 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Condition"
+                  value={form.condition}
+                  onChange={(e) => setForm({ ...form, condition: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["New", "Good", "Fair", "Poor", "Damaged"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </TextField>
+                <TextField
+                  type="number"
+                  label="Acquisition cost (K)"
+                  slotProps={{ htmlInput: { min: 0 } }}
+                  value={form.acquisitionCost}
+                  onChange={(e) => setForm({ ...form, acquisitionCost: e.target.value })}
+                  placeholder="e.g. 250"
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="date"
+                  label="Acquisition date"
+                  value={form.acquisitionDate}
+                  onChange={(e) => setForm({ ...form, acquisitionDate: e.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
                 <div className="col-span-2">
-                  <Label>Damage notes</Label>
-                  <Input className="mt-1" value={form.damageNotes} onChange={(e) => setForm({ ...form, damageNotes: e.target.value })} placeholder="e.g. Torn cover on copy 2 of 5" maxLength={200} />
+                  <TextField
+                    label="Damage notes"
+                    value={form.damageNotes}
+                    onChange={(e) => setForm({ ...form, damageNotes: e.target.value })}
+                    placeholder="e.g. Torn cover on copy 2 of 5"
+                    slotProps={{ htmlInput: { maxLength: 200 } }}
+                    fullWidth
+                    size="small"
+                  />
                 </div>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={addBook} disabled={addBookMutation.isPending}>
-                  {addBookMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              </DialogContent>
+              <DialogActions className="mt-2">
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={addBook}
+                  disabled={addBookMutation.isPending}
+                  startIcon={addBookMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+                >
                   Add title
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogActions>
+            </Dialog>
+          </>
         }
       />
 
@@ -237,9 +306,15 @@ function LibraryPage() {
       <div className="rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center justify-between gap-3 border-b border-border p-4">
           <h2 className="text-sm font-semibold">Catalogue</h2>
-          <div className="relative max-w-xs flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search title or author" className="pl-9" />
+          <div className="max-w-xs flex-1">
+            <TextField
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search title or author"
+              size="small"
+              fullWidth
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+            />
           </div>
         </div>
         {booksLoading ? (
@@ -247,16 +322,17 @@ function LibraryPage() {
             <Loader2 className="h-5 w-5 animate-spin" /><span>Loading catalogue…</span>
           </div>
         ) : (
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Copies</TableHead>
-                <TableHead className="text-right">Available</TableHead>
-                <TableHead className="text-right">Out</TableHead>
+                <TableCell>Title</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell className="text-right">Copies</TableCell>
+                <TableCell className="text-right">Available</TableCell>
+                <TableCell className="text-right">Out</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {filtered.map((b: any) => {
                 const available = b.availableCopies ?? b.available ?? 0;
@@ -270,7 +346,7 @@ function LibraryPage() {
                         {b.location ? ` · ${b.location}` : ""}
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="secondary">{b.category}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={b.category} sx={badgeSx("secondary")} /></TableCell>
                     <TableCell className="text-right">{b.totalCopies ?? b.copies}</TableCell>
                     <TableCell className="text-right"><span className={available === 0 ? "text-destructive" : ""}>{available}</span></TableCell>
                     <TableCell className="text-right">{b.borrowedCopies ?? b.borrowed ?? 0}</TableCell>
@@ -282,6 +358,7 @@ function LibraryPage() {
               )}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </div>
 
@@ -294,16 +371,17 @@ function LibraryPage() {
             <Loader2 className="h-5 w-5 animate-spin" /><span>Loading loans…</span>
           </div>
         ) : (
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableCell>Student</TableCell>
+                <TableCell>Title</TableCell>
+                <TableCell>Due date</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Action</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {loanList.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No active loans.</TableCell></TableRow>
@@ -315,10 +393,17 @@ function LibraryPage() {
                       <TableCell>{l.studentName ?? l.student}</TableCell>
                       <TableCell>{l.bookTitle ?? l.title}</TableCell>
                       <TableCell className={isOverdue ? "text-destructive" : "text-muted-foreground"}>{(l.dueDate ?? "").slice(0, 10)}</TableCell>
-                      <TableCell><Badge variant={isOverdue ? "destructive" : "outline"}>{isOverdue ? "Overdue" : "On time"}</Badge></TableCell>
+                      <TableCell><Chip size="small" label={isOverdue ? "Overdue" : "On time"} sx={badgeSx(isOverdue ? "destructive" : "outline")} /></TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => returnMutation.mutate(l.id)} disabled={returnMutation.isPending}>
-                          <RotateCcw className="mr-1 h-3.5 w-3.5" />Return
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="inherit"
+                          startIcon={<RotateCcw size={14} />}
+                          onClick={() => returnMutation.mutate(l.id)}
+                          disabled={returnMutation.isPending}
+                        >
+                          Return
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -327,6 +412,7 @@ function LibraryPage() {
               )}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </div>
     </div>

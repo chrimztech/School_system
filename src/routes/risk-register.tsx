@@ -3,19 +3,28 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ClipboardList, Plus, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import DialogTitle from "@mui/material/DialogTitle";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 
 export const Route = createFileRoute("/risk-register")({
   head: () => ({ meta: [{ title: "Risk Register - SRMS" }] }),
@@ -27,7 +36,7 @@ const STATUSES = ["Open", "Mitigating", "Monitoring", "Closed"] as const;
 const LIKELIHOODS = ["Low", "Medium", "High"] as const;
 const IMPACTS = ["Low", "Medium", "High"] as const;
 
-const categoryTone: Record<string, "secondary" | "outline" | "warning" | "destructive" | "success"> = {
+const categoryTone: Record<string, BadgeTone> = {
   Compliance: "warning", Security: "destructive", Operations: "outline", Finance: "secondary", Vendors: "success",
 };
 
@@ -38,6 +47,7 @@ const linkedRoute: Record<string, string> = {
 function RiskRegisterPage() {
   const { active } = useTenant();
   const qc = useQueryClient();
+  const [tab, setTab] = useState("register");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -108,92 +118,43 @@ function RiskRegisterPage() {
         description="Centralise operational, compliance, security and vendor risks with accountable mitigation owners."
         actions={
           <>
-            <Button variant="outline" asChild><Link to="/compliance">Open compliance board</Link></Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Add risk</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Add risk item</DialogTitle></DialogHeader>
+            <Button variant="outlined" component={Link} to="/compliance">Open compliance board</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add risk</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Add risk item</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <Label>Risk title *</Label>
-                    <Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. MFA rollout behind audit deadline" maxLength={160} />
-                  </div>
-                  <div>
-                    <Label>Category</Label>
-                    <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as typeof CATEGORIES[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Risk owner *</Label>
-                    <Input className="mt-1" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} placeholder="e.g. IT Security, Finance, Operations" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Inherent likelihood</Label>
-                    <Select value={form.likelihood} onValueChange={(v) => setForm({ ...form, likelihood: v as typeof LIKELIHOODS[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{LIKELIHOODS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Inherent impact</Label>
-                    <Select value={form.impact} onValueChange={(v) => setForm({ ...form, impact: v as typeof IMPACTS[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{IMPACTS.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Residual likelihood</Label>
-                    <Select value={form.residualLikelihood} onValueChange={(v) => setForm({ ...form, residualLikelihood: v as typeof LIKELIHOODS[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{LIKELIHOODS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Residual impact</Label>
-                    <Select value={form.residualImpact} onValueChange={(v) => setForm({ ...form, residualImpact: v as typeof IMPACTS[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{IMPACTS.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Review frequency</Label>
-                    <Select value={form.reviewFrequency} onValueChange={(v) => setForm({ ...form, reviewFrequency: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Weekly", "Monthly", "Quarterly", "Bi-annually", "Annually"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Action owner</Label>
-                    <Input className="mt-1" value={form.actionOwner} onChange={(e) => setForm({ ...form, actionOwner: e.target.value })} placeholder="Person responsible for mitigation actions" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Mitigation deadline</Label>
-                    <Input type="date" className="mt-1" value={form.mitigationDeadline} onChange={(e) => setForm({ ...form, mitigationDeadline: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Next review date</Label>
-                    <Input type="date" className="mt-1" value={form.nextReviewDate} onChange={(e) => setForm({ ...form, nextReviewDate: e.target.value })} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Mitigation response</Label>
-                    <Textarea className="mt-1" rows={3} value={form.mitigation} onChange={(e) => setForm({ ...form, mitigation: e.target.value })} placeholder="Describe the mitigation plan, controls, approvals, and escalation path." maxLength={600} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Internal notes</Label>
-                    <Textarea className="mt-1" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Audit evidence references, committee decisions, linked incident IDs, or regulatory obligations" maxLength={400} />
-                  </div>
+                  <TextField label="Risk title *" fullWidth size="small" className="col-span-2" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. MFA rollout behind audit deadline" slotProps={{ htmlInput: { maxLength: 160 } }} />
+                  <TextField select label="Category" fullWidth size="small" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as typeof CATEGORIES[number] })}>
+                    {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField label="Risk owner *" fullWidth size="small" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} placeholder="e.g. IT Security, Finance, Operations" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField select label="Inherent likelihood" fullWidth size="small" value={form.likelihood} onChange={(e) => setForm({ ...form, likelihood: e.target.value as typeof LIKELIHOODS[number] })}>
+                    {LIKELIHOODS.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Inherent impact" fullWidth size="small" value={form.impact} onChange={(e) => setForm({ ...form, impact: e.target.value as typeof IMPACTS[number] })}>
+                    {IMPACTS.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Residual likelihood" fullWidth size="small" value={form.residualLikelihood} onChange={(e) => setForm({ ...form, residualLikelihood: e.target.value as typeof LIKELIHOODS[number] })}>
+                    {LIKELIHOODS.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Residual impact" fullWidth size="small" value={form.residualImpact} onChange={(e) => setForm({ ...form, residualImpact: e.target.value as typeof IMPACTS[number] })}>
+                    {IMPACTS.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Review frequency" fullWidth size="small" value={form.reviewFrequency} onChange={(e) => setForm({ ...form, reviewFrequency: e.target.value })}>
+                    {["Weekly", "Monthly", "Quarterly", "Bi-annually", "Annually"].map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                  </TextField>
+                  <TextField label="Action owner" fullWidth size="small" value={form.actionOwner} onChange={(e) => setForm({ ...form, actionOwner: e.target.value })} placeholder="Person responsible for mitigation actions" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField type="date" label="Mitigation deadline" fullWidth size="small" value={form.mitigationDeadline} onChange={(e) => setForm({ ...form, mitigationDeadline: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                  <TextField type="date" label="Next review date" fullWidth size="small" value={form.nextReviewDate} onChange={(e) => setForm({ ...form, nextReviewDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                  <TextField label="Mitigation response" fullWidth size="small" multiline minRows={3} className="col-span-2" value={form.mitigation} onChange={(e) => setForm({ ...form, mitigation: e.target.value })} placeholder="Describe the mitigation plan, controls, approvals, and escalation path." slotProps={{ htmlInput: { maxLength: 600 } }} />
+                  <TextField label="Internal notes" fullWidth size="small" multiline minRows={2} className="col-span-2" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Audit evidence references, committee decisions, linked incident IDs, or regulatory obligations" slotProps={{ htmlInput: { maxLength: 400 } }} />
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={addRisk} disabled={createMut.isPending}>Add to register</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={addRisk} disabled={createMut.isPending}>Add to register</Button>
+              </DialogActions>
             </Dialog>
           </>
         }
@@ -206,26 +167,27 @@ function RiskRegisterPage() {
         <StatCard label="Total logged" value={(risks as any[]).length} accent="accent" icon={<ShieldCheck className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="register" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="register">Risk register</TabsTrigger>
-          <TabsTrigger value="mitigation">Mitigation plans</TabsTrigger>
-          <TabsTrigger value="review">Review cadence</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="register" label="Risk register" />
+        <Tab value="mitigation" label="Mitigation plans" />
+        <Tab value="review" label="Review cadence" />
+      </Tabs>
 
-        <TabsContent value="register" className="rounded-xl border border-border bg-card shadow-sm">
+      {tab === "register" && (
+        <Box className="rounded-xl border border-border bg-card shadow-sm">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Risk</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Likelihood</TableHead>
-                <TableHead>Impact</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableCell>Risk</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Likelihood</TableCell>
+                <TableCell>Impact</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Action</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -234,32 +196,40 @@ function RiskRegisterPage() {
                   <TableCell>
                     <div className="font-medium">{r.title}</div>
                   </TableCell>
-                  <TableCell><Badge variant={categoryTone[r.category] ?? "outline"}>{r.category}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={r.category} sx={badgeSx(categoryTone[r.category] ?? "outline")} /></TableCell>
                   <TableCell>{r.owner}</TableCell>
                   <TableCell>
-                    <Badge variant={r.likelihood === "High" ? "destructive" : r.likelihood === "Medium" ? "warning" : "outline"}>{r.likelihood}</Badge>
+                    <Chip size="small" label={r.likelihood} sx={badgeSx(r.likelihood === "High" ? "destructive" : r.likelihood === "Medium" ? "warning" : "outline")} />
                   </TableCell>
                   <TableCell>
-                    <Badge variant={r.impact === "High" ? "destructive" : r.impact === "Medium" ? "warning" : "outline"}>{r.impact}</Badge>
+                    <Chip size="small" label={r.impact} sx={badgeSx(r.impact === "High" ? "destructive" : r.impact === "Medium" ? "warning" : "outline")} />
                   </TableCell>
                   <TableCell>
-                    <Select value={r.status} onValueChange={(v) => { updateMut.mutate({ id: r.id, status: v }); toast.success(`Risk moved to ${v}`); }}>
-                      <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      size="small"
+                      className="w-36"
+                      value={r.status}
+                      onChange={(e) => { updateMut.mutate({ id: r.id, status: e.target.value }); toast.success(`Risk moved to ${e.target.value}`); }}
+                    >
+                      {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </TextField>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={linkedRoute[r.category] ?? "/compliance"}>Open {r.category?.toLowerCase()}</Link>
+                    <Button size="small" variant="outlined" component={Link} to={linkedRoute[r.category] ?? "/compliance"}>
+                      Open {r.category?.toLowerCase()}
                     </Button>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="mitigation" className="grid gap-4 lg:grid-cols-2">
+      {tab === "mitigation" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           {(risks as any[]).map((r: any) => (
             <div key={r.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -267,18 +237,24 @@ function RiskRegisterPage() {
                   <p className="font-semibold text-foreground">{r.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{r.owner}</p>
                 </div>
-                <Badge variant={categoryTone[r.category] ?? "outline"}>{r.category}</Badge>
+                <Chip size="small" label={r.category} sx={badgeSx(categoryTone[r.category] ?? "outline")} />
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{r.mitigation || "No mitigation plan defined yet."}</p>
               <div className="mt-4 flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
                 <span className="text-sm font-medium">Current status</span>
-                <Badge variant={r.status === "Closed" ? "secondary" : r.status === "Mitigating" ? "success" : r.status === "Monitoring" ? "outline" : "warning"}>{r.status}</Badge>
+                <Chip
+                  size="small"
+                  label={r.status}
+                  sx={badgeSx(r.status === "Closed" ? "secondary" : r.status === "Mitigating" ? "success" : r.status === "Monitoring" ? "outline" : "warning")}
+                />
               </div>
             </div>
           ))}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="review" className="grid gap-4 lg:grid-cols-3">
+      {tab === "review" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
             <h2 className="text-sm font-semibold text-foreground">Upcoming review board</h2>
             <p className="mt-1 text-xs text-muted-foreground">Use a consistent monthly cadence to close actions and rerate exposure.</p>
@@ -297,13 +273,13 @@ function RiskRegisterPage() {
             <h2 className="text-sm font-semibold text-foreground">Review actions</h2>
             <p className="mt-1 text-xs text-muted-foreground">Kick off the next committee cycle with linked modules.</p>
             <div className="mt-4 space-y-3">
-              <Button className="w-full" variant="outline" asChild><Link to="/incident-management">Open incident queue</Link></Button>
-              <Button className="w-full" variant="outline" asChild><Link to="/vendor-management">Review vendors</Link></Button>
-              <Button className="w-full" onClick={() => toast.success("Risk review board scheduled for next Tuesday at 09:00")}>Schedule board review</Button>
+              <Button fullWidth variant="outlined" component={Link} to="/incident-management">Open incident queue</Button>
+              <Button fullWidth variant="outlined" component={Link} to="/vendor-management">Review vendors</Button>
+              <Button fullWidth variant="contained" onClick={() => toast.success("Risk review board scheduled for next Tuesday at 09:00")}>Schedule board review</Button>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckCheck, Trash2 } from "lucide-react";
+import Chip from "@mui/material/Chip";
+import { Button } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/lib/notifications";
-import { cn } from "@/lib/utils";
+import { badgeSx, cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/notifications")({
   head: () => ({ meta: [{ title: "Notifications — SRMS" }] }),
@@ -27,8 +27,8 @@ function NotificationsPage() {
         description={`${unread} unread of ${items.length}`}
         actions={
           <>
-            <Button variant="outline" onClick={markAllRead}><CheckCheck className="mr-1 h-4 w-4" />Mark all read</Button>
-            <Button variant="ghost" onClick={clear}><Trash2 className="mr-1 h-4 w-4" />Clear</Button>
+            <Button variant="outlined" startIcon={<CheckCheck size={16} />} onClick={markAllRead}>Mark all read</Button>
+            <Button variant="text" color="inherit" startIcon={<Trash2 size={16} />} onClick={clear}>Clear</Button>
           </>
         }
       />
@@ -45,7 +45,7 @@ function NotificationsPage() {
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">{n.title}</p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline" className="text-[10px]">{n.module}</Badge>
+                  <Chip size="small" label={n.module} sx={{ ...badgeSx("outline"), fontSize: 10 }} />
                   {n.time}
                 </div>
               </div>

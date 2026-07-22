@@ -2,11 +2,9 @@ import { useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { downloadCsv } from "@/lib/utils";
+import { Button, Chip, IconButton, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+
+import { badgeSx, downloadCsv } from "@/lib/utils";
 
 export type ImportColumn = {
   key: string;
@@ -126,12 +124,14 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
   const previewHeaders = rows.length > 0 ? Object.keys(rows[0]).slice(0, 6) : [];
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!importing) { onOpenChange(v); if (!v) reset(); } }}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-
+    <Dialog
+      open={open}
+      onClose={() => { if (!importing) { onOpenChange(false); reset(); } }}
+      maxWidth="lg"
+      fullWidth
+    >
+      <DialogTitle>{title}</DialogTitle>
+      <DialogContent>
         <div className="space-y-5 overflow-y-auto max-h-[70vh] pr-1">
           {/* Template download */}
           <div className="rounded-xl border border-border bg-muted/30 p-4">
@@ -143,15 +143,18 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
                   Columns marked <span className="font-semibold">*</span> are required.
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={downloadTemplate} className="shrink-0">
-                <Download className="mr-1.5 h-3.5 w-3.5" />Template
+              <Button variant="outlined" size="small" startIcon={<Download size={14} />} onClick={downloadTemplate} sx={{ flexShrink: 0 }}>
+                Template
               </Button>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {columns.map((c) => (
-                <Badge key={c.key} variant={c.required ? "default" : "outline"} className="text-[10px]">
-                  {c.label}{c.required ? " *" : ""}
-                </Badge>
+                <Chip
+                  key={c.key}
+                  size="small"
+                  label={`${c.label}${c.required ? " *" : ""}`}
+                  sx={{ ...badgeSx(c.required ? "default" : "outline"), fontSize: 10 }}
+                />
               ))}
             </div>
           </div>
@@ -173,7 +176,7 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
                   <p className="truncate text-sm font-medium">{fileName}</p>
                   <p className="text-xs text-muted-foreground">{rows.length} data row{rows.length !== 1 ? "s" : ""} parsed</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={reset}><X className="h-4 w-4" /></Button>
+                <IconButton aria-label="Remove file" size="small" onClick={reset}><X className="h-4 w-4" /></IconButton>
               </div>
             ) : (
               <button
@@ -203,13 +206,14 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
             <div>
               <p className="text-sm font-medium mb-2">Preview (first {previewRows.length} of {rows.length} rows)</p>
               <div className="overflow-x-auto rounded-xl border border-border">
+                <TableContainer>
                 <Table>
-                  <TableHeader>
+                  <TableHead>
                     <TableRow>
-                      {previewHeaders.map((h) => <TableHead key={h} className="text-xs">{h}</TableHead>)}
-                      {Object.keys(rows[0]).length > 6 && <TableHead className="text-xs text-muted-foreground">+{Object.keys(rows[0]).length - 6} more</TableHead>}
+                      {previewHeaders.map((h) => <TableCell key={h} className="text-xs">{h}</TableCell>)}
+                      {Object.keys(rows[0]).length > 6 && <TableCell className="text-xs text-muted-foreground">+{Object.keys(rows[0]).length - 6} more</TableCell>}
                     </TableRow>
-                  </TableHeader>
+                  </TableHead>
                   <TableBody>
                     {previewRows.map((row, i) => (
                       <TableRow key={i}>
@@ -219,6 +223,7 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
                     ))}
                   </TableBody>
                 </Table>
+                </TableContainer>
               </div>
               {rows.length > 5 && (
                 <p className="mt-1.5 text-xs text-muted-foreground">… and {rows.length - 5} more rows</p>
@@ -247,22 +252,21 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
             </div>
           )}
         </div>
-
-        <DialogFooter className="mt-2">
-          <Button variant="outline" onClick={() => { onOpenChange(false); reset(); }} disabled={importing}>
-            {result ? "Done" : "Cancel"}
-          </Button>
-          {!result && (
-            <Button
-              onClick={runImport}
-              disabled={rows.length === 0 || missingRequired.length > 0 || importing}
-            >
-              {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Import {rows.length > 0 ? `${rows.length} row${rows.length !== 1 ? "s" : ""}` : ""}
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
+      <DialogActions className="mt-2">
+        <Button variant="outlined" color="inherit" onClick={() => { onOpenChange(false); reset(); }} disabled={importing}>
+          {result ? "Done" : "Cancel"}
+        </Button>
+        {!result && (
+          <Button
+            onClick={runImport}
+            disabled={rows.length === 0 || missingRequired.length > 0 || importing}
+            startIcon={importing ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Import {rows.length > 0 ? `${rows.length} row${rows.length !== 1 ? "s" : ""}` : ""}
+          </Button>
+        )}
+      </DialogActions>
     </Dialog>
   );
 }

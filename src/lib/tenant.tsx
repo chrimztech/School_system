@@ -7,14 +7,15 @@ export type ResultPublicationMode = "SEPARATE" | "COMBINED";
 export type GradingBand = BackendGradingBand;
 
 export const ZAMBIA_2023_GRADING_BANDS: GradingBand[] = [
-  { min: 80, max: 100, grade: "A", description: "Excellent", points: 1 },
-  { min: 70, max: 79, grade: "B+", description: "Very Good", points: 2 },
-  { min: 60, max: 69, grade: "B", description: "Good", points: 3 },
-  { min: 50, max: 59, grade: "C+", description: "Credit", points: 4 },
-  { min: 40, max: 49, grade: "C", description: "Satisfactory", points: 5 },
-  { min: 30, max: 39, grade: "D+", description: "Elementary", points: 6 },
-  { min: 20, max: 29, grade: "D", description: "Limited Achievement", points: 7 },
-  { min: 0, max: 19, grade: "E", description: "Unsatisfactory", points: 8 },
+  { min: 75, max: 100, grade: "1", description: "DISTINCTION", points: 1 },
+  { min: 70, max: 74, grade: "2", description: "DISTINCTION", points: 2 },
+  { min: 65, max: 69, grade: "3", description: "MERIT", points: 3 },
+  { min: 60, max: 64, grade: "4", description: "MERIT", points: 4 },
+  { min: 55, max: 59, grade: "5", description: "CREDIT", points: 5 },
+  { min: 50, max: 54, grade: "6", description: "CREDIT", points: 6 },
+  { min: 45, max: 49, grade: "7", description: "SATISFACTORY", points: 7 },
+  { min: 40, max: 44, grade: "8", description: "SATISFACTORY", points: 8 },
+  { min: 0, max: 39, grade: "9", description: "UNSATISFACTORY", points: 9 },
 ];
 
 export function gradingBandForPercentage(bands: GradingBand[], percentage: number): GradingBand {

@@ -5,16 +5,8 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button, Chip, Checkbox, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Drawer, Box, Typography, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { useTenant, gradeRangeForType } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -59,6 +51,7 @@ function blankClassForm(year: string, defaultPhase = "") {
 // ── Class detail sheet ────────────────────────────────────────────
 function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: any; schoolId: string; onClose: () => void; readOnly?: boolean }) {
   const qc = useQueryClient();
+  const [detailTab, setDetailTab] = useState("pupils");
   const [enrollSearch, setEnrollSearch] = useState("");
   const [teacherDialog, setTeacherDialog] = useState(false);
   const [enrollDialog, setEnrollDialog] = useState(false);
@@ -196,47 +189,50 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
 
   return (
     <>
-    <Sheet open onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl">
-        <SheetHeader className="border-b border-border px-6 py-4">
-          <SheetTitle className="text-lg">{cls.name}</SheetTitle>
+    <Drawer anchor="right" open onClose={onClose}>
+      <Box sx={{ width: { xs: "100vw", sm: 720 }, display: "flex", flexDirection: "column", height: "100%" }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", px: 3, py: 2 }}>
+          <Typography variant="h6">{cls.name}</Typography>
           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
             <span>{gradeLabel(cls.grade, cls.phase)}{cls.section ? ` · ${cls.section}` : ""}</span>
             {cls.room && <span>Room {cls.room}</span>}
             {cls.academicYear && <span>{cls.academicYear}</span>}
             <span className="font-medium text-foreground">Class teacher: {cls.classTeacherName ?? cls.classTeacher ?? "—"}</span>
           </div>
-        </SheetHeader>
+        </Box>
 
-        <Tabs defaultValue="pupils" className="flex flex-1 flex-col overflow-hidden">
-          <TabsList className="mx-6 mt-4 w-auto self-start">
-            <TabsTrigger value="pupils"><Users className="mr-1.5 h-3.5 w-3.5" />Pupils ({enrolments.length})</TabsTrigger>
-            <TabsTrigger value="teachers"><BookOpen className="mr-1.5 h-3.5 w-3.5" />Subject teachers ({classTeachers.length})</TabsTrigger>
-          </TabsList>
+        <Box className="flex flex-1 flex-col overflow-hidden">
+          <Tabs value={detailTab} onChange={(_e, v) => setDetailTab(v)} className="mx-6 mt-4 w-auto self-start">
+            <Tab value="pupils" icon={<Users size={14} />} iconPosition="start" label={`Pupils (${enrolments.length})`} />
+            <Tab value="teachers" icon={<BookOpen size={14} />} iconPosition="start" label={`Subject teachers (${classTeachers.length})`} />
+          </Tabs>
 
           {/* PUPILS TAB */}
-          <TabsContent value="pupils" className="flex flex-1 flex-col overflow-hidden">
+          {detailTab === "pupils" && (
+          <Box className="flex flex-1 flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-6 py-3">
               <p className="text-sm text-muted-foreground">
                 {enrolments.length} / {cls.capacity ?? "—"} enrolled
               </p>
               {!readOnly && <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setPromoteDialog(true)}>
-                <GraduationCap className="mr-1 h-3.5 w-3.5" />Promote to next year
+              <Button size="small" variant="outlined" onClick={() => setPromoteDialog(true)} startIcon={<GraduationCap className="h-3.5 w-3.5" />}>
+                Promote to next year
               </Button>
-              <Dialog open={enrollDialog} onOpenChange={setEnrollDialog}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Enrol pupils</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Enrol pupils into {cls.name}</DialogTitle>
-                    <p className="text-sm text-muted-foreground">Select admitted students to add to this class.</p>
-                  </DialogHeader>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input className="pl-9" placeholder="Search by name, admission no. or grade" value={enrollSearch} onChange={(e) => setEnrollSearch(e.target.value)} />
-                  </div>
+              <Button size="small" variant="contained" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEnrollDialog(true)}>Enrol pupils</Button>
+              <Dialog open={enrollDialog} onClose={() => setEnrollDialog(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                  Enrol pupils into {cls.name}
+                  <p className="text-sm text-muted-foreground" style={{ fontWeight: 400 }}>Select admitted students to add to this class.</p>
+                </DialogTitle>
+                <DialogContent>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    placeholder="Search by name, admission no. or grade"
+                    value={enrollSearch}
+                    onChange={(e) => setEnrollSearch(e.target.value)}
+                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+                  />
                   <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
                     {availableStudents.length === 0 ? (
                       <p className="py-6 text-center text-sm text-muted-foreground">
@@ -250,17 +246,17 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                             <div className="text-sm font-medium">{name}</div>
                             <div className="text-xs text-muted-foreground">{s.admissionNumber} · {s.grade ? gradeLabel(s.grade) : "—"}</div>
                           </div>
-                          <Button size="sm" variant="outline" onClick={() => enrolMut.mutate(s)} disabled={enrolMut.isPending}>
+                          <Button size="small" variant="outlined" onClick={() => enrolMut.mutate(s)} disabled={enrolMut.isPending}>
                             Enrol
                           </Button>
                         </div>
                       );
                     })}
                   </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => { setEnrollDialog(false); setEnrollSearch(""); }}>Done</Button>
-                  </DialogFooter>
                 </DialogContent>
+                <DialogActions>
+                  <Button variant="outlined" color="inherit" onClick={() => { setEnrollDialog(false); setEnrollSearch(""); }}>Done</Button>
+                </DialogActions>
               </Dialog>
               </div>}
             </div>
@@ -271,14 +267,15 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                   <Loader2 className="h-5 w-5 animate-spin" /><span>Loading pupils…</span>
                 </div>
               ) : (
+                <TableContainer>
                 <Table>
-                  <TableHeader><TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Grade</TableHead>
-                    <TableHead>Year</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow></TableHeader>
+                  <TableHead><TableRow>
+                    <TableCell>Student</TableCell>
+                    <TableCell>Grade</TableCell>
+                    <TableCell>Year</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell className="w-10" />
+                  </TableRow></TableHead>
                   <TableBody>
                     {enrolments.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
@@ -290,59 +287,66 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                         <TableCell className="text-muted-foreground">{e.grade || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{e.academicYear}</TableCell>
                         <TableCell>
-                          <Badge variant={e.status === "ACTIVE" ? "secondary" : "outline"} className="capitalize">{(e.status ?? "ACTIVE").toLowerCase()}</Badge>
+                          <Chip
+                            size="small"
+                            label={(e.status ?? "ACTIVE").toLowerCase()}
+                            sx={{ ...badgeSx(e.status === "ACTIVE" ? "secondary" : "outline"), textTransform: "capitalize" }}
+                          />
                         </TableCell>
                         <TableCell>
-                          {!readOnly && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeEnrolMut.mutate(e.id)}>
+                          {!readOnly && <IconButton size="small" color="error" aria-label={`Remove ${e.studentName} from class`} onClick={() => removeEnrolMut.mutate(e.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
-                          </Button>}
+                          </IconButton>}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                </TableContainer>
               )}
             </div>
-          </TabsContent>
+          </Box>
+          )}
 
           {/* SUBJECT TEACHERS TAB */}
-          <TabsContent value="teachers" className="flex flex-1 flex-col overflow-hidden">
+          {detailTab === "teachers" && (
+          <Box className="flex flex-1 flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-6 py-3">
               <p className="text-sm text-muted-foreground">Teachers assigned to teach subjects in this class</p>
-              <Dialog open={teacherDialog} onOpenChange={setTeacherDialog}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><UserCog className="mr-1 h-3.5 w-3.5" />Assign teacher</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Assign subject teacher to {cls.name}</DialogTitle>
-                  </DialogHeader>
+              <Button size="small" variant="contained" startIcon={<UserCog className="h-3.5 w-3.5" />} onClick={() => setTeacherDialog(true)}>Assign teacher</Button>
+              <Dialog open={teacherDialog} onClose={() => setTeacherDialog(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Assign subject teacher to {cls.name}</DialogTitle>
+                <DialogContent>
                   <div className="space-y-3">
+                    <TextField
+                      select
+                      label="Teacher *"
+                      fullWidth
+                      size="small"
+                      value={teacherForm.teacherId}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const t = (allTeachers as any[]).find((x: any) => x.id === v);
+                        setTeacherForm({ ...teacherForm, teacherId: v, teacherName: t ? `${t.firstName} ${t.lastName}` : "" });
+                      }}
+                    >
+                      <MenuItem value="" disabled>Select teacher</MenuItem>
+                      {(allTeachers as any[]).map((t: any) => (
+                        <MenuItem key={t.id} value={t.id}>
+                          {t.firstName} {t.lastName}{t.subject ? ` · ${t.subject}` : ""}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                     <div>
-                      <Label>Teacher *</Label>
-                      <Select
-                        value={teacherForm.teacherId}
-                        onValueChange={(v) => {
-                          const t = (allTeachers as any[]).find((x: any) => x.id === v);
-                          setTeacherForm({ ...teacherForm, teacherId: v, teacherName: t ? `${t.firstName} ${t.lastName}` : "" });
-                        }}
-                      >
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                        <SelectContent>
-                          {(allTeachers as any[]).map((t: any) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.firstName} {t.lastName}{t.subject ? ` · ${t.subject}` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Subject *</Label>
                       {(allSubjects as any[]).length > 0 ? (
-                        <Select
+                        <TextField
+                          select
+                          label="Subject *"
+                          fullWidth
+                          size="small"
                           value={teacherForm.subjectId || "__custom__"}
-                          onValueChange={(v) => {
+                          onChange={(e) => {
+                            const v = e.target.value;
                             if (v === "__custom__") {
                               setTeacherForm({ ...teacherForm, subjectId: "", subjectName: "" });
                             } else {
@@ -351,27 +355,32 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                             }
                           }}
                         >
-                          <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger>
-                          <SelectContent>
-                            {(allSubjects as any[]).map((s: any) => (
-                              <SelectItem key={s.id} value={s.id}>{s.name}{s.code ? ` (${s.code})` : ""}</SelectItem>
-                            ))}
-                            <SelectItem value="__custom__">Other / type below</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          {(allSubjects as any[]).map((s: any) => (
+                            <MenuItem key={s.id} value={s.id}>{s.name}{s.code ? ` (${s.code})` : ""}</MenuItem>
+                          ))}
+                          <MenuItem value="__custom__">Other / type below</MenuItem>
+                        </TextField>
                       ) : null}
                       {((allSubjects as any[]).length === 0 || !teacherForm.subjectId) && (
-                        <Input className="mt-1" placeholder="e.g. Mathematics, English Language" value={teacherForm.subjectName} onChange={(e) => setTeacherForm({ ...teacherForm, subjectName: e.target.value, subjectId: "" })} />
+                        <TextField
+                          className={(allSubjects as any[]).length > 0 ? "mt-1" : undefined}
+                          label={(allSubjects as any[]).length === 0 ? "Subject *" : undefined}
+                          fullWidth
+                          size="small"
+                          placeholder="e.g. Mathematics, English Language"
+                          value={teacherForm.subjectName}
+                          onChange={(e) => setTeacherForm({ ...teacherForm, subjectName: e.target.value, subjectId: "" })}
+                        />
                       )}
                     </div>
                   </div>
-                  <DialogFooter className="mt-2">
-                    <Button variant="outline" onClick={() => setTeacherDialog(false)}>Cancel</Button>
-                    <Button onClick={submitTeacher} disabled={assignTeacherMut.isPending}>
-                      {assignTeacherMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Assign
-                    </Button>
-                  </DialogFooter>
                 </DialogContent>
+                <DialogActions>
+                  <Button variant="outlined" color="inherit" onClick={() => setTeacherDialog(false)}>Cancel</Button>
+                  <Button variant="contained" onClick={submitTeacher} disabled={assignTeacherMut.isPending}>
+                    {assignTeacherMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Assign
+                  </Button>
+                </DialogActions>
               </Dialog>
             </div>
 
@@ -381,13 +390,14 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                   <Loader2 className="h-5 w-5 animate-spin" /><span>Loading assignments…</span>
                 </div>
               ) : (
+                <TableContainer>
                 <Table>
-                  <TableHeader><TableRow>
-                    <TableHead>Teacher</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Year</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow></TableHeader>
+                  <TableHead><TableRow>
+                    <TableCell>Teacher</TableCell>
+                    <TableCell>Subject</TableCell>
+                    <TableCell>Year</TableCell>
+                    <TableCell className="w-10" />
+                  </TableRow></TableHead>
                   <TableBody>
                     {classTeachers.length === 0 ? (
                       <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
@@ -399,20 +409,22 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                         <TableCell>{t.subjectName}</TableCell>
                         <TableCell className="text-muted-foreground">{t.academicYear}</TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeTeacherMut.mutate(t.id)}>
+                          <IconButton size="small" color="error" aria-label={`Remove ${t.teacherName} from class`} onClick={() => removeTeacherMut.mutate(t.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                </TableContainer>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+          </Box>
+          )}
+        </Box>
+      </Box>
+    </Drawer>
     {!readOnly && (
       <PromoteClassDialog
         open={promoteDialog}
@@ -491,17 +503,22 @@ function PromoteClassDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Promote {cls.name} to {targetYear}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Review each pupil, choose their destination class for the next academic year, or mark them as graduating.
-          </p>
-        </DialogHeader>
+    <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="md" fullWidth>
+      <DialogTitle>
+        Promote {cls.name} to {targetYear}
+        <p className="text-sm text-muted-foreground" style={{ fontWeight: 400 }}>
+          Review each pupil, choose their destination class for the next academic year, or mark them as graduating.
+        </p>
+      </DialogTitle>
+      <DialogContent className="flex max-h-[85vh] flex-col">
         <div className="flex items-center gap-3">
-          <Label className="shrink-0">Target academic year</Label>
-          <Input className="w-32" value={targetYear} onChange={(e) => setTargetYear(e.target.value)} />
+          <TextField
+            label="Target academic year"
+            size="small"
+            className="w-40"
+            value={targetYear}
+            onChange={(e) => setTargetYear(e.target.value)}
+          />
         </div>
         {activeEnrolments.length > 0 && candidates.length === 0 && (
           <p className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
@@ -512,54 +529,58 @@ function PromoteClassDialog({
           {activeEnrolments.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No active pupils to promote.</p>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead className="w-10" />
-                <TableHead>Student</TableHead>
-                <TableHead>Destination</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell className="w-10" />
+                <TableCell>Student</TableCell>
+                <TableCell>Destination</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {activeEnrolments.map((e: any) => {
                   const row = rows[e.id] ?? { include: true, destinationClassId: "", graduate: false };
                   return (
                     <TableRow key={e.id}>
                       <TableCell>
-                        <Checkbox checked={row.include} onCheckedChange={(v) => updateRow(e.id, { include: !!v })} />
+                        <Checkbox size="small" checked={row.include} onChange={(e2) => updateRow(e.id, { include: e2.target.checked })} />
                       </TableCell>
                       <TableCell className={!row.include ? "text-muted-foreground" : ""}>{e.studentName}</TableCell>
                       <TableCell>
-                        <Select
+                        <TextField
+                          select
+                          size="small"
+                          className="w-56"
                           disabled={!row.include}
                           value={row.graduate ? "__graduate__" : row.destinationClassId || ""}
-                          onValueChange={(v) => {
+                          onChange={(ev) => {
+                            const v = ev.target.value;
                             if (v === "__graduate__") updateRow(e.id, { graduate: true, destinationClassId: "" });
                             else updateRow(e.id, { graduate: false, destinationClassId: v });
                           }}
                         >
-                          <SelectTrigger className="w-56"><SelectValue placeholder="Select destination" /></SelectTrigger>
-                          <SelectContent>
-                            {candidates.map((c: any) => (
-                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                            ))}
-                            <SelectItem value="__graduate__">🎓 Graduate (leaving school)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <MenuItem value="" disabled>Select destination</MenuItem>
+                          {candidates.map((c: any) => (
+                            <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                          ))}
+                          <MenuItem value="__graduate__">🎓 Graduate (leaving school)</MenuItem>
+                        </TextField>
                       </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={!canSubmit || isPending}>
-            {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-            Promote {includedRows.length} pupil{includedRows.length === 1 ? "" : "s"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" color="inherit" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button variant="contained" onClick={submit} disabled={!canSubmit || isPending}>
+          {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+          Promote {includedRows.length} pupil{includedRows.length === 1 ? "" : "s"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -577,6 +598,7 @@ function ClassesPage() {
   const showSecondary = ["SECONDARY", "COMBINED", "FULL"].includes(active.type);
   const defaultPhase = showPrimary && !showSecondary ? "primary" : !showPrimary && showSecondary ? "olevel" : "";
 
+  const [classesTab, setClassesTab] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailClass, setDetailClass] = useState<any | null>(null);
   const [form, setForm] = useState(() => blankClassForm(currentYear, defaultPhase));
@@ -656,9 +678,11 @@ function ClassesPage() {
             </p>
           </div>
           {c.phase && (
-            <Badge variant={c.phase === "primary" ? "secondary" : "default"}>
-              {c.phase === "olevel" ? "O-Level" : c.phase === "alevel" ? "A-Level" : c.phase === "primary" ? "Primary" : "Secondary"}
-            </Badge>
+            <Chip
+              size="small"
+              label={c.phase === "olevel" ? "O-Level" : c.phase === "alevel" ? "A-Level" : c.phase === "primary" ? "Primary" : "Secondary"}
+              sx={badgeSx(c.phase === "primary" ? "secondary" : "default")}
+            />
           )}
         </div>
         <div className="mt-4 space-y-2">
@@ -687,118 +711,151 @@ function ClassesPage() {
           ? `${active.name} · Your assigned classes for this term.`
           : `${gradeRangeForType(active.type)} · ${active.name}. Create classes, enrol pupils and assign subject teachers.`}
         actions={!isTeacher && (
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-1 h-4 w-4" />Create class</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Create new class</DialogTitle></DialogHeader>
+          <>
+            <Button variant="contained" startIcon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>Create class</Button>
+            <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Create new class</DialogTitle>
+              <DialogContent>
               <div className="overflow-y-auto flex-1 pr-1">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Class name *</Label>
-                  <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Form 1 Blue / Grade 3A" maxLength={50} />
-                </div>
-                <div>
-                  <Label>Academic year</Label>
-                  <Input className="mt-1" value={form.academicYear} onChange={(e) => setForm({ ...form, academicYear: e.target.value })} placeholder="2026" maxLength={10} />
-                </div>
-                <div>
-                  <Label>Grade / Form *</Label>
-                  <Select
-                    disabled={showPrimary && showSecondary && !form.phase}
-                    value={form.grade}
-                    onValueChange={(v) => setForm({ ...form, grade: v })}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder={showPrimary && showSecondary && !form.phase ? "Select phase first" : "Select grade or form"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(form.phase === "primary" || (!showSecondary && !form.phase)) &&
-                        [1,2,3,4,5,6].map((g) => <SelectItem key={g} value={String(g)}>Grade {g}</SelectItem>)}
-                      {(form.phase === "olevel" || (!showPrimary && !form.phase)) &&
-                        [1,2,3,4].map((g) => <SelectItem key={g} value={String(g)}>Form {g} (O-Level)</SelectItem>)}
-                      {(form.phase === "olevel" || form.phase === "alevel") && form.phase === "alevel" &&
-                        [5,6].map((g) => <SelectItem key={g} value={String(g)}>Form {g} (A-Level)</SelectItem>)}
-                      {!showPrimary && !form.phase &&
-                        [5,6].map((g) => <SelectItem key={`al-${g}`} value={String(g)}>Form {g} (A-Level)</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Section / stream</Label>
-                  <Input className="mt-1" value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} placeholder="A, Blue, Science" maxLength={20} />
-                </div>
-                <div>
-                  <Label>Class teacher</Label>
-                  <Select
-                    value={form.teacherId || "__none__"}
-                    onValueChange={(v) => {
-                      const t = (teachersRaw as any[]).find((x: any) => x.id === v);
-                      setForm({ ...form, teacherId: v === "__none__" ? "" : v, teacherName: t ? `${t.firstName} ${t.lastName}` : "" });
-                    }}
-                  >
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Assign later</SelectItem>
-                      {(teachersRaw as any[]).map((t: any) => (
-                        <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}{t.subject ? ` · ${t.subject}` : ""}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Room</Label>
-                  <Input className="mt-1" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} placeholder="P-105" maxLength={20} />
-                </div>
-                <div>
-                  <Label>Capacity</Label>
-                  <Input className="mt-1" type="number" min={1} max={60} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Phase</Label>
-                  <Select value={form.phase || "__auto__"} onValueChange={(v) => setForm({ ...form, phase: v === "__auto__" ? "" : v, grade: "" })}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select phase" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__auto__">Auto-detect</SelectItem>
-                      {showPrimary && <SelectItem value="primary">Primary (Grade 1-6)</SelectItem>}
-                      {showSecondary && <SelectItem value="olevel">O-Level Secondary (Form 1-4)</SelectItem>}
-                      {showSecondary && <SelectItem value="alevel">A-Level Secondary (Form 5-6)</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Language of instruction</Label>
-                  <Select value={form.languageOfInstruction} onValueChange={(v) => setForm({ ...form, languageOfInstruction: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["English", "Nyanja", "Bemba", "Tonga", "Lozi"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Assessment stream</Label>
-                  <Select value={form.assessmentStream} onValueChange={(v) => setForm({ ...form, assessmentStream: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["ECZ", "IGCSE", "IB", "Internal only"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  label="Class name *"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Form 1 Blue / Grade 3A"
+                  slotProps={{ htmlInput: { maxLength: 50 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Academic year"
+                  value={form.academicYear}
+                  onChange={(e) => setForm({ ...form, academicYear: e.target.value })}
+                  placeholder="2026"
+                  slotProps={{ htmlInput: { maxLength: 10 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Grade / Form *"
+                  disabled={showPrimary && showSecondary && !form.phase}
+                  value={form.grade}
+                  onChange={(e) => setForm({ ...form, grade: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="" disabled>
+                    {showPrimary && showSecondary && !form.phase ? "Select phase first" : "Select grade or form"}
+                  </MenuItem>
+                  {(form.phase === "primary" || (!showSecondary && !form.phase)) &&
+                    [1,2,3,4,5,6].map((g) => <MenuItem key={g} value={String(g)}>Grade {g}</MenuItem>)}
+                  {(form.phase === "olevel" || (!showPrimary && !form.phase)) &&
+                    [1,2,3,4].map((g) => <MenuItem key={g} value={String(g)}>Form {g} (O-Level)</MenuItem>)}
+                  {(form.phase === "olevel" || form.phase === "alevel") && form.phase === "alevel" &&
+                    [5,6].map((g) => <MenuItem key={g} value={String(g)}>Form {g} (A-Level)</MenuItem>)}
+                  {!showPrimary && !form.phase &&
+                    [5,6].map((g) => <MenuItem key={`al-${g}`} value={String(g)}>Form {g} (A-Level)</MenuItem>)}
+                </TextField>
+                <TextField
+                  label="Section / stream"
+                  value={form.section}
+                  onChange={(e) => setForm({ ...form, section: e.target.value })}
+                  placeholder="A, Blue, Science"
+                  slotProps={{ htmlInput: { maxLength: 20 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Class teacher"
+                  value={form.teacherId || "__none__"}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const t = (teachersRaw as any[]).find((x: any) => x.id === v);
+                    setForm({ ...form, teacherId: v === "__none__" ? "" : v, teacherName: t ? `${t.firstName} ${t.lastName}` : "" });
+                  }}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="__none__">Assign later</MenuItem>
+                  {(teachersRaw as any[]).map((t: any) => (
+                    <MenuItem key={t.id} value={t.id}>{t.firstName} {t.lastName}{t.subject ? ` · ${t.subject}` : ""}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Room"
+                  value={form.room}
+                  onChange={(e) => setForm({ ...form, room: e.target.value })}
+                  placeholder="P-105"
+                  slotProps={{ htmlInput: { maxLength: 20 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Capacity"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 1, max: 60 } }}
+                  value={form.capacity}
+                  onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Phase"
+                  value={form.phase || "__auto__"}
+                  onChange={(e) => setForm({ ...form, phase: e.target.value === "__auto__" ? "" : e.target.value, grade: "" })}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="__auto__">Auto-detect</MenuItem>
+                  {showPrimary && <MenuItem value="primary">Primary (Grade 1-6)</MenuItem>}
+                  {showSecondary && <MenuItem value="olevel">O-Level Secondary (Form 1-4)</MenuItem>}
+                  {showSecondary && <MenuItem value="alevel">A-Level Secondary (Form 5-6)</MenuItem>}
+                </TextField>
+                <TextField
+                  select
+                  label="Language of instruction"
+                  value={form.languageOfInstruction}
+                  onChange={(e) => setForm({ ...form, languageOfInstruction: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["English", "Nyanja", "Bemba", "Tonga", "Lozi"].map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                </TextField>
+                <TextField
+                  select
+                  label="Assessment stream"
+                  value={form.assessmentStream}
+                  onChange={(e) => setForm({ ...form, assessmentStream: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  {["ECZ", "IGCSE", "IB", "Internal only"].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </TextField>
                 <div className="col-span-2">
-                  <Label>Notes</Label>
-                  <Input className="mt-1" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Double period Tuesdays, shared lab Thursdays…" maxLength={200} />
+                  <TextField
+                    label="Notes"
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    placeholder="Double period Tuesdays, shared lab Thursdays…"
+                    slotProps={{ htmlInput: { maxLength: 200 } }}
+                    fullWidth
+                    size="small"
+                  />
                 </div>
               </div>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-                <Button onClick={createClass} disabled={createMutation.isPending}>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setCreateOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={createClass} disabled={createMutation.isPending}>
                   {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create class
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogActions>
+            </Dialog>
+          </>
         )}
       />
 
@@ -814,27 +871,29 @@ function ClassesPage() {
           <Loader2 className="h-5 w-5 animate-spin" /><span>Loading classes…</span>
         </div>
       ) : (
-        <Tabs defaultValue="all" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="all">All ({list.length})</TabsTrigger>
-            {showPrimary && <TabsTrigger value="primary">Primary</TabsTrigger>}
-            {showSecondary && <TabsTrigger value="secondary">Secondary</TabsTrigger>}
-          </TabsList>
-          <TabsContent value="all" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((c: any) => <ClassCard key={c.id} c={c} />)}
-            {list.length === 0 && <p className="col-span-3 py-8 text-center text-sm text-muted-foreground">No classes yet. Create the first class above.</p>}
-          </TabsContent>
-          {showPrimary && (
-            <TabsContent value="primary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Box>
+          <Tabs value={classesTab} onChange={(_e, v) => setClassesTab(v)} sx={{ mb: 2 }}>
+            <Tab value="all" label={`All (${list.length})`} />
+            {showPrimary && <Tab value="primary" label="Primary" />}
+            {showSecondary && <Tab value="secondary" label="Secondary" />}
+          </Tabs>
+          {classesTab === "all" && (
+            <Box className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {list.map((c: any) => <ClassCard key={c.id} c={c} />)}
+              {list.length === 0 && <p className="col-span-3 py-8 text-center text-sm text-muted-foreground">No classes yet. Create the first class above.</p>}
+            </Box>
+          )}
+          {showPrimary && classesTab === "primary" && (
+            <Box className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {list.filter((c: any) => c.phase === "primary").map((c: any) => <ClassCard key={c.id} c={c} />)}
-            </TabsContent>
+            </Box>
           )}
-          {showSecondary && (
-            <TabsContent value="secondary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {showSecondary && classesTab === "secondary" && (
+            <Box className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {list.filter((c: any) => isSecondaryPhase(c.phase)).map((c: any) => <ClassCard key={c.id} c={c} />)}
-            </TabsContent>
+            </Box>
           )}
-        </Tabs>
+        </Box>
       )}
 
       {detailClass && (

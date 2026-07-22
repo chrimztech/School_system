@@ -17,19 +17,8 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Button, Chip, MenuItem, Switch, TextField } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   useTenant,
@@ -374,43 +363,38 @@ function OnboardingPage() {
         {step === 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label htmlFor="name">School name *</Label>
-              <Input
-                id="name"
+              <TextField
+                label="School name *"
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="e.g. Mongu Trust Academy"
-                className="mt-1"
+                fullWidth
+                size="small"
               />
             </div>
-            <div>
-              <Label htmlFor="code">Short code *</Label>
-              <Input
-                id="code"
-                value={form.shortCode}
-                onChange={(e) => update("shortCode", e.target.value.toUpperCase())}
-                placeholder="MTA"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="motto">Motto</Label>
-              <Input
-                id="motto"
-                value={form.motto}
-                onChange={(e) => update("motto", e.target.value)}
-                placeholder="Knowledge. Service."
-                className="mt-1"
-              />
-            </div>
+            <TextField
+              label="Short code *"
+              value={form.shortCode}
+              onChange={(e) => update("shortCode", e.target.value.toUpperCase())}
+              placeholder="MTA"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Motto"
+              value={form.motto}
+              onChange={(e) => update("motto", e.target.value)}
+              placeholder="Knowledge. Service."
+              fullWidth
+              size="small"
+            />
             <div className="sm:col-span-2">
-              <Label htmlFor="slug">URL slug</Label>
-              <div className="mt-1 flex items-center gap-0">
+              <p className="mb-1 text-sm font-medium">URL slug</p>
+              <div className="flex items-center gap-0">
                 <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
                   srms.com/s/
                 </span>
-                <Input
-                  id="slug"
+                <TextField
                   value={form.slug ?? ""}
                   onChange={(e) =>
                     update(
@@ -419,7 +403,10 @@ function OnboardingPage() {
                     )
                   }
                   placeholder="mongu-trust-academy"
-                  className="mt-0 rounded-l-none font-mono text-sm"
+                  size="small"
+                  fullWidth
+                  slotProps={{ htmlInput: { className: "font-mono text-sm" } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } }}
                 />
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
@@ -427,59 +414,49 @@ function OnboardingPage() {
                 if left blank.
               </p>
             </div>
-            <div>
-              <Label htmlFor="yearFounded">Year founded</Label>
-              <Input
-                id="yearFounded"
-                type="number"
-                value={form.yearFounded ?? ""}
-                onChange={(e) =>
-                  update("yearFounded", e.target.value ? Number(e.target.value) : undefined)
-                }
-                placeholder="1998"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="reg">Registration number</Label>
-              <Input
-                id="reg"
-                value={form.registrationNo}
-                onChange={(e) => update("registrationNo", e.target.value)}
-                placeholder="MoE/REG/0001"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="tpin">TPIN</Label>
-              <Input
-                id="tpin"
-                value={form.tpinNo}
-                onChange={(e) => update("tpinNo", e.target.value)}
-                placeholder="1001234567"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="moe">MoE / EMIS code</Label>
-              <Input
-                id="moe"
-                value={form.moeCode}
-                onChange={(e) => update("moeCode", e.target.value)}
-                placeholder="EMIS-12345"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="ecz">ECZ exam centre number</Label>
-              <Input
-                id="ecz"
-                value={form.examCentreNo}
-                onChange={(e) => update("examCentreNo", e.target.value)}
-                placeholder="700123"
-                className="mt-1"
-              />
-            </div>
+            <TextField
+              type="number"
+              label="Year founded"
+              value={form.yearFounded ?? ""}
+              onChange={(e) =>
+                update("yearFounded", e.target.value ? Number(e.target.value) : undefined)
+              }
+              placeholder="1998"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Registration number"
+              value={form.registrationNo}
+              onChange={(e) => update("registrationNo", e.target.value)}
+              placeholder="MoE/REG/0001"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="TPIN"
+              value={form.tpinNo}
+              onChange={(e) => update("tpinNo", e.target.value)}
+              placeholder="1001234567"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="MoE / EMIS code"
+              value={form.moeCode}
+              onChange={(e) => update("moeCode", e.target.value)}
+              placeholder="EMIS-12345"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="ECZ exam centre number"
+              value={form.examCentreNo}
+              onChange={(e) => update("examCentreNo", e.target.value)}
+              placeholder="700123"
+              fullWidth
+              size="small"
+            />
           </div>
         )}
 
@@ -515,87 +492,69 @@ function OnboardingPage() {
               })}
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <Label>Ownership</Label>
-                <Select
-                  value={form.ownership}
-                  onValueChange={(v) => update("ownership", v as Form["ownership"])}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["Government", "Private", "Grant-Aided", "Community", "Faith-Based"].map(
-                      (o) => (
-                        <SelectItem key={o} value={o}>
-                          {o}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(v) => update("category", v as Form["category"])}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["Day", "Boarding", "Day & Boarding"].map((o) => (
-                      <SelectItem key={o} value={o}>
-                        {o}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Gender admission</Label>
-                <Select
-                  value={form.gender}
-                  onValueChange={(v) => update("gender", v as Form["gender"])}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["Mixed", "Boys", "Girls"].map((o) => (
-                      <SelectItem key={o} value={o}>
-                        {o}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Curriculum</Label>
-                <Select
-                  value={form.curriculum}
-                  onValueChange={(v) => update("curriculum", v as Form["curriculum"])}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["ECZ", "Cambridge", "IB", "Hybrid"].map((o) => (
-                      <SelectItem key={o} value={o}>
-                        {o}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TextField
+                select
+                label="Ownership"
+                value={form.ownership}
+                onChange={(e) => update("ownership", e.target.value as Form["ownership"])}
+                fullWidth
+                size="small"
+              >
+                {["Government", "Private", "Grant-Aided", "Community", "Faith-Based"].map((o) => (
+                  <MenuItem key={o} value={o}>
+                    {o}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Category"
+                value={form.category}
+                onChange={(e) => update("category", e.target.value as Form["category"])}
+                fullWidth
+                size="small"
+              >
+                {["Day", "Boarding", "Day & Boarding"].map((o) => (
+                  <MenuItem key={o} value={o}>
+                    {o}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Gender admission"
+                value={form.gender}
+                onChange={(e) => update("gender", e.target.value as Form["gender"])}
+                fullWidth
+                size="small"
+              >
+                {["Mixed", "Boys", "Girls"].map((o) => (
+                  <MenuItem key={o} value={o}>
+                    {o}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Curriculum"
+                value={form.curriculum}
+                onChange={(e) => update("curriculum", e.target.value as Form["curriculum"])}
+                fullWidth
+                size="small"
+              >
+                {["ECZ", "Cambridge", "IB", "Hybrid"].map((o) => (
+                  <MenuItem key={o} value={o}>
+                    {o}
+                  </MenuItem>
+                ))}
+              </TextField>
               <div className="sm:col-span-2">
-                <Label htmlFor="lang">Language of instruction</Label>
-                <Input
-                  id="lang"
+                <TextField
+                  label="Language of instruction"
                   value={form.languageOfInstruction}
                   onChange={(e) => update("languageOfInstruction", e.target.value)}
-                  className="mt-1"
+                  fullWidth
+                  size="small"
                 />
               </div>
             </div>
@@ -605,47 +564,39 @@ function OnboardingPage() {
         {/* STEP 2 — Contact */}
         {step === 2 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="email">Official email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => update("email", e.target.value)}
-                placeholder="info@school.ac.zm"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="website">Website</Label>
-              <Input
-                id="website"
-                value={form.website}
-                onChange={(e) => update("website", e.target.value)}
-                placeholder="https://school.ac.zm"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">Primary phone</Label>
-              <Input
-                id="phone"
-                value={form.phone}
-                onChange={(e) => update("phone", e.target.value)}
-                placeholder="+260 211 000 000"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="alt">Alternate phone</Label>
-              <Input
-                id="alt"
-                value={form.altPhone}
-                onChange={(e) => update("altPhone", e.target.value)}
-                placeholder="+260 977 000 000"
-                className="mt-1"
-              />
-            </div>
+            <TextField
+              type="email"
+              label="Official email"
+              value={form.email}
+              onChange={(e) => update("email", e.target.value)}
+              placeholder="info@school.ac.zm"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Website"
+              value={form.website}
+              onChange={(e) => update("website", e.target.value)}
+              placeholder="https://school.ac.zm"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Primary phone"
+              value={form.phone}
+              onChange={(e) => update("phone", e.target.value)}
+              placeholder="+260 211 000 000"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Alternate phone"
+              value={form.altPhone}
+              onChange={(e) => update("altPhone", e.target.value)}
+              placeholder="+260 977 000 000"
+              fullWidth
+              size="small"
+            />
           </div>
         )}
 
@@ -653,119 +604,102 @@ function OnboardingPage() {
         {step === 3 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label htmlFor="addr">Physical address</Label>
-              <Textarea
-                id="addr"
+              <TextField
+                label="Physical address"
+                multiline
+                minRows={3}
                 value={form.physicalAddress}
                 onChange={(e) => update("physicalAddress", e.target.value)}
                 placeholder="Plot 1234, Great East Road"
-                className="mt-1"
+                fullWidth
+                size="small"
               />
             </div>
-            <div>
-              <Label htmlFor="po">P.O. Box</Label>
-              <Input
-                id="po"
-                value={form.poBox}
-                onChange={(e) => update("poBox", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="city">City / Town</Label>
-              <Input
-                id="city"
-                value={form.city}
-                onChange={(e) => update("city", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="district">District</Label>
-              <Input
-                id="district"
-                value={form.district}
-                onChange={(e) => update("district", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Province</Label>
-              <Select value={form.province} onValueChange={(v) => update("province", v)}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {provinces.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="postal">Postal code</Label>
-              <Input
-                id="postal"
-                value={form.postalCode}
-                onChange={(e) => update("postalCode", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="gps">GPS coordinates</Label>
-              <Input
-                id="gps"
-                value={form.gpsCoordinates}
-                onChange={(e) => update("gpsCoordinates", e.target.value)}
-                placeholder="-15.3875, 28.3228"
-                className="mt-1"
-              />
-            </div>
+            <TextField
+              label="P.O. Box"
+              value={form.poBox}
+              onChange={(e) => update("poBox", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="City / Town"
+              value={form.city}
+              onChange={(e) => update("city", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="District"
+              value={form.district}
+              onChange={(e) => update("district", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              select
+              label="Province"
+              value={form.province}
+              onChange={(e) => update("province", e.target.value)}
+              fullWidth
+              size="small"
+            >
+              {provinces.map((p) => (
+                <MenuItem key={p} value={p}>
+                  {p}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Postal code"
+              value={form.postalCode}
+              onChange={(e) => update("postalCode", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="GPS coordinates"
+              value={form.gpsCoordinates}
+              onChange={(e) => update("gpsCoordinates", e.target.value)}
+              placeholder="-15.3875, 28.3228"
+              fullWidth
+              size="small"
+            />
           </div>
         )}
 
         {/* STEP 4 — Governance */}
         {step === 4 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="head">Head teacher</Label>
-              <Input
-                id="head"
-                value={form.headTeacher}
-                onChange={(e) => update("headTeacher", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="hemail">Head teacher email</Label>
-              <Input
-                id="hemail"
-                type="email"
-                value={form.headTeacherEmail}
-                onChange={(e) => update("headTeacherEmail", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="deputy">Deputy head</Label>
-              <Input
-                id="deputy"
-                value={form.deputyHead}
-                onChange={(e) => update("deputyHead", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="board">Board chairperson</Label>
-              <Input
-                id="board"
-                value={form.boardChair}
-                onChange={(e) => update("boardChair", e.target.value)}
-                className="mt-1"
-              />
-            </div>
+            <TextField
+              label="Head teacher"
+              value={form.headTeacher}
+              onChange={(e) => update("headTeacher", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              type="email"
+              label="Head teacher email"
+              value={form.headTeacherEmail}
+              onChange={(e) => update("headTeacherEmail", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Deputy head"
+              value={form.deputyHead}
+              onChange={(e) => update("deputyHead", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Board chairperson"
+              value={form.boardChair}
+              onChange={(e) => update("boardChair", e.target.value)}
+              fullWidth
+              size="small"
+            />
           </div>
         )}
 
@@ -788,106 +722,99 @@ function OnboardingPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[10px]">
-                  <Badge variant="outline" className="gap-1 bg-background/70">
-                    <ShieldCheck className="h-3 w-3" />
-                    HOD verified
-                  </Badge>
-                  <Badge variant="outline" className="gap-1 bg-background/70">
-                    <Lock className="h-3 w-3" />
-                    Careers Guidance release
-                  </Badge>
+                  <Chip
+                    size="small"
+                    icon={<ShieldCheck size={12} />}
+                    label="HOD verified"
+                    sx={{ ...badgeSx("outline"), bgcolor: "background.paper" }}
+                  />
+                  <Chip
+                    size="small"
+                    icon={<Lock size={12} />}
+                    label="Careers Guidance release"
+                    sx={{ ...badgeSx("outline"), bgcolor: "background.paper" }}
+                  />
                 </div>
               </div>
             </div>
-            <div>
-              <Label>Current term</Label>
-              <Select
-                value={String(form.currentTerm)}
-                onValueChange={(v) => update("currentTerm", Number(v) as 1 | 2 | 3)}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Term 1</SelectItem>
-                  <SelectItem value="2">Term 2</SelectItem>
-                  <SelectItem value="3">Term 3</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="year">Academic year</Label>
-              <Input
-                id="year"
-                type="number"
-                value={form.currentYear}
-                onChange={(e) => update("currentYear", Number(e.target.value))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="tstart">Term start date</Label>
-              <Input
-                id="tstart"
-                type="date"
-                value={form.termStart}
-                onChange={(e) => update("termStart", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="tend">Term end date</Label>
-              <Input
-                id="tend"
-                type="date"
-                value={form.termEnd}
-                onChange={(e) => update("termEnd", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Week starts</Label>
-              <Select
-                value={form.weekStart}
-                onValueChange={(v) => update("weekStart", v as Form["weekStart"])}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Monday">Monday</SelectItem>
-                  <SelectItem value="Sunday">Sunday</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <TextField
+              select
+              label="Current term"
+              value={String(form.currentTerm)}
+              onChange={(e) => update("currentTerm", Number(e.target.value) as 1 | 2 | 3)}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="1">Term 1</MenuItem>
+              <MenuItem value="2">Term 2</MenuItem>
+              <MenuItem value="3">Term 3</MenuItem>
+            </TextField>
+            <TextField
+              type="number"
+              label="Academic year"
+              value={form.currentYear}
+              onChange={(e) => update("currentYear", Number(e.target.value))}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              type="date"
+              label="Term start date"
+              value={form.termStart}
+              onChange={(e) => update("termStart", e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              type="date"
+              label="Term end date"
+              value={form.termEnd}
+              onChange={(e) => update("termEnd", e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              select
+              label="Week starts"
+              value={form.weekStart}
+              onChange={(e) => update("weekStart", e.target.value as Form["weekStart"])}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="Monday">Monday</MenuItem>
+              <MenuItem value="Sunday">Sunday</MenuItem>
+            </TextField>
             <div className="rounded-2xl border border-border bg-muted/30 p-4">
               <div className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-primary" />
-                <Label>Grading scale</Label>
+                <p className="text-sm font-medium">Grading scale</p>
               </div>
               <p className="mt-3 text-sm font-semibold">Zambia MoE 2023</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Achievement bands A–E with descriptions and points.
               </p>
-              <Badge variant="secondary" className="mt-3 gap-1">
-                <Lock className="h-3 w-3" />
-                Applied automatically
-              </Badge>
+              <Chip
+                size="small"
+                icon={<Lock size={12} />}
+                label="Applied automatically"
+                sx={{ ...badgeSx("secondary"), mt: 1.5 }}
+              />
             </div>
             <div className="rounded-2xl border border-border bg-muted/30 p-4">
               <div className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-primary" />
-                <Label htmlFor="pass">Pass mark</Label>
+                <p className="text-sm font-medium">Pass mark</p>
               </div>
               <div className="mt-3 flex items-end gap-2">
-                <Input
-                  id="pass"
+                <TextField
                   type="number"
-                  min={0}
-                  max={100}
+                  slotProps={{ htmlInput: { min: 0, max: 100 } }}
                   value={form.passMark}
                   onChange={(e) => update("passMark", Number(e.target.value))}
-                  className="h-11 text-xl font-semibold tabular-nums"
+                  size="small"
+                  sx={{ "& .MuiInputBase-input": { fontSize: "1.25rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" } }}
                 />
                 <span className="pb-2.5 text-sm text-muted-foreground">%</span>
               </div>
@@ -898,7 +825,7 @@ function OnboardingPage() {
             <div className="sm:col-span-2">
               <div className="flex items-center gap-2">
                 <GitBranch className="h-4 w-4 text-primary" />
-                <Label>Result publication</Label>
+                <p className="text-sm font-medium">Result publication</p>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 Choose when Careers Guidance releases report cards to families.
@@ -956,7 +883,7 @@ function OnboardingPage() {
                     Administrators can adjust these bands later; teachers receive automatic grades.
                   </p>
                 </div>
-                <Badge variant="outline">8 achievement bands</Badge>
+                <Chip size="small" label="8 achievement bands" sx={badgeSx("outline")} />
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {form.gradingBands.map((band) => (
@@ -986,9 +913,11 @@ function OnboardingPage() {
                     Schools can span multiple levels even under one tenant.
                   </p>
                 </div>
-                <Badge variant="outline">
-                  {form.levels.length} level{form.levels.length === 1 ? "" : "s"}
-                </Badge>
+                <Chip
+                  size="small"
+                  label={`${form.levels.length} level${form.levels.length === 1 ? "" : "s"}`}
+                  sx={badgeSx("outline")}
+                />
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {ACADEMIC_LEVEL_ORDER.map((level) => {
@@ -1021,8 +950,7 @@ function OnboardingPage() {
                     Configure one or more campuses under this school.
                   </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addCampus}>
-                  <Plus className="mr-1 h-4 w-4" />
+                <Button type="button" variant="outlined" size="small" onClick={addCampus} startIcon={<Plus className="h-4 w-4" />}>
                   Add campus
                 </Button>
               </div>
@@ -1039,8 +967,9 @@ function OnboardingPage() {
                       {form.campuses.length > 1 && (
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="sm"
+                          variant="text"
+                          color="inherit"
+                          size="small"
                           onClick={() => removeCampus(campus.id)}
                         >
                           Remove
@@ -1048,58 +977,51 @@ function OnboardingPage() {
                       )}
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <Label>Campus name</Label>
-                        <Input
-                          className="mt-1"
-                          value={campus.name}
-                          onChange={(e) => updateCampus(campus.id, { name: e.target.value })}
-                          placeholder="Main Campus"
-                        />
-                      </div>
-                      <div>
-                        <Label>Campus code</Label>
-                        <Input
-                          className="mt-1"
-                          value={campus.code}
-                          onChange={(e) =>
-                            updateCampus(campus.id, { code: e.target.value.toUpperCase() })
-                          }
-                          placeholder="MTA1"
-                        />
-                      </div>
-                      <div>
-                        <Label>District</Label>
-                        <Input
-                          className="mt-1"
-                          value={campus.district}
-                          onChange={(e) => updateCampus(campus.id, { district: e.target.value })}
-                          placeholder="Lusaka"
-                        />
-                      </div>
-                      <div>
-                        <Label>Status</Label>
-                        <Select
-                          value={campus.status}
-                          onValueChange={(value) =>
-                            updateCampus(campus.id, { status: value as CampusStatus })
-                          }
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CAMPUS_STATUS_OPTIONS.map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {status.charAt(0).toUpperCase() + status.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <TextField
+                        label="Campus name"
+                        value={campus.name}
+                        onChange={(e) => updateCampus(campus.id, { name: e.target.value })}
+                        placeholder="Main Campus"
+                        fullWidth
+                        size="small"
+                      />
+                      <TextField
+                        label="Campus code"
+                        value={campus.code}
+                        onChange={(e) =>
+                          updateCampus(campus.id, { code: e.target.value.toUpperCase() })
+                        }
+                        placeholder="MTA1"
+                        fullWidth
+                        size="small"
+                      />
+                      <TextField
+                        label="District"
+                        value={campus.district}
+                        onChange={(e) => updateCampus(campus.id, { district: e.target.value })}
+                        placeholder="Lusaka"
+                        fullWidth
+                        size="small"
+                      />
+                      <TextField
+                        select
+                        label="Status"
+                        value={campus.status}
+                        onChange={(e) =>
+                          updateCampus(campus.id, { status: e.target.value as CampusStatus })
+                        }
+                        fullWidth
+                        size="small"
+                      >
+                        {CAMPUS_STATUS_OPTIONS.map((status) => (
+                          <MenuItem key={status} value={status}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </MenuItem>
+                        ))}
+                      </TextField>
                     </div>
                     <div className="mt-4">
-                      <Label>Levels hosted on this campus</Label>
+                      <p className="text-sm font-medium">Levels hosted on this campus</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {form.levels.map((level) => {
                           const active = campus.levels.includes(level);
@@ -1130,49 +1052,39 @@ function OnboardingPage() {
         {/* STEP 6 — Finance */}
         {step === 6 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <Label>Default currency</Label>
-              <Select
-                value={form.currency}
-                onValueChange={(v) => update("currency", v as Form["currency"])}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ZMW">Zambian Kwacha (ZMW)</SelectItem>
-                  <SelectItem value="USD">US Dollar (USD)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="bank">Bank name</Label>
-              <Input
-                id="bank"
-                value={form.bankName}
-                onChange={(e) => update("bankName", e.target.value)}
-                placeholder="Zanaco"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="acc">Account number</Label>
-              <Input
-                id="acc"
-                value={form.bankAccount}
-                onChange={(e) => update("bankAccount", e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="branch">Branch</Label>
-              <Input
-                id="branch"
-                value={form.bankBranch}
-                onChange={(e) => update("bankBranch", e.target.value)}
-                className="mt-1"
-              />
-            </div>
+            <TextField
+              select
+              label="Default currency"
+              value={form.currency}
+              onChange={(e) => update("currency", e.target.value as Form["currency"])}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="ZMW">Zambian Kwacha (ZMW)</MenuItem>
+              <MenuItem value="USD">US Dollar (USD)</MenuItem>
+            </TextField>
+            <TextField
+              label="Bank name"
+              value={form.bankName}
+              onChange={(e) => update("bankName", e.target.value)}
+              placeholder="Zanaco"
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Account number"
+              value={form.bankAccount}
+              onChange={(e) => update("bankAccount", e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Branch"
+              value={form.bankBranch}
+              onChange={(e) => update("bankBranch", e.target.value)}
+              fullWidth
+              size="small"
+            />
           </div>
         )}
 
@@ -1181,7 +1093,7 @@ function OnboardingPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label>School logo</Label>
+                <p className="text-sm font-medium">School logo</p>
                 <p className="text-xs text-muted-foreground">PNG or SVG, square, max 2MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
@@ -1204,18 +1116,19 @@ function OnboardingPage() {
                     />
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant="outlined"
+                      size="small"
                       onClick={() => logoInput.current?.click()}
+                      startIcon={<Upload className="h-4 w-4" />}
                     >
-                      <Upload className="mr-2 h-4 w-4" />
                       Upload logo
                     </Button>
                     {form.logoUrl && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
+                        variant="text"
+                        color="inherit"
+                        size="small"
                         onClick={() => update("logoUrl", "")}
                       >
                         Remove
@@ -1225,7 +1138,7 @@ function OnboardingPage() {
                 </div>
               </div>
               <div>
-                <Label>Favicon</Label>
+                <p className="text-sm font-medium">Favicon</p>
                 <p className="text-xs text-muted-foreground">32×32 ICO/PNG, max 2MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
@@ -1252,18 +1165,19 @@ function OnboardingPage() {
                     />
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant="outlined"
+                      size="small"
                       onClick={() => faviconInput.current?.click()}
+                      startIcon={<Upload className="h-4 w-4" />}
                     >
-                      <Upload className="mr-2 h-4 w-4" />
                       Upload favicon
                     </Button>
                     {form.faviconUrl && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
+                        variant="text"
+                        color="inherit"
+                        size="small"
                         onClick={() => update("faviconUrl", "")}
                       >
                         Remove
@@ -1275,7 +1189,7 @@ function OnboardingPage() {
             </div>
 
             <div>
-              <Label>Primary brand colour</Label>
+              <p className="text-sm font-medium">Primary brand colour</p>
               <p className="text-xs text-muted-foreground">
                 Used in the sidebar logo, badges and reports header.
               </p>
@@ -1295,55 +1209,52 @@ function OnboardingPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="sec">Secondary colour</Label>
-                <Input
-                  id="sec"
-                  type="color"
-                  value={form.secondaryColor}
-                  onChange={(e) => update("secondaryColor", e.target.value)}
-                  className="mt-1 h-10"
-                />
-              </div>
-              <div>
-                <Label htmlFor="acc">Accent colour</Label>
-                <Input
-                  id="acc"
-                  type="color"
-                  value={form.accentColor}
-                  onChange={(e) => update("accentColor", e.target.value)}
-                  className="mt-1 h-10"
-                />
-              </div>
-              <div>
-                <Label>Heading font</Label>
-                <Select value={form.fontFamily} onValueChange={(v) => update("fontFamily", v)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["Inter", "Poppins", "Merriweather", "Playfair Display", "Source Sans 3"].map(
-                      (o) => (
-                        <SelectItem key={o} value={o}>
-                          {o}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TextField
+                type="color"
+                label="Secondary colour"
+                value={form.secondaryColor}
+                onChange={(e) => update("secondaryColor", e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                type="color"
+                label="Accent colour"
+                value={form.accentColor}
+                onChange={(e) => update("accentColor", e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                select
+                label="Heading font"
+                value={form.fontFamily}
+                onChange={(e) => update("fontFamily", e.target.value)}
+                fullWidth
+                size="small"
+              >
+                {["Inter", "Poppins", "Merriweather", "Playfair Display", "Source Sans 3"].map(
+                  (o) => (
+                    <MenuItem key={o} value={o}>
+                      {o}
+                    </MenuItem>
+                  ),
+                )}
+              </TextField>
             </div>
 
-            <div>
-              <Label htmlFor="footer">Report card footer text</Label>
-              <Textarea
-                id="footer"
-                value={form.reportFooter}
-                onChange={(e) => update("reportFooter", e.target.value)}
-                placeholder="Issued by the Office of the Head Teacher. This report is computer-generated."
-                className="mt-1"
-              />
-            </div>
+            <TextField
+              label="Report card footer text"
+              multiline
+              minRows={3}
+              value={form.reportFooter}
+              onChange={(e) => update("reportFooter", e.target.value)}
+              placeholder="Issued by the Office of the Head Teacher. This report is computer-generated."
+              fullWidth
+              size="small"
+            />
 
             <div className="rounded-lg border border-border p-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Preview</p>
@@ -1375,23 +1286,25 @@ function OnboardingPage() {
         {step === 8 && (
           <div className="space-y-6">
             <div className="rounded-lg border border-border p-4">
-              <Label>Starting plan</Label>
+              <p className="text-sm font-medium">Starting plan</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Determines which modules can be switched on below. Can be changed later from
                 Billing.
               </p>
-              <Select value={form.subscription.planId} onValueChange={(v) => setPlan(v as PlanId)}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PLAN_IDS.map((id) => (
-                    <SelectItem key={id} value={id}>
-                      {PLAN_CATALOG[id].name} — {PLAN_CATALOG[id].badge}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <TextField
+                select
+                value={form.subscription.planId}
+                onChange={(e) => setPlan(e.target.value as PlanId)}
+                fullWidth
+                size="small"
+                sx={{ mt: 2 }}
+              >
+                {PLAN_IDS.map((id) => (
+                  <MenuItem key={id} value={id}>
+                    {PLAN_CATALOG[id].name} — {PLAN_CATALOG[id].badge}
+                  </MenuItem>
+                ))}
+              </TextField>
             </div>
 
             {FEATURE_CATEGORY_ORDER.map((category) => {
@@ -1425,7 +1338,7 @@ function OnboardingPage() {
                           <Switch
                             checked={form.features[k]}
                             disabled={!unlocked}
-                            onCheckedChange={() => toggle(k)}
+                            onChange={() => toggle(k)}
                           />
                         </div>
                       );
@@ -1485,28 +1398,23 @@ function OnboardingPage() {
               {Object.entries(form.features)
                 .filter(([, v]) => v)
                 .map(([k]) => (
-                  <Badge key={k} variant="secondary">
-                    {k}
-                  </Badge>
+                  <Chip key={k} size="small" label={k} sx={badgeSx("secondary")} />
                 ))}
             </div>
           </div>
         )}
 
         <div className="mt-8 flex items-center justify-between border-t border-border pt-4">
-          <Button variant="ghost" onClick={back} disabled={step === 0}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
+          <Button variant="text" color="inherit" onClick={back} disabled={step === 0} startIcon={<ArrowLeft className="h-4 w-4" />}>
             Back
           </Button>
           {step < steps.length - 1 ? (
-            <Button onClick={next} disabled={!canContinue}>
+            <Button variant="contained" onClick={next} disabled={!canContinue} endIcon={<ArrowRight className="h-4 w-4" />}>
               Next
-              <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={() => void finish()} disabled={submitting}>
+            <Button variant="contained" onClick={() => void finish()} disabled={submitting} endIcon={<Check className="h-4 w-4" />}>
               Provision school
-              <Check className="ml-1 h-4 w-4" />
             </Button>
           )}
         </div>

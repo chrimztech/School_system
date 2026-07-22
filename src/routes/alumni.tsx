@@ -6,14 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Box, Button, Chip, Tab, Tabs, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -50,6 +44,7 @@ function AlumniPage() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(createInitialForm);
+  const [tab, setTab] = useState("dir");
 
   const { data: alumniList = [], isLoading } = useQuery({
     queryKey: ["alumni", schoolId],
@@ -109,121 +104,63 @@ function AlumniPage() {
         description="Old scholars network, giving, mentorship and reunion management."
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/communication" hash="broadcast">
-                <Send className="mr-2 h-4 w-4" />Send newsletter
-              </Link>
+            <Button variant="outlined" component={Link} to="/communication" hash="broadcast" startIcon={<Send className="h-4 w-4" />}>
+              Send newsletter
             </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Register alumni</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Register alumni</DialogTitle></DialogHeader>
+            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Register alumni</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Register alumni</DialogTitle>
+              <DialogContent>
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>First name *</Label>
-                      <Input className="mt-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Chanda" maxLength={60} />
-                    </div>
-                    <div>
-                      <Label>Last name *</Label>
-                      <Input className="mt-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Mulenga" maxLength={60} />
-                    </div>
+                    <TextField label="First name *" fullWidth size="small" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Chanda" slotProps={{ htmlInput: { maxLength: 60 } }} />
+                    <TextField label="Last name *" fullWidth size="small" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Mulenga" slotProps={{ htmlInput: { maxLength: 60 } }} />
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label>Admission #</Label>
-                      <Input className="mt-1" value={form.admissionNumber} onChange={(e) => setForm({ ...form, admissionNumber: e.target.value })} placeholder="SCH-2020-112" maxLength={30} />
-                    </div>
-                    <div>
-                      <Label>Year of graduation</Label>
-                      <Input className="mt-1" type="number" min={1950} max={new Date().getFullYear()} value={form.graduationYear} onChange={(e) => setForm({ ...form, graduationYear: Number(e.target.value) })} />
-                    </div>
-                    <div>
-                      <Label>Last grade</Label>
-                      <Input className="mt-1" type="number" min={1} max={12} value={form.lastGrade} onChange={(e) => setForm({ ...form, lastGrade: e.target.value })} />
-                    </div>
+                    <TextField label="Admission #" fullWidth size="small" value={form.admissionNumber} onChange={(e) => setForm({ ...form, admissionNumber: e.target.value })} placeholder="SCH-2020-112" slotProps={{ htmlInput: { maxLength: 30 } }} />
+                    <TextField label="Year of graduation" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 1950, max: new Date().getFullYear() } }} value={form.graduationYear} onChange={(e) => setForm({ ...form, graduationYear: Number(e.target.value) })} />
+                    <TextField label="Last grade" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 1, max: 12 } }} value={form.lastGrade} onChange={(e) => setForm({ ...form, lastGrade: e.target.value })} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Current position *</Label>
-                      <Input className="mt-1" value={form.currentPosition} onChange={(e) => setForm({ ...form, currentPosition: e.target.value })} placeholder="Software Engineer" maxLength={120} />
-                    </div>
-                    <div>
-                      <Label>Employer</Label>
-                      <Input className="mt-1" value={form.currentEmployer} onChange={(e) => setForm({ ...form, currentEmployer: e.target.value })} placeholder="Airtel Zambia" maxLength={120} />
-                    </div>
+                    <TextField label="Current position *" fullWidth size="small" value={form.currentPosition} onChange={(e) => setForm({ ...form, currentPosition: e.target.value })} placeholder="Software Engineer" slotProps={{ htmlInput: { maxLength: 120 } }} />
+                    <TextField label="Employer" fullWidth size="small" value={form.currentEmployer} onChange={(e) => setForm({ ...form, currentEmployer: e.target.value })} placeholder="Airtel Zambia" slotProps={{ htmlInput: { maxLength: 120 } }} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Email</Label>
-                      <Input type="email" className="mt-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="alumni@example.com" maxLength={120} />
-                    </div>
-                    <div>
-                      <Label>Phone</Label>
-                      <Input className="mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" maxLength={30} />
-                    </div>
+                    <TextField label="Email" type="email" fullWidth size="small" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="alumni@example.com" slotProps={{ htmlInput: { maxLength: 120 } }} />
+                    <TextField label="Phone" fullWidth size="small" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" slotProps={{ htmlInput: { maxLength: 30 } }} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Location / city</Label>
-                      <Input className="mt-1" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Lusaka" maxLength={50} />
-                    </div>
-                    <div>
-                      <Label>Industry sector</Label>
-                      <Input className="mt-1" value={form.industrySector} onChange={(e) => setForm({ ...form, industrySector: e.target.value })} placeholder="e.g. ICT, Medicine, Finance" maxLength={80} />
-                    </div>
+                    <TextField label="Location / city" fullWidth size="small" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Lusaka" slotProps={{ htmlInput: { maxLength: 50 } }} />
+                    <TextField label="Industry sector" fullWidth size="small" value={form.industrySector} onChange={(e) => setForm({ ...form, industrySector: e.target.value })} placeholder="e.g. ICT, Medicine, Finance" slotProps={{ htmlInput: { maxLength: 80 } }} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Highest qualification</Label>
-                      <Input className="mt-1" value={form.highestQualification} onChange={(e) => setForm({ ...form, highestQualification: e.target.value })} placeholder="e.g. BSc Computer Science (UNZA)" maxLength={120} />
-                    </div>
-                    <div>
-                      <Label>Qualifications achieved at school</Label>
-                      <Input className="mt-1" value={form.qualificationsAchieved} onChange={(e) => setForm({ ...form, qualificationsAchieved: e.target.value })} placeholder="e.g. ECZ Form 6 · 7 points" maxLength={100} />
-                    </div>
+                    <TextField label="Highest qualification" fullWidth size="small" value={form.highestQualification} onChange={(e) => setForm({ ...form, highestQualification: e.target.value })} placeholder="e.g. BSc Computer Science (UNZA)" slotProps={{ htmlInput: { maxLength: 120 } }} />
+                    <TextField label="Qualifications achieved at school" fullWidth size="small" value={form.qualificationsAchieved} onChange={(e) => setForm({ ...form, qualificationsAchieved: e.target.value })} placeholder="e.g. ECZ Form 6 · 7 points" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>LinkedIn profile URL</Label>
-                      <Input className="mt-1" value={form.linkedIn} onChange={(e) => setForm({ ...form, linkedIn: e.target.value })} placeholder="linkedin.com/in/..." maxLength={200} />
-                    </div>
-                    <div>
-                      <Label>Engagement status</Label>
-                      <Select value={form.engagementStatus} onValueChange={(v) => setForm({ ...form, engagementStatus: v as typeof form.engagementStatus })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Active">Active</SelectItem>
-                          <SelectItem value="Mentor">Mentor</SelectItem>
-                          <SelectItem value="Donor">Donor</SelectItem>
-                          <SelectItem value="Inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField label="LinkedIn profile URL" fullWidth size="small" value={form.linkedIn} onChange={(e) => setForm({ ...form, linkedIn: e.target.value })} placeholder="linkedin.com/in/..." slotProps={{ htmlInput: { maxLength: 200 } }} />
+                    <TextField select label="Engagement status" fullWidth size="small" value={form.engagementStatus} onChange={(e) => setForm({ ...form, engagementStatus: e.target.value as typeof form.engagementStatus })}>
+                      <MenuItem value="Active">Active</MenuItem>
+                      <MenuItem value="Mentor">Mentor</MenuItem>
+                      <MenuItem value="Donor">Donor</MenuItem>
+                      <MenuItem value="Inactive">Inactive</MenuItem>
+                    </TextField>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Record status</Label>
-                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ACTIVE">Active</SelectItem>
-                          <SelectItem value="INACTIVE">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField select label="Record status" fullWidth size="small" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                      <MenuItem value="ACTIVE">Active</MenuItem>
+                      <MenuItem value="INACTIVE">Inactive</MenuItem>
+                    </TextField>
                   </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={registerAlumni} disabled={createMutation.isPending}>
-                    {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Register
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button onClick={registerAlumni} disabled={createMutation.isPending}>
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Register
+                </Button>
+              </DialogActions>
             </Dialog>
           </>
         }
@@ -236,30 +173,32 @@ function AlumniPage() {
         <StatCard label="Upcoming events" value={0} accent="warning" icon={<Calendar className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="dir">
-        <TabsList>
-          <TabsTrigger value="dir">Directory</TabsTrigger>
-          <TabsTrigger value="events">Events & reunions</TabsTrigger>
-          <TabsTrigger value="giving">Giving</TabsTrigger>
-          <TabsTrigger value="mentor">Mentorship</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="dir" label="Directory" />
+        <Tab value="events" label="Events & reunions" />
+        <Tab value="giving" label="Giving" />
+        <Tab value="mentor" label="Mentorship" />
+      </Tabs>
 
-        <TabsContent value="dir" className="rounded-xl border border-border bg-card">
+      {tab === "dir" && (
+        <Box className="rounded-xl border border-border bg-card">
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading alumni...</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Name</TableHead><TableHead>Class of</TableHead><TableHead>Position</TableHead>
-                <TableHead>Employer</TableHead><TableHead>Location</TableHead><TableHead className="text-right">Connect</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Name</TableCell><TableCell>Class of</TableCell><TableCell>Position</TableCell>
+                <TableCell>Employer</TableCell><TableCell>Location</TableCell><TableCell className="text-right">Connect</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {list.map((a: any) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">
-                      {a.name} {a.engagementStatus === "Donor" && <Badge variant="secondary" className="ml-2 text-success">Donor</Badge>}
+                      {a.name} {a.engagementStatus === "Donor" && <Chip size="small" label="Donor" sx={{ ...badgeSx("success"), ml: 1 }} />}
                       {a.admissionNumber && <div className="text-xs text-muted-foreground">{a.admissionNumber}</div>}
                     </TableCell>
                     <TableCell>{a.graduationYear ?? a.year}</TableCell>
@@ -267,7 +206,7 @@ function AlumniPage() {
                     <TableCell className="text-muted-foreground">{a.employer}</TableCell>
                     <TableCell>{a.location ?? a.city}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" disabled title="Alumni messaging isn't set up yet">Message</Button>
+                      <Button size="small" variant="text" color="inherit" disabled title="Alumni messaging isn't set up yet">Message</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -276,32 +215,40 @@ function AlumniPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="events" className="rounded-xl border border-border bg-card">
+      {tab === "events" && (
+        <Box className="rounded-xl border border-border bg-card">
           <EmptyState
             icon={Calendar}
             title="No events or reunions yet"
             description="Alumni gatherings and reunions you schedule will appear here."
           />
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="giving" className="rounded-xl border border-border bg-card p-6">
+      {tab === "giving" && (
+        <Box className="rounded-xl border border-border bg-card p-6">
           <EmptyState
             title="No fundraising campaigns created yet"
             description="Campaigns will appear here once they are set up."
           />
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="mentor" className="rounded-xl border border-border bg-card p-5">
+      {tab === "mentor" && (
+        <Box className="rounded-xl border border-border bg-card p-5">
           <EmptyState
             icon={Heart}
             title="No mentorship pairings yet"
             description="Alumni-to-student mentorship matches will appear here once set up."
           />
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
   );
 }

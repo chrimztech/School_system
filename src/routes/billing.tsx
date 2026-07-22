@@ -4,27 +4,19 @@ import { CreditCard, CheckCircle2, Lock, Zap, ArrowRight, RefreshCw, Loader2, Do
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import {
+  Button, Chip, IconButton, LinearProgress, MenuItem, TextField,
+  Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab,
+  TableContainer, Table, TableHead, TableBody, TableRow, TableCell,
+} from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
 import {
   useTenant, PLAN_CATALOG, FEATURE_META, FEATURE_ORDER,
   planIncludesFeature, type PlanId, type BillingCycle,
 } from "@/lib/tenant";
 import { PLAN_UI, STATUS_UI } from "@/lib/subscription";
 import { api } from "@/lib/api";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/billing")({
   head: () => ({ meta: [{ title: "Billing & Subscription — SRMS" }] }),
@@ -45,6 +37,7 @@ function BillingPage() {
   const statusUi = STATUS_UI[sub.status];
   const qc = useQueryClient();
 
+  const [tab, setTab] = useState("features");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [targetPlan, setTargetPlan] = useState<PlanId>(activePlan.id);
   const [targetCycle, setTargetCycle] = useState<BillingCycle>(sub.billingCycle);
@@ -86,38 +79,39 @@ function BillingPage() {
         title="Billing & Subscription"
         description="Manage your school's subscription plan, features, and payment history."
         actions={
-          <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
-            <DialogTrigger asChild>
-              <Button><Zap className="mr-2 h-4 w-4" />Change plan</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader><DialogTitle>Change subscription plan</DialogTitle></DialogHeader>
+          <>
+            <Button startIcon={<Zap className="h-4 w-4" />} onClick={() => setUpgradeOpen(true)}>Change plan</Button>
+            <Dialog open={upgradeOpen} onClose={() => setUpgradeOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Change subscription plan</DialogTitle>
+              <DialogContent>
               <div className="space-y-4">
                 <div className="grid gap-3">
-                  <div>
-                    <Label>New plan</Label>
-                    <Select value={targetPlan} onValueChange={(v) => setTargetPlan(v as PlanId)}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {PLAN_IDS.map((p) => (
-                          <SelectItem key={p} value={p}>
-                            {PLAN_CATALOG[p].name} — K{PLAN_CATALOG[p].monthlyPrice.toLocaleString()}/mo
-                            {p === activePlan.id ? " (current)" : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Billing cycle</Label>
-                    <Select value={targetCycle} onValueChange={(v) => setTargetCycle(v as BillingCycle)}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="annual">Annual (save ~17%)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TextField
+                    select
+                    label="New plan"
+                    value={targetPlan}
+                    onChange={(e) => setTargetPlan(e.target.value as PlanId)}
+                    fullWidth
+                    size="small"
+                  >
+                    {PLAN_IDS.map((p) => (
+                      <MenuItem key={p} value={p}>
+                        {PLAN_CATALOG[p].name} — K{PLAN_CATALOG[p].monthlyPrice.toLocaleString()}/mo
+                        {p === activePlan.id ? " (current)" : ""}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Billing cycle"
+                    value={targetCycle}
+                    onChange={(e) => setTargetCycle(e.target.value as BillingCycle)}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="monthly">Monthly</MenuItem>
+                    <MenuItem value="annual">Annual (save ~17%)</MenuItem>
+                  </TextField>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-2">
                   <p className="font-medium">{PLAN_CATALOG[targetPlan].name} plan summary</p>
@@ -134,14 +128,13 @@ function BillingPage() {
                   </div>
                 </div>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setUpgradeOpen(false)}>Cancel</Button>
-                <Button onClick={confirmChange}>
-                  <ArrowRight className="mr-2 h-4 w-4" />Confirm change
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setUpgradeOpen(false)}>Cancel</Button>
+                <Button onClick={confirmChange} startIcon={<ArrowRight className="h-4 w-4" />}>Confirm change</Button>
+              </DialogActions>
+            </Dialog>
+          </>
         }
       />
 
@@ -150,8 +143,8 @@ function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Badge className={planUi.badgeClass}>{activePlan.name}</Badge>
-              <Badge className={statusUi.badgeClass}>{statusUi.label}</Badge>
+              <Chip size="small" label={activePlan.name} className={planUi.badgeClass} sx={{ height: "auto", "& .MuiChip-label": { px: 1.25, py: 0.4 } }} />
+              <Chip size="small" label={statusUi.label} className={statusUi.badgeClass} sx={{ height: "auto", "& .MuiChip-label": { px: 1.25, py: 0.4 } }} />
             </div>
             <p className="text-2xl font-bold">
               K{sub.amount.toLocaleString()}
@@ -177,7 +170,7 @@ function BillingPage() {
                 {active.campuses.length} / {sub.campusLimit}
               </span>
             </div>
-            <Progress value={campusPct} className="h-2" />
+            <LinearProgress variant="determinate" value={campusPct} sx={{ height: 8, borderRadius: 999 }} />
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between text-sm">
@@ -186,7 +179,7 @@ function BillingPage() {
                 {active.totalStudents.toLocaleString()} / {sub.learnerLimit.toLocaleString()}
               </span>
             </div>
-            <Progress value={learnerPct} className="h-2" />
+            <LinearProgress variant="determinate" value={learnerPct} sx={{ height: 8, borderRadius: 999 }} />
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between text-sm">
@@ -195,7 +188,7 @@ function BillingPage() {
                 {sub.smsUsed.toLocaleString()} / {sub.smsQuota.toLocaleString()}
               </span>
             </div>
-            <Progress value={smsPct} className="h-2" />
+            <LinearProgress variant="determinate" value={smsPct} sx={{ height: 8, borderRadius: 999 }} />
           </div>
         </div>
       </div>
@@ -208,15 +201,16 @@ function BillingPage() {
         <StatCard label="Support tier" value={sub.supportLevel} accent="warning" icon={<Zap className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="features">
-        <TabsList>
-          <TabsTrigger value="features">Included features</TabsTrigger>
-          <TabsTrigger value="compare">Compare plans</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-        </TabsList>
+      <Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="features" label="Included features" />
+          <Tab value="compare" label="Compare plans" />
+          <Tab value="invoices" label="Invoices" />
+        </Tabs>
 
         {/* FEATURES */}
-        <TabsContent value="features" className="space-y-3">
+        {tab === "features" && (
+        <Box className="space-y-3">
           {(["Communication", "Finance", "Operations", "Enterprise"] as const).map((cat) => {
             const catFeatures = FEATURE_ORDER.filter((fk) => FEATURE_META[fk].category === cat);
             return (
@@ -240,11 +234,14 @@ function BillingPage() {
                           <p className="text-xs text-muted-foreground">{meta.description}</p>
                         </div>
                         {included ? (
-                          <Badge className="bg-success/15 text-success text-[10px]">Included</Badge>
+                          <Chip size="small" label="Included" sx={{ ...badgeSx("success"), fontSize: 10 }} />
                         ) : (
-                          <Badge className={`${PLAN_UI[meta.availableFrom].badgeClass} text-[10px]`}>
-                            {PLAN_CATALOG[meta.availableFrom].name}+
-                          </Badge>
+                          <Chip
+                            size="small"
+                            label={`${PLAN_CATALOG[meta.availableFrom].name}+`}
+                            className={PLAN_UI[meta.availableFrom].badgeClass}
+                            sx={{ height: "auto", fontSize: 10, "& .MuiChip-label": { px: 1, py: 0.3 } }}
+                          />
                         )}
                       </div>
                     );
@@ -253,27 +250,30 @@ function BillingPage() {
               </div>
             );
           })}
-        </TabsContent>
+        </Box>
+        )}
 
         {/* COMPARE PLANS */}
-        <TabsContent value="compare">
+        {tab === "compare" && (
+        <Box>
           <div className="rounded-xl border border-border bg-card overflow-x-auto">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead className="w-52">Feature</TableHead>
+                  <TableCell className="w-52">Feature</TableCell>
                   {PLAN_IDS.map((p) => (
-                    <TableHead key={p} className="text-center">
+                    <TableCell key={p} className="text-center">
                       <div>
-                        <Badge className={PLAN_UI[p].badgeClass}>{PLAN_CATALOG[p].name}</Badge>
+                        <Chip size="small" label={PLAN_CATALOG[p].name} className={PLAN_UI[p].badgeClass} sx={{ height: "auto", "& .MuiChip-label": { px: 1.25, py: 0.4 } }} />
                         {p === activePlan.id && (
                           <p className="text-[10px] text-muted-foreground mt-0.5">current</p>
                         )}
                       </div>
-                    </TableHead>
+                    </TableCell>
                   ))}
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 <TableRow className="bg-muted/30">
                   <TableCell className="font-medium">Monthly price</TableCell>
@@ -329,28 +329,32 @@ function BillingPage() {
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
+        </Box>
+        )}
 
         {/* INVOICES */}
-        <TabsContent value="invoices" className="rounded-xl border border-border bg-card">
+        {tab === "invoices" && (
+        <Box className="rounded-xl border border-border bg-card">
           {invoicesLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading invoices…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableCell>Invoice #</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Description</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Due</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell className="text-right">Action</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {invoices.map((inv: any) => (
                   <TableRow key={inv.id}>
@@ -360,24 +364,26 @@ function BillingPage() {
                     <TableCell className="font-medium">K{(inv.amount ?? 0).toLocaleString()}</TableCell>
                     <TableCell className="text-muted-foreground">{inv.dueDate ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge className={{
-                        paid: "bg-success/15 text-success",
-                        open: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-                        overdue: "bg-destructive/15 text-destructive",
-                      }[(inv.status ?? "open") as "paid" | "open" | "overdue"] ?? "bg-muted text-muted-foreground"}>
-                        {(inv.status ?? "open").charAt(0).toUpperCase() + (inv.status ?? "open").slice(1)}
-                      </Badge>
+                      <Chip
+                        size="small"
+                        label={(inv.status ?? "open").charAt(0).toUpperCase() + (inv.status ?? "open").slice(1)}
+                        sx={badgeSx({
+                          paid: "success" as const,
+                          open: "default" as const,
+                          overdue: "destructive" as const,
+                        }[(inv.status ?? "open") as "paid" | "open" | "overdue"] ?? "secondary")}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {inv.status !== "paid" && (
-                          <Button size="sm" variant="outline" disabled={markPaidMutation.isPending} onClick={() => markPaidMutation.mutate(inv.id)}>
+                          <Button size="small" variant="outlined" disabled={markPaidMutation.isPending} onClick={() => markPaidMutation.mutate(inv.id)}>
                             Mark paid
                           </Button>
                         )}
-                        <Button size="sm" variant="ghost" onClick={() => setInvoicePreview(inv)}>
+                        <IconButton size="small" aria-label="Download invoice" onClick={() => setInvoicePreview(inv)}>
                           <Download className="h-3 w-3" />
-                        </Button>
+                        </IconButton>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -391,15 +397,15 @@ function BillingPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
-      </Tabs>
+        </Box>
+        )}
+      </Box>
 
-      <Dialog open={!!invoicePreview} onOpenChange={(v) => { if (!v) setInvoicePreview(null); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader className="print:hidden">
-            <DialogTitle>Invoice · {invoicePreview?.id}</DialogTitle>
-          </DialogHeader>
+      <Dialog open={!!invoicePreview} onClose={() => setInvoicePreview(null)} maxWidth="sm" fullWidth>
+        <DialogTitle className="print:hidden">Invoice · {invoicePreview?.id}</DialogTitle>
+        <DialogContent>
           {invoicePreview && (
             <div className="print-area space-y-4 rounded-xl border border-border bg-card p-6 text-sm print:rounded-none print:border-0 print:shadow-none">
               <div className="flex items-start justify-between border-b border-border pb-4">
@@ -428,21 +434,23 @@ function BillingPage() {
               </div>
               <div className="flex items-center justify-between border-t border-border pt-3">
                 <span className="text-xs uppercase text-muted-foreground">Status</span>
-                <Badge className={{
-                  paid: "bg-success/15 text-success",
-                  open: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-                  overdue: "bg-destructive/15 text-destructive",
-                }[invoicePreview.status] ?? "bg-muted text-muted-foreground"}>
-                  {invoicePreview.status.charAt(0).toUpperCase() + invoicePreview.status.slice(1)}
-                </Badge>
+                <Chip
+                  size="small"
+                  label={invoicePreview.status.charAt(0).toUpperCase() + invoicePreview.status.slice(1)}
+                  sx={badgeSx({
+                    paid: "success" as const,
+                    open: "default" as const,
+                    overdue: "destructive" as const,
+                  }[invoicePreview.status as "paid" | "open" | "overdue"] ?? "secondary")}
+                />
               </div>
             </div>
           )}
-          <DialogFooter className="mt-2 print:hidden">
-            <Button variant="outline" onClick={() => setInvoicePreview(null)}>Close</Button>
-            <Button onClick={() => window.print()}><Printer className="mr-1.5 h-4 w-4" />Print / Save as PDF</Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions className="print:hidden">
+          <Button variant="outlined" color="inherit" onClick={() => setInvoicePreview(null)}>Close</Button>
+          <Button onClick={() => window.print()} startIcon={<Printer className="h-4 w-4" />}>Print / Save as PDF</Button>
+        </DialogActions>
       </Dialog>
     </div>
   );

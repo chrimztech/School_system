@@ -4,19 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, Plus, Printer } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/timetable")({
   head: () => ({ meta: [{ title: "Timetable - SRMS" }] }),
@@ -44,6 +38,7 @@ function TimetablePage() {
   const { active } = useTenant();
   const { user } = useAuth();
   const teacherEmail = user?.role === "teacher" ? user.email : undefined;
+  const [tab, setTab] = useState("class");
   const [klass, setKlass] = useState<string>("");
   const [teacher, setTeacher] = useState<string>("");
   const [newSlotOpen, setNewSlotOpen] = useState(false);
@@ -203,101 +198,138 @@ function TimetablePage() {
         description={`Weekly schedule · ${active.name}`}
         actions={
           <>
-            <Button variant="outline" onClick={exportCsv}><Download className="mr-1 h-4 w-4" />Export CSV</Button>
-            <Button variant="outline" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print</Button>
-            <Dialog open={newSlotOpen} onOpenChange={setNewSlotOpen}>
-              <DialogTrigger asChild><Button><Plus className="mr-1 h-4 w-4" />Add slot</Button></DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader><DialogTitle>Add timetable slot</DialogTitle></DialogHeader>
+            <Button variant="outlined" onClick={exportCsv} startIcon={<Download className="h-4 w-4" />}>Export CSV</Button>
+            <Button variant="outlined" onClick={() => window.print()} startIcon={<Printer className="h-4 w-4" />}>Print</Button>
+            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setNewSlotOpen(true)}>Add slot</Button>
+            <Dialog open={newSlotOpen} onClose={() => setNewSlotOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Add timetable slot</DialogTitle>
+              <DialogContent>
                 <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label>Class</Label>
                       {(classesData as any[]).length > 0 ? (
-                        <Select
+                        <TextField
+                          select
+                          label="Class"
                           value={form.classId}
-                          onValueChange={(v) => {
+                          onChange={(e) => {
+                            const v = e.target.value;
                             const c = (classesData as any[]).find((x: any) => x.id === v);
                             setForm({ ...form, classId: v, className: c?.name ?? c?.className ?? "" });
                           }}
+                          fullWidth
+                          size="small"
                         >
-                          <SelectTrigger className="mt-1"><SelectValue placeholder="Select class" /></SelectTrigger>
-                          <SelectContent>{(classesData as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name ?? c.className}</SelectItem>)}</SelectContent>
-                        </Select>
+                          <MenuItem value="" disabled>Select class</MenuItem>
+                          {(classesData as any[]).map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name ?? c.className}</MenuItem>)}
+                        </TextField>
                       ) : (
-                        <Input className="mt-1" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} placeholder="Form 1 A" />
+                        <TextField label="Class" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} placeholder="Form 1 A" fullWidth size="small" />
                       )}
                     </div>
                     <div>
-                      <Label>Day</Label>
-                      <Select value={form.day} onValueChange={(v) => setForm({ ...form, day: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>{DAYS.map((d) => <SelectItem key={d} value={d}>{DAY_LABELS[d]}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <TextField
+                        select
+                        label="Day"
+                        value={form.day}
+                        onChange={(e) => setForm({ ...form, day: e.target.value })}
+                        fullWidth
+                        size="small"
+                      >
+                        {DAYS.map((d) => <MenuItem key={d} value={d}>{DAY_LABELS[d]}</MenuItem>)}
+                      </TextField>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <Label>Start</Label>
-                      <Input className="mt-1" type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
+                      <TextField
+                        label="Start"
+                        type="time"
+                        value={form.startTime}
+                        onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                        fullWidth
+                        size="small"
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
                     </div>
                     <div>
-                      <Label>End</Label>
-                      <Input className="mt-1" type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
+                      <TextField
+                        label="End"
+                        type="time"
+                        value={form.endTime}
+                        onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                        fullWidth
+                        size="small"
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
                     </div>
                     <div>
-                      <Label>Period</Label>
-                      <Input className="mt-1" type="number" min="1" value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })} />
+                      <TextField
+                        label="Period"
+                        type="number"
+                        slotProps={{ htmlInput: { min: "1" } }}
+                        value={form.period}
+                        onChange={(e) => setForm({ ...form, period: e.target.value })}
+                        fullWidth
+                        size="small"
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label>Subject</Label>
                       {allSubjectNames.length > 0 ? (
-                        <Select
+                        <TextField
+                          select
+                          label="Subject"
                           value={form.subjectName}
-                          onValueChange={(v) => {
+                          onChange={(e) => {
+                            const v = e.target.value;
                             const s = (subjectsData as any[]).find((x: any) => x.name === v);
                             setForm({ ...form, subjectName: v, subjectId: s?.id ?? "" });
                           }}
+                          fullWidth
+                          size="small"
                         >
-                          <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger>
-                          <SelectContent>{allSubjectNames.map((s: string) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                        </Select>
+                          <MenuItem value="" disabled>Select subject</MenuItem>
+                          {allSubjectNames.map((s: string) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                        </TextField>
                       ) : (
-                        <Input className="mt-1" value={form.subjectName} onChange={(e) => setForm({ ...form, subjectName: e.target.value })} placeholder="Mathematics" />
+                        <TextField label="Subject" value={form.subjectName} onChange={(e) => setForm({ ...form, subjectName: e.target.value })} placeholder="Mathematics" fullWidth size="small" />
                       )}
                     </div>
                     <div>
-                      <Label>Teacher</Label>
                       {(teachersData as any[]).length > 0 ? (
-                        <Select
+                        <TextField
+                          select
+                          label="Teacher"
                           value={form.teacherId}
-                          onValueChange={(v) => {
+                          onChange={(e) => {
+                            const v = e.target.value;
                             const t = (teachersData as any[]).find((x: any) => x.id === v);
                             setForm({ ...form, teacherId: v, teacherName: t ? `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() : "" });
                           }}
+                          fullWidth
+                          size="small"
                         >
-                          <SelectTrigger className="mt-1"><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                          <SelectContent>{(teachersData as any[]).map((t: any) => <SelectItem key={t.id} value={t.id}>{`${t.firstName ?? ""} ${t.lastName ?? ""}`.trim()}</SelectItem>)}</SelectContent>
-                        </Select>
+                          <MenuItem value="" disabled>Select teacher</MenuItem>
+                          {(teachersData as any[]).map((t: any) => <MenuItem key={t.id} value={t.id}>{`${t.firstName ?? ""} ${t.lastName ?? ""}`.trim()}</MenuItem>)}
+                        </TextField>
                       ) : (
-                        <Input className="mt-1" value={form.teacherName} onChange={(e) => setForm({ ...form, teacherName: e.target.value })} placeholder="Mr. Phiri" />
+                        <TextField label="Teacher" value={form.teacherName} onChange={(e) => setForm({ ...form, teacherName: e.target.value })} placeholder="Mr. Phiri" fullWidth size="small" />
                       )}
                     </div>
                   </div>
                   <div>
-                    <Label>Room</Label>
-                    <Input className="mt-1" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} placeholder="Room 101" />
+                    <TextField label="Room" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} placeholder="Room 101" fullWidth size="small" />
                   </div>
                 </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setNewSlotOpen(false)}>Cancel</Button>
-                  <Button onClick={addSlot}>Add slot</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setNewSlotOpen(false)}>Cancel</Button>
+                <Button onClick={addSlot}>Add slot</Button>
+              </DialogActions>
             </Dialog>
           </>
         }
@@ -306,34 +338,38 @@ function TimetablePage() {
       {isLoading && <div className="py-10 text-center text-sm text-muted-foreground">Loading timetable...</div>}
 
       {!isLoading && (
-        <Tabs defaultValue="class" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="class">By class</TabsTrigger>
-            <TabsTrigger value="teacher">By teacher</TabsTrigger>
-          </TabsList>
+        <Box>
+          <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+            <Tab value="class" label="By class" />
+            <Tab value="teacher" label="By teacher" />
+          </Tabs>
 
-          <TabsContent value="class" className="space-y-4">
+          {tab === "class" && (
+          <Box className="space-y-4">
             <div className="flex items-center gap-3">
-              <Select value={selectedClass} onValueChange={setKlass}>
-                <SelectTrigger className="w-56"><SelectValue placeholder="Select class" /></SelectTrigger>
-                <SelectContent>{classes.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-              <Badge variant="outline">Term {active.currentTerm}</Badge>
-              <Badge variant="secondary">{classPeriods.length} periods</Badge>
+              <TextField select value={selectedClass} onChange={(e) => setKlass(e.target.value)} size="small" sx={{ width: 224 }}>
+                <MenuItem value="" disabled>Select class</MenuItem>
+                {classes.map((c: string) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              </TextField>
+              <Chip size="small" label={`Term ${active.currentTerm}`} sx={badgeSx("outline")} />
+              <Chip size="small" label={`${classPeriods.length} periods`} sx={badgeSx("secondary")} />
             </div>
             {timetableTable(allPeriods, classGrid, () => "No timetable data for this class. Add slots above.")}
-          </TabsContent>
+          </Box>
+          )}
 
-          <TabsContent value="teacher" className="space-y-4">
+          {tab === "teacher" && (
+          <Box className="space-y-4">
             <div className="flex items-center gap-3">
-              <Select value={selectedTeacher} onValueChange={setTeacher}>
-                <SelectTrigger className="w-64"><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                <SelectContent>{teachers.map((t: string) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
+              <TextField select value={selectedTeacher} onChange={(e) => setTeacher(e.target.value)} size="small" sx={{ width: 256 }}>
+                <MenuItem value="" disabled>Select teacher</MenuItem>
+                {teachers.map((t: string) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
             </div>
             {timetableTable(allPeriods, teacherGrid, () => "No timetable data for this teacher.")}
-          </TabsContent>
-        </Tabs>
+          </Box>
+          )}
+        </Box>
       )}
     </div>
     </AccessGuard>

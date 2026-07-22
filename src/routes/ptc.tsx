@@ -4,21 +4,14 @@ import { Users2, Plus, CalendarClock, Wallet, CheckCircle2 } from "lucide-react"
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/ptc")({
   head: () => ({ meta: [{ title: "PTC Committee — SRMS" }] }),
@@ -63,28 +56,22 @@ function MinutesDialog({ schoolId, meeting, canEdit }: { schoolId: string; meeti
   if (!canEdit) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline">{meeting.minutes ? "Edit minutes" : "Add minutes"}</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>Meeting minutes — {meeting.meetingDate}</DialogTitle></DialogHeader>
-        <div className="grid gap-3">
-          <div>
-            <Label>Minutes</Label>
-            <Textarea className="mt-1" rows={5} value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="What was discussed…" maxLength={2000} />
+    <>
+      <Button size="small" variant="outlined" onClick={() => setOpen(true)}>{meeting.minutes ? "Edit minutes" : "Add minutes"}</Button>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Meeting minutes — {meeting.meetingDate}</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3">
+            <TextField label="Minutes" fullWidth size="small" multiline minRows={5} value={minutes} onChange={(e) => setMinutes(e.target.value)} placeholder="What was discussed…" slotProps={{ htmlInput: { maxLength: 2000 } }} />
+            <TextField label="Decisions / resolutions" fullWidth size="small" multiline minRows={3} value={decisions} onChange={(e) => setDecisions(e.target.value)} placeholder="What was decided…" slotProps={{ htmlInput: { maxLength: 1000 } }} />
           </div>
-          <div>
-            <Label>Decisions / resolutions</Label>
-            <Textarea className="mt-1" rows={3} value={decisions} onChange={(e) => setDecisions(e.target.value)} placeholder="What was decided…" maxLength={1000} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={() => updateMutation.mutate({ minutes, decisions, status: "HELD" })} disabled={updateMutation.isPending}>Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={() => updateMutation.mutate({ minutes, decisions, status: "HELD" })} disabled={updateMutation.isPending}>Save</Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 
@@ -101,6 +88,7 @@ function PtcPage() {
   const term = String(active.currentTerm ?? "1");
   const year = String(active.currentYear ?? new Date().getFullYear());
 
+  const [tab, setTab] = useState("members");
   const [memberOpen, setMemberOpen] = useState(false);
   const [memberForm, setMemberForm] = useState(emptyMemberForm());
   const [meetingOpen, setMeetingOpen] = useState(false);
@@ -280,35 +268,22 @@ function PtcPage() {
           actions={
             canEditCommittee ? (
               <>
-                <Dialog open={memberOpen} onOpenChange={setMemberOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline"><Plus className="mr-2 h-4 w-4" /> Add member</Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-lg">
-                    <DialogHeader><DialogTitle>Add committee member</DialogTitle></DialogHeader>
+                <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => setMemberOpen(true)}>Add member</Button>
+                <Dialog open={memberOpen} onClose={() => setMemberOpen(false)} maxWidth="md" fullWidth>
+                  <DialogTitle>Add committee member</DialogTitle>
+                  <DialogContent>
                     <div className="grid gap-3">
-                      <div>
-                        <Label>Name *</Label>
-                        <Input className="mt-1" value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} placeholder="Full name" maxLength={100} />
-                      </div>
+                      <TextField label="Name *" fullWidth size="small" value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} placeholder="Full name" slotProps={{ htmlInput: { maxLength: 100 } }} />
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <Label>Position</Label>
-                          <Select value={memberForm.position} onValueChange={(v) => setMemberForm({ ...memberForm, position: v })}>
-                            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                            <SelectContent>{POSITIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Seat</Label>
-                          <Select value={memberForm.memberType} onValueChange={(v) => setMemberForm({ ...memberForm, memberType: v })}>
-                            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                            <SelectContent>{MEMBER_TYPES.map((t) => <SelectItem key={t} value={t}>{t === "PARENT" ? "Parent representative" : t === "TEACHER" ? "Teacher representative" : "School administration"}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
+                        <TextField select label="Position" fullWidth size="small" value={memberForm.position} onChange={(e) => setMemberForm({ ...memberForm, position: e.target.value })}>
+                          {POSITIONS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                        </TextField>
+                        <TextField select label="Seat" fullWidth size="small" value={memberForm.memberType} onChange={(e) => setMemberForm({ ...memberForm, memberType: e.target.value })}>
+                          {MEMBER_TYPES.map((t) => <MenuItem key={t} value={t}>{t === "PARENT" ? "Parent representative" : t === "TEACHER" ? "Teacher representative" : "School administration"}</MenuItem>)}
+                        </TextField>
                       </div>
                       <div>
-                        <Label>Find existing {memberForm.memberType === "PARENT" ? "student" : memberForm.memberType === "TEACHER" ? "teacher" : "staff member"}</Label>
+                        <span className="mb-1 block text-sm font-medium leading-none">Find existing {memberForm.memberType === "PARENT" ? "student" : memberForm.memberType === "TEACHER" ? "teacher" : "staff member"}</span>
                         <div className="mt-1">
                           {memberForm.memberType === "PARENT" ? (
                             <PersonCombobox
@@ -339,66 +314,40 @@ function PtcPage() {
                         <p className="mt-1 text-xs text-muted-foreground">Fills in the fields below — you can still edit them afterwards.</p>
                       </div>
                       {memberForm.memberType === "PARENT" && (
-                        <div>
-                          <Label>Child's name</Label>
-                          <Input className="mt-1" value={memberForm.studentName} onChange={(e) => setMemberForm({ ...memberForm, studentName: e.target.value })} placeholder="Links this parent to their enrolled child" maxLength={100} />
-                        </div>
+                        <TextField label="Child's name" fullWidth size="small" value={memberForm.studentName} onChange={(e) => setMemberForm({ ...memberForm, studentName: e.target.value })} placeholder="Links this parent to their enrolled child" slotProps={{ htmlInput: { maxLength: 100 } }} />
                       )}
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <Label>Email</Label>
-                          <Input className="mt-1" type="email" value={memberForm.email} onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label>Phone</Label>
-                          <Input className="mt-1" value={memberForm.phone} onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })} placeholder="+260 966 000001" />
-                        </div>
+                        <TextField label="Email" type="email" fullWidth size="small" value={memberForm.email} onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })} />
+                        <TextField label="Phone" fullWidth size="small" value={memberForm.phone} onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })} placeholder="+260 966 000001" />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <Label>Term start</Label>
-                          <Input type="date" className="mt-1" value={memberForm.termStartDate} onChange={(e) => setMemberForm({ ...memberForm, termStartDate: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label>Term end</Label>
-                          <Input type="date" className="mt-1" value={memberForm.termEndDate} onChange={(e) => setMemberForm({ ...memberForm, termEndDate: e.target.value })} />
-                        </div>
+                        <TextField type="date" label="Term start" fullWidth size="small" value={memberForm.termStartDate} onChange={(e) => setMemberForm({ ...memberForm, termStartDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                        <TextField type="date" label="Term end" fullWidth size="small" value={memberForm.termEndDate} onChange={(e) => setMemberForm({ ...memberForm, termEndDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setMemberOpen(false)}>Cancel</Button>
-                      <Button onClick={addMember} disabled={createMemberMutation.isPending}>Add member</Button>
-                    </DialogFooter>
                   </DialogContent>
+                  <DialogActions>
+                    <Button variant="outlined" color="inherit" onClick={() => setMemberOpen(false)}>Cancel</Button>
+                    <Button variant="contained" onClick={addMember} disabled={createMemberMutation.isPending}>Add member</Button>
+                  </DialogActions>
                 </Dialog>
 
-                <Dialog open={meetingOpen} onOpenChange={setMeetingOpen}>
-                  <DialogTrigger asChild>
-                    <Button><Plus className="mr-2 h-4 w-4" /> Schedule meeting</Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-lg">
-                    <DialogHeader><DialogTitle>Schedule PTC meeting</DialogTitle></DialogHeader>
+                <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setMeetingOpen(true)}>Schedule meeting</Button>
+                <Dialog open={meetingOpen} onClose={() => setMeetingOpen(false)} maxWidth="md" fullWidth>
+                  <DialogTitle>Schedule PTC meeting</DialogTitle>
+                  <DialogContent>
                     <div className="grid gap-3">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <Label>Date *</Label>
-                          <Input type="date" className="mt-1" value={meetingForm.meetingDate} onChange={(e) => setMeetingForm({ ...meetingForm, meetingDate: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label>Expected attendees</Label>
-                          <Input type="number" min={0} className="mt-1" value={meetingForm.attendeesCount} onChange={(e) => setMeetingForm({ ...meetingForm, attendeesCount: e.target.value })} />
-                        </div>
+                        <TextField type="date" label="Date *" fullWidth size="small" value={meetingForm.meetingDate} onChange={(e) => setMeetingForm({ ...meetingForm, meetingDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                        <TextField type="number" label="Expected attendees" fullWidth size="small" slotProps={{ htmlInput: { min: 0 } }} value={meetingForm.attendeesCount} onChange={(e) => setMeetingForm({ ...meetingForm, attendeesCount: e.target.value })} />
                       </div>
-                      <div>
-                        <Label>Agenda</Label>
-                        <Textarea className="mt-1" rows={4} value={meetingForm.agenda} onChange={(e) => setMeetingForm({ ...meetingForm, agenda: e.target.value })} placeholder="Items to discuss…" maxLength={1000} />
-                      </div>
+                      <TextField label="Agenda" fullWidth size="small" multiline minRows={4} value={meetingForm.agenda} onChange={(e) => setMeetingForm({ ...meetingForm, agenda: e.target.value })} placeholder="Items to discuss…" slotProps={{ htmlInput: { maxLength: 1000 } }} />
                     </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setMeetingOpen(false)}>Cancel</Button>
-                      <Button onClick={addMeeting} disabled={createMeetingMutation.isPending}>Schedule</Button>
-                    </DialogFooter>
                   </DialogContent>
+                  <DialogActions>
+                    <Button variant="outlined" color="inherit" onClick={() => setMeetingOpen(false)}>Cancel</Button>
+                    <Button variant="contained" onClick={addMeeting} disabled={createMeetingMutation.isPending}>Schedule</Button>
+                  </DialogActions>
                 </Dialog>
               </>
             ) : undefined
@@ -413,26 +362,27 @@ function PtcPage() {
           )}
         </div>
 
-        <Tabs defaultValue="members" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="members">Membership</TabsTrigger>
-            <TabsTrigger value="meetings">Meetings</TabsTrigger>
-            {!isParent && <TabsTrigger value="budget">Budget</TabsTrigger>}
-          </TabsList>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="members" label="Membership" />
+          <Tab value="meetings" label="Meetings" />
+          {!isParent && <Tab value="budget" label="Budget" />}
+        </Tabs>
 
-          <TabsContent value="members" className="rounded-xl border border-border bg-card shadow-sm">
+        {tab === "members" && (
+          <Box className="rounded-xl border border-border bg-card shadow-sm">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Position</TableHead>
-                  <TableHead>Seat</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Term</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canEditCommittee && <TableHead className="w-8" />}
+                  <TableCell>Name</TableCell>
+                  <TableCell>Position</TableCell>
+                  <TableCell>Seat</TableCell>
+                  <TableCell>Contact</TableCell>
+                  <TableCell>Term</TableCell>
+                  <TableCell>Status</TableCell>
+                  {canEditCommittee && <TableCell className="w-8" />}
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {membersLoading ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading committee…</TableCell></TableRow>
@@ -444,15 +394,15 @@ function PtcPage() {
                       <div className="font-medium">{m.name}</div>
                       {m.studentName && <div className="text-xs text-muted-foreground">Parent of {m.studentName}</div>}
                     </TableCell>
-                    <TableCell><Badge variant={m.position === "Chairperson" ? "default" : "secondary"}>{m.position}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={m.position} sx={badgeSx(m.position === "Chairperson" ? "default" : "secondary")} /></TableCell>
                     <TableCell className="text-sm text-muted-foreground">{m.memberType}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{m.email || m.phone || "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{m.termStartDate ?? "—"}{m.termEndDate ? ` – ${m.termEndDate}` : ""}</TableCell>
-                    <TableCell><Badge variant={m.status === "INACTIVE" ? "outline" : "secondary"}>{m.status ?? "ACTIVE"}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={m.status ?? "ACTIVE"} sx={badgeSx(m.status === "INACTIVE" ? "outline" : "secondary")} /></TableCell>
                     {canEditCommittee && (
                       <TableCell>
                         <Button
-                          size="sm" variant="ghost"
+                          size="small" variant="text" color="inherit"
                           onClick={() => { if (window.confirm(`Remove ${m.name} from the committee?`)) deleteMemberMutation.mutate(m.id); }}
                         >
                           Remove
@@ -463,9 +413,12 @@ function PtcPage() {
                 ))}
               </TableBody>
             </Table>
-          </TabsContent>
+            </TableContainer>
+          </Box>
+        )}
 
-          <TabsContent value="meetings" className="grid gap-4 lg:grid-cols-2">
+        {tab === "meetings" && (
+          <Box className="grid gap-4 lg:grid-cols-2">
             {meetingsLoading ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground lg:col-span-2">Loading meetings…</div>
             ) : meetings.length === 0 ? (
@@ -478,8 +431,8 @@ function PtcPage() {
                     <p className="text-xs text-muted-foreground">Term {m.term} · {m.academicYear} · {m.attendeesCount || 0} attendees</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {m.published && <Badge variant="secondary"><CheckCircle2 className="mr-1 h-3 w-3" />Published</Badge>}
-                    <Badge variant={m.status === "HELD" ? "secondary" : m.status === "CANCELLED" ? "outline" : "default"}>{m.status}</Badge>
+                    {m.published && <Chip size="small" icon={<CheckCircle2 size={12} />} label="Published" sx={badgeSx("secondary")} />}
+                    <Chip size="small" label={m.status} sx={badgeSx(m.status === "HELD" ? "secondary" : m.status === "CANCELLED" ? "outline" : "default")} />
                   </div>
                 </div>
                 {m.agenda && <p className="text-sm"><span className="font-medium">Agenda: </span>{m.agenda}</p>}
@@ -489,7 +442,7 @@ function PtcPage() {
                   <div className="flex gap-2 pt-2">
                     <MinutesDialog schoolId={schoolId} meeting={m} canEdit={canEditCommittee} />
                     {!m.published && (
-                      <Button size="sm" onClick={() => publishMeetingMutation.mutate(m.id)} disabled={publishMeetingMutation.isPending}>
+                      <Button size="small" variant="contained" onClick={() => publishMeetingMutation.mutate(m.id)} disabled={publishMeetingMutation.isPending}>
                         Publish to parents
                       </Button>
                     )}
@@ -497,72 +450,53 @@ function PtcPage() {
                 )}
               </div>
             ))}
-          </TabsContent>
+          </Box>
+        )}
 
-          {!isParent && (
-            <TabsContent value="budget" className="space-y-4">
+        {!isParent && tab === "budget" && (
+          <Box className="space-y-4">
               {canEditBudget && (
                 <div className="flex justify-end">
-                  <Dialog open={txOpen} onOpenChange={setTxOpen}>
-                    <DialogTrigger asChild>
-                      <Button><Plus className="mr-2 h-4 w-4" /> Record transaction</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg">
-                      <DialogHeader><DialogTitle>Record PTC transaction</DialogTitle></DialogHeader>
+                  <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setTxOpen(true)}>Record transaction</Button>
+                  <Dialog open={txOpen} onClose={() => setTxOpen(false)} maxWidth="md" fullWidth>
+                    <DialogTitle>Record PTC transaction</DialogTitle>
+                    <DialogContent>
                       <div className="grid gap-3">
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <Label>Date</Label>
-                            <Input type="date" className="mt-1" value={txForm.date} onChange={(e) => setTxForm({ ...txForm, date: e.target.value })} />
-                          </div>
-                          <div>
-                            <Label>Type</Label>
-                            <Select value={txForm.type} onValueChange={(v) => setTxForm({ ...txForm, type: v })}>
-                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="INCOME">Income</SelectItem>
-                                <SelectItem value="EXPENSE">Expense</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <TextField type="date" label="Date" fullWidth size="small" value={txForm.date} onChange={(e) => setTxForm({ ...txForm, date: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                          <TextField select label="Type" fullWidth size="small" value={txForm.type} onChange={(e) => setTxForm({ ...txForm, type: e.target.value })}>
+                            <MenuItem value="INCOME">Income</MenuItem>
+                            <MenuItem value="EXPENSE">Expense</MenuItem>
+                          </TextField>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <Label>Category</Label>
-                            <Select value={txForm.category} onValueChange={(v) => setTxForm({ ...txForm, category: v })}>
-                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                              <SelectContent>{TX_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>Amount (K) *</Label>
-                            <Input type="number" min={1} className="mt-1" value={txForm.amount} onChange={(e) => setTxForm({ ...txForm, amount: e.target.value })} />
-                          </div>
+                          <TextField select label="Category" fullWidth size="small" value={txForm.category} onChange={(e) => setTxForm({ ...txForm, category: e.target.value })}>
+                            {TX_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                          </TextField>
+                          <TextField type="number" label="Amount (K) *" fullWidth size="small" slotProps={{ htmlInput: { min: 1 } }} value={txForm.amount} onChange={(e) => setTxForm({ ...txForm, amount: e.target.value })} />
                         </div>
-                        <div>
-                          <Label>Description</Label>
-                          <Input className="mt-1" value={txForm.description} onChange={(e) => setTxForm({ ...txForm, description: e.target.value })} placeholder="e.g. Term 1 bake sale proceeds" maxLength={200} />
-                        </div>
+                        <TextField label="Description" fullWidth size="small" value={txForm.description} onChange={(e) => setTxForm({ ...txForm, description: e.target.value })} placeholder="e.g. Term 1 bake sale proceeds" slotProps={{ htmlInput: { maxLength: 200 } }} />
                       </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setTxOpen(false)}>Cancel</Button>
-                        <Button onClick={addTransaction} disabled={createTxMutation.isPending}>Record</Button>
-                      </DialogFooter>
                     </DialogContent>
+                    <DialogActions>
+                      <Button variant="outlined" color="inherit" onClick={() => setTxOpen(false)}>Cancel</Button>
+                      <Button variant="contained" onClick={addTransaction} disabled={createTxMutation.isPending}>Record</Button>
+                    </DialogActions>
                   </Dialog>
                 </div>
               )}
               <div className="rounded-xl border border-border bg-card shadow-sm">
+                <TableContainer>
                 <Table>
-                  <TableHeader>
+                  <TableHead>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Recorded by</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Category</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell>Recorded by</TableCell>
+                      <TableCell className="text-right">Amount</TableCell>
                     </TableRow>
-                  </TableHeader>
+                  </TableHead>
                   <TableBody>
                     {txLoading ? (
                       <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading transactions…</TableCell></TableRow>
@@ -571,7 +505,7 @@ function PtcPage() {
                     ) : transactions.map((t) => (
                       <TableRow key={t.id}>
                         <TableCell className="text-xs text-muted-foreground">{t.date}</TableCell>
-                        <TableCell><Badge variant="outline">{t.category}</Badge></TableCell>
+                        <TableCell><Chip size="small" label={t.category} sx={badgeSx("outline")} /></TableCell>
                         <TableCell className="text-sm text-muted-foreground">{t.description || "—"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{t.recordedBy || "—"}</TableCell>
                         <TableCell className={`text-right font-medium tabular-nums ${t.type === "EXPENSE" ? "text-destructive" : "text-emerald-600"}`}>
@@ -581,10 +515,10 @@ function PtcPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </TableContainer>
               </div>
-            </TabsContent>
-          )}
-        </Tabs>
+          </Box>
+        )}
       </div>
     </AccessGuard>
   );

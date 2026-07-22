@@ -19,31 +19,24 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
+  Chip,
+  Button,
+  MenuItem,
+  TextField,
+  TableContainer,
   Table,
-  TableBody,
-  TableCell,
   TableHead,
-  TableHeader,
+  TableBody,
   TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
+  TableCell,
+} from "@mui/material";
 import { gradingBandForPercentage, useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
-import { gradeBadgeClass } from "@/lib/utils";
+import { badgeSx, gradeChipSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/report-card")({
   head: () => ({ meta: [{ title: "Report Card — SRMS" }] }),
@@ -190,15 +183,18 @@ function CommentSection({
           )}
         </div>
         {canEditTeacher && editingTc ? (
-          <Textarea
-            ref={tcRef}
-            className="mt-1"
-            rows={3}
+          <TextField
+            inputRef={tcRef}
+            multiline
+            minRows={3}
             value={tc}
             onChange={(e) => setTc(e.target.value)}
             onBlur={() => save(tc, hc)}
             placeholder="Enter class teacher's comment…"
-            maxLength={500}
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            fullWidth
+            size="small"
+            sx={{ mt: 1 }}
           />
         ) : (
           <p
@@ -236,15 +232,18 @@ function CommentSection({
           )}
         </div>
         {canEditHead && editingHc ? (
-          <Textarea
-            ref={hcRef}
-            className="mt-1"
-            rows={3}
+          <TextField
+            inputRef={hcRef}
+            multiline
+            minRows={3}
             value={hc}
             onChange={(e) => setHc(e.target.value)}
             onBlur={() => save(tc, hc)}
             placeholder="Enter head teacher's comment…"
-            maxLength={500}
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            fullWidth
+            size="small"
+            sx={{ mt: 1 }}
           />
         ) : (
           <p
@@ -301,13 +300,13 @@ function ReportCardPage() {
   // Parents only ever see their own children — never the school's full roster.
   const { data: students = [], isLoading } = useQuery({
     queryKey: isParent
-      ? ["guardian-children", active.id, user?.email]
+      ? ["guardian-children", active.id, user?.email, user?.phone]
       : ["students", active.id, teacherEmail],
     queryFn: () =>
       isParent
-        ? api.students.listByGuardian(active.id, user!.email)
+        ? api.students.listByGuardian(active.id, { email: user?.email, phone: user?.phone })
         : api.students.list(active.id, teacherEmail),
-    enabled: !!active.id && (!isParent || !!user?.email),
+    enabled: !!active.id && (!isParent || !!(user?.email || user?.phone)),
   });
 
   const { data: termGradeHistory = [], isLoading: termGradesLoading } = useQuery({
@@ -398,15 +397,14 @@ function ReportCardPage() {
           actions={
             <div className="flex items-center gap-2 print:hidden">
               <Button
-                variant="outline"
+                variant="outlined"
+                startIcon={<Download size={16} />}
                 onClick={() => window.print()}
                 disabled={!selectedId || subjects.length === 0}
               >
-                <Download className="mr-2 h-4 w-4" />
                 Save as PDF
               </Button>
-              <Button onClick={() => window.print()} disabled={!selectedId || subjects.length === 0}>
-                <Printer className="mr-2 h-4 w-4" />
+              <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => window.print()} disabled={!selectedId || subjects.length === 0}>
                 Print report
               </Button>
             </div>
@@ -429,62 +427,58 @@ function ReportCardPage() {
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <Label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                  Learner
-                </Label>
-                <Select value={selectedId} onValueChange={setSelectedId}>
-                  <SelectTrigger className="mt-1 w-full bg-background sm:w-64">
-                    <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder={isLoading ? "Loading…" : "Select learner"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {displayStudents.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.label}
-                        {s.grade ? ` — ${s.grade}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                  Academic term
-                </Label>
-                <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-                  <SelectTrigger className="mt-1 w-full bg-background sm:w-36">
-                    <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TERM_OPTIONS.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TextField
+                select
+                label="Learner"
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                size="small"
+                className="w-full bg-background sm:w-64"
+                slotProps={{
+                  input: { startAdornment: <UserRound className="mr-2 h-4 w-4 text-muted-foreground" /> },
+                }}
+              >
+                {displayStudents.length === 0 ? (
+                  <MenuItem value="" disabled>{isLoading ? "Loading…" : "Select learner"}</MenuItem>
+                ) : displayStudents.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    {s.label}
+                    {s.grade ? ` — ${s.grade}` : ""}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Academic term"
+                value={selectedTerm}
+                onChange={(e) => setSelectedTerm(e.target.value)}
+                size="small"
+                className="w-full bg-background sm:w-36"
+                slotProps={{
+                  input: { startAdornment: <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" /> },
+                }}
+              >
+                {TERM_OPTIONS.map((t) => (
+                  <MenuItem key={t.value} value={t.value}>
+                    {t.label}
+                  </MenuItem>
+                ))}
+              </TextField>
               {active.resultPublicationMode === "SEPARATE" && (
-                <div>
-                  <Label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                    Release
-                  </Label>
-                  <Select
-                    value={reportingPeriod}
-                    onValueChange={(value) => setReportingPeriod(value as "MIDTERM" | "END_TERM")}
-                  >
-                    <SelectTrigger className="mt-1 w-full bg-background sm:w-40">
-                      <FileCheck2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MIDTERM">Mid-term</SelectItem>
-                      <SelectItem value="END_TERM">End-of-term</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  select
+                  label="Release"
+                  value={reportingPeriod}
+                  onChange={(e) => setReportingPeriod(e.target.value as "MIDTERM" | "END_TERM")}
+                  size="small"
+                  className="w-full bg-background sm:w-40"
+                  slotProps={{
+                    input: { startAdornment: <FileCheck2 className="mr-2 h-4 w-4 text-muted-foreground" /> },
+                  }}
+                >
+                  <MenuItem value="MIDTERM">Mid-term</MenuItem>
+                  <MenuItem value="END_TERM">End-of-term</MenuItem>
+                </TextField>
               )}
             </div>
           </div>
@@ -524,13 +518,12 @@ function ReportCardPage() {
                 </p>
               </div>
             </div>
-            <Badge
-              variant="outline"
-              className={`w-fit gap-1.5 ${reportIsLoading ? "border-primary/30 bg-primary/5 text-primary" : reportIsPublished ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"}`}
-            >
-              {reportIsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole className="h-3 w-3" />}
-              {reportIsLoading ? "Checking…" : reportIsPublished ? "Locked snapshot" : "Not yet released"}
-            </Badge>
+            <Chip
+              size="small"
+              icon={reportIsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <LockKeyhole size={12} />}
+              label={reportIsLoading ? "Checking…" : reportIsPublished ? "Locked snapshot" : "Not yet released"}
+              sx={{ ...badgeSx(reportIsLoading ? "default" : reportIsPublished ? "success" : "warning"), width: "fit-content" }}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-5 border-b border-border p-6 text-sm sm:grid-cols-4">
@@ -553,19 +546,20 @@ function ReportCardPage() {
           </div>
 
           <div className="overflow-x-auto" role="region" aria-label="Subject results" tabIndex={0}>
+          <TableContainer>
           <Table className="min-w-[760px]">
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Subject</TableHead>
-                <TableHead className="text-right">CA %</TableHead>
-                <TableHead className="text-right">Midterm %</TableHead>
-                <TableHead className="text-right">Exam %</TableHead>
-                <TableHead className="text-right">Weighted total</TableHead>
-                <TableHead className="text-right">Class avg</TableHead>
-                <TableHead>Grade</TableHead>
-                <TableHead>Remarks</TableHead>
+                <TableCell>Subject</TableCell>
+                <TableCell className="text-right">CA %</TableCell>
+                <TableCell className="text-right">Midterm %</TableCell>
+                <TableCell className="text-right">Exam %</TableCell>
+                <TableCell className="text-right">Weighted total</TableCell>
+                <TableCell className="text-right">Class avg</TableCell>
+                <TableCell>Grade</TableCell>
+                <TableCell>Remarks</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {subjects.length === 0 ? (
                 <TableRow>
@@ -603,7 +597,7 @@ function ReportCardPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge className={gradeBadgeClass(s.grade)}>{s.grade}</Badge>
+                      <Chip size="small" label={s.grade} sx={gradeChipSx(s.grade)} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {s.description || "—"}
@@ -613,6 +607,7 @@ function ReportCardPage() {
               )}
             </TableBody>
           </Table>
+          </TableContainer>
           </div>
 
           <div className="grid grid-cols-2 gap-3 border-t border-border bg-muted/20 p-6 lg:grid-cols-4">

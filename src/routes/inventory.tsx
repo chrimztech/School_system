@@ -6,18 +6,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Box, Button, Chip, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { downloadCsv } from "@/lib/utils";
+import { downloadCsv, badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({ meta: [{ title: "Inventory & Procurement — SRMS" }] }),
@@ -34,6 +27,7 @@ function InventoryPage() {
 
   const [lowOnly, setLowOnly] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [tab, setTab] = useState("stock");
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -144,7 +138,7 @@ function InventoryPage() {
         description="Stock control, suppliers, purchase orders and goods-received notes."
         actions={
           <>
-            <Button variant="outline" onClick={() => {
+            <Button variant="outlined" onClick={() => {
               if (stockItems.length === 0) { toast.error("No items to export"); return; }
               downloadCsv(stockItems.map((i: any) => ({
                 Code: i.code ?? i.itemCode ?? "",
@@ -161,110 +155,185 @@ function InventoryPage() {
                 "Last Restocked": i.lastRestockedDate ?? "",
               })), `stock-take-${new Date().toISOString().slice(0, 10)}`);
             }}>Stock take</Button>
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Add item</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Add stock item</DialogTitle></DialogHeader>
+            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setAddOpen(true)}>Add item</Button>
+            <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Add stock item</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Item code *</Label>
-                    <Input className="mt-1" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="STA-022" maxLength={20} />
-                  </div>
-                  <div>
-                    <Label>Category</Label>
-                    <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+                  <TextField
+                    label="Item code *"
+                    value={form.code}
+                    onChange={(e) => setForm({ ...form, code: e.target.value })}
+                    placeholder="STA-022"
+                    slotProps={{ htmlInput: { maxLength: 20 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Category"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
                   <div className="col-span-2">
-                    <Label>Item name *</Label>
-                    <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Printer ink cartridges" maxLength={100} />
+                    <TextField
+                      label="Item name *"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Printer ink cartridges"
+                      slotProps={{ htmlInput: { maxLength: 100 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
-                  <div>
-                    <Label>Quantity</Label>
-                    <Input className="mt-1" type="number" min={0} value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} placeholder="0" />
-                  </div>
-                  <div>
-                    <Label>Min reorder</Label>
-                    <Input className="mt-1" type="number" min={1} value={form.min} onChange={(e) => setForm({ ...form, min: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Unit</Label>
-                    <Input className="mt-1" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="pcs" maxLength={20} />
-                  </div>
-                  <div>
-                    <Label>Unit cost (K)</Label>
-                    <Input className="mt-1" type="number" min={0} value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="0" />
-                  </div>
-                  <div>
-                    <Label>Location</Label>
-                    <Select value={form.location} onValueChange={(v) => setForm({ ...form, location: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{LOCATIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Condition</Label>
-                    <Select value={form.condition} onValueChange={(v) => setForm({ ...form, condition: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["New", "Good", "Fair", "Poor"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Supplier name</Label>
-                    <Input className="mt-1" value={form.supplierName} onChange={(e) => setForm({ ...form, supplierName: e.target.value })} placeholder="Saro Agro Stationers" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Barcode / SKU</Label>
-                    <Input className="mt-1" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="6009880123456" maxLength={50} />
-                  </div>
-                  <div>
-                    <Label>Serial number</Label>
-                    <Input className="mt-1" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} placeholder="SN-2026-00123" maxLength={50} />
-                  </div>
-                  <div>
-                    <Label>Asset tag</Label>
-                    <Input className="mt-1" value={form.assetTag} onChange={(e) => setForm({ ...form, assetTag: e.target.value })} placeholder="ASSET-00441" maxLength={30} />
-                  </div>
-                  <div>
-                    <Label>Last restocked</Label>
-                    <Input className="mt-1" type="date" value={form.lastRestockedDate} onChange={(e) => setForm({ ...form, lastRestockedDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Expiry date</Label>
-                    <Input className="mt-1" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Warranty expiry</Label>
-                    <Input className="mt-1" type="date" value={form.warrantyExpiry} onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Status</Label>
-                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="IN_STOCK">In stock</SelectItem>
-                        <SelectItem value="LOW_STOCK">Low stock</SelectItem>
-                        <SelectItem value="OUT_OF_STOCK">Out of stock</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TextField
+                    label="Quantity"
+                    type="number"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={form.qty}
+                    onChange={(e) => setForm({ ...form, qty: e.target.value })}
+                    placeholder="0"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Min reorder"
+                    type="number"
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    value={form.min}
+                    onChange={(e) => setForm({ ...form, min: e.target.value })}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Unit"
+                    value={form.unit}
+                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                    placeholder="pcs"
+                    slotProps={{ htmlInput: { maxLength: 20 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Unit cost (K)"
+                    type="number"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={form.cost}
+                    onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                    placeholder="0"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Location"
+                    value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {LOCATIONS.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Condition"
+                    value={form.condition}
+                    onChange={(e) => setForm({ ...form, condition: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["New", "Good", "Fair", "Poor"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Supplier name"
+                    value={form.supplierName}
+                    onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
+                    placeholder="Saro Agro Stationers"
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Barcode / SKU"
+                    value={form.barcode}
+                    onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                    placeholder="6009880123456"
+                    slotProps={{ htmlInput: { maxLength: 50 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Serial number"
+                    value={form.serialNumber}
+                    onChange={(e) => setForm({ ...form, serialNumber: e.target.value })}
+                    placeholder="SN-2026-00123"
+                    slotProps={{ htmlInput: { maxLength: 50 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Asset tag"
+                    value={form.assetTag}
+                    onChange={(e) => setForm({ ...form, assetTag: e.target.value })}
+                    placeholder="ASSET-00441"
+                    slotProps={{ htmlInput: { maxLength: 30 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Last restocked"
+                    type="date"
+                    value={form.lastRestockedDate}
+                    onChange={(e) => setForm({ ...form, lastRestockedDate: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Expiry date"
+                    type="date"
+                    value={form.expiryDate}
+                    onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Warranty expiry"
+                    type="date"
+                    value={form.warrantyExpiry}
+                    onChange={(e) => setForm({ ...form, warrantyExpiry: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Status"
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="IN_STOCK">In stock</MenuItem>
+                    <MenuItem value="LOW_STOCK">Low stock</MenuItem>
+                    <MenuItem value="OUT_OF_STOCK">Out of stock</MenuItem>
+                  </TextField>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-                  <Button onClick={addItem} disabled={createMutation.isPending}>
-                    {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add item
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions className="mt-2">
+                <Button variant="outlined" color="inherit" onClick={() => setAddOpen(false)}>Cancel</Button>
+                <Button onClick={addItem} disabled={createMutation.isPending}>
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Add item
+                </Button>
+              </DialogActions>
             </Dialog>
-            <Button variant="outline" asChild><Link to="/procurement"><Plus className="mr-1 h-4 w-4" />New PO</Link></Button>
+            <Button variant="outlined" component={Link} to="/procurement" startIcon={<Plus className="h-4 w-4" />}>New PO</Button>
           </>
         }
       />
@@ -276,18 +345,19 @@ function InventoryPage() {
         <StatCard label="Suppliers" value={0} accent="success" icon={<Truck className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="stock">
-        <TabsList>
-          <TabsTrigger value="stock">Stock</TabsTrigger>
-          <TabsTrigger value="po">Purchase orders</TabsTrigger>
-          <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
-          <TabsTrigger value="grn">Goods received</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="stock" label="Stock" />
+        <Tab value="po" label="Purchase orders" />
+        <Tab value="suppliers" label="Suppliers" />
+        <Tab value="grn" label="Goods received" />
+      </Tabs>
 
-        <TabsContent value="stock" className="rounded-xl border border-border bg-card">
+      {tab === "stock" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border p-3">
             <p className="text-sm font-medium">All items</p>
-            <Button size="sm" variant={lowOnly ? "default" : "outline"} onClick={() => setLowOnly((v) => !v)}>
+            <Button size="small" variant={lowOnly ? "contained" : "outlined"} onClick={() => setLowOnly((v) => !v)}>
               {lowOnly ? "Show all" : `Show low stock (${lowCount})`}
             </Button>
           </div>
@@ -296,12 +366,13 @@ function InventoryPage() {
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading stock…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Code</TableHead><TableHead>Item</TableHead><TableHead>Category</TableHead>
-                <TableHead>Qty</TableHead><TableHead>Unit</TableHead><TableHead>Location</TableHead>
-                <TableHead>Unit cost</TableHead><TableHead className="text-right">Action</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Code</TableCell><TableCell>Item</TableCell><TableCell>Category</TableCell>
+                <TableCell>Qty</TableCell><TableCell>Unit</TableCell><TableCell>Location</TableCell>
+                <TableCell>Unit cost</TableCell><TableCell className="text-right">Action</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {visible.map((i: any) => {
                   const qty = i.qty ?? i.quantity ?? 0;
@@ -313,13 +384,13 @@ function InventoryPage() {
                       <TableCell className="font-medium">{i.name}</TableCell>
                       <TableCell>{i.category}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={low ? "text-destructive" : "text-success"}>{qty}</Badge>
+                        <Chip size="small" label={qty} sx={badgeSx(low ? "destructive" : "success")} />
                       </TableCell>
                       <TableCell>{i.unit}</TableCell>
                       <TableCell className="text-muted-foreground">{i.location}</TableCell>
                       <TableCell>K {(i.cost ?? i.unitCost ?? 0).toLocaleString()}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" disabled={reorderMutation.isPending} onClick={() => reorderMutation.mutate(i)}>
+                        <Button size="small" variant="text" color="inherit" disabled={reorderMutation.isPending} onClick={() => reorderMutation.mutate(i)}>
                           Reorder
                         </Button>
                       </TableCell>
@@ -331,33 +402,41 @@ function InventoryPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="po" className="rounded-xl border border-border bg-card">
+      {tab === "po" && (
+        <Box className="rounded-xl border border-border bg-card">
           <EmptyState
             icon={ShoppingCart}
             title="No purchase orders yet"
             description="Purchase orders raised against suppliers will appear here."
           />
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="suppliers" className="rounded-xl border border-border bg-card">
+      {tab === "suppliers" && (
+        <Box className="rounded-xl border border-border bg-card">
           <EmptyState
             icon={Truck}
             title="No suppliers on file yet"
             description="Registered suppliers and their contact details will appear here."
           />
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="grn" className="rounded-xl border border-border bg-card p-5">
+      {tab === "grn" && (
+        <Box className="rounded-xl border border-border bg-card p-5">
           <EmptyState
             icon={Package}
             title="No goods received yet"
             description="Delivery records against purchase orders will appear here."
           />
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
     </AccessGuard>
   );

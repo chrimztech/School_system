@@ -4,18 +4,12 @@ import { Building2, ClipboardCheck, Plus, Wrench } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Box, Button, Chip, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/facilities")({
   head: () => ({ meta: [{ title: "Facilities - SRMS" }] }),
@@ -81,93 +75,149 @@ function FacilitiesPage() {
         description="Coordinate work orders, asset readiness, and preventive maintenance across campus operations."
         actions={
           <>
-            <Button variant="outline" asChild><Link to="/incident-management">Incident queue</Link></Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Log work order</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Log work order</DialogTitle></DialogHeader>
+            <Button component={Link} to="/incident-management" variant="outlined">Incident queue</Button>
+            <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Log work order</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Log work order</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <Label>Issue title *</Label>
-                    <Input className="mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Repair leaking roof panel, Block A" maxLength={120} />
+                    <TextField
+                      label="Issue title *"
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      placeholder="e.g. Repair leaking roof panel, Block A"
+                      slotProps={{ htmlInput: { maxLength: 120 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
-                  <div>
-                    <Label>Location *</Label>
-                    <Input className="mt-1" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Form 2 Block, Lab 2" maxLength={80} />
-                  </div>
-                  <div>
-                    <Label>Work order type</Label>
-                    <Select value={form.workOrderType} onValueChange={(v) => setForm({ ...form, workOrderType: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Repair", "Inspection", "Installation", "Cleaning", "Safety check", "Electrical", "Plumbing"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Assigned to</Label>
-                    <Select value={form.owner} onValueChange={(v) => setForm({ ...form, owner: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Facilities", "Maintenance", "Electrical team", "Safety officer", "Transport", "Contractor"].map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Contractor / technician</Label>
-                    <Input className="mt-1" value={form.contractorAssigned} onChange={(e) => setForm({ ...form, contractorAssigned: e.target.value })} placeholder="Name or company if external" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>Priority</Label>
-                    <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v as "High" | "Medium" | "Low" })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["High", "Medium", "Low"].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Safety risk</Label>
-                    <Select value={form.safetyRisk} onValueChange={(v) => setForm({ ...form, safetyRisk: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no">No immediate risk</SelectItem>
-                        <SelectItem value="yes">Yes — area restricted</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Due date</Label>
-                    <Input className="mt-1" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Target completion date</Label>
-                    <Input className="mt-1" type="date" value={form.completionDate} onChange={(e) => setForm({ ...form, completionDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Cost estimate (K)</Label>
-                    <Input className="mt-1" type="number" min={0} value={form.costEstimate} onChange={(e) => setForm({ ...form, costEstimate: e.target.value })} placeholder="e.g. 4500" />
-                  </div>
-                  <div>
-                    <Label>Budget code</Label>
-                    <Input className="mt-1" value={form.budgetCode} onChange={(e) => setForm({ ...form, budgetCode: e.target.value })} placeholder="e.g. FAC-2026-MNT" maxLength={40} />
+                  <TextField
+                    label="Location *"
+                    value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    placeholder="e.g. Form 2 Block, Lab 2"
+                    slotProps={{ htmlInput: { maxLength: 80 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Work order type"
+                    value={form.workOrderType}
+                    onChange={(e) => setForm({ ...form, workOrderType: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["Repair", "Inspection", "Installation", "Cleaning", "Safety check", "Electrical", "Plumbing"].map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Assigned to"
+                    value={form.owner}
+                    onChange={(e) => setForm({ ...form, owner: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["Facilities", "Maintenance", "Electrical team", "Safety officer", "Transport", "Contractor"].map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Contractor / technician"
+                    value={form.contractorAssigned}
+                    onChange={(e) => setForm({ ...form, contractorAssigned: e.target.value })}
+                    placeholder="Name or company if external"
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Priority"
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value as "High" | "Medium" | "Low" })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["High", "Medium", "Low"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Safety risk"
+                    value={form.safetyRisk}
+                    onChange={(e) => setForm({ ...form, safetyRisk: e.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="no">No immediate risk</MenuItem>
+                    <MenuItem value="yes">Yes — area restricted</MenuItem>
+                  </TextField>
+                  <TextField
+                    type="date"
+                    label="Due date"
+                    value={form.dueDate}
+                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="date"
+                    label="Target completion date"
+                    value={form.completionDate}
+                    onChange={(e) => setForm({ ...form, completionDate: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="number"
+                    label="Cost estimate (K)"
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    value={form.costEstimate}
+                    onChange={(e) => setForm({ ...form, costEstimate: e.target.value })}
+                    placeholder="e.g. 4500"
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Budget code"
+                    value={form.budgetCode}
+                    onChange={(e) => setForm({ ...form, budgetCode: e.target.value })}
+                    placeholder="e.g. FAC-2026-MNT"
+                    slotProps={{ htmlInput: { maxLength: 40 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <div className="col-span-2">
+                    <TextField
+                      label="Parts / materials required"
+                      value={form.partsRequired}
+                      onChange={(e) => setForm({ ...form, partsRequired: e.target.value })}
+                      placeholder="e.g. 3× roof sheets, sealant, labour"
+                      slotProps={{ htmlInput: { maxLength: 200 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                   <div className="col-span-2">
-                    <Label>Parts / materials required</Label>
-                    <Input className="mt-1" value={form.partsRequired} onChange={(e) => setForm({ ...form, partsRequired: e.target.value })} placeholder="e.g. 3× roof sheets, sealant, labour" maxLength={200} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Description / fault details</Label>
-                    <Textarea className="mt-1" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe the fault, extent of damage, and any interim measures taken" maxLength={500} />
+                    <TextField
+                      label="Description / fault details"
+                      multiline
+                      minRows={3}
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      placeholder="Describe the fault, extent of damage, and any interim measures taken"
+                      slotProps={{ htmlInput: { maxLength: 500 } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={addWorkOrder} disabled={createMut.isPending}>Create work order</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button onClick={addWorkOrder} disabled={createMut.isPending}>Create work order</Button>
+              </DialogActions>
             </Dialog>
           </>
         }
@@ -180,25 +230,27 @@ function FacilitiesPage() {
         <StatCard label="Campus uptime" value="—" hint="Not tracked" accent="success" icon={<Building2 className="h-4 w-4" />} />
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="work-orders">Work orders</TabsTrigger>
-          <TabsTrigger value="assets">Assets</TabsTrigger>
-          <TabsTrigger value="maintenance">Preventive maintenance</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2 }}>
+        <Tab value="work-orders" label="Work orders" />
+        <Tab value="assets" label="Assets" />
+        <Tab value="maintenance" label="Preventive maintenance" />
+      </Tabs>
 
-        <TabsContent value="work-orders" className="mt-4">
+      {tab === "work-orders" && (
+        <Box className="mt-4">
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Issue</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Due date</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableCell>Issue</TableCell>
+                  <TableCell>Owner</TableCell>
+                  <TableCell>Priority</TableCell>
+                  <TableCell>Due date</TableCell>
+                  <TableCell>Status</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {isLoading ? (
                   <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -210,34 +262,47 @@ function FacilitiesPage() {
                     </TableCell>
                     <TableCell>{o.owner}</TableCell>
                     <TableCell>
-                      <Badge variant={o.priority === "High" ? "destructive" : o.priority === "Medium" ? "warning" : "outline"}>{o.priority}</Badge>
+                      <Chip
+                        size="small"
+                        label={o.priority}
+                        sx={badgeSx(o.priority === "High" ? "destructive" : o.priority === "Medium" ? "warning" : "outline")}
+                      />
                     </TableCell>
                     <TableCell>{o.dueDate}</TableCell>
                     <TableCell>
-                      <Select value={o.status} onValueChange={(v) => { updateMut.mutate({ id: o.id, status: v }); toast.success(`Updated to ${v}`); }}>
-                        <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["Open", "Scheduled", "In progress", "Closed"].map((s) => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <TextField
+                        select
+                        size="small"
+                        className="w-36"
+                        value={o.status}
+                        onChange={(e) => { updateMut.mutate({ id: o.id, status: e.target.value }); toast.success(`Updated to ${e.target.value}`); }}
+                      >
+                        {["Open", "Scheduled", "In progress", "Closed"].map((s) => (
+                          <MenuItem key={s} value={s}>{s}</MenuItem>
+                        ))}
+                      </TextField>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="assets" className="mt-4">
+      {tab === "assets" && (
+        <Box className="mt-4">
           <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="maintenance" className="mt-4">
+      {tab === "maintenance" && (
+        <Box className="mt-4">
           <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
   );
 }

@@ -4,19 +4,12 @@ import { ShoppingBag, AlertTriangle, TrendingUp, Plus, Loader2, CheckCircle2, XC
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Chip, Button, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, Box, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/canteen")({
   head: () => ({ meta: [{ title: "Canteen - SRMS" }] }),
@@ -107,6 +100,7 @@ function CanteenPage() {
   const schoolId = active.id;
   const qc = useQueryClient();
 
+  const [tab, setTab] = useState("access");
   const [saleOpen, setSaleOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [accessSearch, setAccessSearch] = useState("");
@@ -316,96 +310,59 @@ function CanteenPage() {
         title="Canteen & Dining Hall"
         description="Standard meals are included in school fees — pupils with cleared fees have automatic dining access. Use extra sales for snacks and supplements purchased separately."
         actions={
-          <Dialog open={saleOpen} onOpenChange={setSaleOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Record extra sale</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Record extra sale</DialogTitle>
-                <p className="text-sm text-muted-foreground">For snacks, supplements, or items not covered by school fees.</p>
-              </DialogHeader>
+          <>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setSaleOpen(true)}>Record extra sale</Button>
+            <Dialog open={saleOpen} onClose={() => setSaleOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Record extra sale</DialogTitle>
+              <DialogContent>
+              <DialogContentText sx={{ mb: 2 }}>For snacks, supplements, or items not covered by school fees.</DialogContentText>
               <div className="grid gap-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label>Item</Label>
-                    <Select value={saleForm.item} onValueChange={(v) => setSaleForm({ ...saleForm, item: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select item" /></SelectTrigger>
-                      <SelectContent>
-                        {availableItems.map((item: any) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name} — K {item.price ?? item.unitPrice}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Sale date</Label>
-                    <Input type="date" className="mt-1" value={saleForm.orderDate} onChange={(e) => setSaleForm({ ...saleForm, orderDate: e.target.value })} />
-                  </div>
+                  <TextField select label="Item" fullWidth size="small" value={saleForm.item} onChange={(e) => setSaleForm({ ...saleForm, item: e.target.value })}>
+                    <MenuItem value="" disabled>Select item</MenuItem>
+                    {availableItems.map((item: any) => (
+                      <MenuItem key={item.id} value={item.id}>
+                        {item.name} — K {item.price ?? item.unitPrice}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField type="date" label="Sale date" fullWidth size="small" value={saleForm.orderDate} onChange={(e) => setSaleForm({ ...saleForm, orderDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <Label>Quantity</Label>
-                    <Input className="mt-1" type="number" min={1} value={saleForm.qty} onChange={(e) => setSaleForm({ ...saleForm, qty: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Payment method</Label>
-                    <Select value={saleForm.method} onValueChange={(v) => setSaleForm({ ...saleForm, method: v as (typeof PAYMENT_METHODS)[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Status</Label>
-                    <Select value={saleForm.status} onValueChange={(v) => setSaleForm({ ...saleForm, status: v as (typeof SALE_STATUSES)[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{SALE_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+                  <TextField label="Quantity" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 1 } }} value={saleForm.qty} onChange={(e) => setSaleForm({ ...saleForm, qty: e.target.value })} />
+                  <TextField select label="Payment method" fullWidth size="small" value={saleForm.method} onChange={(e) => setSaleForm({ ...saleForm, method: e.target.value as (typeof PAYMENT_METHODS)[number] })}>
+                    {PAYMENT_METHODS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Status" fullWidth size="small" value={saleForm.status} onChange={(e) => setSaleForm({ ...saleForm, status: e.target.value as (typeof SALE_STATUSES)[number] })}>
+                    {SALE_STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  </TextField>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <Label>Customer type</Label>
-                    <Select value={saleForm.customerType} onValueChange={(v) => setSaleForm({ ...saleForm, customerType: v as (typeof CUSTOMER_TYPES)[number] })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="STUDENT">Student</SelectItem>
-                        <SelectItem value="STAFF">Staff</SelectItem>
-                        <SelectItem value="WALK_IN">Walk-in</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label>{saleForm.customerType === "STUDENT" ? "Student name" : saleForm.customerType === "STAFF" ? "Staff name" : "Walk-in label"}</Label>
-                    <Input
-                      className="mt-1"
-                      value={saleForm.customerType === "WALK_IN" ? "Walk-in" : saleForm.customerName}
-                      onChange={(e) => setSaleForm({ ...saleForm, customerName: e.target.value })}
-                      placeholder={saleForm.customerType === "STUDENT" ? "Mwila Chanda" : saleForm.customerType === "STAFF" ? "Mrs. Lungu" : "Walk-in"}
-                      disabled={saleForm.customerType === "WALK_IN"}
-                    />
-                  </div>
+                  <TextField select label="Customer type" fullWidth size="small" value={saleForm.customerType} onChange={(e) => setSaleForm({ ...saleForm, customerType: e.target.value as (typeof CUSTOMER_TYPES)[number] })}>
+                    <MenuItem value="STUDENT">Student</MenuItem>
+                    <MenuItem value="STAFF">Staff</MenuItem>
+                    <MenuItem value="WALK_IN">Walk-in</MenuItem>
+                  </TextField>
+                  <TextField
+                    className="sm:col-span-2"
+                    label={saleForm.customerType === "STUDENT" ? "Student name" : saleForm.customerType === "STAFF" ? "Staff name" : "Walk-in label"}
+                    fullWidth
+                    size="small"
+                    value={saleForm.customerType === "WALK_IN" ? "Walk-in" : saleForm.customerName}
+                    onChange={(e) => setSaleForm({ ...saleForm, customerName: e.target.value })}
+                    placeholder={saleForm.customerType === "STUDENT" ? "Mwila Chanda" : saleForm.customerType === "STAFF" ? "Mrs. Lungu" : "Walk-in"}
+                    disabled={saleForm.customerType === "WALK_IN"}
+                  />
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label>Admission / staff no.</Label>
-                    <Input className="mt-1" value={saleForm.customerId} onChange={(e) => setSaleForm({ ...saleForm, customerId: e.target.value })} placeholder="Optional" />
-                  </div>
-                  <div>
-                    <Label>Receipt / reference</Label>
-                    <Input className="mt-1" value={saleForm.reference} onChange={(e) => setSaleForm({ ...saleForm, reference: e.target.value })} placeholder="POS slip, MoMo ref" />
-                  </div>
+                  <TextField label="Admission / staff no." fullWidth size="small" value={saleForm.customerId} onChange={(e) => setSaleForm({ ...saleForm, customerId: e.target.value })} placeholder="Optional" />
+                  <TextField label="Receipt / reference" fullWidth size="small" value={saleForm.reference} onChange={(e) => setSaleForm({ ...saleForm, reference: e.target.value })} placeholder="POS slip, MoMo ref" />
                 </div>
 
-                <div>
-                  <Label>Notes</Label>
-                  <Textarea className="mt-1" rows={2} value={saleForm.notes} onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })} placeholder="Packed lunch, dietary note, etc." maxLength={300} />
-                </div>
+                <TextField label="Notes" fullWidth size="small" multiline minRows={2} value={saleForm.notes} onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })} placeholder="Packed lunch, dietary note, etc." slotProps={{ htmlInput: { maxLength: 300 } }} />
 
                 {selectedMenuItem && (
                   <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
@@ -419,14 +376,15 @@ function CanteenPage() {
                   </div>
                 )}
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setSaleOpen(false)}>Cancel</Button>
-                <Button onClick={recordSale} disabled={createOrderMutation.isPending}>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setSaleOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={recordSale} disabled={createOrderMutation.isPending}>
                   {createOrderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Record sale
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogActions>
+            </Dialog>
+          </>
         }
       />
 
@@ -445,17 +403,19 @@ function CanteenPage() {
         <StatCard label="Extra sales today" value={`K ${extraSalesTotal.toLocaleString()}`} hint={`${sales.length} transactions`} accent="primary" icon={<TrendingUp className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="access">
-        <TabsList>
-          <TabsTrigger value="access">Dining access</TabsTrigger>
-          <TabsTrigger value="sales">Extra sales</TabsTrigger>
-          <TabsTrigger value="menu">Menu & stock</TabsTrigger>
-        </TabsList>
+      <Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="access" label="Dining access" />
+          <Tab value="sales" label="Extra sales" />
+          <Tab value="menu" label="Menu & stock" />
+        </Tabs>
 
         {/* DINING ACCESS */}
-        <TabsContent value="access" className="rounded-xl border border-border bg-card">
+        {tab === "access" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex items-center gap-3 border-b border-border p-3">
-            <Input
+            <TextField
+              size="small"
               className="max-w-xs"
               placeholder="Search by name, grade, admission no."
               value={accessSearch}
@@ -470,14 +430,15 @@ function CanteenPage() {
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading pupils…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Pupil</TableHead>
-                <TableHead>Grade / Class</TableHead>
-                <TableHead>Amount paid</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead>Dining access</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Pupil</TableCell>
+                <TableCell>Grade / Class</TableCell>
+                <TableCell>Amount paid</TableCell>
+                <TableCell>Balance</TableCell>
+                <TableCell>Dining access</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {filteredAccess.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
@@ -506,13 +467,19 @@ function CanteenPage() {
                       </TableCell>
                       <TableCell>
                         {s.hasAccess ? (
-                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
-                            <CheckCircle2 className="mr-1 h-3 w-3" />Access granted
-                          </Badge>
+                          <Chip
+                            size="small"
+                            icon={<CheckCircle2 size={12} />}
+                            label="Access granted"
+                            sx={badgeSx("success")}
+                          />
                         ) : (
-                          <Badge variant="outline" className="border-amber-300 text-amber-700">
-                            <XCircle className="mr-1 h-3 w-3" />Pending payment
-                          </Badge>
+                          <Chip
+                            size="small"
+                            icon={<XCircle size={12} />}
+                            label="Pending payment"
+                            sx={badgeSx("warning")}
+                          />
                         )}
                       </TableCell>
                     </TableRow>
@@ -520,25 +487,29 @@ function CanteenPage() {
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+        )}
 
         {/* EXTRA SALES */}
-        <TabsContent value="sales" className="rounded-xl border border-border bg-card">
+        {tab === "sales" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border p-3">
             <p className="text-sm font-medium">{sales.length} extra sale{sales.length !== 1 ? "s" : ""} · K {extraSalesTotal.toLocaleString()} total</p>
-            <Button size="sm" variant="outline" onClick={() => { downloadCsv(sales.map((s: any) => ({ Item: s.displayItem, Quantity: s.quantity, Total: s.total, Method: s.method, Customer: s.customerName, Date: String(s.date).slice(0, 10), Status: s.status })), "canteen-sales-report"); toast.success("Sales report exported"); }}>Export</Button>
+            <Button size="small" variant="outlined" onClick={() => { downloadCsv(sales.map((s: any) => ({ Item: s.displayItem, Quantity: s.quantity, Total: s.total, Method: s.method, Customer: s.customerName, Date: String(s.date).slice(0, 10), Status: s.status })), "canteen-sales-report"); toast.success("Sales report exported"); }}>Export</Button>
           </div>
           {ordersLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading sales…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Item</TableHead><TableHead>Qty</TableHead><TableHead>Total</TableHead>
-                <TableHead>Method</TableHead><TableHead>Customer</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Item</TableCell><TableCell>Qty</TableCell><TableCell>Total</TableCell>
+                <TableCell>Method</TableCell><TableCell>Customer</TableCell><TableCell>Date</TableCell><TableCell>Status</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {sales.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No extra sales recorded yet.</TableCell></TableRow>
@@ -551,146 +522,94 @@ function CanteenPage() {
                     <TableCell>{sale.quantity}</TableCell>
                     <TableCell>K {sale.total.toLocaleString()}</TableCell>
                     <TableCell>
-                      <Badge variant={sale.method === "Cash" ? "secondary" : sale.method === "MoMo" ? "default" : "outline"}>{sale.method}</Badge>
+                      <Chip
+                        size="small"
+                        label={sale.method}
+                        sx={badgeSx(sale.method === "Cash" ? "secondary" : sale.method === "MoMo" ? "default" : "outline")}
+                      />
                     </TableCell>
                     <TableCell className="text-muted-foreground">{sale.customerName}</TableCell>
                     <TableCell className="text-muted-foreground">{String(sale.date).slice(0, 10)}</TableCell>
                     <TableCell>
-                      <Badge variant={sale.status === "PAID" ? "secondary" : sale.status === "PENDING" ? "outline" : "destructive"}>{sale.status}</Badge>
+                      <Chip
+                        size="small"
+                        label={sale.status}
+                        sx={badgeSx(sale.status === "PAID" ? "secondary" : sale.status === "PENDING" ? "outline" : "destructive")}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+        )}
 
         {/* MENU & STOCK */}
-        <TabsContent value="menu" className="rounded-xl border border-border bg-card">
+        {tab === "menu" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Add item</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Add menu item</DialogTitle></DialogHeader>
+            <Button size="small" variant="contained" startIcon={<Plus size={14} />} onClick={() => setMenuOpen(true)}>Add item</Button>
+            <Dialog open={menuOpen} onClose={() => setMenuOpen(false)} maxWidth="md" fullWidth>
+                <DialogTitle>Add menu item</DialogTitle>
+                <DialogContent>
                 <div className="grid gap-3">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Item name *</Label>
-                      <Input className="mt-1" value={menuForm.name} onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })} placeholder="Egg sandwich" maxLength={80} />
-                    </div>
-                    <div>
-                      <Label>Category</Label>
-                      <Select value={menuForm.category} onValueChange={(v) => setMenuForm({ ...menuForm, category: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>{MENU_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
+                    <TextField label="Item name *" fullWidth size="small" value={menuForm.name} onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })} placeholder="Egg sandwich" slotProps={{ htmlInput: { maxLength: 80 } }} />
+                    <TextField select label="Category" fullWidth size="small" value={menuForm.category} onChange={(e) => setMenuForm({ ...menuForm, category: e.target.value })}>
+                      {MENU_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </TextField>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <Label>Price (K) *</Label>
-                      <Input className="mt-1" type="number" min={1} value={menuForm.price} onChange={(e) => setMenuForm({ ...menuForm, price: e.target.value })} placeholder="25" />
-                    </div>
-                    <div>
-                      <Label>Opening stock</Label>
-                      <Input className="mt-1" type="number" min={0} value={menuForm.stock} onChange={(e) => setMenuForm({ ...menuForm, stock: e.target.value })} placeholder="50" />
-                    </div>
-                    <div>
-                      <Label>Reorder level</Label>
-                      <Input className="mt-1" type="number" min={1} value={menuForm.minStock} onChange={(e) => setMenuForm({ ...menuForm, minStock: e.target.value })} />
-                    </div>
+                    <TextField label="Price (K) *" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 1 } }} value={menuForm.price} onChange={(e) => setMenuForm({ ...menuForm, price: e.target.value })} placeholder="25" />
+                    <TextField label="Opening stock" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} value={menuForm.stock} onChange={(e) => setMenuForm({ ...menuForm, stock: e.target.value })} placeholder="50" />
+                    <TextField label="Reorder level" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 1 } }} value={menuForm.minStock} onChange={(e) => setMenuForm({ ...menuForm, minStock: e.target.value })} />
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <Label>Serving size</Label>
-                      <Input className="mt-1" value={menuForm.servingSize} onChange={(e) => setMenuForm({ ...menuForm, servingSize: e.target.value })} placeholder="1 plate / 500ml" />
-                    </div>
-                    <div>
-                      <Label>Issue point</Label>
-                      <Input className="mt-1" value={menuForm.issuePoint} onChange={(e) => setMenuForm({ ...menuForm, issuePoint: e.target.value })} placeholder="Main counter" />
-                    </div>
-                    <div>
-                      <Label>Available for sale</Label>
-                      <Select value={menuForm.available} onValueChange={(v) => setMenuForm({ ...menuForm, available: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">Yes — available</SelectItem>
-                          <SelectItem value="no">No — hold item</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField label="Serving size" fullWidth size="small" value={menuForm.servingSize} onChange={(e) => setMenuForm({ ...menuForm, servingSize: e.target.value })} placeholder="1 plate / 500ml" />
+                    <TextField label="Issue point" fullWidth size="small" value={menuForm.issuePoint} onChange={(e) => setMenuForm({ ...menuForm, issuePoint: e.target.value })} placeholder="Main counter" />
+                    <TextField select label="Available for sale" fullWidth size="small" value={menuForm.available} onChange={(e) => setMenuForm({ ...menuForm, available: e.target.value })}>
+                      <MenuItem value="yes">Yes — available</MenuItem>
+                      <MenuItem value="no">No — hold item</MenuItem>
+                    </TextField>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <Label>Cost price (K)</Label>
-                      <Input className="mt-1" type="number" min={0} step={0.01} value={menuForm.costPrice} onChange={(e) => setMenuForm({ ...menuForm, costPrice: e.target.value })} placeholder="12.50" />
-                    </div>
-                    <div>
-                      <Label>Unit of measure</Label>
-                      <Select value={menuForm.unitOfMeasure} onValueChange={(v) => setMenuForm({ ...menuForm, unitOfMeasure: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["each", "plate", "cup", "litre", "500ml", "250ml", "portion", "kg", "bag", "slice"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Prep time (mins)</Label>
-                      <Input className="mt-1" type="number" min={0} value={menuForm.preparationTime} onChange={(e) => setMenuForm({ ...menuForm, preparationTime: e.target.value })} placeholder="15" />
-                    </div>
+                    <TextField label="Cost price (K)" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 0, step: 0.01 } }} value={menuForm.costPrice} onChange={(e) => setMenuForm({ ...menuForm, costPrice: e.target.value })} placeholder="12.50" />
+                    <TextField select label="Unit of measure" fullWidth size="small" value={menuForm.unitOfMeasure} onChange={(e) => setMenuForm({ ...menuForm, unitOfMeasure: e.target.value })}>
+                      {["each", "plate", "cup", "litre", "500ml", "250ml", "portion", "kg", "bag", "slice"].map((u) => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+                    </TextField>
+                    <TextField label="Prep time (mins)" fullWidth size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} value={menuForm.preparationTime} onChange={(e) => setMenuForm({ ...menuForm, preparationTime: e.target.value })} placeholder="15" />
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Supplier / source</Label>
-                      <Input className="mt-1" value={menuForm.supplier} onChange={(e) => setMenuForm({ ...menuForm, supplier: e.target.value })} placeholder="Freshmark, local farm" maxLength={80} />
-                    </div>
+                    <TextField label="Supplier / source" fullWidth size="small" value={menuForm.supplier} onChange={(e) => setMenuForm({ ...menuForm, supplier: e.target.value })} placeholder="Freshmark, local farm" slotProps={{ htmlInput: { maxLength: 80 } }} />
                     <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>Vegetarian</Label>
-                        <Select value={menuForm.isVegetarian} onValueChange={(v) => setMenuForm({ ...menuForm, isVegetarian: v })}>
-                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="no">No</SelectItem>
-                            <SelectItem value="yes">Yes</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Halal</Label>
-                        <Select value={menuForm.isHalal} onValueChange={(v) => setMenuForm({ ...menuForm, isHalal: v })}>
-                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="no">No</SelectItem>
-                            <SelectItem value="yes">Yes</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <TextField select label="Vegetarian" fullWidth size="small" value={menuForm.isVegetarian} onChange={(e) => setMenuForm({ ...menuForm, isVegetarian: e.target.value })}>
+                        <MenuItem value="no">No</MenuItem>
+                        <MenuItem value="yes">Yes</MenuItem>
+                      </TextField>
+                      <TextField select label="Halal" fullWidth size="small" value={menuForm.isHalal} onChange={(e) => setMenuForm({ ...menuForm, isHalal: e.target.value })}>
+                        <MenuItem value="no">No</MenuItem>
+                        <MenuItem value="yes">Yes</MenuItem>
+                      </TextField>
                     </div>
                   </div>
 
-                  <div>
-                    <Label>Allergens / diet notes</Label>
-                    <Input className="mt-1" value={menuForm.allergens} onChange={(e) => setMenuForm({ ...menuForm, allergens: e.target.value })} placeholder="Contains gluten, dairy, peanuts, egg…" maxLength={120} />
-                  </div>
+                  <TextField label="Allergens / diet notes" fullWidth size="small" value={menuForm.allergens} onChange={(e) => setMenuForm({ ...menuForm, allergens: e.target.value })} placeholder="Contains gluten, dairy, peanuts, egg…" slotProps={{ htmlInput: { maxLength: 120 } }} />
 
-                  <div>
-                    <Label>Item description</Label>
-                    <Textarea className="mt-1" rows={3} value={menuForm.description} onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })} placeholder="Recipe summary, prep notes, meal window" maxLength={400} />
-                  </div>
+                  <TextField label="Item description" fullWidth size="small" multiline minRows={3} value={menuForm.description} onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })} placeholder="Recipe summary, prep notes, meal window" slotProps={{ htmlInput: { maxLength: 400 } }} />
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setMenuOpen(false)}>Cancel</Button>
-                  <Button onClick={addMenuItem} disabled={createMenuMutation.isPending}>
+                </DialogContent>
+                <DialogActions>
+                  <Button variant="outlined" color="inherit" onClick={() => setMenuOpen(false)}>Cancel</Button>
+                  <Button variant="contained" onClick={addMenuItem} disabled={createMenuMutation.isPending}>
                     {createMenuMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Add item
                   </Button>
-                </DialogFooter>
-              </DialogContent>
+                </DialogActions>
             </Dialog>
           </div>
           {menuLoading ? (
@@ -698,11 +617,12 @@ function CanteenPage() {
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading menu…</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Item</TableHead><TableHead>Category</TableHead><TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Item</TableCell><TableCell>Category</TableCell><TableCell>Price</TableCell>
+                <TableCell>Stock</TableCell><TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {menu.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No menu items configured yet.</TableCell></TableRow>
@@ -717,7 +637,7 @@ function CanteenPage() {
                           {item.servingSize || "Standard serving"}{item.issuePoint ? ` · ${item.issuePoint}` : ""}
                         </div>
                       </TableCell>
-                      <TableCell><Badge variant="outline">{item.category}</Badge></TableCell>
+                      <TableCell><Chip size="small" label={item.category} sx={badgeSx("outline")} /></TableCell>
                       <TableCell>K {item.price ?? item.unitPrice}</TableCell>
                       <TableCell>
                         {Number.isFinite(item.stock) ? (
@@ -730,21 +650,25 @@ function CanteenPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={available ? "default" : "secondary"}>
-                          {item.available === false ? "Unavailable" : Number.isFinite(item.stock) && item.stock === 0 ? "Out of stock" : "Available"}
-                        </Badge>
+                        <Chip
+                          size="small"
+                          label={item.available === false ? "Unavailable" : Number.isFinite(item.stock) && item.stock === 0 ? "Out of stock" : "Available"}
+                          sx={badgeSx(available ? "default" : "secondary")}
+                        />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => toast.success(`Restock request raised for ${item.name}`)}>Restock</Button>
+                        <Button size="small" variant="text" color="inherit" onClick={() => toast.success(`Restock request raised for ${item.name}`)}>Restock</Button>
                       </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
-      </Tabs>
+        </Box>
+        )}
+      </Box>
 
       {lowStockCount > 0 && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">

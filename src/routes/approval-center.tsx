@@ -1,17 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CheckCircle2, Clock3, ShieldAlert, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Switch from "@mui/material/Switch";
+import Button from "@mui/material/Button";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import TableContainer from "@mui/material/TableContainer";
+import Table from "@mui/material/Table";
+import TableHead from "@mui/material/TableHead";
+import TableBody from "@mui/material/TableBody";
+import TableRow from "@mui/material/TableRow";
+import TableCell from "@mui/material/TableCell";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx } from "@/lib/utils";
 
 type ApprovalType = "Discount" | "Deletion" | "Plan exception" | "Partner onboarding" | "Contract redline";
 type ApprovalStatus = "Pending" | "Escalated" | "Approved" | "Rejected";
@@ -32,6 +40,7 @@ export const Route = createFileRoute("/approval-center")({
 });
 
 function ApprovalCenterPage() {
+  const [tab, setTab] = useState("queue");
   const { user } = useAuth();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
@@ -49,7 +58,7 @@ function ApprovalCenterPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button variant="outlined" component={Link} to="/">Go to dashboard</Button>
       </div>
     );
   }
@@ -172,11 +181,11 @@ function ApprovalCenterPage() {
         description="Run platform-level approvals for pricing exceptions, data actions, partner tiers, contracts, and policy-controlled changes."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/contract-center">Open contract center</Link>
+            <Button variant="outlined" component={Link} to="/contract-center">
+              Open contract center
             </Button>
-            <Button asChild>
-              <Link to="/data-governance">Open data governance</Link>
+            <Button variant="contained" component={Link} to="/data-governance">
+              Open data governance
             </Button>
           </>
         )}
@@ -189,25 +198,27 @@ function ApprovalCenterPage() {
         <StatCard label="Active policies" value={stats.policies} accent="accent" icon={<CheckCircle2 className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="queue" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="queue">Queue</TabsTrigger>
-          <TabsTrigger value="policies">Policies</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="queue" label="Queue" />
+        <Tab value="policies" label="Policies" />
+        <Tab value="completed" label="Completed" />
+      </Tabs>
 
-        <TabsContent value="queue" className="rounded-xl border border-border bg-card">
+      {tab === "queue" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Request</TableHead>
-                <TableHead>Requester</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Request</TableCell>
+                <TableCell>Requester</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Submitted</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {pending.map((item) => (
                 <TableRow key={item.id}>
@@ -221,14 +232,16 @@ function ApprovalCenterPage() {
                   <TableCell>{item.type}</TableCell>
                   <TableCell>{item.submittedAt}</TableCell>
                   <TableCell>
-                    <Badge className={item.status === "Escalated" ? "bg-rose-500/15 text-rose-700 dark:text-rose-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}>
-                      {item.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={item.status}
+                      sx={badgeSx(item.status === "Escalated" ? "destructive" : "warning")}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(item.id, "Approved")}>Approve</Button>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(item.id, item.status === "Escalated" ? "Rejected" : "Escalated")}>
+                      <Button size="small" variant="outlined" onClick={() => updateStatus(item.id, "Approved")}>Approve</Button>
+                      <Button size="small" variant="outlined" onClick={() => updateStatus(item.id, item.status === "Escalated" ? "Rejected" : "Escalated")}>
                         {item.status === "Escalated" ? "Reject" : "Escalate"}
                       </Button>
                     </div>
@@ -237,9 +250,12 @@ function ApprovalCenterPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="policies" className="grid gap-4 lg:grid-cols-2">
+      {tab === "policies" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           {[
             { key: "discountApproval", label: "Discounts above plan list price require approval" },
             { key: "deletionDualControl", label: "Deletion requests require dual control" },
@@ -251,23 +267,26 @@ function ApprovalCenterPage() {
                 <p className="font-medium">{policy.label}</p>
                 <Switch
                   checked={policies[policy.key as keyof typeof policies]}
-                  onCheckedChange={(value) => updatePolicy(policy.key as keyof typeof policies, value)}
+                  onChange={(e) => updatePolicy(policy.key as keyof typeof policies, e.target.checked)}
                 />
               </div>
             </div>
           ))}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="completed" className="rounded-xl border border-border bg-card">
+      {tab === "completed" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Request</TableHead>
-                <TableHead>Outcome</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Submitted</TableHead>
+                <TableCell>Request</TableCell>
+                <TableCell>Outcome</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Submitted</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {completed.map((item) => (
                 <TableRow key={item.id}>
@@ -278,9 +297,11 @@ function ApprovalCenterPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={item.status === "Approved" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-rose-500/15 text-rose-700 dark:text-rose-300"}>
-                      {item.status === "Approved" ? "Approved" : "Rejected"}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={item.status === "Approved" ? "Approved" : "Rejected"}
+                      sx={badgeSx(item.status === "Approved" ? "success" : "destructive")}
+                    />
                   </TableCell>
                   <TableCell>{item.type}</TableCell>
                   <TableCell>{item.submittedAt}</TableCell>
@@ -288,8 +309,10 @@ function ApprovalCenterPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
-      </Tabs>
+          </TableContainer>
+        </Box>
+      )}
+      </Box>
     </div>
   );
 }

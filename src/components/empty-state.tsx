@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@mui/material";
 import { cn } from "@/lib/utils";
 
 export function EmptyState({
@@ -35,8 +35,13 @@ export function EmptyState({
       <p className="text-sm font-medium text-foreground">{title}</p>
       {description && <p className="max-w-sm text-xs leading-5 opacity-75">{description}</p>}
       {action && (
-        <Button variant="outline" size="sm" className="mt-3" onClick={action.onClick}>
-          {ActionIcon && <ActionIcon className="mr-1.5 h-3.5 w-3.5" />}
+        <Button
+          variant="outlined"
+          size="small"
+          sx={{ mt: 1.5 }}
+          startIcon={ActionIcon ? <ActionIcon className="h-3.5 w-3.5" /> : undefined}
+          onClick={action.onClick}
+        >
           {action.label}
         </Button>
       )}

@@ -8,20 +8,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  Chip, Divider, Button, IconButton, InputAdornment, MenuItem, TextField,
+  Drawer, Box, Typography, Dialog, DialogContent, DialogActions, DialogTitle,
+  Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell,
+} from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/parents")({
@@ -80,15 +75,16 @@ function ParentsPage() {
     queryFn: () => api.users.list(active.id),
   });
   const userEmails = new Set((appUsers as any[]).map((u: any) => (u.email ?? "").toLowerCase()));
+  const userPhones = new Set((appUsers as any[]).map((u: any) => (u.phone ?? "").replace(/[\s-]/g, "")));
 
   const createLoginMutation = useMutation({
-    mutationFn: ({ name, email }: { name: string; email: string }) =>
-      api.users.create(active.id, { name, email, role: "PARENT" }),
+    mutationFn: ({ name, email, phone }: { name: string; email?: string; phone?: string }) =>
+      api.users.create(active.id, { name, ...(email ? { email } : { phone: phone! }), role: "PARENT" }),
     onSuccess: (_, vars) => {
       void qc.invalidateQueries({ queryKey: ["school-users", active.id] });
-      toast.success(`Login created — ${vars.email} / password123`);
+      toast.success(`Login created — ${vars.email ?? vars.phone} / password123`);
     },
-    onError: () => toast.error("Could not create login — email may already be registered"),
+    onError: () => toast.error("Could not create login — email or phone may already be registered"),
   });
 
   const { data: structures = [] } = useQuery({
@@ -129,7 +125,7 @@ function ParentsPage() {
         description="Contacts, fee balances, payments, invoices and report card access"
         actions={
           <>
-            <Button variant="outline" onClick={() => {
+            <Button variant="outlined" startIcon={<Download size={16} />} onClick={() => {
               if (parents.length === 0) { toast.error("No guardian records to export"); return; }
               downloadCsv(parents.map((p) => ({
                 "Guardian Name": p.name,
@@ -141,10 +137,10 @@ function ParentsPage() {
                 Children: p.children.map((c: any) => `${c.firstName} ${c.lastName} (${c.className || c.grade || ""})`).join("; "),
               })), `guardians-${new Date().toISOString().slice(0, 10)}`);
             }}>
-              <Download className="mr-1 h-4 w-4" />Export contacts
+              Export contacts
             </Button>
-            <Button onClick={() => toast.success("Communication hub coming soon")}>
-              <MessageSquare className="mr-1 h-4 w-4" />Send message
+            <Button variant="contained" startIcon={<MessageSquare size={16} />} onClick={() => toast.success("Communication hub coming soon")}>
+              Send message
             </Button>
           </>
         }
@@ -159,22 +155,29 @@ function ParentsPage() {
 
       <div className="rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center justify-between gap-3 border-b border-border p-4">
-          <div className="relative max-w-sm flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, phone, email or child" className="pl-9" />
+          <div className="max-w-sm flex-1">
+            <TextField
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search by name, phone, email or child"
+              fullWidth
+              size="small"
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+            />
           </div>
           <p className="text-xs text-muted-foreground">{filtered.length} of {parents.length}</p>
         </div>
+        <TableContainer>
         <Table>
-          <TableHeader>
+          <TableHead>
             <TableRow>
-              <TableHead>Guardian</TableHead>
-              <TableHead>Children</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Channel</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableCell>Guardian</TableCell>
+              <TableCell>Children</TableCell>
+              <TableCell>Contact</TableCell>
+              <TableCell>Channel</TableCell>
+              <TableCell className="text-right">Actions</TableCell>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -204,32 +207,47 @@ function ParentsPage() {
                     {parent.email && <span className="flex items-center gap-1.5"><Mail className="h-3 w-3" />{parent.email}</span>}
                   </div>
                 </TableCell>
-                <TableCell><Badge variant="secondary">{parent.email ? "Email + phone" : "Phone"}</Badge></TableCell>
+                <TableCell><Chip size="small" label={parent.email ? "Email + phone" : "Phone"} sx={badgeSx("secondary")} /></TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
-                    {parent.email && !userEmails.has(parent.email.toLowerCase()) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        disabled={createLoginMutation.isPending}
-                        onClick={() => createLoginMutation.mutate({ name: parent.name, email: parent.email })}
-                      >
-                        Create login
-                      </Button>
-                    )}
-                    {parent.email && userEmails.has(parent.email.toLowerCase()) && (
-                      <Badge variant="secondary" className="text-xs">Has login</Badge>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => toast.success(`Message draft opened for ${parent.name}`)}>
+                    {(() => {
+                      const normalizedPhone = parent.phone.replace(/[\s-]/g, "");
+                      const hasLogin = parent.email
+                        ? userEmails.has(parent.email.toLowerCase())
+                        : Boolean(parent.phone) && userPhones.has(normalizedPhone);
+                      const canCreate = Boolean(parent.email || parent.phone) && !hasLogin;
+                      if (hasLogin) {
+                        return <Chip size="small" label="Has login" sx={{ ...badgeSx("secondary"), fontSize: 12 }} />;
+                      }
+                      if (canCreate) {
+                        return (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            className="h-7 text-xs"
+                            disabled={createLoginMutation.isPending}
+                            onClick={() => createLoginMutation.mutate(
+                              parent.email
+                                ? { name: parent.name, email: parent.email }
+                                : { name: parent.name, phone: parent.phone },
+                            )}
+                          >
+                            Create login
+                          </Button>
+                        );
+                      }
+                      return null;
+                    })()}
+                    <IconButton size="small" aria-label={`Message ${parent.name}`} onClick={() => toast.success(`Message draft opened for ${parent.name}`)}>
                       <MessageSquare className="h-4 w-4" />
-                    </Button>
+                    </IconButton>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       </div>
 
       {selectedParent && (
@@ -347,12 +365,12 @@ function ParentPortalSheet({
 
   return (
     <>
-      <Sheet open onOpenChange={(o) => !o && onClose()}>
-        <SheetContent side="right" className="flex w-full max-w-2xl flex-col overflow-hidden p-0 sm:max-w-2xl">
-          <SheetHeader className="border-b border-border px-6 py-5 shrink-0">
+      <Drawer anchor="right" open onClose={onClose}>
+        <Box sx={{ width: { xs: "100vw", sm: 640 } }} className="flex h-full flex-col overflow-hidden">
+          <Box className="border-b border-border px-6 py-5 shrink-0">
             <div className="flex items-start justify-between">
               <div>
-                <SheetTitle className="text-lg">{parent.name}</SheetTitle>
+                <Typography variant="h6" className="text-lg">{parent.name}</Typography>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {parent.relationship && `${parent.relationship} · `}
                   {parent.children.length} child{parent.children.length !== 1 ? "ren" : ""}
@@ -380,7 +398,7 @@ function ParentPortalSheet({
                     {childBalances.filter((b) => b.outstanding > 0).map((b) => ` ${b.child.firstName}: ${fmtK(b.outstanding)}`).join(" ·")}
                   </p>
                 </div>
-                <Button size="sm" className="h-7 shrink-0 text-xs" onClick={() => setActiveTab("pay")}>
+                <Button size="small" variant="contained" className="h-7 shrink-0 text-xs" onClick={() => setActiveTab("pay")}>
                   Pay now
                 </Button>
               </div>
@@ -391,19 +409,20 @@ function ParentPortalSheet({
                 <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">All fee accounts are cleared for this term</p>
               </div>
             )}
-          </SheetHeader>
+          </Box>
 
           <div className="flex-1 overflow-y-auto">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6 pt-4">
-              <TabsList className="mb-4">
-                <TabsTrigger value="fees">Fee Summary</TabsTrigger>
-                <TabsTrigger value="pay">Record Payment</TabsTrigger>
-                <TabsTrigger value="history">History</TabsTrigger>
-                <TabsTrigger value="reports">Report Cards</TabsTrigger>
-              </TabsList>
+            <Box className="px-6 pt-4">
+              <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+                <Tab value="fees" label="Fee Summary" />
+                <Tab value="pay" label="Record Payment" />
+                <Tab value="history" label="History" />
+                <Tab value="reports" label="Report Cards" />
+              </Tabs>
 
               {/* FEE SUMMARY */}
-              <TabsContent value="fees" className="space-y-4 pb-6">
+              {activeTab === "fees" && (
+                <Box className="space-y-4 pb-6">
                 {isLoadingPayments ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">Loading balances…</p>
                 ) : childBalances.map(({ child, structure, termFee, paid, outstanding }) => (
@@ -415,11 +434,9 @@ function ParentPortalSheet({
                           {child.className || child.grade || "—"} · Adm: {child.admissionNumber || child.admissionNo || "—"}
                         </p>
                       </div>
-                      <Badge variant={outstanding > 0 ? "destructive" : "secondary"}>
-                        {outstanding > 0 ? "Balance due" : "Paid up"}
-                      </Badge>
+                      <Chip size="small" label={outstanding > 0 ? "Balance due" : "Paid up"} sx={badgeSx(outstanding > 0 ? "destructive" : "secondary")} />
                     </div>
-                    <Separator className="my-3" />
+                    <Divider sx={{ my: 1.5 }} />
                     <div className="grid grid-cols-3 gap-3 text-sm">
                       <div>
                         <p className="text-xs uppercase text-muted-foreground">Term fee</p>
@@ -443,40 +460,45 @@ function ParentPortalSheet({
                     )}
                     {outstanding > 0 && (
                       <div className="mt-3">
-                        <Button size="sm" onClick={() => { setPayForm((f) => ({ ...f, studentId: child.id })); setActiveTab("pay"); }}>
-                          <CreditCard className="mr-1 h-3.5 w-3.5" />Pay now
+                        <Button size="small" variant="contained" startIcon={<CreditCard size={14} />} onClick={() => { setPayForm((f) => ({ ...f, studentId: child.id })); setActiveTab("pay"); }}>
+                          Pay now
                         </Button>
                       </div>
                     )}
                   </div>
                 ))}
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setInvoiceOpen(true)}>
-                    <FileText className="mr-1 h-4 w-4" />Generate invoice
+                  <Button variant="outlined" startIcon={<FileText size={16} />} onClick={() => setInvoiceOpen(true)}>
+                    Generate invoice
                   </Button>
                 </div>
-              </TabsContent>
+                </Box>
+              )}
 
               {/* RECORD PAYMENT */}
-              <TabsContent value="pay" className="pb-6">
+              {activeTab === "pay" && (
+                <Box className="pb-6">
                 <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                   <h3 className="font-semibold">Record payment</h3>
                   <div>
-                    <Label>Student *</Label>
-                    <Select value={payForm.studentId} onValueChange={(v) => setPayForm((f) => ({ ...f, studentId: v }))}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select student" /></SelectTrigger>
-                      <SelectContent>
-                        {parent.children.map((c) => {
-                          const bal = childBalances.find((b) => b.child.id === c.id);
-                          return (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.firstName} {c.lastName} ({c.className || c.grade || ""})
-                              {bal && bal.outstanding > 0 ? ` — owes ${fmtK(bal.outstanding)}` : ""}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      label="Student *"
+                      value={payForm.studentId}
+                      onChange={(e) => setPayForm((f) => ({ ...f, studentId: e.target.value }))}
+                      fullWidth
+                      size="small"
+                    >
+                      {parent.children.map((c) => {
+                        const bal = childBalances.find((b) => b.child.id === c.id);
+                        return (
+                          <MenuItem key={c.id} value={c.id}>
+                            {c.firstName} {c.lastName} ({c.className || c.grade || ""})
+                            {bal && bal.outstanding > 0 ? ` — owes ${fmtK(bal.outstanding)}` : ""}
+                          </MenuItem>
+                        );
+                      })}
+                    </TextField>
                     {payForm.studentId && (() => {
                       const bal = childBalances.find((b) => b.child.id === payForm.studentId);
                       if (!bal) return null;
@@ -492,56 +514,66 @@ function ParentPortalSheet({
                     })()}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Amount (K) *</Label>
-                      <Input
-                        type="number" className="mt-1" min={0.01} step={0.01}
-                        value={payForm.amount} placeholder="0.00"
-                        onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label>Method</Label>
-                      <Select value={payForm.method} onValueChange={(v) => setPayForm((f) => ({ ...f, method: v }))}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Date</Label>
-                      <Input
-                        type="date" className="mt-1" value={payForm.paymentDate}
-                        onChange={(e) => setPayForm((f) => ({ ...f, paymentDate: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label>Reference / transaction ID</Label>
-                      <Input
-                        className="mt-1" value={payForm.reference} placeholder="e.g. MTN-XXXX"
-                        onChange={(e) => setPayForm((f) => ({ ...f, reference: e.target.value }))}
-                      />
-                    </div>
+                    <TextField
+                      type="number"
+                      label="Amount (K) *"
+                      slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }}
+                      value={payForm.amount}
+                      placeholder="0.00"
+                      onChange={(e) => setPayForm((f) => ({ ...f, amount: e.target.value }))}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      select
+                      label="Method"
+                      value={payForm.method}
+                      onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
+                      fullWidth
+                      size="small"
+                    >
+                      {PAYMENT_METHODS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                    </TextField>
+                    <TextField
+                      type="date"
+                      label="Date"
+                      value={payForm.paymentDate}
+                      onChange={(e) => setPayForm((f) => ({ ...f, paymentDate: e.target.value }))}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      label="Reference / transaction ID"
+                      value={payForm.reference}
+                      placeholder="e.g. MTN-XXXX"
+                      onChange={(e) => setPayForm((f) => ({ ...f, reference: e.target.value }))}
+                      fullWidth
+                      size="small"
+                    />
                     <div className="col-span-2">
-                      <Label>Description</Label>
-                      <Input
-                        className="mt-1" value={payForm.description}
+                      <TextField
+                        label="Description"
+                        value={payForm.description}
                         onChange={(e) => setPayForm((f) => ({ ...f, description: e.target.value }))}
+                        fullWidth
+                        size="small"
                       />
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 pt-1">
-                    <Button variant="outline" onClick={() => setActiveTab("fees")}>Cancel</Button>
-                    <Button onClick={submitPayment} disabled={payMut.isPending}>
+                    <Button variant="outlined" onClick={() => setActiveTab("fees")}>Cancel</Button>
+                    <Button variant="contained" onClick={submitPayment} disabled={payMut.isPending}>
                       {payMut.isPending ? "Saving…" : "Record & generate receipt"}
                     </Button>
                   </div>
                 </div>
-              </TabsContent>
+                </Box>
+              )}
 
               {/* PAYMENT HISTORY */}
-              <TabsContent value="history" className="pb-6 space-y-4">
+              {activeTab === "history" && (
+                <Box className="pb-6 space-y-4">
                 {paymentCleared && (
                   <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
@@ -563,17 +595,18 @@ function ParentPortalSheet({
                       <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">No payments recorded yet.</p>
                     ) : (
                       <div className="rounded-xl border border-border bg-card overflow-hidden">
+                        <TableContainer>
                         <Table>
-                          <TableHeader>
+                          <TableHead>
                             <TableRow>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Description</TableHead>
-                              <TableHead>Method</TableHead>
-                              <TableHead className="text-right">Amount</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead></TableHead>
+                              <TableCell>Date</TableCell>
+                              <TableCell>Description</TableCell>
+                              <TableCell>Method</TableCell>
+                              <TableCell className="text-right">Amount</TableCell>
+                              <TableCell>Status</TableCell>
+                              <TableCell></TableCell>
                             </TableRow>
-                          </TableHeader>
+                          </TableHead>
                           <TableBody>
                             {payments.map((p: any) => (
                               <TableRow key={p.id}>
@@ -582,11 +615,11 @@ function ParentPortalSheet({
                                 <TableCell className="text-xs">{p.method || "—"}</TableCell>
                                 <TableCell className="text-right font-semibold tabular-nums text-sm">{fmtK(p.amount)}</TableCell>
                                 <TableCell>
-                                  <Badge variant={p.status === "completed" ? "default" : "secondary"} className="text-xs capitalize">{p.status}</Badge>
+                                  <Chip size="small" label={p.status} sx={{ ...badgeSx(p.status === "completed" ? "default" : "secondary"), fontSize: 12, textTransform: "capitalize" }} />
                                 </TableCell>
                                 <TableCell>
                                   {p.status === "completed" && (
-                                    <Button size="sm" variant="ghost" title="View receipt" onClick={() =>
+                                    <IconButton size="small" aria-label="View receipt" title="View receipt" onClick={() =>
                                       setReceiptPayment({
                                         ...p,
                                         studentName: `${child.firstName} ${child.lastName}`,
@@ -594,21 +627,24 @@ function ParentPortalSheet({
                                       })
                                     }>
                                       <Receipt className="h-3.5 w-3.5" />
-                                    </Button>
+                                    </IconButton>
                                   )}
                                 </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
+                        </TableContainer>
                       </div>
                     )}
                   </div>
                 ))}
-              </TabsContent>
+                </Box>
+              )}
 
               {/* REPORT CARDS */}
-              <TabsContent value="reports" className="pb-6 space-y-3">
+              {activeTab === "reports" && (
+                <Box className="pb-6 space-y-3">
                 {parent.children.map((child) => (
                   <div key={child.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center gap-3">
@@ -622,16 +658,17 @@ function ParentPortalSheet({
                         </p>
                       </div>
                     </div>
-                    <Button size="sm" onClick={() => onViewReportCard(child.id)}>
+                    <Button size="small" variant="contained" onClick={() => onViewReportCard(child.id)}>
                       View report card
                     </Button>
                   </div>
                 ))}
-              </TabsContent>
-            </Tabs>
+                </Box>
+              )}
+            </Box>
           </div>
-        </SheetContent>
-      </Sheet>
+        </Box>
+      </Drawer>
 
       {invoiceOpen && (
         <InvoiceDialog
@@ -667,11 +704,9 @@ function InvoiceDialog({
   const totalDue = childBalances.reduce((s, b) => s + b.outstanding, 0);
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader className="print:hidden">
-          <DialogTitle>Invoice · {invoiceNo}</DialogTitle>
-        </DialogHeader>
+    <Dialog open onClose={onClose} maxWidth="lg" fullWidth>
+      <DialogTitle className="print:hidden">Invoice · {invoiceNo}</DialogTitle>
+      <DialogContent>
         <div className="overflow-y-auto flex-1 pr-1">
         <div className="print-area space-y-4 text-sm print:text-black">
           <SchoolDocumentHeader title="INVOICE" subtitle={`${invoiceNo} · ${today} · Term ${school.currentTerm}, ${school.currentYear}`} />
@@ -701,7 +736,7 @@ function InvoiceDialog({
                   <span>Payments received</span>
                   <span className="font-mono">− {fmtK(paid)}</span>
                 </div>
-                <Separator className="my-1.5" />
+                <Divider sx={{ my: 0.75 }} />
                 <div className="flex justify-between font-semibold">
                   <span>Balance due</span>
                   <span className={`font-mono ${outstanding > 0 ? "text-destructive" : "text-green-600"}`}>{fmtK(outstanding)}</span>
@@ -724,12 +759,12 @@ function InvoiceDialog({
           </p>
         </div>
         </div>
-
-        <DialogFooter className="mt-2 print:hidden">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print invoice</Button>
-        </DialogFooter>
       </DialogContent>
+
+      <DialogActions className="mt-2 print:hidden">
+        <Button variant="outlined" color="inherit" onClick={onClose}>Close</Button>
+        <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => window.print()}>Print invoice</Button>
+      </DialogActions>
     </Dialog>
   );
 }
@@ -747,11 +782,9 @@ function ReceiptDialog({
     : new Date().toLocaleDateString("en-ZM", { day: "2-digit", month: "long", year: "numeric" });
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="print:hidden">
-          <DialogTitle>Receipt · {payment.receiptNumber || "—"}</DialogTitle>
-        </DialogHeader>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle className="print:hidden">Receipt · {payment.receiptNumber || "—"}</DialogTitle>
+      <DialogContent>
         <div className="overflow-y-auto flex-1 pr-1">
         <div className="print-area space-y-4 text-sm">
           <SchoolDocumentHeader title="OFFICIAL RECEIPT" subtitle={dateStr} />
@@ -766,7 +799,7 @@ function ReceiptDialog({
               <span className="text-xs text-muted-foreground">Date</span>
               <span className="text-xs">{dateStr}</span>
             </div>
-            <Separator />
+            <Divider />
             <div className="flex justify-between">
               <span className="text-xs text-muted-foreground">Received from</span>
               <span className="text-xs font-medium">{parent.name}</span>
@@ -793,7 +826,7 @@ function ReceiptDialog({
                 <span className="font-mono text-xs">{payment.referenceNumber}</span>
               </div>
             )}
-            <Separator />
+            <Divider />
             <div className="flex items-baseline justify-between">
               <span className="font-semibold">Amount paid</span>
               <span className="text-2xl font-bold text-green-600">{fmtK(payment.amount)}</span>
@@ -811,12 +844,12 @@ function ReceiptDialog({
           </p>
         </div>
         </div>
-
-        <DialogFooter className="mt-2 print:hidden">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" />Print receipt</Button>
-        </DialogFooter>
       </DialogContent>
+
+      <DialogActions className="mt-2 print:hidden">
+        <Button variant="outlined" color="inherit" onClick={onClose}>Close</Button>
+        <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => window.print()}>Print receipt</Button>
+      </DialogActions>
     </Dialog>
   );
 }

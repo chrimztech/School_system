@@ -4,19 +4,13 @@ import { UserCheck, Clock, LogOut, Search, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Button, Chip, TextField, MenuItem, InputAdornment, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/visitor-log")({
   head: () => ({ meta: [{ title: "Visitor Log - SRMS" }] }),
@@ -52,6 +46,7 @@ function VisitorLogPage() {
   const schoolId = active.id;
   const qc = useQueryClient();
 
+  const [tab, setTab] = useState("today");
   const [signInOpen, setSignInOpen] = useState(false);
   const [q, setQ] = useState("");
   const [form, setForm] = useState(createInitialForm);
@@ -134,102 +129,49 @@ function VisitorLogPage() {
         title="Visitor Log"
         description="Gate visitor sign-in and sign-out register for campus security."
         actions={
-          <Dialog open={signInOpen} onOpenChange={setSignInOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Sign in visitor</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Sign in visitor</DialogTitle></DialogHeader>
+          <>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setSignInOpen(true)}>Sign in visitor</Button>
+            <Dialog open={signInOpen} onClose={() => setSignInOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Sign in visitor</DialogTitle>
+              <DialogContent>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Visitor name *</Label>
-                  <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Charles Mwanza" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Phone *</Label>
-                  <Input className="mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" maxLength={20} />
-                </div>
-                <div>
-                  <Label>Organisation / company</Label>
-                  <Input className="mt-1" value={form.organisation} onChange={(e) => setForm({ ...form, organisation: e.target.value })} placeholder="e.g. Ministry of Education" maxLength={100} />
-                </div>
-                <div>
-                  <Label>National ID / NRC</Label>
-                  <Input className="mt-1" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} placeholder="123456/78/1" maxLength={30} />
-                </div>
-                <div>
-                  <Label>Purpose</Label>
-                  <Select value={form.purpose} onValueChange={(value) => setForm({ ...form, purpose: value as typeof PURPOSES[number] })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{PURPOSES.map((purpose) => <SelectItem key={purpose} value={purpose}>{purpose}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Host / destination</Label>
-                  <Select value={form.host} onValueChange={(value) => setForm({ ...form, host: value })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{HOSTS.map((host) => <SelectItem key={host} value={host}>{host}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Host type</Label>
-                  <Select value={form.hostType} onValueChange={(value) => setForm({ ...form, hostType: value as typeof HOST_TYPES[number] })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ADMIN">Admin</SelectItem>
-                      <SelectItem value="TEACHER">Teacher</SelectItem>
-                      <SelectItem value="STUDENT">Student</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Badge number</Label>
-                  <Input className="mt-1" value={form.badgeNumber} onChange={(e) => setForm({ ...form, badgeNumber: e.target.value })} placeholder="VIS-014" maxLength={20} />
-                </div>
-                <div>
-                  <Label>Visit date</Label>
-                  <Input type="date" className="mt-1" value={form.visitDate} onChange={(e) => setForm({ ...form, visitDate: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Check-in time</Label>
-                  <Input type="time" className="mt-1" value={form.visitTime} onChange={(e) => setForm({ ...form, visitTime: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Expected checkout time</Label>
-                  <Input type="time" className="mt-1" value={form.expectedCheckOutTime} onChange={(e) => setForm({ ...form, expectedCheckOutTime: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Vehicle reg.</Label>
-                  <Input className="mt-1" value={form.vehicle} onChange={(e) => setForm({ ...form, vehicle: e.target.value })} placeholder="ABB 1234" maxLength={20} />
-                </div>
-                <div>
-                  <Label>ID checked</Label>
-                  <Select value={form.idChecked} onValueChange={(v) => setForm({ ...form, idChecked: v as "yes" | "no" })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes — ID verified</SelectItem>
-                      <SelectItem value="no">No — not available</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Appointment reference</Label>
-                  <Input className="mt-1" value={form.appointmentRef} onChange={(e) => setForm({ ...form, appointmentRef: e.target.value })} placeholder="APT-2026-041" maxLength={50} />
-                </div>
-                <div className="col-span-2">
-                  <Label>Items brought onto campus</Label>
-                  <Input className="mt-1" value={form.itemsBrought} onChange={(e) => setForm({ ...form, itemsBrought: e.target.value })} placeholder="e.g. Laptop bag, toolbox" maxLength={200} />
-                </div>
+                <TextField label="Visitor name *" fullWidth size="small" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Charles Mwanza" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                <TextField label="Phone *" fullWidth size="small" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" slotProps={{ htmlInput: { maxLength: 20 } }} />
+                <TextField label="Organisation / company" fullWidth size="small" value={form.organisation} onChange={(e) => setForm({ ...form, organisation: e.target.value })} placeholder="e.g. Ministry of Education" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                <TextField label="National ID / NRC" fullWidth size="small" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} placeholder="123456/78/1" slotProps={{ htmlInput: { maxLength: 30 } }} />
+                <TextField select label="Purpose" fullWidth size="small" value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value as typeof PURPOSES[number] })}>
+                  {PURPOSES.map((purpose) => <MenuItem key={purpose} value={purpose}>{purpose}</MenuItem>)}
+                </TextField>
+                <TextField select label="Host / destination" fullWidth size="small" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })}>
+                  {HOSTS.map((host) => <MenuItem key={host} value={host}>{host}</MenuItem>)}
+                </TextField>
+                <TextField select label="Host type" fullWidth size="small" value={form.hostType} onChange={(e) => setForm({ ...form, hostType: e.target.value as typeof HOST_TYPES[number] })}>
+                  <MenuItem value="ADMIN">Admin</MenuItem>
+                  <MenuItem value="TEACHER">Teacher</MenuItem>
+                  <MenuItem value="STUDENT">Student</MenuItem>
+                </TextField>
+                <TextField label="Badge number" fullWidth size="small" value={form.badgeNumber} onChange={(e) => setForm({ ...form, badgeNumber: e.target.value })} placeholder="VIS-014" slotProps={{ htmlInput: { maxLength: 20 } }} />
+                <TextField type="date" label="Visit date" fullWidth size="small" value={form.visitDate} onChange={(e) => setForm({ ...form, visitDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField type="time" label="Check-in time" fullWidth size="small" value={form.visitTime} onChange={(e) => setForm({ ...form, visitTime: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField type="time" label="Expected checkout time" fullWidth size="small" value={form.expectedCheckOutTime} onChange={(e) => setForm({ ...form, expectedCheckOutTime: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label="Vehicle reg." fullWidth size="small" value={form.vehicle} onChange={(e) => setForm({ ...form, vehicle: e.target.value })} placeholder="ABB 1234" slotProps={{ htmlInput: { maxLength: 20 } }} />
+                <TextField select label="ID checked" fullWidth size="small" value={form.idChecked} onChange={(e) => setForm({ ...form, idChecked: e.target.value as "yes" | "no" })}>
+                  <MenuItem value="yes">Yes — ID verified</MenuItem>
+                  <MenuItem value="no">No — not available</MenuItem>
+                </TextField>
+                <TextField label="Appointment reference" fullWidth size="small" value={form.appointmentRef} onChange={(e) => setForm({ ...form, appointmentRef: e.target.value })} placeholder="APT-2026-041" slotProps={{ htmlInput: { maxLength: 50 } }} />
+                <TextField label="Items brought onto campus" fullWidth size="small" className="col-span-2" value={form.itemsBrought} onChange={(e) => setForm({ ...form, itemsBrought: e.target.value })} placeholder="e.g. Laptop bag, toolbox" slotProps={{ htmlInput: { maxLength: 200 } }} />
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setSignInOpen(false)}>Cancel</Button>
-                <Button onClick={signIn} disabled={checkInMutation.isPending}>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setSignInOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={signIn} disabled={checkInMutation.isPending}>
                   {checkInMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign in
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogActions>
+            </Dialog>
+          </>
         }
       />
 
@@ -240,25 +182,27 @@ function VisitorLogPage() {
         <StatCard label="Total this week" value={visitorList.length} accent="accent" icon={<UserCheck className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="today">
-        <TabsList>
-          <TabsTrigger value="today">Today ({todayVisitors.length})</TabsTrigger>
-          <TabsTrigger value="oncampus">On campus ({signedIn.length})</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+      <Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="today" label={`Today (${todayVisitors.length})`} />
+          <Tab value="oncampus" label={`On campus (${signedIn.length})`} />
+          <Tab value="history" label="History" />
+        </Tabs>
 
-        <TabsContent value="today" className="rounded-xl border border-border bg-card">
+        {tab === "today" && (
+        <Box className="rounded-xl border border-border bg-card">
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading visitors...</span>
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>Badge</TableHead><TableHead>Name</TableHead><TableHead>Purpose</TableHead>
-                <TableHead>Host</TableHead><TableHead>Sign in</TableHead><TableHead>Sign out</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow></TableHeader>
+              <TableHead><TableRow>
+                <TableCell>Badge</TableCell><TableCell>Name</TableCell><TableCell>Purpose</TableCell>
+                <TableCell>Host</TableCell><TableCell>Sign in</TableCell><TableCell>Sign out</TableCell>
+                <TableCell className="text-right">Action</TableCell>
+              </TableRow></TableHead>
               <TableBody>
                 {todayVisitors.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No visitors recorded today.</TableCell></TableRow>
@@ -268,17 +212,17 @@ function VisitorLogPage() {
                     <TableRow key={visitor.id}>
                       <TableCell className="font-mono text-xs">{visitor.badgeNumber ?? visitor.badge ?? "—"}</TableCell>
                       <TableCell className="font-medium">{visitor.name}</TableCell>
-                      <TableCell><Badge variant="outline">{visitor.purpose}</Badge></TableCell>
+                      <TableCell><Chip size="small" label={visitor.purpose} sx={badgeSx("outline")} /></TableCell>
                       <TableCell className="text-muted-foreground">{visitor.host}</TableCell>
                       <TableCell>{(visitor.checkInTime ?? visitor.signInTime ?? "").slice(11, 16)}</TableCell>
                       <TableCell>{visitor.checkOutTime ? (visitor.checkOutTime ?? "").slice(11, 16) : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-right">
                         {isSignedIn ? (
-                          <Button size="sm" onClick={() => checkOutMutation.mutate({ id: visitor.id, name: visitor.name })} disabled={checkOutMutation.isPending}>
-                            <LogOut className="mr-1 h-3.5 w-3.5" />Sign out
+                          <Button variant="contained" size="small" startIcon={<LogOut size={14} />} onClick={() => checkOutMutation.mutate({ id: visitor.id, name: visitor.name })} disabled={checkOutMutation.isPending}>
+                            Sign out
                           </Button>
                         ) : (
-                          <Badge variant="secondary" className="text-success">Left</Badge>
+                          <Chip size="small" label="Left" sx={{ ...badgeSx("secondary"), color: "success.main" }} />
                         )}
                       </TableCell>
                     </TableRow>
@@ -286,10 +230,13 @@ function VisitorLogPage() {
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+        )}
 
-        <TabsContent value="oncampus" className="rounded-xl border border-border bg-card">
+        {tab === "oncampus" && (
+        <Box className="rounded-xl border border-border bg-card">
           {signedIn.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">No visitors currently on campus.</p>
           ) : (
@@ -303,28 +250,35 @@ function VisitorLogPage() {
                     <p className="font-medium">{visitor.name}</p>
                     <p className="text-xs text-muted-foreground">{visitor.purpose} · Host: {visitor.host} · Badge: {visitor.badgeNumber ?? visitor.badge ?? "Pending"}</p>
                   </div>
-                  <Button size="sm" onClick={() => checkOutMutation.mutate({ id: visitor.id, name: visitor.name })}>
-                    <LogOut className="mr-1 h-3.5 w-3.5" />Sign out
+                  <Button variant="contained" size="small" startIcon={<LogOut size={14} />} onClick={() => checkOutMutation.mutate({ id: visitor.id, name: visitor.name })}>
+                    Sign out
                   </Button>
                 </div>
               ))}
             </div>
           )}
-        </TabsContent>
+        </Box>
+        )}
 
-        <TabsContent value="history" className="rounded-xl border border-border bg-card">
+        {tab === "history" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex items-center gap-3 border-b border-border p-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, purpose, or host" className="pl-9" />
-            </div>
-            <Button variant="outline" size="sm" onClick={() => { downloadCsv(filtered.map((visitor: any) => ({ Date: (visitor.checkInTime ?? visitor.date ?? "").slice(0, 10), Name: visitor.name, Purpose: visitor.purpose, Host: visitor.host, Organisation: visitor.organisation ?? "", "Badge No": visitor.badgeNumber ?? visitor.badge ?? "", Status: visitor.status ?? "" })), "visitor-log"); toast.success("Visitor log exported"); }}>Export CSV</Button>
+            <TextField
+              size="small"
+              className="flex-1"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search name, purpose, or host"
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+            />
+            <Button variant="outlined" size="small" onClick={() => { downloadCsv(filtered.map((visitor: any) => ({ Date: (visitor.checkInTime ?? visitor.date ?? "").slice(0, 10), Name: visitor.name, Purpose: visitor.purpose, Host: visitor.host, Organisation: visitor.organisation ?? "", "Badge No": visitor.badgeNumber ?? visitor.badge ?? "", Status: visitor.status ?? "" })), "visitor-log"); toast.success("Visitor log exported"); }}>Export CSV</Button>
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Date</TableHead><TableHead>Name</TableHead><TableHead>Purpose</TableHead>
-              <TableHead>Host</TableHead><TableHead>Status</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Date</TableCell><TableCell>Name</TableCell><TableCell>Purpose</TableCell>
+              <TableCell>Host</TableCell><TableCell>Status</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {filtered.map((visitor: any) => {
                 const isSignedIn = (visitor.status ?? "").toLowerCase().replace(" ", "_") === "checked_in";
@@ -332,10 +286,10 @@ function VisitorLogPage() {
                   <TableRow key={visitor.id}>
                     <TableCell className="text-muted-foreground">{(visitor.checkInTime ?? visitor.date ?? "").slice(0, 10)}</TableCell>
                     <TableCell className="font-medium">{visitor.name}</TableCell>
-                    <TableCell><Badge variant="outline">{visitor.purpose}</Badge></TableCell>
+                    <TableCell><Chip size="small" label={visitor.purpose} sx={badgeSx("outline")} /></TableCell>
                     <TableCell className="text-muted-foreground">{visitor.host}</TableCell>
                     <TableCell>
-                      <Badge variant={isSignedIn ? "outline" : "secondary"}>{isSignedIn ? "On campus" : "Signed out"}</Badge>
+                      <Chip size="small" label={isSignedIn ? "On campus" : "Signed out"} sx={badgeSx(isSignedIn ? "outline" : "secondary")} />
                     </TableCell>
                   </TableRow>
                 );
@@ -345,8 +299,10 @@ function VisitorLogPage() {
               )}
             </TableBody>
           </Table>
-        </TabsContent>
-      </Tabs>
+          </TableContainer>
+        </Box>
+        )}
+      </Box>
     </div>
     </AccessGuard>
   );

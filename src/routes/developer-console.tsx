@@ -1,16 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Activity, KeyRound, Plug, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendPlatformAuditEvent, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx } from "@/lib/utils";
 
 type KeyStatus = "Active" | "Rotating" | "Paused";
 type WebhookStatus = "Healthy" | "Retrying" | "Paused";
@@ -47,6 +55,7 @@ export const Route = createFileRoute("/developer-console")({
 });
 
 function DeveloperConsolePage() {
+  const [tab, setTab] = useState("keys");
   const { user } = useAuth();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
@@ -60,7 +69,7 @@ function DeveloperConsolePage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -209,11 +218,8 @@ function DeveloperConsolePage() {
         description="Manage API clients, webhook health, partner sandboxes, and operational access for platform integrations."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/integrations">Open integrations</Link>
-            </Button>
-            <Button onClick={provisionSandbox}>
-              <Wrench className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/integrations">Open integrations</Button>
+            <Button onClick={provisionSandbox} startIcon={<Wrench className="h-4 w-4" />}>
               Provision sandbox
             </Button>
           </>
@@ -227,24 +233,26 @@ function DeveloperConsolePage() {
         <StatCard label="Webhook failures" value={stats.totalFailures} accent="destructive" icon={<Activity className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="keys" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="keys">API Keys</TabsTrigger>
-          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
-          <TabsTrigger value="sandboxes">Sandboxes</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="keys" label="API Keys" />
+        <Tab value="webhooks" label="Webhooks" />
+        <Tab value="sandboxes" label="Sandboxes" />
+      </Tabs>
 
-        <TabsContent value="keys" className="rounded-xl border border-border bg-card">
+      {tab === "keys" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead>Last used</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Client</TableCell>
+                <TableCell>Scope</TableCell>
+                <TableCell>Last used</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {keys.map((item) => (
                 <TableRow key={item.id}>
@@ -257,12 +265,14 @@ function DeveloperConsolePage() {
                   <TableCell>{item.scope}</TableCell>
                   <TableCell>{item.lastUsed}</TableCell>
                   <TableCell>
-                    <Badge className={item.status === "Active" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : item.status === "Rotating" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                      {item.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={item.status}
+                      sx={badgeSx(item.status === "Active" ? "success" : item.status === "Rotating" ? "warning" : "secondary")}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => rotateKey(item.id)}>
+                    <Button size="small" variant="outlined" onClick={() => rotateKey(item.id)}>
                       {item.status === "Paused" ? "Resume" : item.status === "Active" ? "Rotate" : "Activate"}
                     </Button>
                   </TableCell>
@@ -270,19 +280,23 @@ function DeveloperConsolePage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="webhooks" className="rounded-xl border border-border bg-card">
+      {tab === "webhooks" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Endpoint</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Failures</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Endpoint</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Failures</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {webhooks.map((item) => (
                 <TableRow key={item.id}>
@@ -295,12 +309,14 @@ function DeveloperConsolePage() {
                   <TableCell>{item.owner}</TableCell>
                   <TableCell>{item.failures}</TableCell>
                   <TableCell>
-                    <Badge className={item.status === "Healthy" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : item.status === "Retrying" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                      {item.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={item.status}
+                      sx={badgeSx(item.status === "Healthy" ? "success" : item.status === "Retrying" ? "warning" : "secondary")}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => updateWebhook(item.id)}>
+                    <Button size="small" variant="outlined" onClick={() => updateWebhook(item.id)}>
                       {item.status === "Paused" ? "Resume" : item.status === "Retrying" ? "Mark healthy" : "Pause"}
                     </Button>
                   </TableCell>
@@ -308,9 +324,12 @@ function DeveloperConsolePage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="sandboxes" className="grid gap-4 lg:grid-cols-3">
+      {tab === "sandboxes" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           {sandboxes.map((item) => (
             <div key={item.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -318,24 +337,25 @@ function DeveloperConsolePage() {
                   <p className="font-semibold">{item.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{item.owner}</p>
                 </div>
-                <Badge className={item.status === "Ready" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : item.status === "Provisioning" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                  {item.status}
-                </Badge>
+                <Chip
+                  size="small"
+                  label={item.status}
+                  sx={badgeSx(item.status === "Ready" ? "success" : item.status === "Provisioning" ? "warning" : "secondary")}
+                />
               </div>
               <div className="mt-4 space-y-1 text-sm text-muted-foreground">
                 <p>Expires on {item.expiresOn}</p>
                 {item.lastCredentialRefresh && <p>Credentials refreshed {item.lastCredentialRefresh}</p>}
               </div>
               <div className="mt-4 flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => refreshCredentials(item.id)}>Refresh creds</Button>
-                <Button size="sm" asChild>
-                  <Link to="/tenant-workbench">Open workbench</Link>
-                </Button>
+                <Button size="small" variant="outlined" onClick={() => refreshCredentials(item.id)}>Refresh creds</Button>
+                <Button size="small" component={Link} to="/tenant-workbench">Open workbench</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
   );
 }

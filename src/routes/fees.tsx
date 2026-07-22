@@ -5,19 +5,12 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Chip, Button, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { useTenant, formatGrade } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { downloadCsv } from "@/lib/utils";
+import { downloadCsv, badgeSx } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { PaymentDialog } from "@/components/payment-dialog";
 
@@ -38,9 +31,9 @@ function ParentFeesView({ schoolId }: { schoolId: string }) {
   const [payFor, setPayFor] = useState<any>(null);
 
   const { data: children = [], isLoading } = useQuery({
-    queryKey: ["guardian-children", schoolId, user?.email],
-    queryFn: () => api.students.listByGuardian(schoolId, user!.email),
-    enabled: !!user?.email,
+    queryKey: ["guardian-children", schoolId, user?.email, user?.phone],
+    queryFn: () => api.students.listByGuardian(schoolId, { email: user?.email, phone: user?.phone }),
+    enabled: !!(user?.email || user?.phone),
   });
 
   const childList = children as any[];
@@ -81,8 +74,8 @@ function ParentFeesView({ schoolId }: { schoolId: string }) {
                   )}
                 </div>
                 {balance > 0 && (
-                  <Button size="sm" className="w-full" onClick={() => setPayFor(child)}>
-                    <CreditCard className="mr-2 h-4 w-4" />Pay now
+                  <Button size="small" variant="contained" fullWidth startIcon={<CreditCard size={16} />} onClick={() => setPayFor(child)}>
+                    Pay now
                   </Button>
                 )}
               </div>
@@ -312,18 +305,16 @@ function FeesPage() {
         description="Multi-currency (ZMW, USD) · MoMo, Airtel Money, Zamtel Kwacha and bank"
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/fee-structure">Fee structure</Link>
+            <Button variant="outlined" component={Link} to="/fee-structure">
+              Fee structure
             </Button>
-            <Button variant="outline" asChild>
-              <Link to="/bursaries">Bursaries</Link>
+            <Button variant="outlined" component={Link} to="/bursaries">
+              Bursaries
             </Button>
-            <Dialog open={reminderOpen} onOpenChange={setReminderOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline"><Send className="mr-2 h-4 w-4" />Send reminders</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader><DialogTitle>Send fee reminders</DialogTitle></DialogHeader>
+            <Button variant="outlined" startIcon={<Send size={16} />} onClick={() => setReminderOpen(true)}>Send reminders</Button>
+            <Dialog open={reminderOpen} onClose={() => setReminderOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Send fee reminders</DialogTitle>
+              <DialogContent>
                 <div className="space-y-4">
                   {debtors.length === 0 ? (
                     <div className="rounded-lg bg-muted/40 p-4 text-center text-sm text-muted-foreground">
@@ -336,13 +327,14 @@ function FeesPage() {
                         <span>Reminders will be sent to <strong>{debtors.length}</strong> parent{debtors.length !== 1 ? "s" : ""} via SMS and WhatsApp.</span>
                       </div>
                       <div className="max-h-52 overflow-y-auto rounded-xl border border-border">
+                        <TableContainer>
                         <Table>
-                          <TableHeader>
+                          <TableHead>
                             <TableRow>
-                              <TableHead>Student</TableHead>
-                              <TableHead className="text-right">Balance</TableHead>
+                              <TableCell>Student</TableCell>
+                              <TableCell className="text-right">Balance</TableCell>
                             </TableRow>
-                          </TableHeader>
+                          </TableHead>
                           <TableBody>
                             {debtors.map((s: any) => (
                               <TableRow key={s.id}>
@@ -352,6 +344,7 @@ function FeesPage() {
                             ))}
                           </TableBody>
                         </Table>
+                        </TableContainer>
                       </div>
                       <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
                         <p className="font-medium text-foreground">Channels</p>
@@ -362,19 +355,23 @@ function FeesPage() {
                     </>
                   )}
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setReminderOpen(false)}>Cancel</Button>
-                  <Button onClick={() => reminderMutation.mutate()} disabled={reminderMutation.isPending || debtors.length === 0}>
-                    {reminderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <Send className="mr-2 h-4 w-4" />Send to {debtors.length} parent{debtors.length !== 1 ? "s" : ""}
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setReminderOpen(false)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  startIcon={reminderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send size={16} />}
+                  onClick={() => reminderMutation.mutate()}
+                  disabled={reminderMutation.isPending || debtors.length === 0}
+                >
+                  Send to {debtors.length} parent{debtors.length !== 1 ? "s" : ""}
+                </Button>
+              </DialogActions>
             </Dialog>
 
-            <Dialog open={!!reminderPreviewStudent} onOpenChange={(v) => !v && setReminderPreviewStudent(null)}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader><DialogTitle>Send fee reminder</DialogTitle></DialogHeader>
+            <Dialog open={!!reminderPreviewStudent} onClose={() => setReminderPreviewStudent(null)} maxWidth="xs" fullWidth>
+              <DialogTitle>Send fee reminder</DialogTitle>
+              <DialogContent>
                 {reminderPreviewStudent && (
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
@@ -385,45 +382,50 @@ function FeesPage() {
                     </div>
                   </div>
                 )}
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setReminderPreviewStudent(null)}>Cancel</Button>
-                  <Button
-                    disabled={sendingReminderId === reminderPreviewStudent?.id}
-                    onClick={async () => {
-                      const student = reminderPreviewStudent;
-                      setReminderPreviewStudent(null);
-                      if (student) await sendIndividualReminder(student);
-                    }}
-                  >
-                    <Send className="mr-2 h-4 w-4" />Send reminder
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setReminderPreviewStudent(null)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  startIcon={<Send size={16} />}
+                  disabled={sendingReminderId === reminderPreviewStudent?.id}
+                  onClick={async () => {
+                    const student = reminderPreviewStudent;
+                    setReminderPreviewStudent(null);
+                    if (student) await sendIndividualReminder(student);
+                  }}
+                >
+                  Send reminder
+                </Button>
+              </DialogActions>
             </Dialog>
 
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> Record payment</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Record payment</DialogTitle></DialogHeader>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Record payment</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle>Record payment</DialogTitle>
+              <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <Label>Student</Label>
-                    <Select value={form.studentId} onValueChange={(v) => {
-                      const s = (students as any[]).find((st: any) => st.id === v);
-                      setForm({ ...form, studentId: v, studentName: s ? `${s.firstName} ${s.lastName}` : "", grade: s ? `${formatGrade(s.grade, active.type)} ${s.section ?? ""}`.trim() : "" });
-                    }}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select student" /></SelectTrigger>
-                      <SelectContent>
-                        {(students as any[]).map((s: any) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.firstName} {s.lastName}
-                            {Number(s.feeBalance ?? 0) > 0 && ` · owes K ${Number(s.feeBalance).toLocaleString()}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      label="Student"
+                      value={form.studentId}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const s = (students as any[]).find((st: any) => st.id === v);
+                        setForm({ ...form, studentId: v, studentName: s ? `${s.firstName} ${s.lastName}` : "", grade: s ? `${formatGrade(s.grade, active.type)} ${s.section ?? ""}`.trim() : "" });
+                      }}
+                      fullWidth
+                      size="small"
+                    >
+                      <MenuItem value="" disabled>Select student</MenuItem>
+                      {(students as any[]).map((s: any) => (
+                        <MenuItem key={s.id} value={s.id}>
+                          {s.firstName} {s.lastName}
+                          {Number(s.feeBalance ?? 0) > 0 && ` · owes K ${Number(s.feeBalance).toLocaleString()}`}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                     {form.studentId && (() => {
                       const s = (students as any[]).find((st: any) => st.id === form.studentId);
                       const bal = Number(s?.feeBalance ?? 0);
@@ -434,79 +436,100 @@ function FeesPage() {
                       ) : null;
                     })()}
                   </div>
-                  <div>
-                    <Label>Fee category</Label>
-                    <Select value={form.feeCategory} onValueChange={(v) => setForm({ ...form, feeCategory: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{FEE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Term / period</Label>
-                    <Select value={form.termPeriod} onValueChange={(v) => setForm({ ...form, termPeriod: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{TERMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Amount (K) *</Label>
-                    <Input type="number" className="mt-1" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="2500" min={1} />
-                  </div>
-                  <div>
-                    <Label>Payment method</Label>
-                    <Select value={form.method} onValueChange={(v) => setForm({ ...form, method: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Payment date</Label>
-                    <Input type="date" className="mt-1" value={form.paymentDate} onChange={(e) => setForm({ ...form, paymentDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Reference / transaction no.</Label>
-                    <Input className="mt-1" value={form.referenceNumber} onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })} placeholder="MM-908712" maxLength={50} />
-                  </div>
-                  <div>
-                    <Label>Receipt number</Label>
-                    <Input className="mt-1" value={form.receiptNumber} onChange={(e) => setForm({ ...form, receiptNumber: e.target.value })} placeholder="RCP-2026-0041" maxLength={30} />
-                  </div>
-                  <div>
-                    <Label>Collected by</Label>
-                    <Input className="mt-1" value={form.collectedBy} onChange={(e) => setForm({ ...form, collectedBy: e.target.value })} placeholder="Finance Office" maxLength={80} />
-                  </div>
-                  <div>
-                    <Label>Late penalty applied</Label>
-                    <Select value={form.latePenaltyApplied} onValueChange={(v) => setForm({ ...form, latePenaltyApplied: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no">No penalty</SelectItem>
-                        <SelectItem value="yes">Yes — penalty charged</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TextField select label="Fee category" value={form.feeCategory} onChange={(e) => setForm({ ...form, feeCategory: e.target.value })} fullWidth size="small">
+                    {FEE_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </TextField>
+                  <TextField select label="Term / period" value={form.termPeriod} onChange={(e) => setForm({ ...form, termPeriod: e.target.value })} fullWidth size="small">
+                    {TERMS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Amount (K) *"
+                    type="number"
+                    value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    placeholder="2500"
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField select label="Payment method" value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} fullWidth size="small">
+                    {METHODS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Payment date"
+                    type="date"
+                    value={form.paymentDate}
+                    onChange={(e) => setForm({ ...form, paymentDate: e.target.value })}
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                  <TextField
+                    label="Reference / transaction no."
+                    value={form.referenceNumber}
+                    onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })}
+                    placeholder="MM-908712"
+                    slotProps={{ htmlInput: { maxLength: 50 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Receipt number"
+                    value={form.receiptNumber}
+                    onChange={(e) => setForm({ ...form, receiptNumber: e.target.value })}
+                    placeholder="RCP-2026-0041"
+                    slotProps={{ htmlInput: { maxLength: 30 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Collected by"
+                    value={form.collectedBy}
+                    onChange={(e) => setForm({ ...form, collectedBy: e.target.value })}
+                    placeholder="Finance Office"
+                    slotProps={{ htmlInput: { maxLength: 80 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField select label="Late penalty applied" value={form.latePenaltyApplied} onChange={(e) => setForm({ ...form, latePenaltyApplied: e.target.value })} fullWidth size="small">
+                    <MenuItem value="no">No penalty</MenuItem>
+                    <MenuItem value="yes">Yes — penalty charged</MenuItem>
+                  </TextField>
                   {form.latePenaltyApplied === "yes" && (
-                    <div>
-                      <Label>Penalty amount (K)</Label>
-                      <Input type="number" min={0} className="mt-1" value={form.penaltyAmount} onChange={(e) => setForm({ ...form, penaltyAmount: e.target.value })} placeholder="150" />
-                    </div>
+                    <TextField
+                      label="Penalty amount (K)"
+                      type="number"
+                      slotProps={{ htmlInput: { min: 0 } }}
+                      value={form.penaltyAmount}
+                      onChange={(e) => setForm({ ...form, penaltyAmount: e.target.value })}
+                      placeholder="150"
+                      fullWidth
+                      size="small"
+                    />
                   )}
-                  <div className="col-span-2">
-                    <Label>Description / breakdown</Label>
-                    <Textarea className="mt-1" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Term 2 tuition, transport levy, exam fee" />
-                  </div>
+                  <TextField
+                    className="col-span-2"
+                    label="Description / breakdown"
+                    multiline
+                    minRows={2}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="Term 2 tuition, transport levy, exam fee"
+                    fullWidth
+                    size="small"
+                  />
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={recordPayment} disabled={payMutation.isPending}>
-                    {payMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Record payment
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={recordPayment} disabled={payMutation.isPending}>
+                  {payMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Record payment
+                </Button>
+              </DialogActions>
             </Dialog>
 
-            <Button variant="outline" onClick={() => {
+            <Button variant="outlined" startIcon={<Download size={16} />} onClick={() => {
               const rows = (payments as any[]);
               if (rows.length === 0) { toast.error("No payments to export"); return; }
               downloadCsv(rows.map((p: any) => ({
@@ -521,7 +544,7 @@ function FeesPage() {
                 Status: p.status ?? "completed",
               })), `fee-ledger-${new Date().toISOString().slice(0, 10)}`);
             }}>
-              <Download className="mr-2 h-4 w-4" />Export
+              Export
             </Button>
           </>
         }
@@ -556,8 +579,8 @@ function FeesPage() {
         </div>
       )}
 
-      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog open={receiptOpen} onClose={() => setReceiptOpen(false)} maxWidth="sm" fullWidth>
+        <DialogContent>
           <div id="fee-receipt" className="print-area divide-y divide-border text-sm print:rounded-none print:border-0 print:shadow-none">
             <SchoolDocumentHeader title="Official Fee Receipt" subtitle={lastPayment?.termPeriod ?? ""} />
             <div className="grid grid-cols-2 gap-3 p-6">
@@ -609,11 +632,11 @@ function FeesPage() {
               <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">School stamp</div>
             </div>
           </div>
-          <DialogFooter className="print:hidden">
-            <Button variant="outline" onClick={() => setReceiptOpen(false)}>Close</Button>
-            <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions className="print:hidden">
+          <Button variant="outlined" color="inherit" onClick={() => setReceiptOpen(false)}>Close</Button>
+          <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => window.print()}>Print</Button>
+        </DialogActions>
       </Dialog>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -643,15 +666,16 @@ function FeesPage() {
             <p className="text-xs">All enrolled students are paid up for the current term.</p>
           </div>
         ) : (
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead className="text-right">Balance due</TableHead>
-                <TableHead></TableHead>
+                <TableCell>Student</TableCell>
+                <TableCell>Class</TableCell>
+                <TableCell className="text-right">Balance due</TableCell>
+                <TableCell></TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {debtors.map((s: any) => (
                 <TableRow key={s.id}>
@@ -665,20 +689,21 @@ function FeesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs"
+                      <IconButton
+                        size="small"
+                        className="h-7"
                         disabled={sendingReminderId === s.id}
                         onClick={() => setReminderPreviewStudent(s)}
+                        aria-label="Send reminder to parent"
                         title="Send reminder to parent"
                       >
                         {sendingReminderId === s.id
                           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           : <Bell className="h-3.5 w-3.5" />}
-                      </Button>
+                      </IconButton>
                       <Button
-                        size="sm"
+                        size="small"
+                        variant="contained"
                         className="h-7 text-xs"
                         onClick={() => {
                           setForm((f) => ({ ...f, studentId: s.id, studentName: `${s.firstName} ${s.lastName}`, grade: s.className || formatGrade(s.grade, active.type) }));
@@ -693,6 +718,7 @@ function FeesPage() {
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </div>
 
@@ -700,20 +726,34 @@ function FeesPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
           <h2 className="text-sm font-semibold">Recent payments</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={ledgerTermFilter} onValueChange={setLedgerTermFilter}>
-              <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All terms</SelectItem>
-                {TERMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Input type="date" className="h-8 w-36 text-xs" value={ledgerFrom} onChange={(e) => setLedgerFrom(e.target.value)} aria-label="From date" />
+            <TextField select size="small" value={ledgerTermFilter} onChange={(e) => setLedgerTermFilter(e.target.value)} sx={{ width: 160 }}>
+              <MenuItem value="ALL">All terms</MenuItem>
+              {TERMS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
+            <TextField
+              type="date"
+              size="small"
+              value={ledgerFrom}
+              onChange={(e) => setLedgerFrom(e.target.value)}
+              aria-label="From date"
+              sx={{ width: 144 }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
             <span className="text-xs text-muted-foreground">to</span>
-            <Input type="date" className="h-8 w-36 text-xs" value={ledgerTo} onChange={(e) => setLedgerTo(e.target.value)} aria-label="To date" />
+            <TextField
+              type="date"
+              size="small"
+              value={ledgerTo}
+              onChange={(e) => setLedgerTo(e.target.value)}
+              aria-label="To date"
+              sx={{ width: 144 }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
             {(ledgerTermFilter !== "ALL" || ledgerFrom || ledgerTo) && (
               <Button
-                variant="ghost"
-                size="sm"
+                variant="text"
+                color="inherit"
+                size="small"
                 className="h-8 text-xs"
                 onClick={() => { setLedgerTermFilter("ALL"); setLedgerFrom(""); setLedgerTo(""); }}
               >
@@ -727,18 +767,19 @@ function FeesPage() {
             <Loader2 className="h-5 w-5 animate-spin" /><span>Loading payments…</span>
           </div>
         ) : (
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Student</TableCell>
+                <TableCell>Class</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Method</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {filteredPayments.map((p: any) => {
                 const status = p.status ?? "completed";
@@ -753,17 +794,17 @@ function FeesPage() {
                     <TableCell>{p.method}</TableCell>
                     <TableCell className="text-muted-foreground">{(p.paymentDate ?? p.date ?? "").slice(0, 10)}</TableCell>
                     <TableCell>
-                      <Badge variant={status === "completed" ? "secondary" : status === "failed" ? "destructive" : "outline"}>{status}</Badge>
+                      <Chip size="small" label={status} sx={badgeSx(status === "completed" ? "secondary" : status === "failed" ? "destructive" : "outline")} />
                     </TableCell>
                     <TableCell className="text-right">
                       {status === "pending" && p.gatewayProvider && (
                         <Button
-                          size="sm"
-                          variant="outline"
+                          size="small"
+                          variant="outlined"
                           disabled={recheckMutation.isPending && recheckMutation.variables === p.id}
                           onClick={() => recheckMutation.mutate(p.id)}
+                          startIcon={recheckMutation.isPending && recheckMutation.variables === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : undefined}
                         >
-                          {recheckMutation.isPending && recheckMutation.variables === p.id && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
                           Recheck
                         </Button>
                       )}
@@ -782,6 +823,7 @@ function FeesPage() {
               )}
             </TableBody>
           </Table>
+          </TableContainer>
         )}
       </div>
     </div>

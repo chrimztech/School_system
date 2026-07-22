@@ -5,14 +5,8 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -215,30 +209,34 @@ function CommunicationPage() {
         description="SMS · WhatsApp · Email · USSD fallback for parents without smartphones"
         actions={
           !isTeacher && !isHOD && (
-            <Button onClick={() => setTab("broadcast")}>
-              <Send className="mr-2 h-4 w-4" />New broadcast
-            </Button>
+            <Button variant="contained" onClick={() => setTab("broadcast")} startIcon={<Send className="h-4 w-4" />}>New broadcast</Button>
           )
         }
       />
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="messages" className="gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Parent messages
-            {openCount > 0 && (
-              <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-                {openCount}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-          {!isTeacher && !isHOD && <TabsTrigger value="broadcast">Send broadcast</TabsTrigger>}
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab
+          value="messages"
+          icon={<MessageSquare className="h-4 w-4" />}
+          iconPosition="start"
+          label={
+            <span className="flex items-center gap-1.5">
+              Parent messages
+              {openCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                  {openCount}
+                </span>
+              )}
+            </span>
+          }
+        />
+        <Tab value="announcements" label="Announcements" />
+        {!isTeacher && !isHOD && <Tab value="broadcast" label="Send broadcast" />}
+      </Tabs>
 
-        {/* ── Messages tab ─────────────────────────────────────────── */}
-        <TabsContent value="messages" className="mt-4 space-y-2">
+      {/* ── Messages tab ─────────────────────────────────────────── */}
+      {tab === "messages" && (
+        <div className="mt-4 space-y-2">
           {msgsLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading messages…</span>
@@ -261,7 +259,7 @@ function CommunicationPage() {
                           <span className="ml-2">{(msg.sentAt ?? msg.createdAt ?? msg.date ?? "").slice(0, 10)}</span>
                         </p>
                       </div>
-                      <Badge variant={statusVariant(msg.status)}>{statusLabel(msg.status)}</Badge>
+                      <Chip size="small" label={statusLabel(msg.status)} sx={badgeSx(statusVariant(msg.status))} />
                     </div>
 
                     {/* Expandable body */}
@@ -289,17 +287,18 @@ function CommunicationPage() {
                     <div className="mt-3 flex items-center gap-2">
                       {!isClosed && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => openReply(msg)}>
+                          <Button size="small" variant="outlined" onClick={() => openReply(msg)}>
                             Reply
                           </Button>
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-muted-foreground"
+                            size="small"
+                            variant="text"
+                            color="inherit"
                             onClick={() => closeMutation.mutate(msg.id)}
                             disabled={closeMutation.isPending}
+                            startIcon={<CheckCheck className="h-3.5 w-3.5" />}
                           >
-                            <CheckCheck className="mr-1.5 h-3.5 w-3.5" />Mark resolved
+                            Mark resolved
                           </Button>
                         </>
                       )}
@@ -309,50 +308,69 @@ function CommunicationPage() {
               );
             })
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ── Announcements tab ────────────────────────────────────── */}
-        <TabsContent value="announcements" className="mt-4 space-y-3">
+      {/* ── Announcements tab ────────────────────────────────────── */}
+      {tab === "announcements" && (
+        <div className="mt-4 space-y-3">
           <div className="flex justify-end">
             {!isTeacher && !isHOD && (
-              <Dialog open={annoOpen} onOpenChange={setAnnoOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="mr-1 h-4 w-4" />New announcement</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader><DialogTitle>Create announcement</DialogTitle></DialogHeader>
+              <>
+                <Button variant="contained" size="small" startIcon={<Plus className="h-4 w-4" />} onClick={() => setAnnoOpen(true)}>New announcement</Button>
+                <Dialog open={annoOpen} onClose={() => setAnnoOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Create announcement</DialogTitle>
+                <DialogContent>
                   <div className="grid gap-3">
-                    <div>
-                      <Label>Title *</Label>
-                      <Input className="mt-1" value={annoForm.title} onChange={(e) => setAnnoForm({ ...annoForm, title: e.target.value })} placeholder="Term 2 exam timetable released" maxLength={120} />
-                    </div>
-                    <div>
-                      <Label>Audience</Label>
-                      <Select value={annoForm.audience} onValueChange={(v) => setAnnoForm({ ...annoForm, audience: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {AUDIENCES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Channels</Label>
-                      <Input className="mt-1" value={annoForm.channels} onChange={(e) => setAnnoForm({ ...annoForm, channels: e.target.value })} placeholder="SMS, WhatsApp, Email" maxLength={80} />
-                    </div>
-                    <div>
-                      <Label>Message *</Label>
-                      <Textarea className="mt-1" rows={4} value={annoForm.body} onChange={(e) => setAnnoForm({ ...annoForm, body: e.target.value })} placeholder="Dear parents / staff..." />
-                    </div>
+                    <TextField
+                      label="Title *"
+                      value={annoForm.title}
+                      onChange={(e) => setAnnoForm({ ...annoForm, title: e.target.value })}
+                      placeholder="Term 2 exam timetable released"
+                      slotProps={{ htmlInput: { maxLength: 120 } }}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      select
+                      label="Audience"
+                      value={annoForm.audience}
+                      onChange={(e) => setAnnoForm({ ...annoForm, audience: e.target.value })}
+                      fullWidth
+                      size="small"
+                    >
+                      {AUDIENCES.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                    </TextField>
+                    <TextField
+                      label="Channels"
+                      value={annoForm.channels}
+                      onChange={(e) => setAnnoForm({ ...annoForm, channels: e.target.value })}
+                      placeholder="SMS, WhatsApp, Email"
+                      slotProps={{ htmlInput: { maxLength: 80 } }}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      label="Message *"
+                      multiline
+                      minRows={4}
+                      value={annoForm.body}
+                      onChange={(e) => setAnnoForm({ ...annoForm, body: e.target.value })}
+                      placeholder="Dear parents / staff..."
+                      fullWidth
+                      size="small"
+                    />
                   </div>
-                  <DialogFooter className="mt-2">
-                    <Button variant="outline" onClick={() => setAnnoOpen(false)}>Cancel</Button>
-                    <Button onClick={createAnnouncement} disabled={createAnnouncementMutation.isPending}>
-                      {createAnnouncementMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Publish
-                    </Button>
-                  </DialogFooter>
                 </DialogContent>
-              </Dialog>
+                <DialogActions>
+                  <Button variant="outlined" color="inherit" onClick={() => setAnnoOpen(false)}>Cancel</Button>
+                  <Button variant="contained" onClick={createAnnouncement} disabled={createAnnouncementMutation.isPending}>
+                    {createAnnouncementMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Publish
+                  </Button>
+                </DialogActions>
+                </Dialog>
+              </>
             )}
           </div>
 
@@ -375,9 +393,11 @@ function CommunicationPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold">{ann.title}</p>
                         {ann.priority && ann.priority !== "Normal" && (
-                          <Badge variant={ann.priority === "Emergency" ? "destructive" : "secondary"} className="text-xs">
-                            {ann.priority}
-                          </Badge>
+                          <Chip
+                            size="small"
+                            label={ann.priority}
+                            sx={{ ...badgeSx(ann.priority === "Emergency" ? "destructive" : "secondary"), fontSize: 12 }}
+                          />
                         )}
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">{ann.body}</p>
@@ -390,90 +410,116 @@ function CommunicationPage() {
                       </div>
                     </div>
                     {!isTeacher && !isHOD && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-destructive shrink-0"
+                      <IconButton
+                        size="small"
+                        aria-label="Delete announcement"
+                        sx={{ flexShrink: 0, color: "text.secondary", "&:hover": { color: "error.main" } }}
                         onClick={() => deleteAnnouncementMutation.mutate(ann.id)}
                         disabled={deleteAnnouncementMutation.isPending}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </IconButton>
                     )}
                   </div>
                   {channelList.length > 0 && (
                     <div className="mt-3 flex gap-1 flex-wrap">
-                      {channelList.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
+                      {channelList.map((c) => <Chip key={c} size="small" label={c} sx={badgeSx("outline")} />)}
                     </div>
                   )}
                 </div>
               );
             })
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* ── Broadcast tab ────────────────────────────────────────── */}
-        <TabsContent value="broadcast" className="mt-4">
+      {/* ── Broadcast tab ────────────────────────────────────────── */}
+      {tab === "broadcast" && (
+        <div className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label className="text-xs font-medium uppercase text-muted-foreground">Recipients *</Label>
-                  <Select value={broadcastRecipients} onValueChange={setBroadcastRecipients}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["All parents", "Form 1 parents", "Form 2 parents", "Form 3 parents", "Form 4 parents", "Form 5 parents", "Form 6 parents", "All primary parents", "All staff", "All alumni"].map((r) => (
-                        <SelectItem key={r} value={r}>{r}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium uppercase text-muted-foreground">Priority</Label>
-                  <Select value={broadcastPriority} onValueChange={setBroadcastPriority}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Normal", "Urgent", "Emergency"].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  select
+                  label="Recipients *"
+                  value={broadcastRecipients}
+                  onChange={(e) => setBroadcastRecipients(e.target.value)}
+                  fullWidth
+                  size="small"
+                >
+                  {["All parents", "Form 1 parents", "Form 2 parents", "Form 3 parents", "Form 4 parents", "Form 5 parents", "Form 6 parents", "All primary parents", "All staff", "All alumni"].map((r) => (
+                    <MenuItem key={r} value={r}>{r}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="Priority"
+                  value={broadcastPriority}
+                  onChange={(e) => setBroadcastPriority(e.target.value)}
+                  fullWidth
+                  size="small"
+                >
+                  {["Normal", "Urgent", "Emergency"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                </TextField>
               </div>
 
-              <div>
-                <Label className="text-xs font-medium uppercase text-muted-foreground">Subject *</Label>
-                <Input className="mt-1" value={broadcastSubject} onChange={(e) => setBroadcastSubject(e.target.value)} placeholder="Term 2 Mid-Term Exams" maxLength={120} />
-              </div>
+              <TextField
+                label="Subject *"
+                value={broadcastSubject}
+                onChange={(e) => setBroadcastSubject(e.target.value)}
+                placeholder="Term 2 Mid-Term Exams"
+                slotProps={{ htmlInput: { maxLength: 120 } }}
+                fullWidth
+                size="small"
+              />
 
               <div>
-                <Label className="text-xs font-medium uppercase text-muted-foreground">Message *</Label>
-                <Textarea className="mt-1" rows={5} value={broadcastBody} onChange={(e) => setBroadcastBody(e.target.value)} placeholder="Dear parent / guardian, ..." />
+                <TextField
+                  label="Message *"
+                  multiline
+                  minRows={5}
+                  value={broadcastBody}
+                  onChange={(e) => setBroadcastBody(e.target.value)}
+                  placeholder="Dear parent / guardian, ..."
+                  fullWidth
+                  size="small"
+                />
                 <p className="mt-1 text-xs text-muted-foreground text-right">{broadcastBody.length} chars</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label className="text-xs font-medium uppercase text-muted-foreground">Schedule send (optional)</Label>
-                  <Input type="datetime-local" className="mt-1" value={broadcastScheduled} onChange={(e) => setBroadcastScheduled(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium uppercase text-muted-foreground">Language</Label>
-                  <Select value={broadcastLanguage} onValueChange={setBroadcastLanguage}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["English", "Nyanja", "Bemba", "Tonga", "Lozi"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  type="datetime-local"
+                  label="Schedule send (optional)"
+                  value={broadcastScheduled}
+                  onChange={(e) => setBroadcastScheduled(e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Language"
+                  value={broadcastLanguage}
+                  onChange={(e) => setBroadcastLanguage(e.target.value)}
+                  fullWidth
+                  size="small"
+                >
+                  {["English", "Nyanja", "Bemba", "Tonga", "Lozi"].map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                </TextField>
               </div>
 
               <div>
-                <Label className="text-xs font-medium uppercase text-muted-foreground">Channels</Label>
+                <p className="text-xs font-medium uppercase text-muted-foreground">Channels</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {["SMS", "WhatsApp", "Email", "USSD"].map((ch) => (
                     <button key={ch} type="button" onClick={() => toggleChannel(ch)}>
-                      <Badge variant={broadcastChannels.includes(ch) ? "secondary" : "outline"} className="cursor-pointer">
-                        {ch === "USSD" && <Phone className="mr-1 h-3 w-3" />}{ch}
-                      </Badge>
+                      <Chip
+                        size="small"
+                        icon={ch === "USSD" ? <Phone size={12} /> : undefined}
+                        label={ch}
+                        sx={{ ...badgeSx(broadcastChannels.includes(ch) ? "secondary" : "outline"), cursor: "pointer" }}
+                      />
                     </button>
                   ))}
                 </div>
@@ -482,25 +528,25 @@ function CommunicationPage() {
                 )}
               </div>
 
-              <div>
-                <Label className="text-xs font-medium uppercase text-muted-foreground">Require read acknowledgement</Label>
-                <Select value={broadcastRequireAck} onValueChange={setBroadcastRequireAck}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no">No — standard send</SelectItem>
-                    <SelectItem value="yes">Yes — track read receipts</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <TextField
+                select
+                label="Require read acknowledgement"
+                value={broadcastRequireAck}
+                onChange={(e) => setBroadcastRequireAck(e.target.value)}
+                fullWidth
+                size="small"
+              >
+                <MenuItem value="no">No — standard send</MenuItem>
+                <MenuItem value="yes">Yes — track read receipts</MenuItem>
+              </TextField>
 
               <div className="flex items-center gap-3 pt-2">
                 <Button
-                  className="sm:w-auto"
+                  variant="contained"
                   onClick={sendBroadcast}
                   disabled={broadcastMutation.isPending || broadcastChannels.length === 0}
+                  startIcon={broadcastMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 >
-                  {broadcastMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Send className="mr-2 h-4 w-4" />
                   {broadcastScheduled ? "Schedule broadcast" : `Send to ${broadcastRecipients}`}
                 </Button>
                 {broadcastScheduled && (
@@ -511,16 +557,13 @@ function CommunicationPage() {
               </div>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* ── Reply dialog ─────────────────────────────────────────────── */}
-      <Dialog open={replyOpen} onOpenChange={(v) => { setReplyOpen(v); if (!v) setReplyTarget(null); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Reply to {replyTarget?.senderName ?? replyTarget?.parent}</DialogTitle>
-          </DialogHeader>
-
+      <Dialog open={replyOpen} onClose={() => { setReplyOpen(false); setReplyTarget(null); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Reply to {replyTarget?.senderName ?? replyTarget?.parent}</DialogTitle>
+        <DialogContent>
           {/* Original message context */}
           <div className="rounded-lg bg-muted/40 px-4 py-3 space-y-1">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -534,23 +577,29 @@ function CommunicationPage() {
             )}
           </div>
 
-          <Textarea
-            rows={4}
+          <TextField
+            multiline
+            minRows={4}
             placeholder="Type your reply…"
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             autoFocus
+            fullWidth
+            size="small"
           />
           <p className="text-xs text-muted-foreground text-right">{replyText.length} chars</p>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReplyOpen(false)}>Cancel</Button>
-            <Button onClick={sendReply} disabled={replyMutation.isPending || !replyText.trim()}>
-              {replyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Send className="mr-2 h-4 w-4" />Send reply
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setReplyOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={sendReply}
+            disabled={replyMutation.isPending || !replyText.trim()}
+            startIcon={replyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          >
+            Send reply
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
   );

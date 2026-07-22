@@ -10,24 +10,17 @@ import {
 } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Search, LogOut, UserCircle, Command as CommandIcon, AlertTriangle, Clock, Lock } from "lucide-react";
+import { ThemeProvider, CssBaseline, Chip, Menu, MenuItem, ListItemIcon, Divider, Box, Typography } from "@mui/material";
 
 import appCss from "../styles.css?url";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { theme } from "@/theme";
 import { TenantProvider, useTenant, type Tenant } from "@/lib/tenant";
 import { AuthProvider, useAuth, ROLE_META } from "@/lib/auth";
-import { Badge } from "@/components/ui/badge";
+import { badgeSx } from "@/lib/utils";
 import { NotificationProvider } from "@/lib/notifications";
 import { NotificationBell } from "@/components/notification-bell";
 import { CommandPalette } from "@/components/command-palette";
-import { WorkspaceSidebar } from "@/components/workspace-sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { WorkspaceSidebar, WorkspaceSidebarProvider, SidebarToggleButton } from "@/components/workspace-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -100,43 +93,52 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function UserMenu() {
   const { user, signOut } = useAuth();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   if (!user) {
     return (
       <Link to="/login" className="text-sm font-medium text-primary hover:underline">Sign in</Link>
     );
   }
+  const closeMenu = () => setAnchorEl(null);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/70 px-2.5 py-2 shadow-sm transition hover:border-primary/20 hover:bg-card">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm">{user.initials}</div>
-          <div className="hidden text-left sm:block">
-            <p className="text-xs font-semibold leading-tight text-foreground">{user.name}</p>
-            <p className="text-[10px] leading-tight text-muted-foreground">{ROLE_META[user.role].label}</p>
-          </div>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60 rounded-2xl">
-        <DropdownMenuLabel>
-          <p className="text-sm">{user.name}</p>
-          <p className="text-xs font-normal text-muted-foreground">{user.email}</p>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" />My profile</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/notifications"><UserCircle className="mr-2 h-4 w-4" />Notifications</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/help"><UserCircle className="mr-2 h-4 w-4" />Help & support</Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={signOut}>
-          <LogOut className="mr-2 h-4 w-4" />Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <button
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/70 px-2.5 py-2 shadow-sm transition hover:border-primary/20 hover:bg-card"
+      >
+        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm">{user.initials}</div>
+        <div className="hidden text-left sm:block">
+          <p className="text-xs font-semibold leading-tight text-foreground">{user.name}</p>
+          <p className="text-[10px] leading-tight text-muted-foreground">{ROLE_META[user.role].label}</p>
+        </div>
+      </button>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={closeMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Box sx={{ px: 2, py: 1 }}>
+          <Typography variant="body2">{user.name}</Typography>
+          <Typography variant="caption" color="text.secondary">{user.email ?? user.phone}</Typography>
+        </Box>
+        <Divider />
+        <MenuItem component={Link} to="/profile" onClick={closeMenu}>
+          <ListItemIcon><UserCircle className="h-4 w-4" /></ListItemIcon>My profile
+        </MenuItem>
+        <MenuItem component={Link} to="/notifications" onClick={closeMenu}>
+          <ListItemIcon><UserCircle className="h-4 w-4" /></ListItemIcon>Notifications
+        </MenuItem>
+        <MenuItem component={Link} to="/help" onClick={closeMenu}>
+          <ListItemIcon><UserCircle className="h-4 w-4" /></ListItemIcon>Help & support
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { closeMenu(); signOut(); }}>
+          <ListItemIcon><LogOut className="h-4 w-4" /></ListItemIcon>Sign out
+        </MenuItem>
+      </Menu>
+    </>
   );
 }
 
@@ -219,7 +221,7 @@ function SubscriptionBanner({ tenant }: { tenant: Tenant }) {
           <span className="font-semibold text-sky-700 dark:text-sky-300">Trial period.</span>{" "}
           Your trial ends on {sub.renewalDate}. Upgrade to keep your data and access.
         </p>
-        <Badge className="shrink-0 border-sky-400/20 bg-sky-500/10 text-[10px] text-sky-700 dark:text-sky-300">Trial</Badge>
+        <Chip size="small" label="Trial" sx={{ ...badgeSx("default"), flexShrink: 0 }} />
         <Link to="/billing" className="shrink-0 text-xs font-semibold text-sky-700 dark:text-sky-300 underline underline-offset-2">
           Upgrade →
         </Link>
@@ -365,10 +367,10 @@ function AppShell() {
   // }
 
   return (
-    <SidebarProvider>
+    <WorkspaceSidebarProvider>
       <div className="app-shell flex min-h-screen w-full bg-background">
         <WorkspaceSidebar />
-        <SidebarInset className="workspace-frame min-w-0 overflow-hidden bg-background/90">
+        <div className="workspace-frame flex min-w-0 flex-1 flex-col overflow-hidden bg-background/90">
           <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl">
             {!isSystemAdmin && active.primaryColor && (
               <div
@@ -377,7 +379,7 @@ function AppShell() {
               />
             )}
             <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
-              <SidebarTrigger />
+              <SidebarToggleButton />
               <div className="hidden min-w-0 items-center gap-3 lg:flex">
                 <div
                   className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-2 shadow-sm"
@@ -413,10 +415,10 @@ function AppShell() {
               <Outlet />
             </div>
           </main>
-        </SidebarInset>
+        </div>
         <CommandPalette />
       </div>
-    </SidebarProvider>
+    </WorkspaceSidebarProvider>
   );
 }
 
@@ -431,15 +433,18 @@ function RedirectToLogin() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
-    <QueryClientProvider client={queryClient}>
-      <TenantProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <AppShell />
-            <Toaster richColors position="top-right" />
-          </NotificationProvider>
-        </AuthProvider>
-      </TenantProvider>
-    </QueryClientProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <QueryClientProvider client={queryClient}>
+        <TenantProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <AppShell />
+              <Toaster richColors position="top-right" />
+            </NotificationProvider>
+          </AuthProvider>
+        </TenantProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

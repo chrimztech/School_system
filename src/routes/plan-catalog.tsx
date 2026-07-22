@@ -2,20 +2,30 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { CreditCard, Layers, Rocket, ShieldAlert, Sparkles, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import DialogTitle from "@mui/material/DialogTitle";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { type PlanId, type SupportLevel, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx } from "@/lib/utils";
 
 type PlanDraft = {
   id: PlanId;
@@ -65,6 +75,7 @@ function PlanCatalogPage() {
   const promotions = (workspace?.promotions ?? []) as Promotion[];
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId | null>(null);
   const [editForm, setEditForm] = useState<PlanDraft | null>(null);
+  const [tab, setTab] = useState("plans");
 
   if (user?.role !== "super_admin") {
     return (
@@ -72,7 +83,7 @@ function PlanCatalogPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -274,73 +285,92 @@ function PlanCatalogPage() {
         description="Manage plan packaging, add-ons, promotions, and commercial positioning for the multi-tenant subscription business."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/billing">Open billing</Link>
-            </Button>
-            <Button onClick={publishCatalog}>
-              <Rocket className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/billing">Open billing</Button>
+            <Button variant="contained" startIcon={<Rocket size={16} />} onClick={publishCatalog}>
               Publish catalog draft
             </Button>
           </>
         )}
       />
 
-      <Dialog open={Boolean(editForm)} onOpenChange={(open) => {
-        if (!open) {
+      <Dialog
+        open={Boolean(editForm)}
+        onClose={() => {
           setSelectedPlanId(null);
           setEditForm(null);
-        }
-      }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit plan draft</DialogTitle>
-          </DialogHeader>
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Edit plan draft</DialogTitle>
+        <DialogContent>
           {editForm && (
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Monthly price</Label>
-                  <Input className="mt-1" type="number" value={editForm.monthlyPrice} onChange={(event) => setEditForm({ ...editForm, monthlyPrice: Number(event.target.value) || 0 })} />
-                </div>
-                <div>
-                  <Label>Annual price</Label>
-                  <Input className="mt-1" type="number" value={editForm.annualPrice} onChange={(event) => setEditForm({ ...editForm, annualPrice: Number(event.target.value) || 0 })} />
-                </div>
+                <TextField
+                  label="Monthly price"
+                  type="number"
+                  value={editForm.monthlyPrice}
+                  onChange={(event) => setEditForm({ ...editForm, monthlyPrice: Number(event.target.value) || 0 })}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Annual price"
+                  type="number"
+                  value={editForm.annualPrice}
+                  onChange={(event) => setEditForm({ ...editForm, annualPrice: Number(event.target.value) || 0 })}
+                  fullWidth
+                  size="small"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Campus limit</Label>
-                  <Input className="mt-1" type="number" value={editForm.campusLimit} onChange={(event) => setEditForm({ ...editForm, campusLimit: Number(event.target.value) || 0 })} />
-                </div>
-                <div>
-                  <Label>Learner limit</Label>
-                  <Input className="mt-1" type="number" value={editForm.learnerLimit} onChange={(event) => setEditForm({ ...editForm, learnerLimit: Number(event.target.value) || 0 })} />
-                </div>
+                <TextField
+                  label="Campus limit"
+                  type="number"
+                  value={editForm.campusLimit}
+                  onChange={(event) => setEditForm({ ...editForm, campusLimit: Number(event.target.value) || 0 })}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Learner limit"
+                  type="number"
+                  value={editForm.learnerLimit}
+                  onChange={(event) => setEditForm({ ...editForm, learnerLimit: Number(event.target.value) || 0 })}
+                  fullWidth
+                  size="small"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>SMS quota</Label>
-                  <Input className="mt-1" type="number" value={editForm.smsQuota} onChange={(event) => setEditForm({ ...editForm, smsQuota: Number(event.target.value) || 0 })} />
-                </div>
-                <div>
-                  <Label>Support level</Label>
-                  <Select value={editForm.supportLevel} onValueChange={(value) => setEditForm({ ...editForm, supportLevel: value as SupportLevel })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Standard">Standard</SelectItem>
-                      <SelectItem value="Priority">Priority</SelectItem>
-                      <SelectItem value="Dedicated">Dedicated</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  label="SMS quota"
+                  type="number"
+                  value={editForm.smsQuota}
+                  onChange={(event) => setEditForm({ ...editForm, smsQuota: Number(event.target.value) || 0 })}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Support level"
+                  value={editForm.supportLevel}
+                  onChange={(event) => setEditForm({ ...editForm, supportLevel: event.target.value as SupportLevel })}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="Standard">Standard</MenuItem>
+                  <MenuItem value="Priority">Priority</MenuItem>
+                  <MenuItem value="Dedicated">Dedicated</MenuItem>
+                </TextField>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setSelectedPlanId(null); setEditForm(null); }}>Cancel</Button>
-            <Button onClick={savePlan}>Save draft</Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => { setSelectedPlanId(null); setEditForm(null); }}>Cancel</Button>
+          <Button variant="contained" onClick={savePlan}>Save draft</Button>
+        </DialogActions>
       </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -350,14 +380,14 @@ function PlanCatalogPage() {
         <StatCard label="Average revenue per school" value={`K${avgRevenue.toLocaleString()}`} accent="accent" icon={<Wallet className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="plans" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="plans">Plans</TabsTrigger>
-          <TabsTrigger value="addons">Add-ons</TabsTrigger>
-          <TabsTrigger value="promotions">Promotions</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="plans" label="Plans" />
+        <Tab value="addons" label="Add-ons" />
+        <Tab value="promotions" label="Promotions" />
+      </Tabs>
 
-        <TabsContent value="plans" className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      {tab === "plans" && (
+        <Box className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
           {planUsage.map((plan) => (
             <div key={plan.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -365,7 +395,7 @@ function PlanCatalogPage() {
                   <p className="text-lg font-semibold">{plan.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{plan.badge}</p>
                 </div>
-                <Badge variant="outline">{plan.schools} schools</Badge>
+                <Chip size="small" label={`${plan.schools} schools`} sx={badgeSx("outline")} />
               </div>
               <p className="mt-4 text-3xl font-semibold">K{plan.monthlyPrice.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">monthly · K{plan.annualPrice.toLocaleString()} annual</p>
@@ -377,27 +407,28 @@ function PlanCatalogPage() {
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{plan.description}</p>
               <div className="mt-5 flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => openEditor(plan.id)}>Edit draft</Button>
-                <Button size="sm" className="flex-1" asChild>
-                  <Link to="/tenant-success">View tenants</Link>
-                </Button>
+                <Button variant="outlined" size="small" sx={{ flex: 1 }} onClick={() => openEditor(plan.id)}>Edit draft</Button>
+                <Button variant="contained" size="small" sx={{ flex: 1 }} component={Link} to="/tenant-success">View tenants</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="addons" className="rounded-xl border border-border bg-card">
+      {tab === "addons" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Add-on</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Eligible plans</TableHead>
-                <TableHead>Monthly price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Add-on</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Eligible plans</TableCell>
+                <TableCell>Monthly price</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {addOns.map((addOn) => (
                 <TableRow key={addOn.id}>
@@ -411,12 +442,14 @@ function PlanCatalogPage() {
                   <TableCell>{addOn.plans}</TableCell>
                   <TableCell>K{addOn.monthlyPrice.toLocaleString()}</TableCell>
                   <TableCell>
-                    <Badge className={addOn.active ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                      {addOn.active ? "Active" : "Paused"}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={addOn.active ? "Active" : "Paused"}
+                      sx={badgeSx(addOn.active ? "success" : "secondary")}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => toggleAddOn(addOn.id)}>
+                    <Button size="small" variant="outlined" onClick={() => toggleAddOn(addOn.id)}>
                       {addOn.active ? "Pause" : "Activate"}
                     </Button>
                   </TableCell>
@@ -424,9 +457,12 @@ function PlanCatalogPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="promotions" className="grid gap-4 lg:grid-cols-3">
+      {tab === "promotions" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           {promotions.map((promotion) => (
             <div key={promotion.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -434,9 +470,11 @@ function PlanCatalogPage() {
                   <p className="font-semibold">{promotion.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{promotion.audience}</p>
                 </div>
-                <Badge className={promotion.status === "Active" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                  {promotion.status}
-                </Badge>
+                <Chip
+                  size="small"
+                  label={promotion.status}
+                  sx={badgeSx(promotion.status === "Active" ? "success" : "secondary")}
+                />
               </div>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -449,17 +487,17 @@ function PlanCatalogPage() {
                 </div>
               </div>
               <div className="mt-5 flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => togglePromotion(promotion.id)}>
+                <Button variant="outlined" size="small" sx={{ flex: 1 }} onClick={() => togglePromotion(promotion.id)}>
                   {promotion.status === "Active" ? "Pause" : "Activate"}
                 </Button>
-                <Button size="sm" className="flex-1" onClick={() => pushPromotionToSales(promotion)}>
+                <Button variant="contained" size="small" sx={{ flex: 1 }} onClick={() => pushPromotionToSales(promotion)}>
                   Push to sales
                 </Button>
               </div>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
     </div>
   );
 }

@@ -3,13 +3,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Shield, Smartphone, Key, Loader2, Eye, EyeOff } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
+import Switch from "@mui/material/Switch";
+import { Button, IconButton, InputAdornment, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
 
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useAuth, ROLE_META } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
@@ -82,35 +79,24 @@ function ProfilePage() {
         </div>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Full name</Label>
-            <Input value={user.name} disabled className="bg-muted/50" />
+            <TextField label="Full name" value={user.name} disabled fullWidth size="small" className="bg-muted/50" />
             <p className="text-xs text-muted-foreground">Contact an administrator to change your name.</p>
           </div>
           <div className="space-y-1.5">
-            <Label>Email</Label>
-            <Input type="email" value={user.email} disabled className="bg-muted/50" />
+            <TextField type="email" label="Email" value={user.email ?? ""} disabled fullWidth size="small" className="bg-muted/50" placeholder="No email on file" />
             <p className="text-xs text-muted-foreground">Contact an administrator to change your email.</p>
           </div>
-          <div className="space-y-1.5">
-            <Label>Phone</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+260 977 000 000" maxLength={20} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Role</Label>
-            <Input value={ROLE_META[user.role].label} disabled className="bg-muted/50" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Tenant scope</Label>
-            <Input value={user.role === "super_admin" ? "Platform-wide access" : `${active.name} (${active.shortCode})`} disabled className="bg-muted/50" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Active plan</Label>
-            <Input value={user.role === "super_admin" ? `Managing ${activePlan.name} tenant` : activePlan.name} disabled className="bg-muted/50" />
-          </div>
+          <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+260 977 000 000" slotProps={{ htmlInput: { maxLength: 20 } }} fullWidth size="small" />
+          <TextField label="Role" value={ROLE_META[user.role].label} disabled fullWidth size="small" className="bg-muted/50" />
+          <TextField label="Tenant scope" value={user.role === "super_admin" ? "Platform-wide access" : `${active.name} (${active.shortCode})`} disabled fullWidth size="small" className="bg-muted/50" />
+          <TextField label="Active plan" value={user.role === "super_admin" ? `Managing ${activePlan.name} tenant` : activePlan.name} disabled fullWidth size="small" className="bg-muted/50" />
         </div>
         <div className="mt-4 flex justify-end">
-          <Button onClick={() => updatePhoneMutation.mutate()} disabled={updatePhoneMutation.isPending}>
-            {updatePhoneMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button
+            onClick={() => updatePhoneMutation.mutate()}
+            disabled={updatePhoneMutation.isPending}
+            startIcon={updatePhoneMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
             Save changes
           </Button>
         </div>
@@ -131,50 +117,74 @@ function ProfilePage() {
               <p className="flex items-center gap-2 font-medium"><Key className="h-4 w-4" />Password</p>
               <p className="text-xs text-muted-foreground">Update your account password.</p>
             </div>
-            <Button variant="outline" onClick={() => setPwOpen(true)}>Change password</Button>
+            <Button variant="outlined" onClick={() => setPwOpen(true)}>Change password</Button>
           </div>
         </div>
       </section>
 
-      <Dialog open={pwOpen} onOpenChange={(v) => { setPwOpen(v); if (!v) { setCurrent(""); setNext(""); setConfirm(""); } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Change password</DialogTitle></DialogHeader>
+      <Dialog
+        open={pwOpen}
+        onClose={() => { setPwOpen(false); setCurrent(""); setNext(""); setConfirm(""); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Change password</DialogTitle>
+        <DialogContent>
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>Current password</Label>
-              <div className="relative">
-                <Input type={showCurrent ? "text" : "password"} value={current} onChange={(e) => setCurrent(e.target.value)} className="pr-9" />
-                <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowCurrent((v) => !v)}>
-                  {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+            <TextField
+              label="Current password"
+              type={showCurrent ? "text" : "password"}
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              fullWidth
+              size="small"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setShowCurrent((v) => !v)} edge="end">
+                        {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <div>
+              <TextField
+                label="New password"
+                type={showNext ? "text" : "password"}
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                fullWidth
+                size="small"
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setShowNext((v) => !v)} edge="end">
+                          {showNext ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">Minimum 8 characters</p>
             </div>
-            <div className="space-y-1.5">
-              <Label>New password</Label>
-              <div className="relative">
-                <Input type={showNext ? "text" : "password"} value={next} onChange={(e) => setNext(e.target.value)} className="pr-9" />
-                <button type="button" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowNext((v) => !v)}>
-                  {showNext ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Confirm new password</Label>
-              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-            </div>
+            <TextField label="Confirm new password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} fullWidth size="small" />
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setPwOpen(false)}>Cancel</Button>
-            <Button
-              disabled={changePwMutation.isPending || !current || next.length < 8 || next !== confirm}
-              onClick={() => changePwMutation.mutate()}
-            >
-              {changePwMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update password
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setPwOpen(false)}>Cancel</Button>
+          <Button
+            disabled={changePwMutation.isPending || !current || next.length < 8 || next !== confirm}
+            onClick={() => changePwMutation.mutate()}
+            startIcon={changePwMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Update password
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <section className="rounded-xl border border-border bg-card p-6">
@@ -182,16 +192,20 @@ function ProfilePage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div><p className="font-medium">Email</p><p className="text-xs text-muted-foreground">Receive daily digest of activity.</p></div>
-            <Switch checked={emailNotif} onCheckedChange={setEmailNotif} />
+            <Switch checked={emailNotif} onChange={(e) => setEmailNotif(e.target.checked)} />
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div><p className="font-medium">SMS</p><p className="text-xs text-muted-foreground">Critical alerts only.</p></div>
-            <Switch checked={smsNotif} onCheckedChange={setSmsNotif} />
+            <Switch checked={smsNotif} onChange={(e) => setSmsNotif(e.target.checked)} />
           </div>
         </div>
         <div className="mt-4 flex justify-end">
-          <Button variant="outline" disabled={saveNotifMutation.isPending} onClick={() => saveNotifMutation.mutate()}>
-            {saveNotifMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button
+            variant="outlined"
+            disabled={saveNotifMutation.isPending}
+            onClick={() => saveNotifMutation.mutate()}
+            startIcon={saveNotifMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
             Save
           </Button>
         </div>

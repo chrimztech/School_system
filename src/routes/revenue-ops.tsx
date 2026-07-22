@@ -1,19 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, CreditCard, Download, RefreshCw, ShieldAlert, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button, Chip, LinearProgress, Box, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv, type BadgeTone } from "@/lib/utils";
 
 type CollectionStatus = "Scheduled" | "In progress" | "Promised" | "Resolved";
 type CollectionCase = {
@@ -34,10 +31,10 @@ function revenueRisk(status: string, learnerPct: number, campusPct: number): "Lo
   return "Low";
 }
 
-function riskTone(risk: "Low" | "Medium" | "High") {
-  if (risk === "Low") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  if (risk === "Medium") return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-  return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+function riskTone(risk: "Low" | "Medium" | "High"): BadgeTone {
+  if (risk === "Low") return "success";
+  if (risk === "Medium") return "warning";
+  return "destructive";
 }
 
 function daysUntil(value: string) {
@@ -53,6 +50,7 @@ export const Route = createFileRoute("/revenue-ops")({
 
 function RevenueOpsPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState("portfolio");
   const { tenants } = useTenant();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
@@ -72,7 +70,7 @@ function RevenueOpsPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -214,11 +212,8 @@ function RevenueOpsPage() {
         description="Monitor MRR, renewals, collections, expansion signals, and portfolio-level revenue risk across subscribed schools."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/billing">Open billing</Link>
-            </Button>
-            <Button onClick={runDunning}>
-              <RefreshCw className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/billing">Open billing</Button>
+            <Button onClick={runDunning} startIcon={<RefreshCw className="h-4 w-4" />}>
               Run dunning
             </Button>
           </>
@@ -232,27 +227,28 @@ function RevenueOpsPage() {
         <StatCard label="60-day renewals" value={`K${renewalsWindow.toLocaleString()}`} accent="accent" icon={<CreditCard className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="portfolio" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
-          <TabsTrigger value="forecast">Forecast</TabsTrigger>
-          <TabsTrigger value="collections">Collections</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="portfolio" label="Portfolio" />
+        <Tab value="forecast" label="Forecast" />
+        <Tab value="collections" label="Collections" />
+      </Tabs>
 
-        <TabsContent value="portfolio" className="rounded-xl border border-border bg-card">
+      {tab === "portfolio" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>School</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>MRR</TableHead>
-                <TableHead>Usage</TableHead>
-                <TableHead>Renewal</TableHead>
-                <TableHead>Risk</TableHead>
-                <TableHead className="text-right">Expansion</TableHead>
+                <TableCell>School</TableCell>
+                <TableCell>Plan</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>MRR</TableCell>
+                <TableCell>Usage</TableCell>
+                <TableCell>Renewal</TableCell>
+                <TableCell>Risk</TableCell>
+                <TableCell className="text-right">Expansion</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {portfolio.map((record) => (
                 <TableRow key={record.tenant.id}>
@@ -271,7 +267,11 @@ function RevenueOpsPage() {
                         <span>{record.learnerPct}% learners</span>
                         <span className="text-muted-foreground">{record.campusPct}% campuses</span>
                       </div>
-                      <Progress value={Math.max(record.learnerPct, record.campusPct)} className="h-2" />
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.max(record.learnerPct, record.campusPct)}
+                        sx={{ height: 8, borderRadius: 999 }}
+                      />
                     </div>
                   </TableCell>
                   <TableCell>
@@ -280,12 +280,10 @@ function RevenueOpsPage() {
                       <p className="text-xs text-muted-foreground">{record.daysToRenewal} days</p>
                     </div>
                   </TableCell>
-                  <TableCell><Badge className={riskTone(record.risk)}>{record.risk}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={record.risk} sx={badgeSx(riskTone(record.risk))} /></TableCell>
                   <TableCell className="text-right">
                     {record.expansion ? (
-                      <Button size="sm" variant="outline" asChild>
-                        <Link to="/plan-catalog">Upsell path</Link>
-                      </Button>
+                      <Button size="small" variant="outlined" component={Link} to="/plan-catalog">Upsell path</Button>
                     ) : (
                       <span className="text-xs text-muted-foreground">Stable</span>
                     )}
@@ -294,9 +292,12 @@ function RevenueOpsPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="forecast" className="grid gap-4 lg:grid-cols-3">
+      {tab === "forecast" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Renewal concentration</p>
             <div className="mt-4 space-y-3">
@@ -321,7 +322,7 @@ function RevenueOpsPage() {
                 return (
                   <div key={planId} className="flex items-center justify-between rounded-lg border border-border p-3">
                     <span>{PLAN_CATALOG[planId as keyof typeof PLAN_CATALOG].name}</span>
-                    <Badge variant="outline">{count} schools</Badge>
+                    <Chip size="small" label={`${count} schools`} sx={badgeSx("outline")} />
                   </div>
                 );
               })}
@@ -331,32 +332,30 @@ function RevenueOpsPage() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Actions</p>
             <div className="mt-4 space-y-3">
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/tenant-success">Review health-driven renewals</Link>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/plan-catalog">Review pricing and offers</Link>
-              </Button>
-              <Button className="w-full justify-start" onClick={exportForecast}>
-                <Download className="mr-2 h-4 w-4" />
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/tenant-success">Review health-driven renewals</Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/plan-catalog">Review pricing and offers</Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} onClick={exportForecast} startIcon={<Download className="h-4 w-4" />}>
                 Export forecast
               </Button>
             </div>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="collections" className="rounded-xl border border-border bg-card">
+      {tab === "collections" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Case</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Next action</TableHead>
-                <TableHead className="text-right">Update</TableHead>
+                <TableCell>Case</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Next action</TableCell>
+                <TableCell className="text-right">Update</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {cases.map((item) => (
                 <TableRow key={item.id}>
@@ -369,13 +368,15 @@ function RevenueOpsPage() {
                   <TableCell>{item.owner}</TableCell>
                   <TableCell className="font-medium">K{item.amount.toLocaleString()}</TableCell>
                   <TableCell>
-                    <Badge className={item.status === "Resolved" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : item.status === "Promised" ? "bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}>
-                      {item.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={item.status}
+                      sx={badgeSx(item.status === "Resolved" ? "success" : item.status === "Promised" ? "default" : "warning")}
+                    />
                   </TableCell>
                   <TableCell>{item.nextAction}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" disabled={item.status === "Resolved"} onClick={() => advanceCase(item.id)}>
+                    <Button size="small" variant="outlined" disabled={item.status === "Resolved"} onClick={() => advanceCase(item.id)}>
                       {item.status === "Scheduled" ? "Start" : item.status === "In progress" ? "Promise" : item.status === "Promised" ? "Resolve" : "Closed"}
                     </Button>
                   </TableCell>
@@ -383,8 +384,9 @@ function RevenueOpsPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
-      </Tabs>
+          </TableContainer>
+        </Box>
+      )}
     </div>
   );
 }

@@ -1,17 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Building2, LifeBuoy, ShieldAlert, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
 
+import { Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx } from "@/lib/utils";
 
 type HandoffStatus = "Queued" | "In progress" | "Ready";
 type HandoffRecord = {
@@ -34,6 +34,7 @@ function TenantWorkbenchPage() {
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const handoffs = (workspace?.tenantHandoffs ?? []) as HandoffRecord[];
+  const [tab, setTab] = useState("tenants");
 
   if (user?.role !== "super_admin") {
     return (
@@ -41,7 +42,7 @@ function TenantWorkbenchPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -125,12 +126,8 @@ function TenantWorkbenchPage() {
         description="Use a shared operator workbench to jump into tenant context, run support actions, and coordinate platform handoffs."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/tenant-success">Open tenant success</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/support-desk">Open support desk</Link>
-            </Button>
+            <Button variant="outlined" component={Link} to="/tenant-success">Open tenant success</Button>
+            <Button component={Link} to="/support-desk">Open support desk</Button>
           </>
         )}
       />
@@ -142,25 +139,26 @@ function TenantWorkbenchPage() {
         <StatCard label="Open handoffs" value={stats.handoffs} accent="accent" icon={<LifeBuoy className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="tenants" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="tenants">Tenant Directory</TabsTrigger>
-          <TabsTrigger value="handoffs">Handoffs</TabsTrigger>
-          <TabsTrigger value="tools">Access Tools</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="tenants" label="Tenant Directory" />
+        <Tab value="handoffs" label="Handoffs" />
+        <Tab value="tools" label="Access Tools" />
+      </Tabs>
 
-        <TabsContent value="tenants" className="rounded-xl border border-border bg-card">
+      {tab === "tenants" && (
+        <div className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>School</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Campuses</TableHead>
-                <TableHead>Students</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>School</TableCell>
+                <TableCell>Plan</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Campuses</TableCell>
+                <TableCell>Students</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {tenants.map((tenant) => (
                 <TableRow key={tenant.id}>
@@ -176,27 +174,31 @@ function TenantWorkbenchPage() {
                   <TableCell>{tenant.totalStudents}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openWorkspace(tenant.id, "/")}>Open workspace</Button>
-                      <Button size="sm" variant="outline" onClick={() => openWorkspace(tenant.id, "/billing")}>Billing</Button>
+                      <Button size="small" variant="outlined" onClick={() => openWorkspace(tenant.id, "/")}>Open workspace</Button>
+                      <Button size="small" variant="outlined" onClick={() => openWorkspace(tenant.id, "/billing")}>Billing</Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        <TabsContent value="handoffs" className="rounded-xl border border-border bg-card">
+      {tab === "handoffs" && (
+        <div className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>School</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Advance</TableHead>
+                <TableCell>School</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Reason</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Advance</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {handoffs.map((item) => (
                 <TableRow key={item.id}>
@@ -204,12 +206,14 @@ function TenantWorkbenchPage() {
                   <TableCell>{item.owner}</TableCell>
                   <TableCell>{item.reason}</TableCell>
                   <TableCell>
-                    <Badge className={item.status === "Ready" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : item.status === "In progress" ? "bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}>
-                      {item.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={item.status}
+                      sx={badgeSx(item.status === "Ready" ? "success" : item.status === "In progress" ? "default" : "warning")}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" disabled={item.status === "Ready"} onClick={() => advanceHandoff(item.id)}>
+                    <Button size="small" variant="outlined" disabled={item.status === "Ready"} onClick={() => advanceHandoff(item.id)}>
                       {item.status === "Queued" ? "Start" : item.status === "In progress" ? "Ready" : "Closed"}
                     </Button>
                   </TableCell>
@@ -217,46 +221,37 @@ function TenantWorkbenchPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        <TabsContent value="tools" className="grid gap-4 lg:grid-cols-3">
+      {tab === "tools" && (
+        <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Support tools</p>
             <div className="mt-4 space-y-3">
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/support-desk">Open support desk</Link>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/approval-center">Open approval center</Link>
-              </Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/support-desk">Open support desk</Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/approval-center">Open approval center</Button>
             </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Lifecycle tools</p>
             <div className="mt-4 space-y-3">
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/tenant-lifecycle">Open lifecycle</Link>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/contract-center">Open contracts</Link>
-              </Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/tenant-lifecycle">Open lifecycle</Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/contract-center">Open contracts</Button>
             </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Platform tools</p>
             <div className="mt-4 space-y-3">
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/platform-ops">Open platform ops</Link>
-              </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <Link to="/developer-console">Open developer console</Link>
-              </Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/platform-ops">Open platform ops</Button>
+              <Button sx={{ width: "100%", justifyContent: "flex-start" }} variant="outlined" component={Link} to="/developer-console">Open developer console</Button>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

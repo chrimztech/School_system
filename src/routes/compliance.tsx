@@ -2,12 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ClipboardCheck, ShieldCheck, FileSearch } from "lucide-react";
 
+import { Button, Chip, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/compliance")({
   head: () => ({ meta: [{ title: "Compliance — SRMS" }] }),
@@ -31,7 +31,7 @@ function CompliancePage() {
       <PageHeader
         title="Compliance management"
         description="Track policies, audits, regulatory readiness, and control status across your institution."
-        actions={<Button asChild><Link to="/policy-library">Review compliance plan</Link></Button>}
+        actions={<Button variant="contained" component={Link} to="/policy-library">Review compliance plan</Button>}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -48,11 +48,19 @@ function CompliancePage() {
           <div className="mt-5 space-y-3">
             <div className="flex items-center justify-between rounded-xl bg-muted/70 px-4 py-3">
               <p className="text-sm font-medium">Audit readiness</p>
-              <Badge variant={totalCount > 0 ? (compliantCount / totalCount >= 0.8 ? "success" : "warning") : "secondary"}>{totalCount > 0 ? (compliantCount / totalCount >= 0.8 ? "Ready" : "Review needed") : "Pending"}</Badge>
+              <Chip
+                size="small"
+                label={totalCount > 0 ? (compliantCount / totalCount >= 0.8 ? "Ready" : "Review needed") : "Pending"}
+                sx={badgeSx(totalCount > 0 ? (compliantCount / totalCount >= 0.8 ? "success" : "warning") : "secondary")}
+              />
             </div>
             <div className="flex items-center justify-between rounded-xl bg-muted/70 px-4 py-3">
               <p className="text-sm font-medium">Policy coverage</p>
-              <Badge variant={totalCount > 0 ? "success" : "secondary"}>{totalCount > 0 ? `Strong (${totalCount} items)` : "Pending"}</Badge>
+              <Chip
+                size="small"
+                label={totalCount > 0 ? `Strong (${totalCount} items)` : "Pending"}
+                sx={badgeSx(totalCount > 0 ? "success" : "secondary")}
+              />
             </div>
           </div>
         </div>
@@ -75,9 +83,9 @@ function CompliancePage() {
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Maintain documentation, incident logs and policy approvals.</p>
           <div className="mt-5 space-y-3">
-            <Button variant="outline" asChild><Link to="/policy-library">Open policy dashboard</Link></Button>
-            <Button variant="outline" asChild><Link to="/audit">Start audit checklist</Link></Button>
-            <Button variant="outline" asChild><Link to="/risk-register">Review risk register</Link></Button>
+            <Button variant="outlined" component={Link} to="/policy-library">Open policy dashboard</Button>
+            <Button variant="outlined" component={Link} to="/audit">Start audit checklist</Button>
+            <Button variant="outlined" component={Link} to="/risk-register">Review risk register</Button>
           </div>
         </div>
       </div>
@@ -88,18 +96,19 @@ function CompliancePage() {
             <h2 className="text-sm font-semibold text-foreground">Regulatory status</h2>
             <p className="text-xs text-muted-foreground">Current status for key regulatory areas.</p>
           </div>
-          <Badge variant="secondary">{isLoading ? "Loading…" : `${totalCount} items`}</Badge>
+          <Chip size="small" label={isLoading ? "Loading…" : `${totalCount} items`} sx={badgeSx("secondary")} />
         </div>
+        <TableContainer>
         <Table>
-          <TableHeader>
+          <TableHead>
             <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Due date</TableHead>
-              <TableHead>Status</TableHead>
+              <TableCell>Title</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell>Owner</TableCell>
+              <TableCell>Due date</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -110,12 +119,17 @@ function CompliancePage() {
                 <TableCell className="text-muted-foreground">{item.owner}</TableCell>
                 <TableCell className="text-muted-foreground">{item.dueDate || "—"}</TableCell>
                 <TableCell>
-                  <Badge variant={item.status === "Compliant" ? "secondary" : item.status === "Action needed" ? "destructive" : "warning"}>{item.status}</Badge>
+                  <Chip
+                    size="small"
+                    label={item.status}
+                    sx={badgeSx(item.status === "Compliant" ? "secondary" : item.status === "Action needed" ? "destructive" : "warning")}
+                  />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       </div>
     </div>
   );

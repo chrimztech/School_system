@@ -6,13 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Box, Chip, Button, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -34,6 +29,13 @@ const STATUS_META: Record<EntryStatus, { label: string; short: string; border: s
   excused: { label: "Absent w/ permission", short: "E", border: "border-violet-500", bg: "bg-violet-500", dot: "bg-violet-500" },
 };
 const STATUS_ORDER: EntryStatus[] = ["present", "late", "absent", "sick", "excused"];
+const STATUS_TONE: Record<EntryStatus, BadgeTone> = {
+  present: "success",
+  late: "warning",
+  absent: "destructive",
+  sick: "default",
+  excused: "secondary",
+};
 
 function AttendancePage() {
   const { active } = useTenant();
@@ -51,6 +53,7 @@ function AttendancePage() {
   const [selectedClass, setSelectedClass] = useState("");
   const [registerDate, setRegisterDate] = useState(today);
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
+  const [tab, setTab] = useState("today");
 
   const { data: summary = { present: 0, absent: 0, late: 0, sick: 0, excused: 0, rate: 0 } } = useQuery({
     queryKey: ["attendance-summary", schoolId],
@@ -146,33 +149,43 @@ function AttendancePage() {
         actions={
           canManage ? (
           <>
-            <Dialog
-              open={open}
-              onOpenChange={(v) => {
-                setOpen(v);
-                if (v) { setRegisterDate(today); setEntries([]); }
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={() => {
+                setOpen(true);
+                setRegisterDate(today);
+                setEntries([]);
               }}
             >
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-1 h-4 w-4" />Mark attendance</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Mark class register</DialogTitle></DialogHeader>
+              Mark attendance
+            </Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Mark class register</DialogTitle>
+              <DialogContent>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <Label className="shrink-0">Class</Label>
-                    <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setEntries([]); }}>
-                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>{classList.length === 0 ? <SelectItem value="__empty__" disabled>No classes yet</SelectItem> : classList.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      label="Class"
+                      className="flex-1"
+                      size="small"
+                      value={selectedClass}
+                      onChange={(e) => { setSelectedClass(e.target.value); setEntries([]); }}
+                    >
+                      {classList.length === 0
+                        ? <MenuItem value="__empty__" disabled>No classes yet</MenuItem>
+                        : classList.map((c: string) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </TextField>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Label className="shrink-0">Date</Label>
-                    <Input
+                    <TextField
                       type="date"
+                      label="Date"
                       className="flex-1"
+                      size="small"
                       value={registerDate}
-                      max={today}
+                      slotProps={{ htmlInput: { max: today }, inputLabel: { shrink: true } }}
                       onChange={(e) => { setRegisterDate(e.target.value || today); setEntries([]); }}
                     />
                   </div>
@@ -223,14 +236,14 @@ function AttendancePage() {
                     ))}
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={submitRegister} disabled={markMutation.isPending}>
-                    {markMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {alreadySubmitted ? "Update register" : "Submit register"}
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={submitRegister} disabled={markMutation.isPending}>
+                  {markMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {alreadySubmitted ? "Update register" : "Submit register"}
+                </Button>
+              </DialogActions>
             </Dialog>
           </>
           ) : null
@@ -246,14 +259,15 @@ function AttendancePage() {
         <StatCard label="Rate" value={`${summ.rate ?? 0}%`} accent="primary" />
       </div>
 
-      <Tabs defaultValue="today">
-        <TabsList>
-          <TabsTrigger value="today">Today</TabsTrigger>
-          <TabsTrigger value="weekly">Weekly trend</TabsTrigger>
-          <TabsTrigger value="alerts">Absence alerts</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="today" label="Today" />
+        <Tab value="weekly" label="Weekly trend" />
+        <Tab value="alerts" label="Absence alerts" />
+      </Tabs>
 
-        <TabsContent value="today" className="mt-4 space-y-4">
+      {tab === "today" && (
+        <Box className="mt-4 space-y-4">
           {/* Per-class statistics */}
           {(recentRecords as any[]).length > 0 && (() => {
             const byClass = new Map<string, Record<EntryStatus, number> & { total: number }>();
@@ -297,20 +311,21 @@ function AttendancePage() {
                       <p className="text-sm font-medium">{r.studentName ?? r.student ?? "—"}</p>
                       <p className="text-xs text-muted-foreground">{r.className ?? r.class ?? "—"} · {String(r.date ?? "").slice(0, 10)}</p>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={STATUS_ORDER.includes(r.status) ? `border-transparent text-white ${STATUS_META[r.status as EntryStatus].bg}` : undefined}
-                    >
-                      {STATUS_ORDER.includes(r.status) ? STATUS_META[r.status as EntryStatus].label : r.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={STATUS_ORDER.includes(r.status) ? STATUS_META[r.status as EntryStatus].label : r.status}
+                      sx={badgeSx(STATUS_ORDER.includes(r.status) ? STATUS_TONE[r.status as EntryStatus] : "outline")}
+                    />
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="weekly" className="mt-4">
+      {tab === "weekly" && (
+        <Box className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold">School-wide attendance · this week</h2>
             <EmptyState
@@ -319,9 +334,11 @@ function AttendancePage() {
               description="A day-by-day attendance trend will appear once a few registers have been submitted this week."
             />
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="alerts" className="mt-4">
+      {tab === "alerts" && (
+        <Box className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold">SMS notifications sent today</h2>
             <EmptyState
@@ -330,8 +347,9 @@ function AttendancePage() {
               description="Absence alerts to guardians will be listed here once they go out."
             />
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
   );
 }

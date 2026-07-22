@@ -7,16 +7,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingState } from "@/components/loading-state";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Drawer, Box, Typography, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -325,7 +317,8 @@ function SubjectsPage() {
   const coreCount    = (list: any[]) => list.filter((x) => x.compulsory ?? x.isCore ?? x.core).length;
 
   const defaultTab   = showPrimary && !isSecondary ? "primary" : "olevel";
-  const activeList   = defaultTab === "primary" ? primary : defaultTab === "olevel" ? olevel : alevel;
+  const [phaseTab, setPhaseTab] = useState(defaultTab);
+  const activeList   = phaseTab === "primary" ? primary : phaseTab === "olevel" ? olevel : alevel;
   const hasNoSubjects = subjectList.length === 0;
 
   const seedCount = MOE_SUBJECTS.filter((s) =>
@@ -353,18 +346,19 @@ function SubjectsPage() {
     }
 
     return (
+      <TableContainer>
       <Table>
-        <TableHeader>
+        <TableHead>
           <TableRow>
-            <TableHead className="w-16">Code</TableHead>
-            <TableHead>Subject</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead className="text-center w-20">Type</TableHead>
-            <TableHead className="text-center w-24">Forms / Grades</TableHead>
-            <TableHead className="text-center w-24">Periods/wk</TableHead>
-            <TableHead className="w-10" />
+            <TableCell className="w-16">Code</TableCell>
+            <TableCell>Subject</TableCell>
+            <TableCell>Department</TableCell>
+            <TableCell className="text-center w-20">Type</TableCell>
+            <TableCell className="text-center w-24">Forms / Grades</TableCell>
+            <TableCell className="text-center w-24">Periods/wk</TableCell>
+            <TableCell className="w-10" />
           </TableRow>
-        </TableHeader>
+        </TableHead>
         <TableBody>
           {Object.entries(byDept).map(([dept, rows]) => (
             <Fragment key={dept}>
@@ -383,15 +377,15 @@ function SubjectsPage() {
                   <TableCell className="text-xs text-muted-foreground">{s.department ?? "—"}</TableCell>
                   <TableCell className="text-center">
                     {(s.compulsory ?? s.isCore ?? s.core)
-                      ? <Badge className="text-xs">Core</Badge>
-                      : <Badge variant="secondary" className="text-xs">Optional</Badge>}
+                      ? <Chip size="small" label="Core" sx={{ ...badgeSx("default"), fontSize: 12 }} />
+                      : <Chip size="small" label="Optional" sx={{ ...badgeSx("secondary"), fontSize: 12 }} />}
                   </TableCell>
                   <TableCell className="text-center tabular-nums text-xs text-muted-foreground">{formRangeLabel(s) || "—"}</TableCell>
                   <TableCell className="text-center tabular-nums text-sm">{s.periodsPerWeek ?? s.periods ?? 4}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    <IconButton size="small" aria-label={`Edit ${s.name}`} onClick={() => openEdit(s)}>
+                      <Pencil size={14} />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -399,6 +393,7 @@ function SubjectsPage() {
           ))}
         </TableBody>
       </Table>
+      </TableContainer>
     );
   };
 
@@ -413,86 +408,55 @@ function SubjectsPage() {
         description="Zambia MoE 2025 curriculum — Primary Grade 1-6 · O-Level Form 1-4 · A-Level Form 5-6 (ECZ)"
         actions={
           <>
-            <Button variant="outline" onClick={() => setDeptSheetOpen(true)}>
-              <Building2 className="mr-2 h-4 w-4" />Departments ({deptList.length})
+            <Button variant="outlined" startIcon={<Building2 size={16} />} onClick={() => setDeptSheetOpen(true)}>
+              Departments ({deptList.length})
             </Button>
-            <Button variant="outline" onClick={() => setSeedConfirm(true)}>
-              <BookOpen className="mr-2 h-4 w-4" />Seed MoE curriculum
+            <Button variant="outlined" startIcon={<BookOpen size={16} />} onClick={() => setSeedConfirm(true)}>
+              Seed MoE curriculum
             </Button>
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-1 h-4 w-4" />Add subject</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader><DialogTitle>Add subject</DialogTitle></DialogHeader>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setAddOpen(true)}>Add subject</Button>
+            <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Add subject</DialogTitle>
+              <DialogContent>
                 <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Code *</Label>
-                      <Input className="mt-1" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="BIO" maxLength={6} />
-                    </div>
-                    <div>
-                      <Label>Phase</Label>
-                      <Select value={form.phase} onValueChange={(v) => setForm({ ...form, phase: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {PHASES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField label="Code *" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="BIO" slotProps={{ htmlInput: { maxLength: 6 } }} fullWidth size="small" />
+                    <TextField select label="Phase" value={form.phase} onChange={(e) => setForm({ ...form, phase: e.target.value })} fullWidth size="small">
+                      {PHASES.map((p) => <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>)}
+                    </TextField>
                   </div>
-                  <div>
-                    <Label>Subject name *</Label>
-                    <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Biology" maxLength={80} />
-                  </div>
-                  <div>
-                    <Label>Department</Label>
-                    <Select value={form.department} onValueChange={(v) => setForm({ ...form, department: v })}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
-                      <SelectContent>
-                        {deptNames.length === 0
-                          ? <SelectItem value="__none__" disabled>No departments — add on Departments page</SelectItem>
-                          : deptNames.map((d: string) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <TextField label="Subject name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Biology" slotProps={{ htmlInput: { maxLength: 80 } }} fullWidth size="small" />
+                  <TextField select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} fullWidth size="small">
+                    {deptNames.length === 0
+                      ? <MenuItem value="__none__" disabled>No departments — add on Departments page</MenuItem>
+                      : deptNames.map((d: string) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                  </TextField>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Type</Label>
-                      <Select value={form.compulsory} onValueChange={(v) => setForm({ ...form, compulsory: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="true">Core / Compulsory</SelectItem>
-                          <SelectItem value="false">Optional / Elective</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Periods per week</Label>
-                      <Input className="mt-1" type="number" min={1} max={15} value={form.periods} onChange={(e) => setForm({ ...form, periods: e.target.value })} />
-                    </div>
+                    <TextField select label="Type" value={form.compulsory} onChange={(e) => setForm({ ...form, compulsory: e.target.value })} fullWidth size="small">
+                      <MenuItem value="true">Core / Compulsory</MenuItem>
+                      <MenuItem value="false">Optional / Elective</MenuItem>
+                    </TextField>
+                    <TextField label="Periods per week" type="number" slotProps={{ htmlInput: { min: 1, max: 15 } }} value={form.periods} onChange={(e) => setForm({ ...form, periods: e.target.value })} fullWidth size="small" />
                   </div>
                 </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-                  <Button onClick={saveAdd} disabled={createMut.isPending}>
-                    {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Add subject
-                  </Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setAddOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={saveAdd} disabled={createMut.isPending}>
+                  {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Add subject
+                </Button>
+              </DialogActions>
             </Dialog>
           </>
         }
       />
 
       {/* MoE seed confirmation */}
-      <Dialog open={seedConfirm} onOpenChange={setSeedConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Seed Zambia MoE 2025 curriculum</DialogTitle>
-          </DialogHeader>
+      <Dialog open={seedConfirm} onClose={() => setSeedConfirm(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Seed Zambia MoE 2025 curriculum</DialogTitle>
+        <DialogContent>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>This will add up to <strong>{seedCount} subjects</strong> from the Zambia 2025 ECZ curriculum:</p>
             <ul className="ml-4 list-disc space-y-0.5">
@@ -508,99 +472,84 @@ function SubjectsPage() {
               Subjects already present (same code + phase) are skipped — no duplicates.
             </p>
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setSeedConfirm(false)}>Cancel</Button>
-            <Button onClick={() => seedMut.mutate()} disabled={seedMut.isPending}>
-              {seedMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Seed {seedCount} subjects
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setSeedConfirm(false)}>Cancel</Button>
+          <Button variant="contained" onClick={() => seedMut.mutate()} disabled={seedMut.isPending}>
+            {seedMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Seed {seedCount} subjects
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Edit dialog */}
-      <Dialog open={!!editTarget} onOpenChange={(v) => { if (!v) setEditTarget(null); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit — {editTarget?.name}</DialogTitle>
-          </DialogHeader>
+      <Dialog open={!!editTarget} onClose={() => setEditTarget(null)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit — {editTarget?.name}</DialogTitle>
+        <DialogContent>
           <div className="overflow-y-auto flex-1 pr-1">
           <div className="grid gap-3">
-            <div>
-              <Label>Subject name *</Label>
-              <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={80} />
-            </div>
-            <div>
-              <Label>Department</Label>
-              <Select value={form.department} onValueChange={(v) => setForm({ ...form, department: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>{deptNames.map((d: string) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-              </Select>
+            <TextField label="Subject name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} slotProps={{ htmlInput: { maxLength: 80 } }} fullWidth size="small" />
+            <TextField select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} fullWidth size="small">
+              {deptNames.map((d: string) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+            </TextField>
+            <div className="grid grid-cols-2 gap-3">
+              <TextField select label="Type" value={form.compulsory} onChange={(e) => setForm({ ...form, compulsory: e.target.value })} fullWidth size="small">
+                <MenuItem value="true">Core / Compulsory</MenuItem>
+                <MenuItem value="false">Optional / Elective</MenuItem>
+              </TextField>
+              <TextField label="Periods per week" type="number" slotProps={{ htmlInput: { min: 1, max: 15 } }} value={form.periods} onChange={(e) => setForm({ ...form, periods: e.target.value })} fullWidth size="small" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Type</Label>
-                <Select value={form.compulsory} onValueChange={(v) => setForm({ ...form, compulsory: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Core / Compulsory</SelectItem>
-                    <SelectItem value="false">Optional / Elective</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Periods per week</Label>
-                <Input className="mt-1" type="number" min={1} max={15} value={form.periods} onChange={(e) => setForm({ ...form, periods: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>{form.phase === "primary" ? "Grade from" : "Form from"}</Label>
-                <Input
-                  className="mt-1" type="number" min={1} max={6}
-                  placeholder={phaseFormRange(form.phase).gradeFrom}
-                  value={form.gradeFrom}
-                  onChange={(e) => setForm({ ...form, gradeFrom: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>{form.phase === "primary" ? "Grade to" : "Form to"}</Label>
-                <Input
-                  className="mt-1" type="number" min={1} max={6}
-                  placeholder={phaseFormRange(form.phase).gradeTo}
-                  value={form.gradeTo}
-                  onChange={(e) => setForm({ ...form, gradeTo: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Notes / description</Label>
-              <Textarea
-                className="mt-1 min-h-16 resize-none"
-                placeholder="Syllabus notes, exam board guidance, prerequisites…"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                maxLength={500}
+              <TextField
+                label={form.phase === "primary" ? "Grade from" : "Form from"}
+                type="number"
+                slotProps={{ htmlInput: { min: 1, max: 6 } }}
+                placeholder={phaseFormRange(form.phase).gradeFrom}
+                value={form.gradeFrom}
+                onChange={(e) => setForm({ ...form, gradeFrom: e.target.value })}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label={form.phase === "primary" ? "Grade to" : "Form to"}
+                type="number"
+                slotProps={{ htmlInput: { min: 1, max: 6 } }}
+                placeholder={phaseFormRange(form.phase).gradeTo}
+                value={form.gradeTo}
+                onChange={(e) => setForm({ ...form, gradeTo: e.target.value })}
+                fullWidth
+                size="small"
               />
             </div>
+            <TextField
+              label="Notes / description"
+              multiline
+              minRows={3}
+              placeholder="Syllabus notes, exam board guidance, prerequisites…"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              slotProps={{ htmlInput: { maxLength: 500 } }}
+              fullWidth
+              size="small"
+            />
           </div>
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
-            <Button onClick={saveEdit} disabled={updateMut.isPending}>
-              {updateMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save changes
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setEditTarget(null)}>Cancel</Button>
+          <Button variant="contained" onClick={saveEdit} disabled={updateMut.isPending}>
+            {updateMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save changes
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* ── Department management sheet ──────────────────────────── */}
-      <Sheet open={deptSheetOpen} onOpenChange={setDeptSheetOpen}>
-        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="border-b border-border px-6 py-4">
-            <SheetTitle>Departments</SheetTitle>
+      <Drawer anchor="right" open={deptSheetOpen} onClose={() => setDeptSheetOpen(false)}>
+        <Box sx={{ width: { xs: "100vw", sm: 420 }, display: "flex", flexDirection: "column", height: "100%" }}>
+          <Box sx={{ borderBottom: 1, borderColor: "divider", px: 3, py: 2 }}>
+            <Typography variant="h6">Departments</Typography>
             <p className="text-sm text-muted-foreground">Subject departments for {active.name}. Department names appear in the subject selector.</p>
-          </SheetHeader>
+          </Box>
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {/* Add / edit form */}
             <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
@@ -608,40 +557,40 @@ function SubjectsPage() {
                 {deptEdit ? `Editing — ${deptEdit.name}` : "Add department"}
               </p>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Name *</Label>
-                  <Input className="mt-1" value={deptForm.name} onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })} placeholder="Sciences" maxLength={60} />
-                </div>
-                <div>
-                  <Label>Code</Label>
-                  <Input className="mt-1" value={deptForm.code} onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value })} placeholder="SCI" maxLength={10} />
-                </div>
+                <TextField label="Name *" value={deptForm.name} onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })} placeholder="Sciences" slotProps={{ htmlInput: { maxLength: 60 } }} fullWidth size="small" />
+                <TextField label="Code" value={deptForm.code} onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value })} placeholder="SCI" slotProps={{ htmlInput: { maxLength: 10 } }} fullWidth size="small" />
               </div>
-              <div>
-                <Label>Head of department</Label>
-                <Select
-                  value={deptForm.headTeacherId || "__none__"}
-                  onValueChange={(v) => setDeptForm({ ...deptForm, headTeacherId: v === "__none__" ? "" : v })}
-                >
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select a teacher…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— None —</SelectItem>
-                    {teacherList.map((t: any) => (
-                      <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Description</Label>
-                <Textarea className="mt-1 min-h-14 resize-none" value={deptForm.description} onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })} placeholder="Brief description…" maxLength={200} />
-              </div>
+              <TextField
+                select
+                label="Head of department"
+                value={deptForm.headTeacherId || "__none__"}
+                onChange={(e) => setDeptForm({ ...deptForm, headTeacherId: e.target.value === "__none__" ? "" : e.target.value })}
+                fullWidth
+                size="small"
+              >
+                <MenuItem value="__none__">— None —</MenuItem>
+                {teacherList.map((t: any) => (
+                  <MenuItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Description"
+                multiline
+                minRows={2}
+                value={deptForm.description}
+                onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
+                placeholder="Brief description…"
+                slotProps={{ htmlInput: { maxLength: 200 } }}
+                fullWidth
+                size="small"
+              />
               <div className="flex gap-2 justify-end">
                 {deptEdit && (
-                  <Button variant="ghost" size="sm" onClick={() => { setDeptEdit(null); setDeptForm(emptyDeptForm()); }}>Cancel</Button>
+                  <Button variant="text" color="inherit" size="small" onClick={() => { setDeptEdit(null); setDeptForm(emptyDeptForm()); }}>Cancel</Button>
                 )}
                 <Button
-                  size="sm"
+                  variant="contained"
+                  size="small"
                   disabled={createDeptMut.isPending || updateDeptMut.isPending}
                   onClick={() => {
                     if (!deptForm.name.trim()) { toast.error("Name is required"); return; }
@@ -668,7 +617,7 @@ function SubjectsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">{d.name}</span>
-                        {d.code && <Badge variant="secondary" className="text-xs font-mono">{d.code}</Badge>}
+                        {d.code && <Chip size="small" label={d.code} sx={{ ...badgeSx("secondary"), fontSize: 12, fontFamily: "monospace" }} />}
                       </div>
                       {d.headTeacherId && (() => {
                         const head = teacherList.find((t: any) => t.id === d.headTeacherId);
@@ -676,28 +625,30 @@ function SubjectsPage() {
                       })()}
                     </div>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost" size="sm"
+                      <IconButton
+                        size="small"
+                        aria-label={`Edit ${d.name}`}
                         onClick={() => { setDeptEdit(d); setDeptForm({ name: d.name, code: d.code ?? "", description: d.description ?? "", headTeacherId: d.headTeacherId ?? "" }); }}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm"
-                        className="text-destructive hover:text-destructive"
+                        <Pencil size={14} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        aria-label={`Delete ${d.name}`}
+                        sx={{ color: "error.main" }}
                         disabled={deleteDeptMut.isPending}
                         onClick={() => deleteDeptMut.mutate(d.id)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                        <Trash2 size={14} />
+                      </IconButton>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </Box>
+      </Drawer>
 
       {/* Empty state nudge */}
       {hasNoSubjects && (
@@ -715,35 +666,27 @@ function SubjectsPage() {
         <StatCard label="Total periods/wk" value={totalPeriods(activeList)} hint="In active tab" accent="warning" />
       </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-4">
-        <TabsList>
-          {showPrimary  && <TabsTrigger value="primary">Primary — Grade 1-6 ({primary.length})</TabsTrigger>}
-          {isSecondary  && <TabsTrigger value="olevel">O-Level — Form 1-4 ({olevel.length})</TabsTrigger>}
-          {isSecondary  && <TabsTrigger value="alevel">A-Level — Form 5-6 ({alevel.length})</TabsTrigger>}
-        </TabsList>
-
-        {showPrimary && (
-          <TabsContent value="primary">
-            <div className="rounded-xl border border-border bg-card shadow-sm">
-              <SubjectTable list={primary} />
-            </div>
-          </TabsContent>
-        )}
-        {isSecondary && (
-          <TabsContent value="olevel">
-            <div className="rounded-xl border border-border bg-card shadow-sm">
-              <SubjectTable list={olevel} />
-            </div>
-          </TabsContent>
-        )}
-        {isSecondary && (
-          <TabsContent value="alevel">
-            <div className="rounded-xl border border-border bg-card shadow-sm">
-              <SubjectTable list={alevel} />
-            </div>
-          </TabsContent>
-        )}
+      <Tabs value={phaseTab} onChange={(_e, v) => setPhaseTab(v)} sx={{ mb: 2 }}>
+        {showPrimary  && <Tab value="primary" label={`Primary — Grade 1-6 (${primary.length})`} />}
+        {isSecondary  && <Tab value="olevel" label={`O-Level — Form 1-4 (${olevel.length})`} />}
+        {isSecondary  && <Tab value="alevel" label={`A-Level — Form 5-6 (${alevel.length})`} />}
       </Tabs>
+
+      {showPrimary && phaseTab === "primary" && (
+        <div className="rounded-xl border border-border bg-card shadow-sm">
+          <SubjectTable list={primary} />
+        </div>
+      )}
+      {isSecondary && phaseTab === "olevel" && (
+        <div className="rounded-xl border border-border bg-card shadow-sm">
+          <SubjectTable list={olevel} />
+        </div>
+      )}
+      {isSecondary && phaseTab === "alevel" && (
+        <div className="rounded-xl border border-border bg-card shadow-sm">
+          <SubjectTable list={alevel} />
+        </div>
+      )}
     </div>
   );
 }

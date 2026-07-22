@@ -1,20 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, ArrowRightLeft, CheckCircle2, Clock3, HardDrive,
   Rocket, Server, ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import Chip from "@mui/material/Chip";
+import LinearProgress from "@mui/material/LinearProgress";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 
 type ServiceStatus = "healthy" | "degraded" | "maintenance";
 type QueueStatus = "normal" | "warning" | "blocked";
@@ -58,14 +66,14 @@ type Release = {
   status: ReleaseStatus;
 };
 
-function toneForStatus(status: ServiceStatus | QueueStatus | IncidentStatus | ReleaseStatus) {
+function toneForStatus(status: ServiceStatus | QueueStatus | IncidentStatus | ReleaseStatus): BadgeTone {
   if (status === "healthy" || status === "normal" || status === "Mitigated" || status === "Approved" || status === "Scheduled") {
-    return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+    return "success";
   }
   if (status === "degraded" || status === "warning" || status === "Monitoring" || status === "In validation") {
-    return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+    return "warning";
   }
-  return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+  return "destructive";
 }
 
 export const Route = createFileRoute("/platform-ops")({
@@ -75,6 +83,7 @@ export const Route = createFileRoute("/platform-ops")({
 
 function PlatformOpsPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState("services");
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const services = (workspace?.services ?? []) as Service[];
@@ -88,7 +97,7 @@ function PlatformOpsPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -291,11 +300,8 @@ function PlatformOpsPage() {
         description="Monitor core services, workload queues, incidents, and release readiness across the shared platform."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/support-desk">Open support desk</Link>
-            </Button>
-            <Button onClick={runHealthSweep}>
-              <Activity className="mr-2 h-4 w-4" />
+            <Button variant="outlined" component={Link} to="/support-desk">Open support desk</Button>
+            <Button onClick={runHealthSweep} startIcon={<Activity className="h-4 w-4" />}>
               Run health sweep
             </Button>
           </>
@@ -310,27 +316,28 @@ function PlatformOpsPage() {
         <StatCard label="Pending releases" value={stats.pendingReleases} accent="accent" icon={<Rocket className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="services" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="services">Services</TabsTrigger>
-          <TabsTrigger value="queues">Queues</TabsTrigger>
-          <TabsTrigger value="incidents">Incidents</TabsTrigger>
-          <TabsTrigger value="releases">Releases</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="services" label="Services" />
+        <Tab value="queues" label="Queues" />
+        <Tab value="incidents" label="Incidents" />
+        <Tab value="releases" label="Releases" />
+      </Tabs>
 
-        <TabsContent value="services" className="rounded-xl border border-border bg-card">
+      {tab === "services" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Service</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Dependency</TableHead>
-                <TableHead>Region</TableHead>
-                <TableHead>Uptime</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Service</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Dependency</TableCell>
+                <TableCell>Region</TableCell>
+                <TableCell>Uptime</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {services.map((service) => (
                 <TableRow key={service.id}>
@@ -349,14 +356,14 @@ function PlatformOpsPage() {
                         <span>{service.uptime.toFixed(2)}%</span>
                         <span className="text-muted-foreground">{service.status}</span>
                       </div>
-                      <Progress value={service.uptime} className="h-2" />
+                      <LinearProgress variant="determinate" value={service.uptime} sx={{ height: 8, borderRadius: 999 }} />
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={toneForStatus(service.status)}>{service.status}</Badge>
+                    <Chip size="small" label={service.status} sx={badgeSx(toneForStatus(service.status))} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => toggleMaintenance(service.id)}>
+                    <Button variant="outlined" size="small" onClick={() => toggleMaintenance(service.id)}>
                       {service.status === "maintenance" ? "Restore" : "Maintenance"}
                     </Button>
                   </TableCell>
@@ -364,9 +371,12 @@ function PlatformOpsPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="queues" className="grid gap-4 lg:grid-cols-2">
+      {tab === "queues" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           {queues.map((queue) => (
             <div key={queue.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -374,7 +384,7 @@ function PlatformOpsPage() {
                   <p className="font-semibold">{queue.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{queue.owner}</p>
                 </div>
-                <Badge className={toneForStatus(queue.status)}>{queue.status}</Badge>
+                <Chip size="small" label={queue.status} sx={badgeSx(toneForStatus(queue.status))} />
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg bg-muted/50 p-3">
@@ -388,24 +398,27 @@ function PlatformOpsPage() {
               </div>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground">Queue recovery trims backlog and resets lag alarms.</p>
-                <Button size="sm" onClick={() => drainQueue(queue.id)}>Drain queue</Button>
+                <Button size="small" onClick={() => drainQueue(queue.id)}>Drain queue</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="incidents" className="rounded-xl border border-border bg-card">
+      {tab === "incidents" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Incident</TableHead>
-                <TableHead>Tenant impact</TableHead>
-                <TableHead>Commander</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Incident</TableCell>
+                <TableCell>Tenant impact</TableCell>
+                <TableCell>Commander</TableCell>
+                <TableCell>Severity</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {incidents.map((incident) => (
                 <TableRow key={incident.id}>
@@ -418,15 +431,17 @@ function PlatformOpsPage() {
                   <TableCell>{incident.tenant}</TableCell>
                   <TableCell>{incident.commander}</TableCell>
                   <TableCell>
-                    <Badge className={incident.severity === "High" ? "bg-rose-500/15 text-rose-700 dark:text-rose-300" : incident.severity === "Medium" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-slate-500/15 text-slate-700 dark:text-slate-300"}>
-                      {incident.severity}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={incident.severity}
+                      sx={badgeSx(incident.severity === "High" ? "destructive" : incident.severity === "Medium" ? "warning" : "secondary")}
+                    />
                   </TableCell>
                   <TableCell>
-                    <Badge className={toneForStatus(incident.status)}>{incident.status}</Badge>
+                    <Chip size="small" label={incident.status} sx={badgeSx(toneForStatus(incident.status))} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => updateIncident(incident.id)}>
+                    <Button variant="outlined" size="small" onClick={() => updateIncident(incident.id)}>
                       {incident.status === "Mitigated" ? "Reviewed" : incident.status === "Monitoring" ? "Mitigate" : "Acknowledge"}
                     </Button>
                   </TableCell>
@@ -434,9 +449,12 @@ function PlatformOpsPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="releases" className="grid gap-4 lg:grid-cols-3">
+      {tab === "releases" && (
+        <Box className="grid gap-4 lg:grid-cols-3">
           {releases.map((release) => (
             <div key={release.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -444,7 +462,7 @@ function PlatformOpsPage() {
                   <p className="font-semibold">{release.title}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{release.id}</p>
                 </div>
-                <Badge className={toneForStatus(release.status)}>{release.status}</Badge>
+                <Chip size="small" label={release.status} sx={badgeSx(toneForStatus(release.status))} />
               </div>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -465,14 +483,14 @@ function PlatformOpsPage() {
                   <Clock3 className="h-3.5 w-3.5" />
                   Change window tracked by platform ops
                 </div>
-                <Button size="sm" variant="outline" disabled={release.status === "Approved"} onClick={() => approveRelease(release.id)}>
+                <Button size="small" variant="outlined" disabled={release.status === "Approved"} onClick={() => approveRelease(release.id)}>
                   {release.status === "Approved" ? "Approved" : "Approve"}
                 </Button>
               </div>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -481,9 +499,7 @@ function PlatformOpsPage() {
             Recovery readiness
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Backups and failover procedures should be reviewed after every degraded service event.</p>
-          <Button className="mt-4 w-full" variant="outline" asChild>
-            <Link to="/backups">Review backups & data</Link>
-          </Button>
+          <Button sx={{ mt: 2, width: "100%" }} variant="outlined" component={Link} to="/backups">Review backups & data</Button>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -492,9 +508,7 @@ function PlatformOpsPage() {
             Escalation path
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Keep tenant-facing issues aligned with support ownership and commercial risk.</p>
-          <Button className="mt-4 w-full" variant="outline" asChild>
-            <Link to="/tenant-success">Open tenant success</Link>
-          </Button>
+          <Button sx={{ mt: 2, width: "100%" }} variant="outlined" component={Link} to="/tenant-success">Open tenant success</Button>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -503,9 +517,7 @@ function PlatformOpsPage() {
             Response desk
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Use the support desk to align incidents, ticket ownership, and knowledge articles.</p>
-          <Button className="mt-4 w-full" asChild>
-            <Link to="/support-desk">Go to support desk</Link>
-          </Button>
+          <Button sx={{ mt: 2, width: "100%" }} component={Link} to="/support-desk">Go to support desk</Button>
         </div>
       </div>
     </div>

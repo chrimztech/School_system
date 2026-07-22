@@ -138,6 +138,7 @@ export const schoolEnterprise: NavItem[] = [
 export const schoolAdmin: NavItem[] = [
   { title: "Users & Roles", url: "/access", icon: KeyRound, module: "access" },
   { title: "Audit Log", url: "/audit", icon: History, module: "settings" },
+  { title: "Backups & Data", url: "/backups", icon: HardDrive, module: "settings" },
   { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
   { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
   { title: "Settings", url: "/settings", icon: Settings, module: "settings" },

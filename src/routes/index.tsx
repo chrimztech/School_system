@@ -51,38 +51,29 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
+  Chip,
+  MenuItem,
+  TextField,
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
+  DialogActions,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
+  Box,
+  Tabs,
+  Tab,
+  TableContainer,
   Table,
-  TableBody,
-  TableCell,
   TableHead,
-  TableHeader,
+  TableBody,
   TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
+  TableCell,
+} from "@mui/material";
 import { useTenant, formatGrade, gradingBandForPercentage } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { gradeBadgeClass } from "@/lib/utils";
+import { badgeSx, gradeChipSx } from "@/lib/utils";
 import { PaymentDialog } from "@/components/payment-dialog";
 
 export const Route = createFileRoute("/")({
@@ -324,30 +315,41 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
       </div>
 
       {/* Tabbed detail */}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="performance">
-            Performance
-            {results.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
-                {results.length}
+      <Box>
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="overview" label="Overview" />
+          <Tab
+            value="performance"
+            label={
+              <span className="flex items-center">
+                Performance
+                {results.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                    {results.length}
+                  </span>
+                )}
               </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="discipline">
-            Discipline
-            {openCases > 0 && (
-              <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[10px] font-semibold text-destructive">
-                {openCases}
+            }
+          />
+          <Tab
+            value="discipline"
+            label={
+              <span className="flex items-center">
+                Discipline
+                {openCases > 0 && (
+                  <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[10px] font-semibold text-destructive">
+                    {openCases}
+                  </span>
+                )}
               </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-        </TabsList>
+            }
+          />
+          <Tab value="attendance" label="Attendance" />
+        </Tabs>
 
         {/* OVERVIEW */}
-        <TabsContent value="overview" className="space-y-4">
+        {tab === "overview" && (
+        <Box className="space-y-4">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -449,10 +451,12 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
               </div>
             </div>
           ) : null}
-        </TabsContent>
+        </Box>
+        )}
 
         {/* PERFORMANCE */}
-        <TabsContent value="performance" className="space-y-4">
+        {tab === "performance" && (
+        <Box className="space-y-4">
           <div className="surface-card-strong relative overflow-hidden rounded-3xl p-5 sm:p-6">
             <div className="pointer-events-none absolute -right-14 -top-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
             <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -489,11 +493,14 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Grade</p>
                   <p className="mt-1 text-xl font-semibold">{currentBand?.grade ?? "—"}</p>
                 </div>
-                <Button asChild className="h-auto min-h-[68px] rounded-2xl px-4">
-                  <Link to="/report-card" search={{ studentId: child.id }}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Open report card
-                  </Link>
+                <Button
+                  component={Link as any}
+                  to="/report-card"
+                  search={{ studentId: child.id }}
+                  startIcon={<FileText className="h-4 w-4" />}
+                  sx={{ height: "auto", minHeight: 68, borderRadius: 2, px: 2 }}
+                >
+                  Open report card
                 </Button>
               </div>
             </div>
@@ -507,18 +514,19 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                   Weighted CA, mid-term and exam results by term — current and previous terms.
                 </p>
               </div>
+              <TableContainer>
               <Table>
-                <TableHeader>
+                <TableHead>
                   <TableRow>
-                    <TableHead>Term</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead className="text-right">CA %</TableHead>
-                    <TableHead className="text-right">Midterm %</TableHead>
-                    <TableHead className="text-right">Exam %</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Grade</TableHead>
+                    <TableCell>Term</TableCell>
+                    <TableCell>Subject</TableCell>
+                    <TableCell className="text-right">CA %</TableCell>
+                    <TableCell className="text-right">Midterm %</TableCell>
+                    <TableCell className="text-right">Exam %</TableCell>
+                    <TableCell className="text-right">Total</TableCell>
+                    <TableCell>Grade</TableCell>
                   </TableRow>
-                </TableHeader>
+                </TableHead>
                 <TableBody>
                   {termGrades.map((g: any, i: number) => (
                     <TableRow key={g.id} className={i % 2 === 1 ? "bg-muted/30" : undefined}>
@@ -537,12 +545,13 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                         {Math.round(g.weightedTotal)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={gradeBadgeClass(g.letterGrade)}>{g.letterGrade}</Badge>
+                        <Chip size="small" label={g.letterGrade} sx={gradeChipSx(g.letterGrade)} />
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              </TableContainer>
             </div>
           )}
 
@@ -584,18 +593,19 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                 No assessment results recorded yet.
               </div>
             ) : (
+              <TableContainer>
               <Table>
-                <TableHeader>
+                <TableHead>
                   <TableRow>
-                    <TableHead>Assessment</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Score</TableHead>
-                    <TableHead className="text-right">Grade</TableHead>
-                    <TableHead>Remarks</TableHead>
+                    <TableCell>Assessment</TableCell>
+                    <TableCell>Subject</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell className="text-right">Score</TableCell>
+                    <TableCell className="text-right">Grade</TableCell>
+                    <TableCell>Remarks</TableCell>
                   </TableRow>
-                </TableHeader>
+                </TableHead>
                 <TableBody>
                   {results.map((r: any) => (
                     <TableRow key={r.id}>
@@ -605,9 +615,11 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                       </TableCell>
                       <TableCell>
                         {r.type && (
-                          <Badge variant="outline" className="capitalize text-[10px]">
-                            {r.type}
-                          </Badge>
+                          <Chip
+                            size="small"
+                            label={r.type}
+                            sx={{ ...badgeSx("outline"), fontSize: 10, textTransform: "capitalize" }}
+                          />
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
@@ -628,7 +640,7 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                       </TableCell>
                       <TableCell className="text-right">
                         {r.grade ? (
-                          <Badge className={gradeBadgeClass(r.grade)}>{r.grade}</Badge>
+                          <Chip size="small" label={r.grade} sx={gradeChipSx(r.grade)} />
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
@@ -640,15 +652,15 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                   ))}
                 </TableBody>
               </Table>
+              </TableContainer>
             )}
           </div>
-        </TabsContent>
+        </Box>
+        )}
 
         {/* DISCIPLINE */}
-        <TabsContent
-          value="discipline"
-          className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
-        >
+        {tab === "discipline" && (
+        <Box className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           {disciplineLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -660,18 +672,19 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
               No discipline records — great behaviour!
             </div>
           ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Offense</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Action taken</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Notes</TableHead>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Offense</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Severity</TableCell>
+                  <TableCell>Action taken</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Notes</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {disciplineCases.map((d: any) => {
                   const status = (d.status ?? "OPEN").toUpperCase();
@@ -686,30 +699,43 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                       </TableCell>
                       <TableCell>
                         {d.severity && (
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] ${d.severity.toLowerCase() === "high" || d.severity.toLowerCase() === "severe" ? "border-destructive/40 text-destructive" : d.severity.toLowerCase() === "medium" ? "border-amber-400/40 text-amber-600" : "border-border text-muted-foreground"}`}
-                          >
-                            {d.severity}
-                          </Badge>
+                          <Chip
+                            size="small"
+                            label={d.severity}
+                            sx={{
+                              ...badgeSx(
+                                d.severity.toLowerCase() === "high" || d.severity.toLowerCase() === "severe"
+                                  ? "destructive"
+                                  : d.severity.toLowerCase() === "medium"
+                                    ? "warning"
+                                    : "outline"
+                              ),
+                              fontSize: 10,
+                            }}
+                          />
                         )}
                       </TableCell>
                       <TableCell className="text-xs">
                         {(d.action ?? "—").replace(/_/g, " ")}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={`text-[10px] ${status === "RESOLVED" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : status === "ESCALATED" ? "bg-destructive/15 text-destructive" : "bg-amber-500/15 text-amber-700 dark:text-amber-400"}`}
-                        >
-                          {status === "RESOLVED" ? (
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                          ) : status === "ESCALATED" ? (
-                            <XCircle className="mr-1 h-3 w-3" />
-                          ) : (
-                            <Clock className="mr-1 h-3 w-3" />
-                          )}
-                          {status}
-                        </Badge>
+                        <Chip
+                          size="small"
+                          icon={
+                            status === "RESOLVED" ? (
+                              <CheckCircle2 size={12} />
+                            ) : status === "ESCALATED" ? (
+                              <XCircle size={12} />
+                            ) : (
+                              <Clock size={12} />
+                            )
+                          }
+                          label={status}
+                          sx={{
+                            ...badgeSx(status === "RESOLVED" ? "success" : status === "ESCALATED" ? "destructive" : "warning"),
+                            fontSize: 10,
+                          }}
+                        />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
                         {d.notes ?? ""}
@@ -719,14 +745,14 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                 })}
               </TableBody>
             </Table>
+            </TableContainer>
           )}
-        </TabsContent>
+        </Box>
+        )}
 
         {/* ATTENDANCE */}
-        <TabsContent
-          value="attendance"
-          className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
-        >
+        {tab === "attendance" && (
+        <Box className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           {attendanceLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -764,38 +790,39 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                   Excused: <strong>{excusedDays}</strong>
                 </span>
               </div>
+              <TableContainer>
               <Table>
-                <TableHeader>
+                <TableHead>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Subject / Class</TableHead>
-                    <TableHead>Remarks</TableHead>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Subject / Class</TableCell>
+                    <TableCell>Remarks</TableCell>
                   </TableRow>
-                </TableHeader>
+                </TableHead>
                 <TableBody>
                   {attendanceHistory.slice(0, 60).map((a: any) => {
                     const status = (a.status ?? "present").toLowerCase();
                     const badge = {
                       present: {
-                        cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-                        icon: <CheckCircle2 className="mr-1 h-3 w-3" />,
+                        tone: "success" as const,
+                        icon: <CheckCircle2 size={12} />,
                       },
                       late: {
-                        cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-                        icon: <Clock className="mr-1 h-3 w-3" />,
+                        tone: "warning" as const,
+                        icon: <Clock size={12} />,
                       },
                       sick: {
-                        cls: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
-                        icon: <HeartPulse className="mr-1 h-3 w-3" />,
+                        tone: "default" as const,
+                        icon: <HeartPulse size={12} />,
                       },
                       excused: {
-                        cls: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
-                        icon: <ShieldCheck className="mr-1 h-3 w-3" />,
+                        tone: "secondary" as const,
+                        icon: <ShieldCheck size={12} />,
                       },
                     }[status as "present" | "late" | "sick" | "excused"] ?? {
-                      cls: "bg-destructive/15 text-destructive",
-                      icon: <XCircle className="mr-1 h-3 w-3" />,
+                      tone: "destructive" as const,
+                      icon: <XCircle size={12} />,
                     };
                     return (
                       <TableRow key={a.id}>
@@ -803,12 +830,16 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                           {a.date ?? (a.createdAt ?? "").slice(0, 10)}
                         </TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${badge.cls}`}>
-                            {badge.icon}
-                            {status === "excused"
-                              ? "Absent w/ permission"
-                              : status.charAt(0).toUpperCase() + status.slice(1)}
-                          </Badge>
+                          <Chip
+                            size="small"
+                            icon={badge.icon}
+                            label={
+                              status === "excused"
+                                ? "Absent w/ permission"
+                                : status.charAt(0).toUpperCase() + status.slice(1)
+                            }
+                            sx={{ ...badgeSx(badge.tone), fontSize: 10 }}
+                          />
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {a.subjectName ?? a.className ?? a.classId ?? "—"}
@@ -821,6 +852,7 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                   })}
                 </TableBody>
               </Table>
+              </TableContainer>
               {attendanceHistory.length > 60 && (
                 <p className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">
                   Showing 60 most recent of {attendanceHistory.length} records
@@ -828,8 +860,9 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
               )}
             </>
           )}
-        </TabsContent>
-      </Tabs>
+        </Box>
+        )}
+      </Box>
 
       <PaymentDialog schoolId={schoolId} student={child} open={payOpen} onOpenChange={setPayOpen} />
     </div>
@@ -843,9 +876,9 @@ function ParentDashboard() {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
   const { data: children = [], isLoading } = useQuery({
-    queryKey: ["guardian-children", schoolId, user?.email],
-    queryFn: () => api.students.listByGuardian(schoolId, user!.email),
-    enabled: !!user?.email,
+    queryKey: ["guardian-children", schoolId, user?.email, user?.phone],
+    queryFn: () => api.students.listByGuardian(schoolId, { email: user?.email, phone: user?.phone }),
+    enabled: !!(user?.email || user?.phone),
   });
 
   const { data: announcements = [] } = useQuery({
@@ -1055,12 +1088,8 @@ function StaffDashboard() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline">
-                <Link to="/sys-admin">Open system admin</Link>
-              </Button>
-              <Button asChild variant="ghost">
-                <Link to="/platform-ops">Open platform ops</Link>
-              </Button>
+              <Button variant="outlined" component={Link} to="/sys-admin">Open system admin</Button>
+              <Button variant="text" color="inherit" component={Link} to="/platform-ops">Open platform ops</Button>
             </div>
           </div>
         </div>
@@ -1334,11 +1363,8 @@ function StaffDashboard() {
             actions={
               <>
                 {!isTeacher && !isHOD && (
-                  <Button asChild>
-                    <Link to="/students">
-                      <Plus className="mr-1 h-4 w-4" />
-                      Enrol student
-                    </Link>
+                  <Button component={Link} to="/students" startIcon={<Plus className="h-4 w-4" />}>
+                    Enrol student
                   </Button>
                 )}
               </>
@@ -1360,10 +1386,10 @@ function StaffDashboard() {
                 {school.totalClasses.toLocaleString()} classes.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <Badge variant="outline">{school.curriculum ?? "ECZ"} curriculum</Badge>
-                <Badge variant="outline">{school.ownership ?? "School"}</Badge>
-                <Badge variant="outline">{school.category ?? "Day"}</Badge>
-                <Badge variant="outline">{school.province}</Badge>
+                <Chip size="small" label={`${school.curriculum ?? "ECZ"} curriculum`} sx={badgeSx("outline")} />
+                <Chip size="small" label={school.ownership ?? "School"} sx={badgeSx("outline")} />
+                <Chip size="small" label={school.category ?? "Day"} sx={badgeSx("outline")} />
+                <Chip size="small" label={school.province} sx={badgeSx("outline")} />
               </div>
               <div className="mt-6 grid gap-4 border-t border-border/70 pt-4 sm:grid-cols-3">
                 <div>
@@ -1401,9 +1427,11 @@ function StaffDashboard() {
                     What needs attention this term.
                   </p>
                 </div>
-                <Badge variant={fees.collectionRate >= 75 ? "success" : "warning"}>
-                  {fees.collectionRate}% collected
-                </Badge>
+                <Chip
+                  size="small"
+                  label={`${fees.collectionRate}% collected`}
+                  sx={badgeSx(fees.collectionRate >= 75 ? "success" : "warning")}
+                />
               </div>
               <div className="mt-5 space-y-3">
                 {[
@@ -1473,9 +1501,11 @@ function StaffDashboard() {
                   {school.levels.length} academic level{school.levels.length === 1 ? "" : "s"}.
                 </p>
               </div>
-              <Badge variant="outline">
-                {school.campuses.length} campus{school.campuses.length === 1 ? "" : "es"}
-              </Badge>
+              <Chip
+                size="small"
+                label={`${school.campuses.length} campus${school.campuses.length === 1 ? "" : "es"}`}
+                sx={badgeSx("outline")}
+              />
             </div>
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               {school.campuses.map((campus) => (
@@ -1487,13 +1517,16 @@ function StaffDashboard() {
                         {campus.district} · {campus.status}
                       </p>
                     </div>
-                    <Badge variant="secondary">{campus.code}</Badge>
+                    <Chip size="small" label={campus.code} sx={badgeSx("secondary")} />
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {campus.levels.map((level) => (
-                      <Badge key={`${campus.id}-${level}`} variant="outline">
-                        {level.replaceAll("_", " ")}
-                      </Badge>
+                      <Chip
+                        key={`${campus.id}-${level}`}
+                        size="small"
+                        label={level.replaceAll("_", " ")}
+                        sx={badgeSx("outline")}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1508,9 +1541,7 @@ function StaffDashboard() {
                   <h2 className="text-sm font-semibold text-foreground">Fee collection trend</h2>
                   <p className="text-xs text-muted-foreground">Last 5 months · Zambian Kwacha</p>
                 </div>
-                <Badge variant="secondary" className="gap-1">
-                  <TrendingUp className="h-3 w-3" /> Fee trend
-                </Badge>
+                <Chip size="small" icon={<TrendingUp size={12} />} label="Fee trend" sx={badgeSx("secondary")} />
               </div>
               <div className="h-64">
                 {feeTrend.length === 0 ? (
@@ -1804,7 +1835,7 @@ function StaffDashboard() {
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-foreground">Attendance this week</h2>
-                <Badge variant="outline">{attendanceToday.rate}% today</Badge>
+                <Chip size="small" label={`${attendanceToday.rate}% today`} sx={badgeSx("outline")} />
               </div>
               <div className="h-48">
                 {attendanceTrend.length === 0 ? (
@@ -1847,9 +1878,7 @@ function StaffDashboard() {
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-foreground">Class attendance · today</h2>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/attendance">View all</Link>
-                </Button>
+                <Button variant="text" color="inherit" size="small" component={Link} to="/attendance">View all</Button>
               </div>
               {recentAttendance.length === 0 ? (
                 <EmptyState
@@ -1857,9 +1886,7 @@ function StaffDashboard() {
                   title="No attendance marked yet today"
                   description="Per-class registers will show up here as teachers submit them."
                   actionSlot={
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to="/attendance">Mark attendance</Link>
-                    </Button>
+                    <Button variant="outlined" size="small" component={Link} to="/attendance">Mark attendance</Button>
                   }
                   className="py-8"
                 />
@@ -1881,13 +1908,11 @@ function StaffDashboard() {
                           </p>
                         </div>
                       </div>
-                      <Badge
-                        variant={
-                          c.rate >= 90 ? "secondary" : c.rate >= 80 ? "outline" : "destructive"
-                        }
-                      >
-                        {c.rate}%
-                      </Badge>
+                      <Chip
+                        size="small"
+                        label={`${c.rate}%`}
+                        sx={badgeSx(c.rate >= 90 ? "secondary" : c.rate >= 80 ? "outline" : "destructive")}
+                      />
                     </div>
                   ))}
                 </div>
@@ -1898,8 +1923,7 @@ function StaffDashboard() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Recent announcements</h2>
-              <Button variant="ghost" size="sm" onClick={() => setAnnouncementOpen(true)}>
-                <Plus className="mr-1 h-3 w-3" />
+              <Button variant="text" color="inherit" size="small" onClick={() => setAnnouncementOpen(true)} startIcon={<Plus className="h-3 w-3" />}>
                 New announcement
               </Button>
             </div>
@@ -1924,9 +1948,7 @@ function StaffDashboard() {
                           ? a.channels
                           : []
                       ).map((c: string) => (
-                        <Badge key={c} variant="outline" className="text-[10px]">
-                          {c.trim()}
-                        </Badge>
+                        <Chip key={c} size="small" label={c.trim()} sx={{ ...badgeSx("outline"), fontSize: 10 }} />
                       ))}
                     </div>
                   </div>
@@ -1934,57 +1956,50 @@ function StaffDashboard() {
               ))}
             </div>
           </div>
-          <Dialog open={announcementOpen} onOpenChange={setAnnouncementOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>New announcement</DialogTitle>
-              </DialogHeader>
+          <Dialog open={announcementOpen} onClose={() => setAnnouncementOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>New announcement</DialogTitle>
+            <DialogContent>
               <div className="grid gap-3">
-                <div>
-                  <Label>Title *</Label>
-                  <Input
-                    className="mt-1"
-                    value={annForm.title}
-                    onChange={(e) => setAnnForm({ ...annForm, title: e.target.value })}
-                    placeholder="Term 2 mid-term results available"
-                    maxLength={100}
-                  />
-                </div>
-                <div>
-                  <Label>Message *</Label>
-                  <Textarea
-                    className="mt-1"
-                    rows={4}
-                    value={annForm.body}
-                    onChange={(e) => setAnnForm({ ...annForm, body: e.target.value })}
-                    placeholder="Dear parents and guardians..."
-                  />
-                </div>
-                <div>
-                  <Label>Channel</Label>
-                  <Select
-                    value={annForm.channels}
-                    onValueChange={(v) => setAnnForm({ ...annForm, channels: v })}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SMS">SMS</SelectItem>
-                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                      <SelectItem value="Email">Email</SelectItem>
-                      <SelectItem value="USSD">USSD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <TextField
+                  label="Title *"
+                  value={annForm.title}
+                  onChange={(e) => setAnnForm({ ...annForm, title: e.target.value })}
+                  placeholder="Term 2 mid-term results available"
+                  slotProps={{ htmlInput: { maxLength: 100 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Message *"
+                  multiline
+                  minRows={4}
+                  value={annForm.body}
+                  onChange={(e) => setAnnForm({ ...annForm, body: e.target.value })}
+                  placeholder="Dear parents and guardians..."
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Channel"
+                  value={annForm.channels}
+                  onChange={(e) => setAnnForm({ ...annForm, channels: e.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="SMS">SMS</MenuItem>
+                  <MenuItem value="WhatsApp">WhatsApp</MenuItem>
+                  <MenuItem value="Email">Email</MenuItem>
+                  <MenuItem value="USSD">USSD</MenuItem>
+                </TextField>
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setAnnouncementOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={postAnnouncement}>Post announcement</Button>
-              </DialogFooter>
             </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setAnnouncementOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={postAnnouncement}>Post announcement</Button>
+            </DialogActions>
           </Dialog>
         </>
       )}

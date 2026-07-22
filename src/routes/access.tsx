@@ -4,20 +4,33 @@ import { Plus, Shield, Trash2, UserPlus, Check, X, Pencil, Loader2, Save, KeyRou
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import {
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  TextField,
+  MenuItem,
+  Dialog,
+  DialogContent,
+  DialogActions,
+  DialogTitle,
+  Tabs,
+  Tab,
+  TableContainer,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+} from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth, ACCESS, MODULE_MATRIX, ROLE_META, type Role } from "@/lib/auth";
 import { AccessGuard } from "@/components/access-guard";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/access")({
   head: () => ({ meta: [{ title: "Access Management — SRMS" }] }),
@@ -34,6 +47,7 @@ const ACCESS_OPTIONS = [
 ];
 
 function AccessPage() {
+  const [tab, setTab] = useState("users");
   const { user, assignableRoles, loadingSession } = useAuth();
   const { active } = useTenant();
   const schoolId = user?.tenantId ?? active.id;
@@ -332,47 +346,29 @@ function AccessPage() {
         title="Users & Roles"
         description="Add users, assign roles, create custom roles, and configure module permissions"
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><UserPlus className="mr-1 h-4 w-4" />Add user</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader><DialogTitle>Invite user</DialogTitle></DialogHeader>
-              <div className="space-y-3">
-                <div>
-                  <Label>Name</Label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" />
+          <>
+            <Button startIcon={<UserPlus size={16} />} onClick={() => setOpen(true)}>Add user</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Invite user</DialogTitle>
+              <DialogContent>
+                <div className="space-y-3">
+                  <TextField label="Name" fullWidth size="small" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  <TextField label="Email" type="email" fullWidth size="small" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <TextField label="Phone" fullWidth size="small" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" />
+                  <TextField label="Temporary password" type="password" fullWidth size="small" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Optional starter password" />
+                  <TextField select label="Role" fullWidth size="small" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
+                    {assignableRoles.map((r) => (
+                      <MenuItem key={r} value={r}>{ROLE_META[r].label}</MenuItem>
+                    ))}
+                  </TextField>
                 </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1" />
-                </div>
-                <div>
-                  <Label>Phone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1" placeholder="+260 977 000 000" />
-                </div>
-                <div>
-                  <Label>Temporary password</Label>
-                  <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="mt-1" placeholder="Optional starter password" />
-                </div>
-                <div>
-                  <Label>Role</Label>
-                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {assignableRoles.map((r) => (
-                        <SelectItem key={r} value={r}>{ROLE_META[r].label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button onClick={submitAddUser}>Send invite</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogActions>
+            </Dialog>
+          </>
         }
       />
 
@@ -382,15 +378,15 @@ function AccessPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="users" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="matrix">Permission matrix</TabsTrigger>
-          <TabsTrigger value="roles">Role definitions</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="users" label="Users" />
+        <Tab value="matrix" label="Permission matrix" />
+        <Tab value="roles" label="Role definitions" />
+      </Tabs>
 
-        {/* ── Tab 1: Users ──────────────────────────────────────────────── */}
-        <TabsContent value="users">
+      {/* ── Tab 1: Users ──────────────────────────────────────────────── */}
+      {tab === "users" && (
+        <Box>
           <p className="mb-3 text-sm text-muted-foreground">Change a user's role using the <strong>Role</strong> dropdown on each row. Use <strong>Add user</strong> above to invite new staff.</p>
           <div className="rounded-xl border border-border bg-card shadow-sm">
             {usersLoading ? (
@@ -398,15 +394,16 @@ function AccessPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />Loading users…
               </div>
             ) : (
+            <TableContainer>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="w-32 text-right">Actions</TableHead>
+                  <TableCell>User</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell className="w-32 text-right">Actions</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {users.map((u) => (
                     <TableRow key={u.id} className={!u.hasLogin ? "opacity-70" : ""}>
@@ -425,16 +422,13 @@ function AccessPage() {
                       </TableCell>
                       <TableCell>
                         {u.hasLogin ? (
-                          <Select value={u.role} onValueChange={(v) => handleRoleChange(u.id, v)}>
-                            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {assignableRoles.map((r) => (
-                                <SelectItem key={r} value={r}>{ROLE_META[r].label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <TextField select size="small" className="w-44" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}>
+                            {assignableRoles.map((r) => (
+                              <MenuItem key={r} value={r}>{ROLE_META[r].label}</MenuItem>
+                            ))}
+                          </TextField>
                         ) : (
-                          <Badge variant="outline" className="text-amber-600 border-amber-300">Staff only</Badge>
+                          <Chip size="small" label="Staff only" sx={badgeSx("warning")} />
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -442,31 +436,31 @@ function AccessPage() {
                           {u.hasLogin ? (
                             <>
                               <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 gap-1 text-xs"
+                                variant="outlined"
+                                size="small"
+                                startIcon={<KeyRound size={12} />}
+                                sx={{ height: 28 }}
                                 onClick={() => { setResetTarget({ id: u.id, name: u.name, email: u.email }); setResetPassword(""); }}
                               >
-                                <KeyRound className="h-3 w-3" />
                                 Reset password
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
+                              <IconButton
+                                aria-label="Remove user"
+                                size="small"
                                 onClick={() => handleRemoveUser(u.id, u.name)}
                                 disabled={u.id === user?.id}
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
+                              </IconButton>
                             </>
                           ) : (
                             <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                              variant="outlined"
+                              color="warning"
+                              size="small"
+                              startIcon={<KeyRound size={14} />}
                               onClick={() => setCreateLoginTarget({ id: u.id, name: u.name, email: u.email, phone: u.phone })}
                             >
-                              <KeyRound className="h-3.5 w-3.5" />
                               Create login
                             </Button>
                           )}
@@ -483,12 +477,15 @@ function AccessPage() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
             )}
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* ── Tab 2: Permission matrix ───────────────────────────────────── */}
-        <TabsContent value="matrix">
+      {/* ── Tab 2: Permission matrix ───────────────────────────────────── */}
+      {tab === "matrix" && (
+        <Box>
           <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
             <table className="min-w-full text-sm">
               <thead>
@@ -524,8 +521,8 @@ function AccessPage() {
                       const a = ACCESS[r][m];
                       return (
                         <td key={r} className="p-3 text-center">
-                          {a === true && <Badge variant="default" className="gap-1"><Check className="h-3 w-3" />Full</Badge>}
-                          {a === "read" && <Badge variant="secondary">Read</Badge>}
+                          {a === true && <Chip size="small" icon={<Check size={12} />} label="Full" sx={badgeSx("default")} />}
+                          {a === "read" && <Chip size="small" label="Read" sx={badgeSx("secondary")} />}
                           {a === false && <X className="mx-auto h-4 w-4 text-muted-foreground/40" />}
                         </td>
                       );
@@ -535,18 +532,13 @@ function AccessPage() {
                       const val = pendingPerms[cr.name]?.[m] ?? "none";
                       return (
                         <td key={cr.id} className="p-2 text-center">
-                          <Select value={val} onValueChange={(v) => handlePermChange(cr.name, m, v)}>
-                            <SelectTrigger className="h-7 w-24 text-xs mx-auto">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ACCESS_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <TextField select size="small" className="mx-auto w-24" value={val} onChange={(e) => handlePermChange(cr.name, m, e.target.value)}>
+                            {ACCESS_OPTIONS.map((opt) => (
+                              <MenuItem key={opt.value} value={opt.value} className="text-xs">
+                                {opt.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
                         </td>
                       );
                     })}
@@ -562,14 +554,14 @@ function AccessPage() {
               {customRoles.map((cr: any) => (
                 <Button
                   key={cr.id}
-                  size="sm"
-                  variant="outline"
+                  size="small"
+                  variant="outlined"
                   disabled={savingRole === cr.name || savePermsMut.isPending}
                   onClick={() => handleSavePerms(cr.name)}
+                  startIcon={savingRole === cr.name
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Save size={14} />}
                 >
-                  {savingRole === cr.name
-                    ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    : <Save className="mr-1.5 h-3.5 w-3.5" />}
                   Save "{cr.name}" permissions
                 </Button>
               ))}
@@ -586,16 +578,18 @@ function AccessPage() {
               No custom roles yet. Create one in the <strong>Role definitions</strong> tab to configure per-module permissions here.
             </p>
           )}
-        </TabsContent>
+        </Box>
+      )}
 
-        {/* ── Tab 3: Role definitions ────────────────────────────────────── */}
-        <TabsContent value="roles">
+      {/* ── Tab 3: Role definitions ────────────────────────────────────── */}
+      {tab === "roles" && (
+        <Box>
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               System roles are built-in and cannot be changed. <strong>Create a custom role</strong> to define a new position with specific module permissions — then assign it to users on the <strong>Users</strong> tab.
             </p>
-            <Button size="sm" onClick={() => { setRoleForm({ name: "", description: "" }); setCreateRoleOpen(true); }}>
-              <Plus className="mr-1 h-4 w-4" />Create custom role
+            <Button size="small" startIcon={<Plus size={16} />} onClick={() => { setRoleForm({ name: "", description: "" }); setCreateRoleOpen(true); }}>
+              Create custom role
             </Button>
           </div>
 
@@ -612,10 +606,19 @@ function AccessPage() {
                   <p className="mt-3 text-sm text-muted-foreground">{ROLE_META[r].description}</p>
                   <div className="mt-4 flex flex-wrap gap-1">
                     {modules.filter((m) => ACCESS[r][m] === true).slice(0, 6).map((m) => (
-                      <Badge key={m} variant="outline" className="capitalize">{m.replace(/-/g, " ")}</Badge>
+                      <Chip
+                        key={m}
+                        size="small"
+                        label={m.replace(/-/g, " ")}
+                        sx={{ ...badgeSx("outline"), textTransform: "capitalize" }}
+                      />
                     ))}
                     {modules.filter((m) => ACCESS[r][m] === true).length > 6 && (
-                      <Badge variant="outline">+{modules.filter((m) => ACCESS[r][m] === true).length - 6}</Badge>
+                      <Chip
+                        size="small"
+                        label={`+${modules.filter((m) => ACCESS[r][m] === true).length - 6}`}
+                        sx={badgeSx("outline")}
+                      />
                     )}
                   </div>
                 </div>
@@ -642,23 +645,22 @@ function AccessPage() {
                             {cr.name}
                           </span>
                           <div className="flex items-center gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
+                            <IconButton
+                              aria-label="Edit role"
+                              size="small"
                               onClick={() => openEditRole(cr)}
                             >
                               <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            </IconButton>
+                            <IconButton
+                              aria-label="Delete role"
+                              size="small"
+                              color="error"
                               disabled={deleteRoleMut.isPending}
                               onClick={() => deleteRoleMut.mutate(cr.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            </IconButton>
                           </div>
                         </div>
                         {cr.description && (
@@ -674,158 +676,148 @@ function AccessPage() {
               )}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
 
       {/* ── Create custom role dialog ──────────────────────────────────────── */}
-      <Dialog open={createRoleOpen} onOpenChange={(v) => { if (!v) setCreateRoleOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Create custom role</DialogTitle></DialogHeader>
+      <Dialog open={createRoleOpen} onClose={() => setCreateRoleOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create custom role</DialogTitle>
+        <DialogContent>
           <div className="space-y-3">
-            <div>
-              <Label>Role name <span className="text-destructive">*</span></Label>
-              <Input
-                className="mt-1"
-                value={roleForm.name}
-                onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                placeholder="e.g. Registrar"
-                maxLength={60}
-              />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                className="mt-1 min-h-16 resize-none"
-                value={roleForm.description}
-                onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
-                placeholder="What does this role do?"
-                maxLength={200}
-              />
-            </div>
+            <TextField
+              label={<>Role name <span className="text-destructive">*</span></>}
+              fullWidth
+              size="small"
+              value={roleForm.name}
+              onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
+              placeholder="e.g. Registrar"
+              slotProps={{ htmlInput: { maxLength: 60 } }}
+            />
+            <TextField
+              label="Description"
+              fullWidth
+              size="small"
+              multiline
+              minRows={3}
+              value={roleForm.description}
+              onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
+              placeholder="What does this role do?"
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateRoleOpen(false)}>Cancel</Button>
-            <Button
-              disabled={createRoleMut.isPending || !roleForm.name.trim()}
-              onClick={() => createRoleMut.mutate({ name: roleForm.name.trim(), description: roleForm.description.trim() || null })}
-            >
-              {createRoleMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create role
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setCreateRoleOpen(false)}>Cancel</Button>
+          <Button
+            disabled={createRoleMut.isPending || !roleForm.name.trim()}
+            onClick={() => createRoleMut.mutate({ name: roleForm.name.trim(), description: roleForm.description.trim() || null })}
+            startIcon={createRoleMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Create role
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* ── Create login dialog ───────────────────────────────────────────── */}
-      <Dialog open={!!createLoginTarget} onOpenChange={(v) => { if (!v) { setCreateLoginTarget(null); setCreateLoginPassword(""); } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Create login for {createLoginTarget?.name}</DialogTitle></DialogHeader>
+      <Dialog open={!!createLoginTarget} onClose={() => { setCreateLoginTarget(null); setCreateLoginPassword(""); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Create login for {createLoginTarget?.name}</DialogTitle>
+        <DialogContent>
           <div className="space-y-3">
-            <div>
-              <Label>Name</Label>
-              <Input value={createLoginTarget?.name ?? ""} disabled className="mt-1 bg-muted" />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input value={createLoginTarget?.email ?? ""} disabled className="mt-1 bg-muted" />
-            </div>
-            <div>
-              <Label>Temporary password</Label>
-              <Input
-                type="password"
-                value={createLoginPassword}
-                onChange={(e) => setCreateLoginPassword(e.target.value)}
-                className="mt-1"
-                placeholder="Optional — they can reset later"
-              />
-            </div>
+            <TextField label="Name" fullWidth size="small" value={createLoginTarget?.name ?? ""} disabled />
+            <TextField label="Email" fullWidth size="small" value={createLoginTarget?.email ?? ""} disabled />
+            <TextField
+              label="Temporary password"
+              type="password"
+              fullWidth
+              size="small"
+              value={createLoginPassword}
+              onChange={(e) => setCreateLoginPassword(e.target.value)}
+              placeholder="Optional — they can reset later"
+            />
             <p className="text-xs text-muted-foreground">
               Role will be set to <strong>Teacher</strong>. The staff member can log in with this email immediately after account creation.
             </p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setCreateLoginTarget(null); setCreateLoginPassword(""); }}>Cancel</Button>
-            <Button onClick={handleCreateLogin} disabled={creatingLogin}>
-              {creatingLogin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create login
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => { setCreateLoginTarget(null); setCreateLoginPassword(""); }}>Cancel</Button>
+          <Button onClick={handleCreateLogin} disabled={creatingLogin} startIcon={creatingLogin ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}>
+            Create login
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* ── Reset password dialog ─────────────────────────────────────────── */}
-      <Dialog open={!!resetTarget} onOpenChange={(v) => { if (!v) { setResetTarget(null); setResetPassword(""); } }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Reset password — {resetTarget?.name}</DialogTitle></DialogHeader>
+      <Dialog open={!!resetTarget} onClose={() => { setResetTarget(null); setResetPassword(""); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Reset password — {resetTarget?.name}</DialogTitle>
+        <DialogContent>
           <div className="space-y-3 py-1">
+            <TextField label="Email" fullWidth size="small" value={resetTarget?.email ?? ""} disabled />
             <div>
-              <Label>Email</Label>
-              <Input value={resetTarget?.email ?? ""} disabled className="mt-1 bg-muted" />
-            </div>
-            <div>
-              <Label>New temporary password <span className="text-destructive">*</span></Label>
-              <Input
-                className="mt-1"
+              <TextField
+                label={<>New temporary password <span className="text-destructive">*</span></>}
+                fullWidth
+                size="small"
                 type="text"
                 value={resetPassword}
                 onChange={(e) => setResetPassword(e.target.value)}
                 placeholder="e.g. Welcome2026!"
-                maxLength={60}
+                slotProps={{ htmlInput: { maxLength: 60 } }}
               />
               <p className="mt-1 text-xs text-muted-foreground">Share this with the user — they should change it after signing in.</p>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setResetTarget(null); setResetPassword(""); }}>Cancel</Button>
-            <Button
-              disabled={resetPasswordMut.isPending || !resetPassword.trim() || resetPassword.length < 6}
-              onClick={() => resetTarget && resetPasswordMut.mutate({ userId: resetTarget.id, password: resetPassword.trim() })}
-            >
-              {resetPasswordMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Reset password
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => { setResetTarget(null); setResetPassword(""); }}>Cancel</Button>
+          <Button
+            disabled={resetPasswordMut.isPending || !resetPassword.trim() || resetPassword.length < 6}
+            onClick={() => resetTarget && resetPasswordMut.mutate({ userId: resetTarget.id, password: resetPassword.trim() })}
+            startIcon={resetPasswordMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Reset password
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* ── Edit custom role dialog ────────────────────────────────────────── */}
-      <Dialog open={!!editRoleTarget} onOpenChange={(v) => { if (!v) setEditRoleTarget(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Edit role</DialogTitle></DialogHeader>
+      <Dialog open={!!editRoleTarget} onClose={() => setEditRoleTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit role</DialogTitle>
+        <DialogContent>
           <div className="space-y-3">
-            <div>
-              <Label>Role name <span className="text-destructive">*</span></Label>
-              <Input
-                className="mt-1"
-                value={editRoleForm.name}
-                onChange={(e) => setEditRoleForm({ ...editRoleForm, name: e.target.value })}
-                maxLength={60}
-              />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                className="mt-1 min-h-16 resize-none"
-                value={editRoleForm.description}
-                onChange={(e) => setEditRoleForm({ ...editRoleForm, description: e.target.value })}
-                maxLength={200}
-              />
-            </div>
+            <TextField
+              label={<>Role name <span className="text-destructive">*</span></>}
+              fullWidth
+              size="small"
+              value={editRoleForm.name}
+              onChange={(e) => setEditRoleForm({ ...editRoleForm, name: e.target.value })}
+              slotProps={{ htmlInput: { maxLength: 60 } }}
+            />
+            <TextField
+              label="Description"
+              fullWidth
+              size="small"
+              multiline
+              minRows={3}
+              value={editRoleForm.description}
+              onChange={(e) => setEditRoleForm({ ...editRoleForm, description: e.target.value })}
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditRoleTarget(null)}>Cancel</Button>
-            <Button
-              disabled={updateRoleMut.isPending || !editRoleForm.name.trim()}
-              onClick={() => editRoleTarget && updateRoleMut.mutate({
-                id: editRoleTarget.id,
-                data: { name: editRoleForm.name.trim(), description: editRoleForm.description.trim() || null },
-              })}
-            >
-              {updateRoleMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save changes
-            </Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setEditRoleTarget(null)}>Cancel</Button>
+          <Button
+            disabled={updateRoleMut.isPending || !editRoleForm.name.trim()}
+            onClick={() => editRoleTarget && updateRoleMut.mutate({
+              id: editRoleTarget.id,
+              data: { name: editRoleForm.name.trim(), description: editRoleForm.description.trim() || null },
+            })}
+            startIcon={updateRoleMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Save changes
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
     </AccessGuard>

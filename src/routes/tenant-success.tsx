@@ -3,18 +3,14 @@ import { useMemo, useState } from "react";
 import { CalendarClock, HeartHandshake, ShieldAlert, TrendingUp, TriangleAlert, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button, Chip, LinearProgress, MenuItem, TextField, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { FEATURE_ORDER, PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { badgeSx, type BadgeTone } from "@/lib/utils";
 
 type Risk = "Low" | "Medium" | "High";
 type SuccessOverride = {
@@ -28,10 +24,10 @@ type SuccessOverride = {
 const csmOwners = ["Portfolio Desk", "CSM team", "Platform desk"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function riskTone(risk: Risk) {
-  if (risk === "Low") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
-  if (risk === "Medium") return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
-  return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
+function riskTone(risk: Risk): BadgeTone {
+  if (risk === "Low") return "success";
+  if (risk === "Medium") return "warning";
+  return "destructive";
 }
 
 function parseDate(value: string) {
@@ -85,6 +81,7 @@ function TenantSuccessPage() {
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const overrides = (workspace?.tenantSuccessOverrides ?? {}) as Record<string, SuccessOverride>;
+  const [tab, setTab] = useState("portfolio");
 
   if (user?.role !== "super_admin") {
     return (
@@ -92,7 +89,7 @@ function TenantSuccessPage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
       </div>
     );
   }
@@ -323,12 +320,8 @@ function TenantSuccessPage() {
         description="Track school health, renewals, adoption, and expansion readiness across every subscribed tenant."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/support-desk">Open support desk</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/sys-admin">Open portfolio admin</Link>
-            </Button>
+            <Button variant="outlined" component={Link} to="/support-desk">Open support desk</Button>
+            <Button variant="contained" component={Link} to="/sys-admin">Open portfolio admin</Button>
           </>
         )}
       />
@@ -341,33 +334,36 @@ function TenantSuccessPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <Input
+        <TextField
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search schools, district, owner, or plan"
+          fullWidth
+          size="small"
         />
       </div>
 
-      <Tabs defaultValue="portfolio" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
-          <TabsTrigger value="renewals">Renewals</TabsTrigger>
-          <TabsTrigger value="adoption">Adoption</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="portfolio" label="Portfolio" />
+        <Tab value="renewals" label="Renewals" />
+        <Tab value="adoption" label="Adoption" />
+      </Tabs>
 
-        <TabsContent value="portfolio" className="rounded-xl border border-border bg-card">
+      {tab === "portfolio" && (
+        <div className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>School</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Health</TableHead>
-                <TableHead>Adoption</TableHead>
-                <TableHead>Renewal</TableHead>
-                <TableHead>Risk</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>School</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Health</TableCell>
+                <TableCell>Adoption</TableCell>
+                <TableCell>Renewal</TableCell>
+                <TableCell>Risk</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {portfolio.map((record) => (
                 <TableRow key={record.tenant.id}>
@@ -380,12 +376,15 @@ function TenantSuccessPage() {
                     </div>
                   </TableCell>
                   <TableCell className="w-52">
-                    <Select value={record.owner} onValueChange={(value) => updateOwner(record.tenant.id, value)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {csmOwners.map((owner) => <SelectItem key={owner} value={owner}>{owner}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <TextField
+                      select
+                      value={record.owner}
+                      onChange={(e) => updateOwner(record.tenant.id, e.target.value)}
+                      size="small"
+                      fullWidth
+                    >
+                      {csmOwners.map((owner) => <MenuItem key={owner} value={owner}>{owner}</MenuItem>)}
+                    </TextField>
                   </TableCell>
                   <TableCell className="w-44">
                     <div className="space-y-2">
@@ -393,7 +392,7 @@ function TenantSuccessPage() {
                         <span>{record.healthScore}/100</span>
                         <span className="text-muted-foreground">{record.lastTouchpoint}</span>
                       </div>
-                      <Progress value={record.healthScore} className="h-2" />
+                      <LinearProgress variant="determinate" value={record.healthScore} sx={{ height: 8, borderRadius: 999 }} />
                     </div>
                   </TableCell>
                   <TableCell className="w-44">
@@ -402,7 +401,7 @@ function TenantSuccessPage() {
                         <span>{record.adoptionScore}%</span>
                         <span className="text-muted-foreground">{FEATURE_ORDER.filter((feature) => record.tenant.features[feature]).length} modules</span>
                       </div>
-                      <Progress value={record.adoptionScore} className="h-2" />
+                      <LinearProgress variant="determinate" value={record.adoptionScore} sx={{ height: 8, borderRadius: 999 }} />
                     </div>
                   </TableCell>
                   <TableCell>
@@ -413,23 +412,26 @@ function TenantSuccessPage() {
                   </TableCell>
                   <TableCell>
                     <div className="space-y-2">
-                      <Badge className={riskTone(record.risk)}>{record.risk}</Badge>
+                      <Chip size="small" label={record.risk} sx={badgeSx(riskTone(record.risk))} />
                       {record.escalated && <p className="text-xs text-rose-600 dark:text-rose-300">Executive follow-up</p>}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => scheduleReview(record.tenant.id)}>Review</Button>
-                      <Button variant="outline" size="sm" onClick={() => escalateAccount(record.tenant.id)}>Escalate</Button>
+                      <Button variant="outlined" size="small" onClick={() => scheduleReview(record.tenant.id)}>Review</Button>
+                      <Button variant="outlined" size="small" onClick={() => escalateAccount(record.tenant.id)}>Escalate</Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        <TabsContent value="renewals" className="grid gap-4 lg:grid-cols-3">
+      {tab === "renewals" && (
+        <div className="grid gap-4 lg:grid-cols-3">
           {portfolio.map((record) => (
             <div key={record.tenant.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -437,7 +439,7 @@ function TenantSuccessPage() {
                   <p className="font-semibold">{record.tenant.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{record.tenant.subscription.billingContact}</p>
                 </div>
-                <Badge className={riskTone(record.risk)}>{record.risk}</Badge>
+                <Chip size="small" label={record.risk} sx={badgeSx(riskTone(record.risk))} />
               </div>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -458,15 +460,17 @@ function TenantSuccessPage() {
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => scheduleReview(record.tenant.id)}>Schedule review</Button>
-                <Button size="sm" variant="outline" onClick={() => extendTrial(record.tenant.id)}>Extend trial</Button>
-                <Button size="sm" onClick={() => escalateAccount(record.tenant.id)}>Flag escalation</Button>
+                <Button size="small" variant="outlined" onClick={() => scheduleReview(record.tenant.id)}>Schedule review</Button>
+                <Button size="small" variant="outlined" onClick={() => extendTrial(record.tenant.id)}>Extend trial</Button>
+                <Button size="small" variant="contained" onClick={() => escalateAccount(record.tenant.id)}>Flag escalation</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="adoption" className="grid gap-4 lg:grid-cols-2">
+      {tab === "adoption" && (
+        <div className="grid gap-4 lg:grid-cols-2">
           {portfolio.map((record) => (
             <div key={record.tenant.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -474,7 +478,7 @@ function TenantSuccessPage() {
                   <p className="font-semibold">{record.tenant.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{record.tenant.district} · {PLAN_CATALOG[record.tenant.subscription.planId].name}</p>
                 </div>
-                <Badge variant="outline">{record.adoptionScore}% adoption</Badge>
+                <Chip size="small" label={`${record.adoptionScore}% adoption`} sx={badgeSx("outline")} />
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg bg-muted/50 p-4">
@@ -499,17 +503,13 @@ function TenantSuccessPage() {
                 </p>
               </div>
               <div className="mt-4 flex gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/plan-catalog">Review plans</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link to="/support-desk">Open support desk</Link>
-                </Button>
+                <Button variant="outlined" size="small" component={Link} to="/plan-catalog">Review plans</Button>
+                <Button variant="contained" size="small" component={Link} to="/support-desk">Open support desk</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -518,9 +518,7 @@ function TenantSuccessPage() {
             Commercial alignment
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Use billing and plan controls together when renewal risk is tied to pricing or campus growth.</p>
-          <Button className="mt-4 w-full" variant="outline" asChild>
-            <Link to="/billing">Open billing</Link>
-          </Button>
+          <Button sx={{ mt: 2, width: "100%" }} variant="outlined" component={Link} to="/billing">Open billing</Button>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -529,9 +527,7 @@ function TenantSuccessPage() {
             Expansion planning
           </div>
           <p className="mt-3 text-sm text-muted-foreground">High-adoption schools are the best candidates for additional campuses and advanced modules.</p>
-          <Button className="mt-4 w-full" variant="outline" asChild>
-            <Link to="/plan-catalog">Open plan catalog</Link>
-          </Button>
+          <Button sx={{ mt: 2, width: "100%" }} variant="outlined" component={Link} to="/plan-catalog">Open plan catalog</Button>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -540,9 +536,7 @@ function TenantSuccessPage() {
             Support follow-through
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Escalated schools should have shared notes between support, success, and platform operations.</p>
-          <Button className="mt-4 w-full" asChild>
-            <Link to="/support-desk">Open support desk</Link>
-          </Button>
+          <Button sx={{ mt: 2, width: "100%" }} variant="contained" component={Link} to="/support-desk">Open support desk</Button>
         </div>
       </div>
     </div>

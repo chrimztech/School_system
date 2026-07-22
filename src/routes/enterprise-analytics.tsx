@@ -3,11 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button, Chip } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/enterprise-analytics")({
   head: () => ({ meta: [{ title: "Enterprise Analytics — SRMS" }] }),
@@ -41,9 +42,7 @@ function EnterpriseAnalyticsPage() {
         title="Enterprise analytics"
         description="Executive scorecards, spend management, risk signals and operational efficiency across your campus network."
         actions={
-          <Button variant="outline" asChild>
-            <Link to="/reporting">View saved reports</Link>
-          </Button>
+          <Button variant="outlined" component={Link} to="/reporting">View saved reports</Button>
         }
       />
 
@@ -67,7 +66,7 @@ function EnterpriseAnalyticsPage() {
               <h2 className="text-sm font-semibold text-foreground">Budget performance</h2>
               <p className="text-xs text-muted-foreground">Planned vs actual funding use</p>
             </div>
-            <Badge variant="secondary">{school.type} network</Badge>
+            <Chip size="small" label={`${school.type} network`} sx={badgeSx("secondary")} />
           </div>
           <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
         </div>
@@ -78,7 +77,7 @@ function EnterpriseAnalyticsPage() {
               <h2 className="text-sm font-semibold text-foreground">Platform adoption</h2>
               <p className="text-xs text-muted-foreground">Daily user engagement trend</p>
             </div>
-            <Badge variant="outline">Digital maturity</Badge>
+            <Chip size="small" label="Digital maturity" sx={badgeSx("outline")} />
           </div>
           <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
         </div>
@@ -90,7 +89,7 @@ function EnterpriseAnalyticsPage() {
             <h2 className="text-sm font-semibold text-foreground">Current initiatives</h2>
             <p className="text-xs text-muted-foreground">High-impact programs driving outcomes.</p>
           </div>
-          <Button variant="outline" onClick={() => toast.info("Strategy roadmap opened")}>Review roadmap</Button>
+          <Button variant="outlined" onClick={() => toast.info("Strategy roadmap opened")}>Review roadmap</Button>
         </div>
         <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
       </div>

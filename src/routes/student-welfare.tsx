@@ -4,20 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Heart, MessageSquare, ShieldCheck, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/student-welfare")({
@@ -33,6 +25,7 @@ function StudentWelfarePage() {
   const { active } = useTenant();
   const qc = useQueryClient();
 
+  const [tab, setTab] = useState("cases");
   const [caseOpen, setCaseOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [caseForm, setCaseForm] = useState({ student: "", grade: GRADES[0], type: "Academic", assignedTo: "" });
@@ -109,7 +102,7 @@ function StudentWelfarePage() {
       <PageHeader
         title="Student Welfare"
         description="Pastoral care cases, counseling sessions, and at-risk student monitoring."
-        actions={<Button variant="outline" onClick={() => { downloadCsv((cases as any[]).map((c: any) => ({ Student: c.student, Grade: c.grade, Type: c.type, "Assigned To": c.assignedTo, "Last Contact": c.lastContact, Status: c.status })), "welfare-report"); toast.success("Welfare report exported"); }}>Export report</Button>}
+        actions={<Button variant="outlined" onClick={() => { downloadCsv((cases as any[]).map((c: any) => ({ Student: c.student, Grade: c.grade, Type: c.type, "Assigned To": c.assignedTo, "Last Contact": c.lastContact, Status: c.status })), "welfare-report"); toast.success("Welfare report exported"); }}>Export report</Button>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -119,25 +112,23 @@ function StudentWelfarePage() {
         <StatCard label="Resolved cases" value={resolvedCases} accent="success" icon={<ShieldCheck className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="cases">
-        <TabsList>
-          <TabsTrigger value="cases">Welfare cases</TabsTrigger>
-          <TabsTrigger value="sessions">Counseling sessions</TabsTrigger>
-          <TabsTrigger value="atrisk">At-risk alerts</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="cases" label="Welfare cases" />
+        <Tab value="sessions" label="Counseling sessions" />
+        <Tab value="atrisk" label="At-risk alerts" />
+      </Tabs>
 
-        {/* CASES */}
-        <TabsContent value="cases" className="rounded-xl border border-border bg-card">
+      {/* CASES */}
+      {tab === "cases" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Dialog open={caseOpen} onOpenChange={setCaseOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />New case</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader><DialogTitle>Open welfare case</DialogTitle></DialogHeader>
+            <Button variant="contained" size="small" startIcon={<Plus size={14} />} onClick={() => setCaseOpen(true)}>New case</Button>
+            <Dialog open={caseOpen} onClose={() => setCaseOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Open welfare case</DialogTitle>
+              <DialogContent>
                 <div className="grid gap-3">
                   <div>
-                    <Label>Find student</Label>
+                    <span className="mb-1 block text-sm font-medium leading-none">Find student</span>
                     <div className="mt-1">
                       <PersonCombobox
                         options={studentOptions}
@@ -156,28 +147,17 @@ function StudentWelfarePage() {
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label>Student name *</Label>
-                    <Input className="mt-1" value={caseForm.student} onChange={(e) => setCaseForm({ ...caseForm, student: e.target.value })} placeholder="Chanda Mwape" maxLength={100} />
-                  </div>
+                  <TextField label="Student name *" fullWidth size="small" value={caseForm.student} onChange={(e) => setCaseForm({ ...caseForm, student: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Grade</Label>
-                      <Select value={caseForm.grade} onValueChange={(v) => setCaseForm({ ...caseForm, grade: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>{GRADES.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Case type</Label>
-                      <Select value={caseForm.type} onValueChange={(v) => setCaseForm({ ...caseForm, type: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>{CASE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
+                    <TextField select label="Grade" fullWidth size="small" value={caseForm.grade} onChange={(e) => setCaseForm({ ...caseForm, grade: e.target.value })}>
+                      {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                    </TextField>
+                    <TextField select label="Case type" fullWidth size="small" value={caseForm.type} onChange={(e) => setCaseForm({ ...caseForm, type: e.target.value })}>
+                      {CASE_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </TextField>
                   </div>
                   <div>
-                    <Label>Assigned to</Label>
+                    <span className="mb-1 block text-sm font-medium leading-none">Assigned to</span>
                     <div className="mt-1 space-y-1.5">
                       <PersonCombobox
                         options={staffOptions}
@@ -186,23 +166,24 @@ function StudentWelfarePage() {
                         emptyText="No staff found."
                         onSelect={(option) => setCaseForm((prev) => ({ ...prev, assignedTo: option.label }))}
                       />
-                      <Input value={caseForm.assignedTo} onChange={(e) => setCaseForm({ ...caseForm, assignedTo: e.target.value })} placeholder="Counselor / staff name" maxLength={100} />
+                      <TextField fullWidth size="small" value={caseForm.assignedTo} onChange={(e) => setCaseForm({ ...caseForm, assignedTo: e.target.value })} placeholder="Counselor / staff name" slotProps={{ htmlInput: { maxLength: 100 } }} />
                     </div>
                   </div>
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setCaseOpen(false)}>Cancel</Button>
-                  <Button onClick={logCase} disabled={createCaseMut.isPending}>Open case</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setCaseOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={logCase} disabled={createCaseMut.isPending}>Open case</Button>
+              </DialogActions>
             </Dialog>
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Student</TableHead><TableHead>Grade</TableHead><TableHead>Type</TableHead>
-              <TableHead>Assigned to</TableHead><TableHead>Last contact</TableHead><TableHead>Status</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Student</TableCell><TableCell>Grade</TableCell><TableCell>Type</TableCell>
+              <TableCell>Assigned to</TableCell><TableCell>Last contact</TableCell><TableCell>Status</TableCell>
+              <TableCell className="text-right">Action</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {casesLoading ? (
                 <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -210,17 +191,17 @@ function StudentWelfarePage() {
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.student}</TableCell>
                   <TableCell>{c.grade}</TableCell>
-                  <TableCell><Badge variant="outline">{c.type}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={c.type} sx={badgeSx("outline")} /></TableCell>
                   <TableCell className="text-muted-foreground">{c.assignedTo}</TableCell>
                   <TableCell className="text-muted-foreground">{c.lastContact}</TableCell>
                   <TableCell>
-                    <Badge variant={c.status === "Resolved" ? "secondary" : c.status === "Monitoring" ? "default" : "destructive"}>{c.status}</Badge>
+                    <Chip size="small" label={c.status} sx={badgeSx(c.status === "Resolved" ? "secondary" : c.status === "Monitoring" ? "default" : "destructive")} />
                   </TableCell>
                   <TableCell className="space-x-1 text-right">
                     {c.status !== "Resolved" ? (
                       <>
-                        <Button size="sm" variant="ghost" onClick={() => { createSessionMut.mutate({ student: c.student, counselor: c.assignedTo, sessionDate: new Date().toISOString().slice(0, 10), sessionType: "Individual", notes: "Follow-up session" }); }}>Log session</Button>
-                        <Button size="sm" variant="ghost" onClick={() => resolveCaseMut.mutate({ id: c.id, student: c.student })}>Resolve</Button>
+                        <Button size="small" variant="text" color="inherit" onClick={() => { createSessionMut.mutate({ student: c.student, counselor: c.assignedTo, sessionDate: new Date().toISOString().slice(0, 10), sessionType: "Individual", notes: "Follow-up session" }); }}>Log session</Button>
+                        <Button size="small" variant="text" color="inherit" onClick={() => resolveCaseMut.mutate({ id: c.id, student: c.student })}>Resolve</Button>
                       </>
                     ) : <span className="text-xs text-muted-foreground">Closed</span>}
                   </TableCell>
@@ -228,21 +209,22 @@ function StudentWelfarePage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        {/* SESSIONS */}
-        <TabsContent value="sessions" className="rounded-xl border border-border bg-card">
+      {/* SESSIONS */}
+      {tab === "sessions" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Dialog open={sessionOpen} onOpenChange={setSessionOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-1 h-3.5 w-3.5" />Log session</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader><DialogTitle>Log counseling session</DialogTitle></DialogHeader>
+            <Button variant="contained" size="small" startIcon={<Plus size={14} />} onClick={() => setSessionOpen(true)}>Log session</Button>
+            <Dialog open={sessionOpen} onClose={() => setSessionOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Log counseling session</DialogTitle>
+              <DialogContent>
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label>Find student</Label>
+                      <span className="mb-1 block text-sm font-medium leading-none">Find student</span>
                       <div className="mt-1">
                         <PersonCombobox
                           options={studentOptions}
@@ -258,7 +240,7 @@ function StudentWelfarePage() {
                       </div>
                     </div>
                     <div>
-                      <Label>Find counselor</Label>
+                      <span className="mb-1 block text-sm font-medium leading-none">Find counselor</span>
                       <div className="mt-1">
                         <PersonCombobox
                           options={staffOptions}
@@ -271,47 +253,30 @@ function StudentWelfarePage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Student name *</Label>
-                      <Input className="mt-1" value={sessionForm.student} onChange={(e) => setSessionForm({ ...sessionForm, student: e.target.value })} placeholder="Chanda Mwape" maxLength={100} />
-                    </div>
-                    <div>
-                      <Label>Counselor</Label>
-                      <Input className="mt-1" value={sessionForm.counselor} onChange={(e) => setSessionForm({ ...sessionForm, counselor: e.target.value })} placeholder="Counselor / staff name" maxLength={100} />
-                    </div>
+                    <TextField label="Student name *" fullWidth size="small" value={sessionForm.student} onChange={(e) => setSessionForm({ ...sessionForm, student: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                    <TextField label="Counselor" fullWidth size="small" value={sessionForm.counselor} onChange={(e) => setSessionForm({ ...sessionForm, counselor: e.target.value })} placeholder="Counselor / staff name" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Date *</Label>
-                      <Input type="date" className="mt-1" value={sessionForm.date} onChange={(e) => setSessionForm({ ...sessionForm, date: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Session type</Label>
-                      <Select value={sessionForm.type} onValueChange={(v) => setSessionForm({ ...sessionForm, type: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {(["Individual", "Group", "Parent"] as const).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField type="date" label="Date *" fullWidth size="small" value={sessionForm.date} onChange={(e) => setSessionForm({ ...sessionForm, date: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                    <TextField select label="Session type" fullWidth size="small" value={sessionForm.type} onChange={(e) => setSessionForm({ ...sessionForm, type: e.target.value })}>
+                      {(["Individual", "Group", "Parent"] as const).map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </TextField>
                   </div>
-                  <div>
-                    <Label>Session notes</Label>
-                    <Textarea className="mt-1" rows={3} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} placeholder="Key discussion points and follow-up actions..." maxLength={500} />
-                  </div>
+                  <TextField label="Session notes" fullWidth size="small" multiline minRows={3} value={sessionForm.notes} onChange={(e) => setSessionForm({ ...sessionForm, notes: e.target.value })} placeholder="Key discussion points and follow-up actions..." slotProps={{ htmlInput: { maxLength: 500 } }} />
                 </div>
-                <DialogFooter className="mt-2">
-                  <Button variant="outline" onClick={() => setSessionOpen(false)}>Cancel</Button>
-                  <Button onClick={logSession} disabled={createSessionMut.isPending}>Log session</Button>
-                </DialogFooter>
               </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setSessionOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={logSession} disabled={createSessionMut.isPending}>Log session</Button>
+              </DialogActions>
             </Dialog>
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Student</TableHead><TableHead>Counselor</TableHead><TableHead>Date</TableHead>
-              <TableHead>Type</TableHead><TableHead>Notes</TableHead>
-            </TableRow></TableHeader>
+            <TableHead><TableRow>
+              <TableCell>Student</TableCell><TableCell>Counselor</TableCell><TableCell>Date</TableCell>
+              <TableCell>Type</TableCell><TableCell>Notes</TableCell>
+            </TableRow></TableHead>
             <TableBody>
               {sessionsLoading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -320,19 +285,22 @@ function StudentWelfarePage() {
                   <TableCell className="font-medium">{s.student}</TableCell>
                   <TableCell className="text-muted-foreground">{s.counselor}</TableCell>
                   <TableCell className="text-muted-foreground">{s.sessionDate || s.date}</TableCell>
-                  <TableCell><Badge variant="secondary">{s.sessionType || s.type}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={s.sessionType || s.type} sx={badgeSx("secondary")} /></TableCell>
                   <TableCell className="max-w-xs truncate text-sm text-muted-foreground">{s.notes || "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        {/* AT-RISK */}
-        <TabsContent value="atrisk" className="rounded-xl border border-border bg-card">
+      {/* AT-RISK */}
+      {tab === "atrisk" && (
+        <Box className="rounded-xl border border-border bg-card">
           <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
     </div>
     </AccessGuard>
   );

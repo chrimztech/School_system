@@ -17,18 +17,8 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Button, Chip, InputAdornment, MenuItem, Switch, TextField } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { AccessGuard } from "@/components/access-guard";
 import { api } from "@/lib/api";
@@ -354,8 +344,7 @@ function SettingsPage() {
           title="School Settings"
           description="Manage school profile, plan-governed features, and operational defaults for the active tenant."
           actions={
-            <Button onClick={() => void saveChanges()} disabled={saving}>
-              <Save className="mr-1 h-4 w-4" />
+            <Button variant="contained" onClick={() => void saveChanges()} disabled={saving} startIcon={<Save className="h-4 w-4" />}>
               Save changes
             </Button>
           }
@@ -401,9 +390,7 @@ function SettingsPage() {
                     <p className="text-sm font-medium">{typeOption.name}</p>
                     <p className="text-xs text-muted-foreground">{typeOption.range}</p>
                     {isActive && (
-                      <Badge className="mt-2" variant="secondary">
-                        Selected
-                      </Badge>
+                      <Chip size="small" label="Selected" sx={{ ...badgeSx("secondary"), mt: 1 }} />
                     )}
                   </div>
                 </button>
@@ -421,7 +408,7 @@ function SettingsPage() {
                   Define the teaching bands this school group serves across all campuses.
                 </p>
               </div>
-              <Badge variant="outline">{levels.length} active</Badge>
+              <Chip size="small" label={`${levels.length} active`} sx={badgeSx("outline")} />
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {ACADEMIC_LEVEL_ORDER.map((level) => {
@@ -456,7 +443,7 @@ function SettingsPage() {
                   location ownership clear.
                 </p>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={addCampus}>
+              <Button type="button" variant="outlined" size="small" onClick={addCampus}>
                 Add campus
               </Button>
             </div>
@@ -473,8 +460,9 @@ function SettingsPage() {
                     {campuses.length > 1 && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
+                        variant="text"
+                        color="inherit"
+                        size="small"
                         onClick={() => removeCampus(campus.id)}
                       >
                         Remove
@@ -482,55 +470,48 @@ function SettingsPage() {
                     )}
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Campus name</Label>
-                      <Input
-                        className="mt-1"
-                        value={campus.name}
-                        onChange={(e) => updateCampus(campus.id, { name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Campus code</Label>
-                      <Input
-                        className="mt-1"
-                        value={campus.code}
-                        onChange={(e) =>
-                          updateCampus(campus.id, { code: e.target.value.toUpperCase() })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>District</Label>
-                      <Input
-                        className="mt-1"
-                        value={campus.district}
-                        onChange={(e) => updateCampus(campus.id, { district: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Status</Label>
-                      <Select
-                        value={campus.status}
-                        onValueChange={(value) =>
-                          updateCampus(campus.id, { status: value as CampusStatus })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CAMPUS_STATUS_OPTIONS.map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status.charAt(0).toUpperCase() + status.slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField
+                      label="Campus name"
+                      value={campus.name}
+                      onChange={(e) => updateCampus(campus.id, { name: e.target.value })}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      label="Campus code"
+                      value={campus.code}
+                      onChange={(e) =>
+                        updateCampus(campus.id, { code: e.target.value.toUpperCase() })
+                      }
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      label="District"
+                      value={campus.district}
+                      onChange={(e) => updateCampus(campus.id, { district: e.target.value })}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      select
+                      label="Status"
+                      value={campus.status}
+                      onChange={(e) =>
+                        updateCampus(campus.id, { status: e.target.value as CampusStatus })
+                      }
+                      fullWidth
+                      size="small"
+                    >
+                      {CAMPUS_STATUS_OPTIONS.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </div>
                   <div className="mt-4">
-                    <Label>Levels on this campus</Label>
+                    <p className="text-sm font-medium">Levels on this campus</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {levels.map((level) => {
                         const active = campus.levels.includes(level);
@@ -567,10 +548,12 @@ function SettingsPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-base font-semibold">Results policy &amp; publication</h2>
-                    <Badge variant="outline" className="gap-1.5 bg-background/70">
-                      <Lock className="h-3 w-3" />
-                      Admin controlled
-                    </Badge>
+                    <Chip
+                      size="small"
+                      icon={<Lock size={12} />}
+                      label="Admin controlled"
+                      sx={{ ...badgeSx("outline"), bgcolor: "background.paper" }}
+                    />
                   </div>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
                     Set one school-wide policy. Teachers capture marks, HODs verify them, and
@@ -580,13 +563,13 @@ function SettingsPage() {
               </div>
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
+                variant="outlined"
+                size="small"
                 onClick={() =>
                   setGradingBands(ZAMBIA_2023_GRADING_BANDS.map((band) => ({ ...band })))
                 }
+                startIcon={<RotateCcw className="h-3.5 w-3.5" />}
               >
-                <RotateCcw className="mr-2 h-3.5 w-3.5" />
                 Restore Zambia 2023 scale
               </Button>
             </div>
@@ -595,7 +578,7 @@ function SettingsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <GitBranch className="h-4 w-4 text-primary" />
-                    <Label>Publication format</Label>
+                    <p className="text-sm font-medium">Publication format</p>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Choose how families receive results for each term.
@@ -645,9 +628,7 @@ function SettingsPage() {
                           <p className="mt-1 text-xs leading-5 text-muted-foreground">
                             {option.copy}
                           </p>
-                          <Badge variant="outline" className="mt-3 text-[10px]">
-                            {option.badge}
-                          </Badge>
+                          <Chip size="small" label={option.badge} sx={{ ...badgeSx("outline"), mt: 1.5, fontSize: 10 }} />
                         </button>
                       );
                     })}
@@ -656,17 +637,16 @@ function SettingsPage() {
                 <div className="rounded-2xl border border-border bg-background/70 p-4">
                   <div className="flex items-center gap-2">
                     <Scale className="h-4 w-4 text-primary" />
-                    <Label htmlFor="academic-pass-mark">Pass mark</Label>
+                    <p className="text-sm font-medium">Pass mark</p>
                   </div>
                   <div className="mt-4 flex items-end gap-2">
-                    <Input
-                      id="academic-pass-mark"
+                    <TextField
                       type="number"
-                      min={0}
-                      max={100}
-                      className="h-12 text-2xl font-semibold tabular-nums"
+                      slotProps={{ htmlInput: { min: 0, max: 100 } }}
                       value={passMark}
                       onChange={(event) => setPassMark(event.target.value)}
+                      size="small"
+                      sx={{ "& .MuiInputBase-input": { fontSize: "1.5rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" } }}
                     />
                     <span className="pb-3 text-sm text-muted-foreground">%</span>
                   </div>
@@ -684,25 +664,21 @@ function SettingsPage() {
                       <Scale className="h-4 w-4" />
                     </div>
                     <div>
-                      <Label>Final grade weighting</Label>
+                      <p className="text-sm font-medium">Final grade weighting</p>
                       <p className="text-xs text-muted-foreground">
                         Continuous assessment, mid-term, and examination must total 100%.
                       </p>
                     </div>
                   </div>
-                  <Badge
-                    variant={
-                      gradeWeights.caWeight +
-                        gradeWeights.midtermWeight +
-                        gradeWeights.examWeight ===
-                      100
+                  <Chip
+                    size="small"
+                    label={`Total ${gradeWeights.caWeight + gradeWeights.midtermWeight + gradeWeights.examWeight}%`}
+                    sx={badgeSx(
+                      gradeWeights.caWeight + gradeWeights.midtermWeight + gradeWeights.examWeight === 100
                         ? "secondary"
                         : "destructive"
-                    }
-                  >
-                    Total{" "}
-                    {gradeWeights.caWeight + gradeWeights.midtermWeight + gradeWeights.examWeight}%
-                  </Badge>
+                    )}
+                  />
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   {(
@@ -712,28 +688,24 @@ function SettingsPage() {
                       ["examWeight", "End-of-term examination"],
                     ] as const
                   ).map(([key, label]) => (
-                    <div key={key}>
-                      <Label htmlFor={`academic-${key}`}>{label} (%)</Label>
-                      <div className="relative mt-1">
-                        <Input
-                          id={`academic-${key}`}
-                          type="number"
-                          min={0}
-                          max={100}
-                          className="pr-8 text-base font-semibold tabular-nums"
-                          value={gradeWeights[key]}
-                          onChange={(event) =>
-                            setGradeWeights((current) => ({
-                              ...current,
-                              [key]: Number(event.target.value),
-                            }))
-                          }
-                        />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                          %
-                        </span>
-                      </div>
-                    </div>
+                    <TextField
+                      key={key}
+                      label={`${label} (%)`}
+                      type="number"
+                      slotProps={{
+                        htmlInput: { min: 0, max: 100, className: "text-base font-semibold tabular-nums" },
+                        input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
+                      }}
+                      value={gradeWeights[key]}
+                      onChange={(event) =>
+                        setGradeWeights((current) => ({
+                          ...current,
+                          [key]: Number(event.target.value),
+                        }))
+                      }
+                      fullWidth
+                      size="small"
+                    />
                   ))}
                 </div>
                 <div
@@ -778,14 +750,14 @@ function SettingsPage() {
                       <BookOpenCheck className="h-4 w-4" />
                     </div>
                     <div>
-                      <Label>Achievement grading scale</Label>
+                      <p className="text-sm font-medium">Achievement grading scale</p>
                       <p className="text-xs text-muted-foreground">
                         Applied automatically to every result; teachers never choose letter grades
                         manually.
                       </p>
                     </div>
                   </div>
-                  <Badge variant="secondary">8 bands</Badge>
+                  <Chip size="small" label="8 bands" sx={badgeSx("secondary")} />
                 </div>
                 <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background/60">
                   <table className="w-full text-sm">
@@ -805,11 +777,10 @@ function SettingsPage() {
                           className="border-t border-border transition-colors hover:bg-muted/30"
                         >
                           <td className="p-2">
-                            <Input
-                              className="min-w-20 tabular-nums"
+                            <TextField
+                              className="min-w-20"
                               type="number"
-                              min={0}
-                              max={100}
+                              slotProps={{ htmlInput: { min: 0, max: 100, className: "tabular-nums" } }}
                               value={band.min}
                               onChange={(event) =>
                                 setGradingBands((current) =>
@@ -820,14 +791,14 @@ function SettingsPage() {
                                   ),
                                 )
                               }
+                              size="small"
                             />
                           </td>
                           <td className="p-2">
-                            <Input
-                              className="min-w-20 tabular-nums"
+                            <TextField
+                              className="min-w-20"
                               type="number"
-                              min={0}
-                              max={100}
+                              slotProps={{ htmlInput: { min: 0, max: 100, className: "tabular-nums" } }}
                               value={band.max}
                               onChange={(event) =>
                                 setGradingBands((current) =>
@@ -838,11 +809,13 @@ function SettingsPage() {
                                   ),
                                 )
                               }
+                              size="small"
                             />
                           </td>
                           <td className="p-2">
-                            <Input
-                              className="min-w-20 font-semibold"
+                            <TextField
+                              className="min-w-20"
+                              slotProps={{ htmlInput: { className: "font-semibold" } }}
                               value={band.grade}
                               onChange={(event) =>
                                 setGradingBands((current) =>
@@ -853,10 +826,11 @@ function SettingsPage() {
                                   ),
                                 )
                               }
+                              size="small"
                             />
                           </td>
                           <td className="p-2">
-                            <Input
+                            <TextField
                               className="min-w-40"
                               value={band.description}
                               onChange={(event) =>
@@ -868,13 +842,15 @@ function SettingsPage() {
                                   ),
                                 )
                               }
+                              size="small"
+                              fullWidth
                             />
                           </td>
                           <td className="p-2">
-                            <Input
-                              className="min-w-20 tabular-nums"
+                            <TextField
+                              className="min-w-20"
                               type="number"
-                              min={0}
+                              slotProps={{ htmlInput: { min: 0, className: "tabular-nums" } }}
                               value={band.points}
                               onChange={(event) =>
                                 setGradingBands((current) =>
@@ -885,6 +861,7 @@ function SettingsPage() {
                                   ),
                                 )
                               }
+                              size="small"
                             />
                           </td>
                         </tr>
@@ -901,38 +878,36 @@ function SettingsPage() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <h2 className="text-sm font-semibold">School profile</h2>
             <div className="mt-4 space-y-3">
+              <TextField
+                label="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Motto"
+                value={motto}
+                onChange={(e) => setMotto(e.target.value)}
+                fullWidth
+                size="small"
+              />
               <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="motto">Motto</Label>
-                <Input
-                  id="motto"
-                  value={motto}
-                  onChange={(e) => setMotto(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="slug">URL slug</Label>
-                <div className="mt-1 flex items-center gap-0">
+                <p className="mb-1 text-sm font-medium">URL slug</p>
+                <div className="flex items-center gap-0">
                   <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
                     srms.com/s/
                   </span>
-                  <Input
-                    id="slug"
+                  <TextField
                     value={slug}
                     onChange={(e) =>
                       setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
                     }
                     placeholder="greenfields-secondary"
-                    className="mt-0 rounded-l-none font-mono text-sm"
+                    size="small"
+                    fullWidth
+                    slotProps={{ htmlInput: { className: "font-mono text-sm" } }}
+                    sx={{ "& .MuiOutlinedInput-root": { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } }}
                   />
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
@@ -941,29 +916,24 @@ function SettingsPage() {
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="term">Current term</Label>
-                  <Input
-                    id="term"
-                    type="number"
-                    value={term}
-                    onChange={(e) => setTerm(e.target.value)}
-                    min={1}
-                    max={3}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="year">Year</Label>
-                  <Input
-                    id="year"
-                    type="number"
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    min={2020}
-                    className="mt-1"
-                  />
-                </div>
+                <TextField
+                  label="Current term"
+                  type="number"
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
+                  slotProps={{ htmlInput: { min: 1, max: 3 } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="Year"
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  slotProps={{ htmlInput: { min: 2020 } }}
+                  fullWidth
+                  size="small"
+                />
               </div>
             </div>
           </div>
@@ -978,8 +948,8 @@ function SettingsPage() {
             </p>
             <div className="mt-4 space-y-3">
               <div>
-                <Label htmlFor="primaryColor">Primary colour</Label>
-                <div className="mt-1 flex items-center gap-2">
+                <p className="mb-1 text-sm font-medium">Primary colour</p>
+                <div className="flex items-center gap-2">
                   <input
                     id="primaryColor"
                     type="color"
@@ -987,17 +957,18 @@ function SettingsPage() {
                     onChange={(e) => setPrimaryColor(e.target.value)}
                     className="h-9 w-12 cursor-pointer rounded border border-input bg-background p-0.5"
                   />
-                  <Input
+                  <TextField
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="flex-1 font-mono text-xs"
-                    maxLength={7}
+                    className="flex-1"
+                    slotProps={{ htmlInput: { maxLength: 7, className: "font-mono text-xs" } }}
+                    size="small"
                   />
                 </div>
               </div>
               <div>
-                <Label htmlFor="secondaryColor">Secondary colour</Label>
-                <div className="mt-1 flex items-center gap-2">
+                <p className="mb-1 text-sm font-medium">Secondary colour</p>
+                <div className="flex items-center gap-2">
                   <input
                     id="secondaryColor"
                     type="color"
@@ -1005,17 +976,18 @@ function SettingsPage() {
                     onChange={(e) => setSecondaryColor(e.target.value)}
                     className="h-9 w-12 cursor-pointer rounded border border-input bg-background p-0.5"
                   />
-                  <Input
+                  <TextField
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
-                    className="flex-1 font-mono text-xs"
-                    maxLength={7}
+                    className="flex-1"
+                    slotProps={{ htmlInput: { maxLength: 7, className: "font-mono text-xs" } }}
+                    size="small"
                   />
                 </div>
               </div>
               <div>
-                <Label htmlFor="accentColor">Accent colour</Label>
-                <div className="mt-1 flex items-center gap-2">
+                <p className="mb-1 text-sm font-medium">Accent colour</p>
+                <div className="flex items-center gap-2">
                   <input
                     id="accentColor"
                     type="color"
@@ -1023,16 +995,17 @@ function SettingsPage() {
                     onChange={(e) => setAccentColor(e.target.value)}
                     className="h-9 w-12 cursor-pointer rounded border border-input bg-background p-0.5"
                   />
-                  <Input
+                  <TextField
                     value={accentColor}
                     onChange={(e) => setAccentColor(e.target.value)}
-                    className="flex-1 font-mono text-xs"
-                    maxLength={7}
+                    className="flex-1"
+                    slotProps={{ htmlInput: { maxLength: 7, className: "font-mono text-xs" } }}
+                    size="small"
                   />
                 </div>
               </div>
               <div>
-                <Label>School logo</Label>
+                <p className="text-sm font-medium">School logo</p>
                 <p className="text-xs text-muted-foreground">PNG or SVG, square, max 2MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
@@ -1062,18 +1035,19 @@ function SettingsPage() {
                     />
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant="outlined"
+                      size="small"
                       onClick={() => logoInput.current?.click()}
+                      startIcon={<Upload className="h-4 w-4" />}
                     >
-                      <Upload className="mr-2 h-4 w-4" />
                       Upload logo
                     </Button>
                     {logoUrl && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
+                        variant="text"
+                        color="inherit"
+                        size="small"
                         onClick={() => setLogoUrl("")}
                       >
                         Remove
@@ -1083,7 +1057,7 @@ function SettingsPage() {
                 </div>
               </div>
               <div>
-                <Label>Favicon</Label>
+                <p className="text-sm font-medium">Favicon</p>
                 <p className="text-xs text-muted-foreground">32×32 ICO/PNG, max 2MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
@@ -1113,18 +1087,19 @@ function SettingsPage() {
                     />
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant="outlined"
+                      size="small"
                       onClick={() => faviconInput.current?.click()}
+                      startIcon={<Upload className="h-4 w-4" />}
                     >
-                      <Upload className="mr-2 h-4 w-4" />
                       Upload favicon
                     </Button>
                     {faviconUrl && (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
+                        variant="text"
+                        color="inherit"
+                        size="small"
                         onClick={() => setFaviconUrl("")}
                       >
                         Remove
@@ -1182,7 +1157,7 @@ function SettingsPage() {
                             <Switch
                               checked={featureValues[feature]}
                               disabled={!unlocked}
-                              onCheckedChange={(enabled) => toggleFeature(feature, enabled)}
+                              onChange={(e) => toggleFeature(feature, e.target.checked)}
                             />
                           </div>
                         );

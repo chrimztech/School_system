@@ -1,14 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { LifeBuoy, BookOpen, Mail, Phone, MessageCircle, Send, Star } from "lucide-react";
+import { LifeBuoy, BookOpen, Mail, Phone, MessageCircle, Send, Star, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import { Button, TextField } from "@mui/material";
 
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useAuth, ROLE_META } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
@@ -68,12 +68,12 @@ function HelpPage() {
         description="Documentation, FAQs, and direct access to the support team."
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link to="/knowledge-base"><BookOpen className="mr-2 h-4 w-4" />Knowledge base</Link>
+            <Button component={Link} to="/knowledge-base" variant="outlined" startIcon={<BookOpen size={16} />}>
+              Knowledge base
             </Button>
             {isSystemAdmin && (
-              <Button asChild>
-                <Link to="/support-desk"><LifeBuoy className="mr-2 h-4 w-4" />Support desk</Link>
+              <Button component={Link} to="/support-desk" startIcon={<LifeBuoy size={16} />}>
+                Support desk
               </Button>
             )}
           </>
@@ -116,14 +116,14 @@ function HelpPage() {
 
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-base font-semibold"><LifeBuoy className="h-4 w-4" />Frequently asked</h2>
-        <Accordion type="single" collapsible>
-          {faqs.map((faq, index) => (
-            <AccordionItem key={faq.q} value={`faq-${index}`}>
-              <AccordionTrigger className="text-left text-sm">{faq.q}</AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground">{faq.a}</AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        {faqs.map((faq) => (
+          <Accordion key={faq.q} disableGutters>
+            <AccordionSummary expandIcon={<ChevronDown size={16} />}>
+              <span className="text-left text-sm">{faq.q}</span>
+            </AccordionSummary>
+            <AccordionDetails className="text-sm text-muted-foreground">{faq.a}</AccordionDetails>
+          </Accordion>
+        ))}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-6">
@@ -141,10 +141,10 @@ function HelpPage() {
           }}
           className="space-y-3"
         >
-          <Input placeholder="Subject" value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={120} />
-          <Textarea placeholder="Describe the issue..." value={message} onChange={(event) => setMessage(event.target.value)} rows={5} maxLength={1000} />
+          <TextField placeholder="Subject" value={subject} onChange={(event) => setSubject(event.target.value)} slotProps={{ htmlInput: { maxLength: 120 } }} fullWidth size="small" />
+          <TextField placeholder="Describe the issue..." multiline minRows={5} value={message} onChange={(event) => setMessage(event.target.value)} slotProps={{ htmlInput: { maxLength: 1000 } }} fullWidth size="small" />
           <div className="flex justify-end">
-            <Button type="submit"><Send className="mr-1 h-4 w-4" />Submit ticket</Button>
+            <Button type="submit" startIcon={<Send size={16} />}>Submit ticket</Button>
           </div>
         </form>
       </section>
@@ -171,16 +171,19 @@ function HelpPage() {
                 ))}
               </div>
             </div>
-            <Textarea
+            <TextField
               placeholder="What's working well for you? What would you tell another school considering SRMS?"
+              multiline
+              minRows={3}
               value={reviewQuote}
               onChange={(event) => setReviewQuote(event.target.value)}
-              rows={3}
-              maxLength={500}
+              slotProps={{ htmlInput: { maxLength: 500 } }}
+              fullWidth
+              size="small"
             />
             <div className="flex justify-end">
-              <Button onClick={submitReview} disabled={submitReviewMutation.isPending}>
-                <Star className="mr-1.5 h-4 w-4" />Submit review
+              <Button onClick={submitReview} disabled={submitReviewMutation.isPending} startIcon={<Star size={16} />}>
+                Submit review
               </Button>
             </div>
           </div>

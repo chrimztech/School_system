@@ -1,21 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, Download, HardDrive, RefreshCw, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Box, Chip, Switch, Button, Tab, Tabs, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
-import { downloadCsv } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 
 type RequestType = "Access" | "Rectification" | "Deletion";
 type RequestStatus = "New" | "Reviewing" | "Approved" | "Completed";
@@ -51,6 +46,7 @@ export const Route = createFileRoute("/data-governance")({
 });
 
 function DataGovernancePage() {
+  const [tab, setTab] = useState("requests");
   const { user } = useAuth();
   const { tenants } = useTenant();
   const { data: workspace } = usePlatformWorkspace();
@@ -77,7 +73,7 @@ function DataGovernancePage() {
         <ShieldAlert className="h-10 w-10 text-destructive" />
         <p className="text-lg font-semibold">Access denied</p>
         <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button asChild variant="outline"><Link to="/">Go to dashboard</Link></Button>
+        <Button variant="outlined" component={Link} to="/">Go to dashboard</Button>
       </div>
     );
   }
@@ -252,11 +248,10 @@ function DataGovernancePage() {
         description="Manage cross-tenant privacy requests, export workflows, retention rules, and residency controls for the platform."
         actions={(
           <>
-            <Button variant="outline" asChild>
-              <Link to="/compliance">Open compliance</Link>
+            <Button variant="outlined" component={Link} to="/compliance">
+              Open compliance
             </Button>
-            <Button onClick={queueExport}>
-              <Download className="mr-2 h-4 w-4" />
+            <Button variant="contained" startIcon={<Download size={16} />} onClick={queueExport}>
               Queue export
             </Button>
           </>
@@ -270,25 +265,27 @@ function DataGovernancePage() {
         <StatCard label="Legal holds" value={stats.legalHolds} accent="accent" icon={<ShieldCheck className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="requests" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="requests">Requests</TabsTrigger>
-          <TabsTrigger value="retention">Retention</TabsTrigger>
-          <TabsTrigger value="exports">Exports & Residency</TabsTrigger>
-        </TabsList>
+      <Box>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="requests" label="Requests" />
+        <Tab value="retention" label="Retention" />
+        <Tab value="exports" label="Exports & Residency" />
+      </Tabs>
 
-        <TabsContent value="requests" className="rounded-xl border border-border bg-card">
+      {tab === "requests" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Request</TableHead>
-                <TableHead>School</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableCell>Request</TableCell>
+                <TableCell>School</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Due date</TableCell>
+                <TableCell className="text-right">Actions</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {requests.map((request) => (
                 <TableRow key={request.id}>
@@ -301,13 +298,15 @@ function DataGovernancePage() {
                   <TableCell>{request.school}</TableCell>
                   <TableCell>{request.type}</TableCell>
                   <TableCell>
-                    <Badge className={request.status === "Completed" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : request.status === "Approved" ? "bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}>
-                      {request.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={request.status}
+                      sx={badgeSx(request.status === "Completed" ? "success" : request.status === "Approved" ? "default" : "warning")}
+                    />
                   </TableCell>
                   <TableCell>{request.dueDate}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" disabled={request.status === "Completed"} onClick={() => advanceRequest(request.id)}>
+                    <Button size="small" variant="outlined" disabled={request.status === "Completed"} onClick={() => advanceRequest(request.id)}>
                       {request.status === "New" ? "Review" : request.status === "Reviewing" ? "Approve" : request.status === "Approved" ? "Complete" : "Closed"}
                     </Button>
                   </TableCell>
@@ -315,9 +314,12 @@ function DataGovernancePage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </Box>
+      )}
 
-        <TabsContent value="retention" className="grid gap-4 lg:grid-cols-2">
+      {tab === "retention" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Retention schedule</p>
             <div className="mt-4 space-y-4">
@@ -328,22 +330,22 @@ function DataGovernancePage() {
                       <p className="font-medium">{rule.domain}</p>
                       <p className="text-sm text-muted-foreground">Retention window in days</p>
                     </div>
-                    <Input className="h-8 w-28 text-xs" value={rule.days} onChange={(event) => updateRule(rule.id, { days: event.target.value })} />
+                    <TextField size="small" className="w-28" value={rule.days} onChange={(event) => updateRule(rule.id, { days: event.target.value })} />
                   </div>
                   <div className="mt-4 flex flex-wrap gap-6">
                     <div className="flex items-center gap-2">
-                      <Switch checked={rule.archive} onCheckedChange={(value) => updateRule(rule.id, { archive: value })} />
+                      <Switch checked={rule.archive} onChange={(event) => updateRule(rule.id, { archive: event.target.checked })} />
                       <span className="text-sm">Archive after expiry</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Switch checked={rule.legalHold} onCheckedChange={(value) => updateRule(rule.id, { legalHold: value })} />
+                      <Switch checked={rule.legalHold} onChange={(event) => updateRule(rule.id, { legalHold: event.target.checked })} />
                       <span className="text-sm">Legal hold eligible</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <Button className="mt-5" onClick={savePolicies}>Save retention rules</Button>
+            <Button variant="contained" className="mt-5" onClick={savePolicies}>Save retention rules</Button>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -358,19 +360,19 @@ function DataGovernancePage() {
                 <p className="mt-2 text-sm">Sandbox exports and staging copies are cleared automatically after the retention window.</p>
               </div>
             </div>
-            <Button className="mt-5 w-full" variant="outline" onClick={reviewDeletionQueue}>
-              <Trash2 className="mr-2 h-4 w-4" />
+            <Button fullWidth className="mt-5" variant="outlined" startIcon={<Trash2 size={16} />} onClick={reviewDeletionQueue}>
               Review deletion queue
             </Button>
           </div>
-        </TabsContent>
+        </Box>
+      )}
 
-        <TabsContent value="exports" className="grid gap-4 lg:grid-cols-2">
+      {tab === "exports" && (
+        <Box className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <p className="font-semibold">Export jobs</p>
-              <Button size="sm" variant="outline" onClick={runExportSweep}>
-                <RefreshCw className="mr-2 h-4 w-4" />
+              <Button size="small" variant="outlined" startIcon={<RefreshCw size={16} />} onClick={runExportSweep}>
                 Run sweep
               </Button>
             </div>
@@ -382,9 +384,11 @@ function DataGovernancePage() {
                       <p className="font-medium">{job.school}</p>
                       <p className="text-sm text-muted-foreground">{job.scope}</p>
                     </div>
-                    <Badge className={job.status === "Ready" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : job.status === "Running" ? "bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}>
-                      {job.status}
-                    </Badge>
+                    <Chip
+                      size="small"
+                      label={job.status}
+                      sx={badgeSx(job.status === "Ready" ? "success" : job.status === "Running" ? "default" : "warning")}
+                    />
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">{job.id} · requested by {job.requestedBy}</p>
                 </div>
@@ -395,14 +399,13 @@ function DataGovernancePage() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="font-semibold">Residency controls</p>
             <div className="mt-4 grid gap-4">
-              <div>
-                <Label>Regional residency policy</Label>
-                <Input
-                  className="mt-1"
-                  value={residency.residencyRegion}
-                  onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, residencyRegion: event.target.value } })}
-                />
-              </div>
+              <TextField
+                label="Regional residency policy"
+                fullWidth
+                size="small"
+                value={residency.residencyRegion}
+                onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, residencyRegion: event.target.value } })}
+              />
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
                 <div>
                   <p className="font-medium">Enforce region lock</p>
@@ -410,7 +413,7 @@ function DataGovernancePage() {
                 </div>
                 <Switch
                   checked={residency.regionLock}
-                  onCheckedChange={(value) => saveWorkspace.mutate({ residencySettings: { ...residency, regionLock: value } })}
+                  onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, regionLock: event.target.checked } })}
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
@@ -420,7 +423,7 @@ function DataGovernancePage() {
                 </div>
                 <Switch
                   checked={residency.deleteAfterExport}
-                  onCheckedChange={(value) => saveWorkspace.mutate({ residencySettings: { ...residency, deleteAfterExport: value } })}
+                  onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, deleteAfterExport: event.target.checked } })}
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
@@ -430,14 +433,15 @@ function DataGovernancePage() {
                 </div>
                 <Switch
                   checked={residency.maskedSandbox}
-                  onCheckedChange={(value) => saveWorkspace.mutate({ residencySettings: { ...residency, maskedSandbox: value } })}
+                  onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, maskedSandbox: event.target.checked } })}
                 />
               </div>
             </div>
-            <Button className="mt-5" onClick={savePolicies}>Save residency policy</Button>
+            <Button variant="contained" className="mt-5" onClick={savePolicies}>Save residency policy</Button>
           </div>
-        </TabsContent>
-      </Tabs>
+        </Box>
+      )}
+      </Box>
     </div>
   );
 }

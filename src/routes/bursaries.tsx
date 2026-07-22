@@ -4,20 +4,13 @@ import { HandCoins, Plus, ShieldCheck, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/bursaries")({
   head: () => ({ meta: [{ title: "Bursaries - SRMS" }] }),
@@ -36,6 +29,7 @@ function BursariesPage() {
   const schoolId = active.id;
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState("awards");
   const [form, setForm] = useState({
     student: "",
     grade: "Form 1",
@@ -169,119 +163,155 @@ function BursariesPage() {
         description="Manage financial aid awards, application reviews, renewals, and sponsor-backed scholarship coverage."
         actions={
           <>
-            <Button variant="outline" asChild><Link to="/fee-structure">Fee rules</Link></Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" />Create award</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
-                <DialogHeader><DialogTitle>Create bursary award</DialogTitle></DialogHeader>
+            <Button component={Link} to="/fee-structure" variant="outlined">Fee rules</Button>
+            <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Create award</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+                <DialogTitle>Create bursary award</DialogTitle>
+                <DialogContent>
                 <div className="grid gap-3">
                   <div>
-                    <Label>Find student</Label>
-                    <div className="mt-1">
-                      <PersonCombobox
-                        options={studentOptions}
-                        loading={pickerStudentsLoading}
-                        placeholder="Search enrolled students…"
-                        emptyText="No students found."
-                        onSelect={(option) => setForm((prev) => ({ ...prev, student: option.label }))}
-                      />
-                    </div>
+                    <p className="mb-1 text-sm font-medium">Find student</p>
+                    <PersonCombobox
+                      options={studentOptions}
+                      loading={pickerStudentsLoading}
+                      placeholder="Search enrolled students…"
+                      emptyText="No students found."
+                      onSelect={(option) => setForm((prev) => ({ ...prev, student: option.label }))}
+                    />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Student *</Label>
-                      <Input className="mt-1" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} placeholder="Ruth Zulu" />
-                    </div>
-                    <div>
-                      <Label>Grade</Label>
-                      <Select value={form.grade} onValueChange={(v) => setForm({ ...form, grade: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"].map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField label="Student *" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} placeholder="Ruth Zulu" fullWidth size="small" />
+                    <TextField
+                      select
+                      label="Grade"
+                      value={form.grade}
+                      onChange={(e) => setForm({ ...form, grade: e.target.value })}
+                      fullWidth
+                      size="small"
+                    >
+                      {["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"].map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                    </TextField>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Sponsor</Label>
-                      <Select value={form.sponsor} onValueChange={(v) => setForm({ ...form, sponsor: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["Board bursary fund", "Old scholars scholarship", "STEM girls grant", "Community donor fund"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Coverage</Label>
-                      <Select value={form.coverage} onValueChange={(v) => setForm({ ...form, coverage: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["25% tuition", "50% tuition", "75% tuition", "100% tuition", "50% tuition + exam fee"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField
+                      select
+                      label="Sponsor"
+                      value={form.sponsor}
+                      onChange={(e) => setForm({ ...form, sponsor: e.target.value })}
+                      fullWidth
+                      size="small"
+                    >
+                      {["Board bursary fund", "Old scholars scholarship", "STEM girls grant", "Community donor fund"].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </TextField>
+                    <TextField
+                      select
+                      label="Coverage"
+                      value={form.coverage}
+                      onChange={(e) => setForm({ ...form, coverage: e.target.value })}
+                      fullWidth
+                      size="small"
+                    >
+                      {["25% tuition", "50% tuition", "75% tuition", "100% tuition", "50% tuition + exam fee"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </TextField>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Annual value (K) *</Label>
-                      <Input className="mt-1" type="number" min={1} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="9600" />
-                    </div>
-                    <div>
-                      <Label>Award status</Label>
-                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["Active", "Pending renewal", "Closed"].map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField
+                      type="number"
+                      label="Annual value (K) *"
+                      slotProps={{ htmlInput: { min: 1 } }}
+                      value={form.amount}
+                      onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                      placeholder="9600"
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      select
+                      label="Award status"
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value })}
+                      fullWidth
+                      size="small"
+                    >
+                      {["Active", "Pending renewal", "Closed"].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
+                    </TextField>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Award start date</Label>
-                      <Input type="date" className="mt-1" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>Award end date</Label>
-                      <Input type="date" className="mt-1" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
-                    </div>
+                    <TextField
+                      type="date"
+                      label="Award start date"
+                      value={form.startDate}
+                      onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      type="date"
+                      label="Award end date"
+                      value={form.endDate}
+                      onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      fullWidth
+                      size="small"
+                    />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Sponsorship agreement ref.</Label>
-                      <Input className="mt-1" value={form.sponsorshipAgreementRef} onChange={(e) => setForm({ ...form, sponsorshipAgreementRef: e.target.value })} placeholder="e.g. SA-2026-041" maxLength={60} />
-                    </div>
-                    <div>
-                      <Label>Disbursement schedule</Label>
-                      <Select value={form.disbursementSchedule} onValueChange={(v) => setForm({ ...form, disbursementSchedule: v })}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["Per term", "Monthly", "Annually", "On invoice"].map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TextField
+                      label="Sponsorship agreement ref."
+                      value={form.sponsorshipAgreementRef}
+                      onChange={(e) => setForm({ ...form, sponsorshipAgreementRef: e.target.value })}
+                      placeholder="e.g. SA-2026-041"
+                      slotProps={{ htmlInput: { maxLength: 60 } }}
+                      fullWidth
+                      size="small"
+                    />
+                    <TextField
+                      select
+                      label="Disbursement schedule"
+                      value={form.disbursementSchedule}
+                      onChange={(e) => setForm({ ...form, disbursementSchedule: e.target.value })}
+                      fullWidth
+                      size="small"
+                    >
+                      {["Per term", "Monthly", "Annually", "On invoice"].map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                    </TextField>
                   </div>
-                  <div>
-                    <Label>Household context</Label>
-                    <Input className="mt-1" value={form.household} onChange={(e) => setForm({ ...form, household: e.target.value })} placeholder="Single guardian household, sibling support case, OVC referral, low-income bracket" maxLength={160} />
-                  </div>
-                  <div>
-                    <Label>Performance conditions</Label>
-                    <Input className="mt-1" value={form.performanceConditions} onChange={(e) => setForm({ ...form, performanceConditions: e.target.value })} placeholder="e.g. Min 60% overall average, attendance >= 90%, no disciplinary action" maxLength={200} />
-                  </div>
-                  <div>
-                    <Label>Award rationale / committee note</Label>
-                    <Textarea className="mt-1" rows={3} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Reason for support, academic promise, social-welfare recommendation, donor conditions, or review notes" maxLength={500} />
-                  </div>
+                  <TextField
+                    label="Household context"
+                    value={form.household}
+                    onChange={(e) => setForm({ ...form, household: e.target.value })}
+                    placeholder="Single guardian household, sibling support case, OVC referral, low-income bracket"
+                    slotProps={{ htmlInput: { maxLength: 160 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Performance conditions"
+                    value={form.performanceConditions}
+                    onChange={(e) => setForm({ ...form, performanceConditions: e.target.value })}
+                    placeholder="e.g. Min 60% overall average, attendance >= 90%, no disciplinary action"
+                    slotProps={{ htmlInput: { maxLength: 200 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Award rationale / committee note"
+                    multiline
+                    minRows={3}
+                    value={form.reason}
+                    onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                    placeholder="Reason for support, academic promise, social-welfare recommendation, donor conditions, or review notes"
+                    slotProps={{ htmlInput: { maxLength: 500 } }}
+                    fullWidth
+                    size="small"
+                  />
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                </DialogContent>
+                <DialogActions>
+                  <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
                   <Button onClick={createAward} disabled={createAwardMutation.isPending}>Create award</Button>
-                </DialogFooter>
-              </DialogContent>
+                </DialogActions>
             </Dialog>
           </>
         }
@@ -294,24 +324,25 @@ function BursariesPage() {
         <StatCard label="Renewals due" value={renewalsDue} accent="accent" icon={<ShieldCheck className="h-4 w-4" />} />
       </div>
 
-      <Tabs defaultValue="awards" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="awards">Awards</TabsTrigger>
-          <TabsTrigger value="applications">Applications</TabsTrigger>
-          <TabsTrigger value="renewals">Renewals</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+        <Tab value="awards" label="Awards" />
+        <Tab value="applications" label="Applications" />
+        <Tab value="renewals" label="Renewals" />
+      </Tabs>
 
-        <TabsContent value="awards" className="rounded-xl border border-border bg-card shadow-sm">
+      {tab === "awards" && (
+        <div className="rounded-xl border border-border bg-card shadow-sm">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Sponsor</TableHead>
-                <TableHead>Coverage</TableHead>
-                <TableHead>Annual value</TableHead>
-                <TableHead>Status</TableHead>
+                <TableCell>Student</TableCell>
+                <TableCell>Sponsor</TableCell>
+                <TableCell>Coverage</TableCell>
+                <TableCell>Annual value</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {awardsLoading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading awards...</TableCell></TableRow>
@@ -327,29 +358,33 @@ function BursariesPage() {
                     )}
                   </TableCell>
                   <TableCell>{a.sponsor}</TableCell>
-                  <TableCell><Badge variant="outline">{a.coverage}</Badge></TableCell>
+                  <TableCell><Chip size="small" label={a.coverage} sx={badgeSx("outline")} /></TableCell>
                   <TableCell>K {Number(a.amount).toLocaleString()}</TableCell>
                   <TableCell>
-                    <Badge variant={a.status === "Active" ? "secondary" : a.status === "Pending renewal" ? "warning" : "outline"}>{a.status}</Badge>
+                    <Chip size="small" label={a.status} sx={badgeSx(a.status === "Active" ? "secondary" : a.status === "Pending renewal" ? "warning" : "outline")} />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        <TabsContent value="applications" className="rounded-xl border border-border bg-card shadow-sm">
+      {tab === "applications" && (
+        <div className="rounded-xl border border-border bg-card shadow-sm">
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Requested</TableHead>
-                <TableHead>Household context</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableCell>Student</TableCell>
+                <TableCell>Requested</TableCell>
+                <TableCell>Household context</TableCell>
+                <TableCell>Reason</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell className="text-right">Action</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {applicationsLoading ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading applications...</TableCell></TableRow>
@@ -362,15 +397,15 @@ function BursariesPage() {
                   <TableCell>{a.household}</TableCell>
                   <TableCell className="max-w-xs text-sm text-muted-foreground">{a.reason}</TableCell>
                   <TableCell>
-                    <Badge variant={a.status === "Approved" ? "secondary" : a.status === "Declined" ? "destructive" : a.status === "Review" ? "warning" : "outline"}>{a.status}</Badge>
+                    <Chip size="small" label={a.status} sx={badgeSx(a.status === "Approved" ? "secondary" : a.status === "Declined" ? "destructive" : a.status === "Review" ? "warning" : "outline")} />
                   </TableCell>
                   <TableCell className="text-right">
                     {a.status === "Approved" || a.status === "Declined" ? (
                       <span className="text-xs text-muted-foreground">Closed</span>
                     ) : (
                       <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => updateApplicationMutation.mutate({ id: a.id, status: "Review" })}>Review</Button>
-                        <Button size="sm" onClick={() => updateApplicationMutation.mutate({ id: a.id, status: "Approved" })}>Approve</Button>
+                        <Button size="small" variant="outlined" onClick={() => updateApplicationMutation.mutate({ id: a.id, status: "Review" })}>Review</Button>
+                        <Button size="small" onClick={() => updateApplicationMutation.mutate({ id: a.id, status: "Approved" })}>Approve</Button>
                       </div>
                     )}
                   </TableCell>
@@ -378,9 +413,12 @@ function BursariesPage() {
               ))}
             </TableBody>
           </Table>
-        </TabsContent>
+          </TableContainer>
+        </div>
+      )}
 
-        <TabsContent value="renewals" className="grid gap-4 lg:grid-cols-2">
+      {tab === "renewals" && (
+        <div className="grid gap-4 lg:grid-cols-2">
           {renewalsLoading ? (
             <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground lg:col-span-2">Loading renewals...</div>
           ) : renewals.length === 0 ? (
@@ -392,7 +430,7 @@ function BursariesPage() {
                   <p className="font-semibold text-foreground">{r.student}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{r.sponsor} · review {r.reviewDate}</p>
                 </div>
-                <Badge variant={r.status === "Approved" ? "secondary" : r.status === "Ready" ? "success" : "warning"}>{r.status}</Badge>
+                <Chip size="small" label={r.status} sx={badgeSx(r.status === "Approved" ? "secondary" : r.status === "Ready" ? "success" : "warning")} />
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-muted/40 px-4 py-3">
@@ -405,13 +443,13 @@ function BursariesPage() {
                 </div>
               </div>
               <div className="mt-4 flex gap-2">
-                <Button className="flex-1" variant="outline" asChild><Link to="/student-welfare">Support review</Link></Button>
-                <Button className="flex-1" onClick={() => updateRenewalMutation.mutate(r.id)} disabled={r.status === "Approved"}>Approve renewal</Button>
+                <Button sx={{ flex: 1 }} component={Link} to="/student-welfare" variant="outlined">Support review</Button>
+                <Button sx={{ flex: 1 }} onClick={() => updateRenewalMutation.mutate(r.id)} disabled={r.status === "Approved"}>Approve renewal</Button>
               </div>
             </div>
           ))}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
     </AccessGuard>
   );

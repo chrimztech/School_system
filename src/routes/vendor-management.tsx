@@ -4,17 +4,13 @@ import { ClipboardList, Truck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/vendor-management")({
   head: () => ({ meta: [{ title: "Vendor Management — SRMS" }] }),
@@ -109,99 +105,42 @@ function VendorManagementPage() {
         title="Vendor management"
         description="Manage suppliers, contracts, service level compliance and procurement efficiency for enterprise operations."
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>New vendor</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader><DialogTitle>Add vendor</DialogTitle></DialogHeader>
+          <>
+          <Button variant="contained" onClick={() => setOpen(true)}>New vendor</Button>
+          <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+            <DialogTitle>Add vendor</DialogTitle>
+            <DialogContent>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Vendor name *</Label>
-                  <Input className="mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Northwind Supplies Ltd" maxLength={120} />
-                </div>
-                <div>
-                  <Label>Category</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["IT & equipment", "Transport services", "Training & consultancy", "Catering", "Maintenance", "Stationery & supplies", "Security", "Utilities"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Contact person</Label>
-                  <Input className="mt-1" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="John Mwale" maxLength={100} />
-                </div>
-                <div>
-                  <Label>Phone</Label>
-                  <Input className="mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" maxLength={20} />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input type="email" className="mt-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="vendor@example.com" maxLength={100} />
-                </div>
-                <div>
-                  <Label>TPIN (ZRA)</Label>
-                  <Input className="mt-1" value={form.tpin} onChange={(e) => setForm({ ...form, tpin: e.target.value })} placeholder="1001234567" maxLength={12} />
-                </div>
-                <div>
-                  <Label>Company registration no.</Label>
-                  <Input className="mt-1" value={form.registrationNumber} onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })} placeholder="PACRA / ZPPA reg. no." maxLength={40} />
-                </div>
-                <div>
-                  <Label>Payment terms</Label>
-                  <Select value={form.paymentTerms} onValueChange={(v) => setForm({ ...form, paymentTerms: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Immediate", "7 days", "14 days", "30 days", "45 days", "60 days", "On delivery"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Contract start date</Label>
-                  <Input type="date" className="mt-1" value={form.contractStartDate} onChange={(e) => setForm({ ...form, contractStartDate: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Contract expiry date</Label>
-                  <Input type="date" className="mt-1" value={form.contractExpiry} onChange={(e) => setForm({ ...form, contractExpiry: e.target.value })} />
-                </div>
-                <div>
-                  <Label>Bank name</Label>
-                  <Input className="mt-1" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="e.g. ZANACO, Stanbic, FNB" maxLength={60} />
-                </div>
-                <div>
-                  <Label>Bank account number</Label>
-                  <Input className="mt-1" value={form.bankAccount} onChange={(e) => setForm({ ...form, bankAccount: e.target.value })} placeholder="Account no." maxLength={40} />
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["Active", "Under review", "Blacklisted"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>SLA response time</Label>
-                  <Input className="mt-1" value={form.slaResponseTime} onChange={(e) => setForm({ ...form, slaResponseTime: e.target.value })} placeholder="e.g. 24 hours, 48 hours, 5 business days" maxLength={60} />
-                </div>
-                <div className="col-span-2">
-                  <Label>Vendor address</Label>
-                  <Input className="mt-1" value={form.vendorAddress} onChange={(e) => setForm({ ...form, vendorAddress: e.target.value })} placeholder="Physical / postal address" maxLength={200} />
-                </div>
-                <div className="col-span-2">
-                  <Label>Service specialisations</Label>
-                  <Input className="mt-1" value={form.serviceSpecializations} onChange={(e) => setForm({ ...form, serviceSpecializations: e.target.value })} placeholder="Key products, certifications, or specialisation areas" maxLength={200} />
-                </div>
+                <TextField label="Vendor name *" fullWidth size="small" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Northwind Supplies Ltd" slotProps={{ htmlInput: { maxLength: 120 } }} />
+                <TextField select label="Category" fullWidth size="small" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                  {["IT & equipment", "Transport services", "Training & consultancy", "Catering", "Maintenance", "Stationery & supplies", "Security", "Utilities"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </TextField>
+                <TextField label="Contact person" fullWidth size="small" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="John Mwale" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                <TextField label="Phone" fullWidth size="small" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" slotProps={{ htmlInput: { maxLength: 20 } }} />
+                <TextField label="Email" type="email" fullWidth size="small" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="vendor@example.com" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                <TextField label="TPIN (ZRA)" fullWidth size="small" value={form.tpin} onChange={(e) => setForm({ ...form, tpin: e.target.value })} placeholder="1001234567" slotProps={{ htmlInput: { maxLength: 12 } }} />
+                <TextField label="Company registration no." fullWidth size="small" value={form.registrationNumber} onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })} placeholder="PACRA / ZPPA reg. no." slotProps={{ htmlInput: { maxLength: 40 } }} />
+                <TextField select label="Payment terms" fullWidth size="small" value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}>
+                  {["Immediate", "7 days", "14 days", "30 days", "45 days", "60 days", "On delivery"].map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
+                <TextField type="date" label="Contract start date" fullWidth size="small" value={form.contractStartDate} onChange={(e) => setForm({ ...form, contractStartDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField type="date" label="Contract expiry date" fullWidth size="small" value={form.contractExpiry} onChange={(e) => setForm({ ...form, contractExpiry: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label="Bank name" fullWidth size="small" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="e.g. ZANACO, Stanbic, FNB" slotProps={{ htmlInput: { maxLength: 60 } }} />
+                <TextField label="Bank account number" fullWidth size="small" value={form.bankAccount} onChange={(e) => setForm({ ...form, bankAccount: e.target.value })} placeholder="Account no." slotProps={{ htmlInput: { maxLength: 40 } }} />
+                <TextField select label="Status" fullWidth size="small" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                  {["Active", "Under review", "Blacklisted"].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </TextField>
+                <TextField label="SLA response time" fullWidth size="small" value={form.slaResponseTime} onChange={(e) => setForm({ ...form, slaResponseTime: e.target.value })} placeholder="e.g. 24 hours, 48 hours, 5 business days" slotProps={{ htmlInput: { maxLength: 60 } }} />
+                <TextField label="Vendor address" fullWidth size="small" className="col-span-2" value={form.vendorAddress} onChange={(e) => setForm({ ...form, vendorAddress: e.target.value })} placeholder="Physical / postal address" slotProps={{ htmlInput: { maxLength: 200 } }} />
+                <TextField label="Service specialisations" fullWidth size="small" className="col-span-2" value={form.serviceSpecializations} onChange={(e) => setForm({ ...form, serviceSpecializations: e.target.value })} placeholder="Key products, certifications, or specialisation areas" slotProps={{ htmlInput: { maxLength: 200 } }} />
               </div>
-              <DialogFooter className="mt-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={addVendor} disabled={createMut.isPending}>Add vendor</Button>
-              </DialogFooter>
             </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="contained" onClick={addVendor} disabled={createMut.isPending}>Add vendor</Button>
+            </DialogActions>
           </Dialog>
+          </>
         }
       />
 
@@ -219,18 +158,19 @@ function VendorManagementPage() {
               <h2 className="text-sm font-semibold text-foreground">Key suppliers</h2>
               <p className="text-xs text-muted-foreground">Supplier risk, contract status and category.</p>
             </div>
-            <Badge variant="secondary">{isLoading ? "…" : `${(vendors as any[]).length} vendors`}</Badge>
+            <Chip size="small" label={isLoading ? "…" : `${(vendors as any[]).length} vendors`} sx={badgeSx("secondary")} />
           </div>
+          <TableContainer>
           <Table>
-            <TableHeader>
+            <TableHead>
               <TableRow>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead>Status</TableHead>
+                <TableCell>Vendor</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Contact</TableCell>
+                <TableCell>Expires</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
@@ -246,12 +186,17 @@ function VendorManagementPage() {
                   </TableCell>
                   <TableCell>{v.contractExpiry || "—"}</TableCell>
                   <TableCell>
-                    <Badge variant={v.status === "Active" ? "secondary" : v.status === "Review" ? "warning" : "destructive"}>{v.status}</Badge>
+                    <Chip
+                      size="small"
+                      label={v.status}
+                      sx={badgeSx(v.status === "Active" ? "secondary" : v.status === "Review" ? "warning" : "destructive")}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </TableContainer>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -261,8 +206,8 @@ function VendorManagementPage() {
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Keep contracts, compliance documents and SLAs centralized in one place.</p>
           <div className="mt-5 space-y-3">
-            <Button variant="outline" asChild><Link to="/procurement">Review expiring contracts</Link></Button>
-            <Button variant="outline" asChild><Link to="/procurement">Approve supplier risk</Link></Button>
+            <Button variant="outlined" component={Link} to="/procurement">Review expiring contracts</Button>
+            <Button variant="outlined" component={Link} to="/procurement">Approve supplier risk</Button>
           </div>
         </div>
       </div>
@@ -273,7 +218,7 @@ function VendorManagementPage() {
             <h2 className="text-sm font-semibold text-foreground">Procurement overview</h2>
             <p className="text-xs text-muted-foreground">Committed spend and vendor collaboration status.</p>
           </div>
-          <Badge variant="success">Live</Badge>
+          <Chip size="small" label="Live" sx={badgeSx("success")} />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-muted/60 p-4">
