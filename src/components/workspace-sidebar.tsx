@@ -222,6 +222,7 @@ function SidebarIdentityCard({
   icon,
   collapsed,
   onClick,
+  accentColor,
 }: {
   title: string;
   subtitle: string;
@@ -230,12 +231,14 @@ function SidebarIdentityCard({
   icon: ReactNode;
   collapsed: boolean;
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
+  accentColor: string;
 }) {
   return (
     <Box
       component={onClick ? "button" : "div"}
       onClick={onClick}
       sx={{
+        position: "relative",
         display: "flex",
         alignItems: "flex-start",
         gap: 1.25,
@@ -250,6 +253,10 @@ function SidebarIdentityCard({
         cursor: onClick ? "pointer" : "default",
         color: "inherit",
         font: "inherit",
+        transition: "border-color 160ms ease, background-color 160ms ease, transform 160ms ease",
+        "&:hover": onClick
+          ? { borderColor: alpha(accentColor, 0.45), bgcolor: alpha(accentColor, 0.1), transform: "translateY(-1px)" }
+          : undefined,
       }}
     >
       {icon}
@@ -260,8 +267,9 @@ function SidebarIdentityCard({
               {title}
             </Typography>
             {chipLabel && (
-              <Chip size="small" label={chipLabel} sx={{ height: 18, fontSize: 10, bgcolor: sidebarAccentBg, color: sidebarFg }} />
+              <Chip size="small" label={chipLabel} sx={{ height: 18, fontSize: 10, bgcolor: alpha(accentColor, 0.18), color: accentColor, fontWeight: 700 }} />
             )}
+            {onClick && <ChevronsUpDown className="ml-auto h-3.5 w-3.5 shrink-0" color={alpha(sidebarFg, 0.4)} />}
           </Box>
           {!chipLabel && (
             <Typography sx={{ mt: 0.25, fontSize: 11.5, color: alpha(sidebarFg, 0.7), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -281,12 +289,14 @@ function NavGroup({
   collapsed,
   isActive,
   can,
+  accentColor,
 }: {
   label: string;
   items: NavItem[];
   collapsed: boolean;
   isActive: (url: string) => boolean;
   can: (module: string) => boolean | "read";
+  accentColor: string;
 }) {
   const { active } = useTenant();
   const visible = items.filter((item) => can(item.module) !== false && isTenantModuleEnabled(active, item.module));
@@ -296,22 +306,25 @@ function NavGroup({
     <List
       dense
       disablePadding
-      sx={{ px: 1, py: 0.5 }}
+      sx={{ px: 1.25, py: 0.75 }}
       subheader={
         !collapsed ? (
           <ListSubheader
             component="div"
             sx={{
               bgcolor: "transparent",
-              lineHeight: "28px",
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: alpha(sidebarFg, 0.45),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              lineHeight: "26px",
+              pl: 1,
+              pr: 0.5,
             }}
           >
-            {label}
+            <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: alpha(sidebarFg, 0.4) }}>
+              {label}
+            </Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 600, color: alpha(sidebarFg, 0.25) }}>{visible.length}</Typography>
           </ListSubheader>
         ) : undefined
       }
@@ -325,24 +338,54 @@ function NavGroup({
             component={Link}
             to={item.url}
             sx={{
+              position: "relative",
               borderRadius: 3,
-              mb: 0.5,
+              mb: 0.375,
+              py: 0.875,
               justifyContent: collapsed ? "center" : "flex-start",
-              color: alpha(sidebarFg, 0.8),
-              "&:hover": { bgcolor: sidebarAccentBg, color: sidebarFg },
+              color: activeItem ? sidebarFg : alpha(sidebarFg, 0.72),
+              overflow: "hidden",
+              transition: "background-color 160ms ease, color 160ms ease, transform 160ms ease",
+              "&:hover": { bgcolor: sidebarAccentBg, color: sidebarFg, transform: collapsed ? "none" : "translateX(2px)" },
+              "&::before": {
+                content: '""',
+                position: "absolute",
+                left: 0,
+                top: "22%",
+                bottom: "22%",
+                width: 3,
+                borderRadius: "0 4px 4px 0",
+                bgcolor: accentColor,
+                opacity: activeItem ? 1 : 0,
+                transition: "opacity 160ms ease",
+              },
               ...(activeItem && {
-                bgcolor: sidebarAccentBg,
-                color: sidebarFg,
+                bgcolor: alpha(accentColor, 0.14),
                 fontWeight: 600,
+                "&:hover": { bgcolor: alpha(accentColor, 0.18), color: sidebarFg },
               }),
             }}
           >
-            <ListItemIcon sx={{ minWidth: collapsed ? "auto" : 36, color: "inherit", justifyContent: "center" }}>
+            <ListItemIcon
+              sx={{
+                minWidth: collapsed ? "auto" : 34,
+                width: 30,
+                height: 30,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 2.5,
+                color: activeItem ? accentColor : "inherit",
+                bgcolor: activeItem ? alpha(accentColor, 0.16) : "transparent",
+                transition: "background-color 160ms ease, color 160ms ease",
+              }}
+            >
               <item.icon className="h-4 w-4" />
             </ListItemIcon>
             {!collapsed && (
               <ListItemText
                 primary={item.title}
+                sx={{ ml: 0.5 }}
                 slotProps={{ primary: { sx: { fontSize: 13.5, fontWeight: activeItem ? 600 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } } }}
               />
             )}
@@ -371,10 +414,24 @@ export function WorkspaceSidebar() {
   const [tenantMenuAnchor, setTenantMenuAnchor] = useState<HTMLElement | null>(null);
 
   const isActive = (url: string) => (url === "/" ? path === "/" : path.startsWith(url));
+  const accentColor = isSystemAdmin ? "#00c197" : active.primaryColor || "#00c197";
 
   const drawerBody = (isCollapsed: boolean) => (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: sidebarBg, color: sidebarFg }}>
-      <Box sx={{ p: isCollapsed ? 1 : 1.5, display: "flex", flexDirection: "column", gap: 1.25 }}>
+    <Box sx={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", bgcolor: sidebarBg, color: sidebarFg, overflow: "hidden" }}>
+      <Box
+        sx={{
+          pointerEvents: "none",
+          position: "absolute",
+          top: -80,
+          left: -60,
+          height: 220,
+          width: 220,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${alpha(accentColor, 0.28)}, transparent 70%)`,
+          filter: "blur(10px)",
+        }}
+      />
+      <Box sx={{ position: "relative", p: isCollapsed ? 1 : 1.5, display: "flex", flexDirection: "column", gap: 1.25 }}>
         {isSystemAdmin ? (
           <>
             <SidebarIdentityCard
@@ -383,9 +440,10 @@ export function WorkspaceSidebar() {
               meta={`${tenants.length} schools in portfolio`}
               chipLabel="System Admin"
               collapsed={isCollapsed}
+              accentColor={accentColor}
               onClick={(e) => setTenantMenuAnchor(e.currentTarget)}
               icon={
-                <Box sx={{ display: "flex", height: 44, width: 44, alignItems: "center", justifyContent: "center", borderRadius: 3, bgcolor: alpha("#00c197", 0.2), color: "#00c197" }}>
+                <Box sx={{ display: "flex", height: 44, width: 44, alignItems: "center", justifyContent: "center", borderRadius: 3, bgcolor: alpha(accentColor, 0.2), color: accentColor }}>
                   <Globe className="h-5 w-5" />
                 </Box>
               }
@@ -436,6 +494,7 @@ export function WorkspaceSidebar() {
                   subtitle={schoolTenant.shortCode}
                   meta={`${schoolTenant.district}, ${schoolTenant.province} · ${schoolTenant.totalStudents.toLocaleString()} learners`}
                   collapsed={isCollapsed}
+                  accentColor={accentColor}
                   icon={
                     <TenantMark
                       color={schoolTenant.primaryColor}
@@ -449,7 +508,7 @@ export function WorkspaceSidebar() {
                   <Chip
                     size="small"
                     label={`Term ${schoolTenant.currentTerm}`}
-                    sx={{ alignSelf: "flex-start", height: 20, fontSize: 10.5, bgcolor: "transparent", border: "1px solid", borderColor: sidebarBorder, color: alpha(sidebarFg, 0.75) }}
+                    sx={{ alignSelf: "flex-start", height: 20, fontSize: 10.5, bgcolor: alpha(accentColor, 0.14), border: "1px solid", borderColor: alpha(accentColor, 0.3), color: accentColor, fontWeight: 600 }}
                   />
                 )}
               </>
@@ -460,19 +519,29 @@ export function WorkspaceSidebar() {
 
       <Divider sx={{ borderColor: sidebarBorder }} />
 
-      <Box sx={{ flex: 1, overflowY: "auto", py: 0.5 }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+          py: 0.5,
+          "&::-webkit-scrollbar": { width: 6 },
+          "&::-webkit-scrollbar-track": { background: "transparent" },
+          "&::-webkit-scrollbar-thumb": { background: alpha(sidebarFg, 0.12), borderRadius: 999 },
+          "&::-webkit-scrollbar-thumb:hover": { background: alpha(sidebarFg, 0.2) },
+        }}
+      >
         {isSystemAdmin ? (
           <>
-            <NavGroup label="Platform" items={platformCore} collapsed={isCollapsed} isActive={isActive} can={can} />
-            <NavGroup label="Business" items={platformBusiness} collapsed={isCollapsed} isActive={isActive} can={can} />
-            <NavGroup label="Governance" items={platformGov} collapsed={isCollapsed} isActive={isActive} can={can} />
+            <NavGroup label="Platform" items={platformCore} collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} />
+            <NavGroup label="Business" items={platformBusiness} collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} />
+            <NavGroup label="Governance" items={platformGov} collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} />
           </>
         ) : user?.role === "parent" ? (
           <NavGroup
             label="My Children"
             collapsed={isCollapsed}
             isActive={isActive}
-            can={can}
+            can={can} accentColor={accentColor}
             items={[
               { title: "Home", url: "/", icon: LayoutDashboard, module: "dashboard" },
               { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
@@ -490,7 +559,7 @@ export function WorkspaceSidebar() {
               label="My Department"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
                 { title: "Departments", url: "/departments", icon: Building2, module: "assessments" },
@@ -503,7 +572,7 @@ export function WorkspaceSidebar() {
               label="Teaching Records"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Teachers", url: "/teachers", icon: UserCog, module: "teachers" },
                 { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
@@ -516,7 +585,7 @@ export function WorkspaceSidebar() {
               label="Students"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Students", url: "/students", icon: Users, module: "students" },
                 { title: "Discipline", url: "/discipline", icon: ShieldAlert, module: "discipline" },
@@ -527,7 +596,7 @@ export function WorkspaceSidebar() {
               label="Resources"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
                 { title: "Library", url: "/library", icon: BookOpen, module: "library" },
@@ -543,7 +612,7 @@ export function WorkspaceSidebar() {
               label="My Workspace"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
                 { title: "Timetable", url: "/timetable", icon: CalendarDays, module: "timetable" },
@@ -558,7 +627,7 @@ export function WorkspaceSidebar() {
               label="Students"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Students", url: "/students", icon: Users, module: "students" },
                 { title: "Classes", url: "/classes", icon: School, module: "students" },
@@ -572,7 +641,7 @@ export function WorkspaceSidebar() {
               label="Resources"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
                 { title: "Library", url: "/library", icon: BookOpen, module: "library" },
@@ -584,13 +653,13 @@ export function WorkspaceSidebar() {
           </>
         ) : user?.role === "finance" ? (
           <>
-            <NavGroup label="Overview" collapsed={isCollapsed} isActive={isActive} can={can} items={[{ title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" }]} />
-            <NavGroup label="Finance" collapsed={isCollapsed} isActive={isActive} can={can} items={schoolFinance} />
+            <NavGroup label="Overview" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={[{ title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" }]} />
+            <NavGroup label="Finance" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={schoolFinance} />
             <NavGroup
               label="Reports"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Enterprise Analytics", url: "/enterprise-analytics", icon: TrendingUp, module: "enterprise-analytics" },
                 { title: "Reporting", url: "/reporting", icon: BarChart3, module: "reporting" },
@@ -601,7 +670,7 @@ export function WorkspaceSidebar() {
               label="Resources"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
                 { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
@@ -615,7 +684,7 @@ export function WorkspaceSidebar() {
               label="Careers Guidance"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
                 { title: "Students", url: "/students", icon: Users, module: "students" },
@@ -628,7 +697,7 @@ export function WorkspaceSidebar() {
               label="Student Support"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Student Welfare", url: "/student-welfare", icon: Heart, module: "student-welfare" },
                 { title: "Discipline", url: "/discipline", icon: ShieldAlert, module: "discipline" },
@@ -639,7 +708,7 @@ export function WorkspaceSidebar() {
               label="Resources"
               collapsed={isCollapsed}
               isActive={isActive}
-              can={can}
+              can={can} accentColor={accentColor}
               items={[
                 { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
                 { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
@@ -649,12 +718,12 @@ export function WorkspaceSidebar() {
           </>
         ) : (
           <>
-            <NavGroup label="Overview" collapsed={isCollapsed} isActive={isActive} can={can} items={schoolOverview} />
-            <NavGroup label="Student Life" collapsed={isCollapsed} isActive={isActive} can={can} items={schoolStudentLife} />
-            <NavGroup label="Campus Operations" collapsed={isCollapsed} isActive={isActive} can={can} items={schoolCampusOps} />
-            <NavGroup label="Finance" collapsed={isCollapsed} isActive={isActive} can={can} items={schoolFinance} />
-            <NavGroup label="Enterprise" collapsed={isCollapsed} isActive={isActive} can={can} items={schoolEnterprise} />
-            <NavGroup label="Administration" collapsed={isCollapsed} isActive={isActive} can={can} items={schoolAdmin} />
+            <NavGroup label="Overview" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={schoolOverview} />
+            <NavGroup label="Student Life" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={schoolStudentLife} />
+            <NavGroup label="Campus Operations" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={schoolCampusOps} />
+            <NavGroup label="Finance" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={schoolFinance} />
+            <NavGroup label="Enterprise" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={schoolEnterprise} />
+            <NavGroup label="Administration" collapsed={isCollapsed} isActive={isActive} can={can} accentColor={accentColor} items={schoolAdmin} />
           </>
         )}
       </Box>
@@ -662,26 +731,43 @@ export function WorkspaceSidebar() {
       <Divider sx={{ borderColor: sidebarBorder }} />
 
       <Box sx={{ p: isCollapsed ? 1 : 1.5 }}>
-        <Box sx={{ borderRadius: isCollapsed ? 3 : 4, border: "1px solid", borderColor: sidebarBorder, bgcolor: sidebarAccentBg, p: isCollapsed ? 0.75 : 1.5 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-            <Box
-              sx={{
-                display: "flex",
-                height: 36,
-                width: 36,
-                flexShrink: 0,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 3,
-                bgcolor: alpha("#00c197", 0.2),
-                color: "#00c197",
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              {isSystemAdmin ? <Globe className="h-4 w-4" /> : user?.initials ?? "SR"}
-            </Box>
-            {!isCollapsed && (
+        <Box
+          component={Link}
+          to="/profile"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.25,
+            borderRadius: isCollapsed ? 3 : 4,
+            border: "1px solid",
+            borderColor: sidebarBorder,
+            bgcolor: sidebarAccentBg,
+            p: isCollapsed ? 0.75 : 1.25,
+            textDecoration: "none",
+            color: "inherit",
+            transition: "border-color 160ms ease, background-color 160ms ease",
+            "&:hover": { borderColor: alpha(accentColor, 0.4), bgcolor: alpha(accentColor, 0.1) },
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              height: 36,
+              width: 36,
+              flexShrink: 0,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 3,
+              bgcolor: alpha(accentColor, 0.2),
+              color: accentColor,
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            {isSystemAdmin ? <Globe className="h-4 w-4" /> : user?.initials ?? "SR"}
+          </Box>
+          {!isCollapsed && (
+            <>
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography sx={{ fontSize: 13, fontWeight: 600, color: sidebarFg, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {isSystemAdmin ? "Portfolio control" : user?.name ?? "School user"}
@@ -692,8 +778,9 @@ export function WorkspaceSidebar() {
                     : (user ? ROLE_META[user.role].label : "Workspace access")}
                 </Typography>
               </Box>
-            )}
-          </Box>
+              <ChevronsUpDown className="h-3.5 w-3.5 shrink-0" color={alpha(sidebarFg, 0.35)} />
+            </>
+          )}
         </Box>
       </Box>
     </Box>
@@ -705,7 +792,7 @@ export function WorkspaceSidebar() {
         anchor="left"
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        slotProps={{ paper: { sx: { width: 288, border: "none" } } }}
+        slotProps={{ paper: { sx: { width: 288, border: "none", bgcolor: sidebarBg } } }}
       >
         {drawerBody(false)}
       </Drawer>
@@ -724,6 +811,8 @@ export function WorkspaceSidebar() {
           position: "relative",
           border: "none",
           overflowX: "hidden",
+          bgcolor: sidebarBg,
+          boxShadow: "4px 0 24px rgba(2,6,23,0.12)",
           transition: "width 200ms ease",
         },
       }}

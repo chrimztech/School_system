@@ -1,23 +1,40 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  Building2,
   BookOpenCheck,
   Check,
+  ChevronDown,
   GitBranch,
   Image as ImageIcon,
   Info,
   Lock,
+  LayoutGrid,
   Palette,
   RotateCcw,
   Save,
   Scale,
+  School as SchoolIcon,
   SlidersHorizontal,
+  ToggleLeft,
   Upload,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
-import { Button, Chip, InputAdornment, MenuItem, Switch, TextField } from "@mui/material";
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Box,
+  Button,
+  Chip,
+  InputAdornment,
+  MenuItem,
+  Switch,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { AccessGuard } from "@/components/access-guard";
@@ -44,6 +61,24 @@ export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings - SRMS" }] }),
   component: SettingsPage,
 });
+
+const ACCORDION_SX = {
+  borderRadius: "12px !important",
+  border: "1px solid",
+  borderColor: "divider",
+  "&:before": { display: "none" },
+  overflow: "hidden",
+};
+const ACCORDION_SUMMARY_SX = { px: 2.5, py: 0.5, "& .MuiAccordionSummary-content": { my: 1.5, alignItems: "center", gap: 1.5 } };
+const ACCORDION_DETAILS_SX = { px: 2.5, pb: 2.5, pt: 0, borderTop: "1px solid", borderColor: "divider" };
+
+function SectionIcon({ icon: Icon }: { icon: typeof Building2 }) {
+  return (
+    <Box sx={{ display: "flex", height: 34, width: 34, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: 2.5, bgcolor: "primary.main", color: "primary.contrastText", opacity: 0.9 }}>
+      <Icon className="h-4 w-4" />
+    </Box>
+  );
+}
 
 const schoolTypes = [
   { code: "NURSERY", name: "Nursery / ECD", range: "Baby Class - Reception" },
@@ -360,13 +395,22 @@ function SettingsPage() {
           </div>
         )}
 
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-semibold">School type</h2>
-          <p className="text-xs text-muted-foreground">
+        <Accordion disableGutters sx={ACCORDION_SX}>
+          <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>
+            <SectionIcon icon={SchoolIcon} />
+            <Box>
+              <Typography sx={{ fontSize: 14, fontWeight: 600 }}>School type</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {schoolTypes.find((t) => t.code === selectedType)?.name ?? "Not set"}
+              </Typography>
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails sx={ACCORDION_DETAILS_SX}>
+          <p className="mb-3 pt-3 text-xs text-muted-foreground">
             Changing the school structure after go-live may require data migration and timetable
             adjustments.
           </p>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {schoolTypes.map((typeOption) => {
               const isActive = typeOption.code === selectedType;
               return (
@@ -397,20 +441,23 @@ function SettingsPage() {
               );
             })}
           </div>
-        </div>
+          </AccordionDetails>
+        </Accordion>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.9fr,1.1fr]">
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold">Academic levels</h2>
-                <p className="text-xs text-muted-foreground">
-                  Define the teaching bands this school group serves across all campuses.
-                </p>
-              </div>
-              <Chip size="small" label={`${levels.length} active`} sx={badgeSx("outline")} />
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[0.9fr,1.1fr]">
+          <Accordion disableGutters sx={ACCORDION_SX}>
+            <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>
+              <SectionIcon icon={LayoutGrid} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Academic levels</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Teaching bands served across all campuses.
+                </Typography>
+              </Box>
+              <Chip size="small" label={`${levels.length} active`} sx={{ ...badgeSx("outline"), mr: 1 }} />
+            </AccordionSummary>
+            <AccordionDetails sx={ACCORDION_DETAILS_SX}>
+            <div className="grid gap-3 pt-3 sm:grid-cols-2">
               {ACADEMIC_LEVEL_ORDER.map((level) => {
                 const active = levels.includes(level);
                 return (
@@ -432,17 +479,22 @@ function SettingsPage() {
                 );
               })}
             </div>
-          </div>
+            </AccordionDetails>
+          </Accordion>
 
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold">Campus directory</h2>
-                <p className="text-xs text-muted-foreground">
-                  Multi-campus schools can operate under one tenant while keeping levels and
-                  location ownership clear.
-                </p>
-              </div>
+          <Accordion disableGutters sx={ACCORDION_SX}>
+            <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>
+              <SectionIcon icon={Building2} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Campus directory</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Location and level coverage per campus.
+                </Typography>
+              </Box>
+              <Chip size="small" label={`${campuses.length} campus${campuses.length === 1 ? "" : "es"}`} />
+            </AccordionSummary>
+            <AccordionDetails sx={ACCORDION_DETAILS_SX}>
+            <div className="flex justify-end pt-3">
               <Button type="button" variant="outlined" size="small" onClick={addCampus}>
                 Add campus
               </Button>
@@ -535,45 +587,39 @@ function SettingsPage() {
                 </div>
               ))}
             </div>
-          </div>
+            </AccordionDetails>
+          </Accordion>
         </div>
 
         {canConfigureResults && (
-          <div className="surface-card-strong overflow-hidden rounded-3xl">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border bg-gradient-to-r from-primary/[0.08] to-transparent p-5 sm:p-6">
-              <div className="flex max-w-2xl items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-                  <SlidersHorizontal className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold">Results policy &amp; publication</h2>
-                    <Chip
-                      size="small"
-                      icon={<Lock size={12} />}
-                      label="Admin controlled"
-                      sx={{ ...badgeSx("outline"), bgcolor: "background.paper" }}
-                    />
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Set one school-wide policy. Teachers capture marks, HODs verify them, and
-                    Careers Guidance publishes the locked release.
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outlined"
-                size="small"
-                onClick={() =>
-                  setGradingBands(ZAMBIA_2023_GRADING_BANDS.map((band) => ({ ...band })))
-                }
-                startIcon={<RotateCcw className="h-3.5 w-3.5" />}
-              >
-                Restore Zambia 2023 scale
-              </Button>
-            </div>
-            <div className="p-5 sm:p-6">
+          <Accordion disableGutters sx={{ ...ACCORDION_SX, borderRadius: "20px !important" }}>
+            <AccordionSummary
+              expandIcon={<ChevronDown className="h-4 w-4" />}
+              sx={{
+                px: { xs: 2.5, sm: 3 },
+                background: "linear-gradient(to right, color-mix(in oklab, var(--primary) 8%, transparent), transparent)",
+                "& .MuiAccordionSummary-content": { my: 1.75, alignItems: "center", gap: 1.5, flexWrap: "wrap" },
+              }}
+            >
+              <Box sx={{ display: "flex", height: 40, width: 40, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: 3, bgcolor: "primary.main", color: "primary.contrastText", boxShadow: 2 }}>
+                <SlidersHorizontal className="h-5 w-5" />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 200 }}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1 }}>
+                  <Typography sx={{ fontSize: 15, fontWeight: 600 }}>Results policy &amp; publication</Typography>
+                  <Chip
+                    size="small"
+                    icon={<Lock size={12} />}
+                    label="Admin controlled"
+                    sx={{ ...badgeSx("outline"), bgcolor: "background.paper" }}
+                  />
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                  Set one school-wide policy for marks, verification, and publication.
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: { xs: 2.5, sm: 3 }, pt: 2.5, borderTop: "1px solid", borderColor: "divider" }}>
               <div className="grid gap-5 lg:grid-cols-[1.4fr,0.6fr]">
                 <div>
                   <div className="flex items-center gap-2">
@@ -757,7 +803,18 @@ function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <Chip size="small" label="8 bands" sx={badgeSx("secondary")} />
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Chip size="small" label={`${gradingBands.length} bands`} sx={badgeSx("secondary")} />
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setGradingBands(ZAMBIA_2023_GRADING_BANDS.map((band) => ({ ...band })))}
+                      startIcon={<RotateCcw className="h-3.5 w-3.5" />}
+                    >
+                      Restore Zambia 2023 scale
+                    </Button>
+                  </Box>
                 </div>
                 <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background/60">
                   <table className="w-full text-sm">
@@ -870,14 +927,21 @@ function SettingsPage() {
                   </table>
                 </div>
               </div>
-            </div>
-          </div>
+            </AccordionDetails>
+          </Accordion>
         )}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-sm font-semibold">School profile</h2>
-            <div className="mt-4 space-y-3">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <Accordion disableGutters defaultExpanded sx={ACCORDION_SX}>
+            <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>
+              <SectionIcon icon={SlidersHorizontal} />
+              <Box>
+                <Typography sx={{ fontSize: 14, fontWeight: 600 }}>School profile</Typography>
+                <Typography variant="caption" color="text.secondary">{name || "Untitled school"}</Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={ACCORDION_DETAILS_SX}>
+            <div className="space-y-3 pt-3">
               <TextField
                 label="Name"
                 value={name}
@@ -936,14 +1000,19 @@ function SettingsPage() {
                 />
               </div>
             </div>
-          </div>
+            </AccordionDetails>
+          </Accordion>
 
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-center gap-2">
-              <Palette className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Brand &amp; visual identity</h2>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+          <Accordion disableGutters sx={ACCORDION_SX}>
+            <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>
+              <SectionIcon icon={Palette} />
+              <Box>
+                <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Brand &amp; visual identity</Typography>
+                <Typography variant="caption" color="text.secondary">Colours, logo, favicon</Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={ACCORDION_DETAILS_SX}>
+            <p className="pt-3 text-xs text-muted-foreground">
               Colour changes apply across the sidebar and system immediately after saving.
             </p>
             <div className="mt-4 space-y-3">
@@ -1109,16 +1178,21 @@ function SettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
+            </AccordionDetails>
+          </Accordion>
 
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Feature controls</h2>
-              <p className="text-xs text-muted-foreground">
-                Modules on the {PLAN_CATALOG[school.subscription.planId].name} plan
-              </p>
-            </div>
-            <div className="mt-4 space-y-6">
+          <Accordion disableGutters sx={ACCORDION_SX}>
+            <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>
+              <SectionIcon icon={ToggleLeft} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Feature controls</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Modules on the {PLAN_CATALOG[school.subscription.planId].name} plan
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={ACCORDION_DETAILS_SX}>
+            <div className="space-y-6 pt-3">
               {FEATURE_CATEGORY_ORDER.map((category) => {
                 const keys = managedFeatures.filter((k) => FEATURE_META[k].category === category);
                 if (keys.length === 0) return null;
@@ -1167,7 +1241,8 @@ function SettingsPage() {
                 );
               })}
             </div>
-          </div>
+            </AccordionDetails>
+          </Accordion>
         </div>
       </div>
     </AccessGuard>
