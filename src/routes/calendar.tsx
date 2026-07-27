@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
@@ -70,7 +71,9 @@ function parseEventDescription(description: string | null | undefined) {
 
 function CalendarPage() {
   const { active } = useTenant();
+  const { user } = useAuth();
   const qc = useQueryClient();
+  const isParent = user?.role === "parent";
   const today = new Date();
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(4);
@@ -172,138 +175,140 @@ function CalendarPage() {
         title="Academic Calendar"
         description={`Term ${active.currentTerm} - ${active.currentYear} - ${active.shortCode}`}
         actions={
-          <>
-          <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add event</Button>
-          <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
-            <DialogTitle>Add calendar event</DialogTitle>
-            <DialogContent>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <TextField
-                    label="Event title *"
-                    value={form.title}
-                    onChange={(event) => setForm({ ...form, title: event.target.value })}
-                    placeholder="Sports Day"
-                    slotProps={{ htmlInput: { maxLength: 100 } }}
-                    fullWidth
-                    size="small"
-                  />
-                </div>
-                <TextField
-                  select
-                  label="Category"
-                  value={form.category}
-                  onChange={(event) => setForm({ ...form, category: event.target.value })}
-                  fullWidth
-                  size="small"
-                >
-                  {Object.keys(CATEGORY_COLORS).map((category) => <MenuItem key={category} value={category}>{category}</MenuItem>)}
-                </TextField>
-                <TextField
-                  type="date"
-                  label="Date *"
-                  value={form.date}
-                  onChange={(event) => setForm({ ...form, date: event.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  fullWidth
-                  size="small"
-                />
-                <TextField
-                  type="time"
-                  label="Start time"
-                  value={form.startTime}
-                  onChange={(event) => setForm({ ...form, startTime: event.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  fullWidth
-                  size="small"
-                />
-                <TextField
-                  type="time"
-                  label="End time"
-                  value={form.endTime}
-                  onChange={(event) => setForm({ ...form, endTime: event.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  fullWidth
-                  size="small"
-                />
-                <TextField
-                  label="Location / venue"
-                  value={form.location}
-                  onChange={(event) => setForm({ ...form, location: event.target.value })}
-                  placeholder="School grounds, Hall A, Board room"
-                  slotProps={{ htmlInput: { maxLength: 100 } }}
-                  fullWidth
-                  size="small"
-                />
-                <TextField
-                  select
-                  label="Visibility"
-                  value={form.visibility}
-                  onChange={(event) => setForm({ ...form, visibility: event.target.value })}
-                  fullWidth
-                  size="small"
-                >
-                  {["All staff", "Teachers only", "Management only", "Parents & students", "Public"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
-                </TextField>
-                <TextField
-                  label="Attendees / target group"
-                  value={form.attendees}
-                  onChange={(event) => setForm({ ...form, attendees: event.target.value })}
-                  placeholder="All, Form 3-6, Parents, Board members"
-                  slotProps={{ htmlInput: { maxLength: 100 } }}
-                  fullWidth
-                  size="small"
-                />
-                <div>
-                  <p className="mb-1 text-sm font-medium">Event owner</p>
-                  <div className="space-y-1.5">
-                    <PersonCombobox
-                      options={staffOptions}
-                      loading={pickerUsersLoading}
-                      placeholder="Search school staff…"
-                      emptyText="No staff found."
-                      onSelect={(option) => setForm((prev) => ({ ...prev, owner: option.label }))}
-                    />
+          !isParent && (
+            <>
+            <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add event</Button>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
+              <DialogTitle>Add calendar event</DialogTitle>
+              <DialogContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
                     <TextField
-                      value={form.owner}
-                      onChange={(event) => setForm({ ...form, owner: event.target.value })}
-                      placeholder="Deputy Head, Sports Office, PTA Chair"
+                      label="Event title *"
+                      value={form.title}
+                      onChange={(event) => setForm({ ...form, title: event.target.value })}
+                      placeholder="Sports Day"
                       slotProps={{ htmlInput: { maxLength: 100 } }}
                       fullWidth
                       size="small"
                     />
                   </div>
-                </div>
-                <TextField
-                  label="Transport / logistics"
-                  value={form.transport}
-                  onChange={(event) => setForm({ ...form, transport: event.target.value })}
-                  placeholder="2 buses, PA system, hall setup, security team"
-                  slotProps={{ htmlInput: { maxLength: 120 } }}
-                  fullWidth
-                  size="small"
-                />
-                <div className="col-span-2">
                   <TextField
-                    label="Description / notes"
-                    multiline
-                    minRows={4}
-                    value={form.description}
-                    onChange={(event) => setForm({ ...form, description: event.target.value })}
-                    placeholder="Agenda, dress code, student briefing, parent note, or operational checklist"
-                    slotProps={{ htmlInput: { maxLength: 500 } }}
+                    select
+                    label="Category"
+                    value={form.category}
+                    onChange={(event) => setForm({ ...form, category: event.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {Object.keys(CATEGORY_COLORS).map((category) => <MenuItem key={category} value={category}>{category}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    type="date"
+                    label="Date *"
+                    value={form.date}
+                    onChange={(event) => setForm({ ...form, date: event.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
                     fullWidth
                     size="small"
                   />
+                  <TextField
+                    type="time"
+                    label="Start time"
+                    value={form.startTime}
+                    onChange={(event) => setForm({ ...form, startTime: event.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    type="time"
+                    label="End time"
+                    value={form.endTime}
+                    onChange={(event) => setForm({ ...form, endTime: event.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    label="Location / venue"
+                    value={form.location}
+                    onChange={(event) => setForm({ ...form, location: event.target.value })}
+                    placeholder="School grounds, Hall A, Board room"
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <TextField
+                    select
+                    label="Visibility"
+                    value={form.visibility}
+                    onChange={(event) => setForm({ ...form, visibility: event.target.value })}
+                    fullWidth
+                    size="small"
+                  >
+                    {["All staff", "Teachers only", "Management only", "Parents & students", "Public"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                  </TextField>
+                  <TextField
+                    label="Attendees / target group"
+                    value={form.attendees}
+                    onChange={(event) => setForm({ ...form, attendees: event.target.value })}
+                    placeholder="All, Form 3-6, Parents, Board members"
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <div>
+                    <p className="mb-1 text-sm font-medium">Event owner</p>
+                    <div className="space-y-1.5">
+                      <PersonCombobox
+                        options={staffOptions}
+                        loading={pickerUsersLoading}
+                        placeholder="Search school staff…"
+                        emptyText="No staff found."
+                        onSelect={(option) => setForm((prev) => ({ ...prev, owner: option.label }))}
+                      />
+                      <TextField
+                        value={form.owner}
+                        onChange={(event) => setForm({ ...form, owner: event.target.value })}
+                        placeholder="Deputy Head, Sports Office, PTA Chair"
+                        slotProps={{ htmlInput: { maxLength: 100 } }}
+                        fullWidth
+                        size="small"
+                      />
+                    </div>
+                  </div>
+                  <TextField
+                    label="Transport / logistics"
+                    value={form.transport}
+                    onChange={(event) => setForm({ ...form, transport: event.target.value })}
+                    placeholder="2 buses, PA system, hall setup, security team"
+                    slotProps={{ htmlInput: { maxLength: 120 } }}
+                    fullWidth
+                    size="small"
+                  />
+                  <div className="col-span-2">
+                    <TextField
+                      label="Description / notes"
+                      multiline
+                      minRows={4}
+                      value={form.description}
+                      onChange={(event) => setForm({ ...form, description: event.target.value })}
+                      placeholder="Agenda, dress code, student briefing, parent note, or operational checklist"
+                      slotProps={{ htmlInput: { maxLength: 500 } }}
+                      fullWidth
+                      size="small"
+                    />
+                  </div>
                 </div>
-              </div>
-            </DialogContent>
-            <DialogActions>
-              <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={addEvent} disabled={createMut.isPending}>Add event</Button>
-            </DialogActions>
-          </Dialog>
-          </>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button onClick={addEvent} disabled={createMut.isPending}>Add event</Button>
+              </DialogActions>
+            </Dialog>
+            </>
+          )
         }
       />
 

@@ -43,6 +43,7 @@ function CommunicationPage() {
   const { user } = useAuth();
   const isTeacher = user?.role === "teacher";
   const isHOD = user?.role === "hod";
+  const isParent = user?.role === "parent";
   const qc = useQueryClient();
 
   const hash = useRouterState({ select: (s) => s.location.hash });
@@ -208,7 +209,7 @@ function CommunicationPage() {
         title="Communication"
         description="SMS · WhatsApp · Email · USSD fallback for parents without smartphones"
         actions={
-          !isTeacher && !isHOD && (
+          !isTeacher && !isHOD && !isParent && (
             <Button variant="contained" onClick={() => setTab("broadcast")} startIcon={<Send className="h-4 w-4" />}>New broadcast</Button>
           )
         }
@@ -231,7 +232,7 @@ function CommunicationPage() {
           }
         />
         <Tab value="announcements" label="Announcements" />
-        {!isTeacher && !isHOD && <Tab value="broadcast" label="Send broadcast" />}
+        {!isTeacher && !isHOD && !isParent && <Tab value="broadcast" label="Send broadcast" />}
       </Tabs>
 
       {/* ── Messages tab ─────────────────────────────────────────── */}

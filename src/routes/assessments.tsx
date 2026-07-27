@@ -1867,10 +1867,10 @@ function AssessmentsPage() {
             >
               <MenuItem value="ALL">All reporting cycles</MenuItem>
               {active.resultPublicationMode === "SEPARATE" ? (
-                <>
-                  <MenuItem value="MIDTERM">Mid-term</MenuItem>
-                  <MenuItem value="END_TERM">End-of-term</MenuItem>
-                </>
+                [
+                  <MenuItem key="MIDTERM" value="MIDTERM">Mid-term</MenuItem>,
+                  <MenuItem key="END_TERM" value="END_TERM">End-of-term</MenuItem>,
+                ]
               ) : (
                 <MenuItem value="COMBINED">Combined term</MenuItem>
               )}
