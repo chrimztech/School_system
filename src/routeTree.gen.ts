@@ -30,6 +30,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as RiskRegisterRouteImport } from './routes/risk-register'
 import { Route as RevenueOpsRouteImport } from './routes/revenue-ops'
+import { Route as ResultsAnalysisRouteImport } from './routes/results-analysis'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReportingRouteImport } from './routes/reporting'
 import { Route as ReportCardRouteImport } from './routes/report-card'
@@ -195,6 +196,11 @@ const RiskRegisterRoute = RiskRegisterRouteImport.update({
 const RevenueOpsRoute = RevenueOpsRouteImport.update({
   id: '/revenue-ops',
   path: '/revenue-ops',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultsAnalysisRoute = ResultsAnalysisRouteImport.update({
+  id: '/results-analysis',
+  path: '/results-analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -562,6 +568,7 @@ export interface FileRoutesByFullPath {
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
+  '/results-analysis': typeof ResultsAnalysisRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -646,6 +653,7 @@ export interface FileRoutesByTo {
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
+  '/results-analysis': typeof ResultsAnalysisRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -731,6 +739,7 @@ export interface FileRoutesById {
   '/report-card': typeof ReportCardRoute
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
+  '/results-analysis': typeof ResultsAnalysisRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -817,6 +826,7 @@ export interface FileRouteTypes {
     | '/report-card'
     | '/reporting'
     | '/reports'
+    | '/results-analysis'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -901,6 +911,7 @@ export interface FileRouteTypes {
     | '/report-card'
     | '/reporting'
     | '/reports'
+    | '/results-analysis'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -985,6 +996,7 @@ export interface FileRouteTypes {
     | '/report-card'
     | '/reporting'
     | '/reports'
+    | '/results-analysis'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -1070,6 +1082,7 @@ export interface RootRouteChildren {
   ReportCardRoute: typeof ReportCardRoute
   ReportingRoute: typeof ReportingRoute
   ReportsRoute: typeof ReportsRoute
+  ResultsAnalysisRoute: typeof ResultsAnalysisRoute
   RevenueOpsRoute: typeof RevenueOpsRoute
   RiskRegisterRoute: typeof RiskRegisterRoute
   SecurityRoute: typeof SecurityRoute
@@ -1241,6 +1254,13 @@ declare module '@tanstack/react-router' {
       path: '/revenue-ops'
       fullPath: '/revenue-ops'
       preLoaderRoute: typeof RevenueOpsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/results-analysis': {
+      id: '/results-analysis'
+      path: '/results-analysis'
+      fullPath: '/results-analysis'
+      preLoaderRoute: typeof ResultsAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -1756,6 +1776,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportCardRoute: ReportCardRoute,
   ReportingRoute: ReportingRoute,
   ReportsRoute: ReportsRoute,
+  ResultsAnalysisRoute: ResultsAnalysisRoute,
   RevenueOpsRoute: RevenueOpsRoute,
   RiskRegisterRoute: RiskRegisterRoute,
   SecurityRoute: SecurityRoute,
