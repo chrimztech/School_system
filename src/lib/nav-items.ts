@@ -81,6 +81,7 @@ export const schoolOverview: NavItem[] = [
   { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
   { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
   { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
+  { title: "Results Analysis", url: "/results-analysis", icon: BarChart3, module: "report-card" },
 ];
 
 /** Clubs, wellbeing, and community-facing operations. */

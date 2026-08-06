@@ -13,6 +13,24 @@ export type BackendAuthSession = {
   initials?: string | null;
 };
 
+export type SubjectBreakdown = {
+  subjectName: string;
+  studentCount: number;
+  average: number | null;
+  passRate: number | null;
+};
+
+export type AnalysisResponse = {
+  scope: "CLASS" | "GRADE" | "SUBJECT" | "SCHOOL";
+  scopeLabel: string;
+  studentCount: number;
+  average: number | null;
+  passRate: number | null;
+  passMarkUsed: number;
+  distribution: Record<string, number>;
+  bySubject: SubjectBreakdown[];
+};
+
 export type BackendAppUser = {
   id: string;
   name: string;
@@ -465,6 +483,18 @@ export const api = {
       unwrap<{ average: number | null; distribution: Record<string, number> }>(
         apiClient.get(schoolPath(schoolId, "term-grades/class-stats"), { params }),
       ),
+  },
+
+  // Results analysis (aggregated averages/pass-rate/distribution by class, grade, subject, school)
+  resultsAnalysis: {
+    byClass: (schoolId: string, params: { classId: string; term: string; academicYear: string; reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" }) =>
+      unwrap<AnalysisResponse>(apiClient.get(schoolPath(schoolId, "results-analysis/by-class"), { params })),
+    byGrade: (schoolId: string, params: { grade: number; term: string; academicYear: string; reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" }) =>
+      unwrap<AnalysisResponse>(apiClient.get(schoolPath(schoolId, "results-analysis/by-grade"), { params })),
+    bySubject: (schoolId: string, params: { subjectName: string; term: string; academicYear: string; reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" }) =>
+      unwrap<AnalysisResponse>(apiClient.get(schoolPath(schoolId, "results-analysis/by-subject"), { params })),
+    bySchool: (schoolId: string, params: { term: string; academicYear: string; reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" }) =>
+      unwrap<AnalysisResponse>(apiClient.get(schoolPath(schoolId, "results-analysis/by-school"), { params })),
   },
 
   // Student promotion (bulk advance a class roster to the next grade / graduate)

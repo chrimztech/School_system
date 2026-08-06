@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button, Chip, Breadcrumbs, IconButton, Link as MuiLink, MenuItem, TextField, Typography, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
-import { badgeSx } from "@/lib/utils";
+import { badgeSx, gradeChipSx } from "@/lib/utils";
 import { useTenant, formatGrade } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
@@ -29,6 +29,21 @@ function StudentProfilePage() {
     queryKey: ["student", schoolId, studentId],
     queryFn: () => api.students.get(schoolId, studentId),
   });
+
+  const reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" =
+    active.resultPublicationMode === "COMBINED" ? "COMBINED" : "END_TERM";
+
+  const { data: termGradeHistory = [] } = useQuery({
+    queryKey: ["published-term-grades", schoolId, studentId, year, reportingPeriod],
+    queryFn: () => api.termGrades.publishedHistory(schoolId, studentId, year, reportingPeriod),
+    enabled: !!schoolId && !!studentId,
+  });
+
+  const termGrades = (termGradeHistory as any[]).filter((g) => g.term === term);
+  const subjectAverage =
+    termGrades.length > 0
+      ? termGrades.reduce((sum, g) => sum + g.weightedTotal, 0) / termGrades.length
+      : null;
 
   const { data: feePayments = [] } = useQuery({
     queryKey: ["student-fees", schoolId, studentId],
@@ -186,8 +201,8 @@ function StudentProfilePage() {
         </div>
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><BookOpen className="h-4 w-4" />Average score</div>
-          <p className="mt-2 text-2xl font-semibold">—</p>
-          <p className="text-xs text-muted-foreground">Mid-term assessment</p>
+          <p className="mt-2 text-2xl font-semibold">{subjectAverage != null ? `${Math.round(subjectAverage)}%` : "—"}</p>
+          <p className="text-xs text-muted-foreground">Term {term} published results</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Wallet className="h-4 w-4" />Fee balance</div>
@@ -317,8 +332,35 @@ function StudentProfilePage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold">Academic performance · Term {active.currentTerm}</h2>
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <h2 className="mb-4 text-sm font-semibold">Academic performance · Term {term}</h2>
+          {termGrades.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              Results for this reporting cycle have not been published yet.
+            </div>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Subject</TableCell>
+                    <TableCell className="text-right">Total</TableCell>
+                    <TableCell>Grade</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {termGrades.map((g: any) => (
+                    <TableRow key={g.subjectName}>
+                      <TableCell className="font-medium">{g.subjectName}</TableCell>
+                      <TableCell className="text-right tabular-nums">{Math.round(g.weightedTotal)}</TableCell>
+                      <TableCell>
+                        <Chip size="small" label={g.letterGrade} sx={gradeChipSx(g.letterGrade)} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
