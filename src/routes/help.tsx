@@ -80,7 +80,7 @@ function HelpPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Link to="/knowledge-base" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><BookOpen className="h-5 w-5" /></div>
           <div>
@@ -97,11 +97,19 @@ function HelpPage() {
           </div>
         </Link>
 
-        <a href="tel:+260211555200" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
+        <a href="tel:+260976911338" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Phone className="h-5 w-5" /></div>
           <div>
             <p className="font-semibold">Call support</p>
-            <p className="text-xs text-muted-foreground">+260 211 555 200</p>
+            <p className="text-xs text-muted-foreground">+260 976 911 338</p>
+          </div>
+        </a>
+
+        <a href="mailto:chrishentmatakala@yahoo.com" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Mail className="h-5 w-5" /></div>
+          <div>
+            <p className="font-semibold">Email support</p>
+            <p className="text-xs text-muted-foreground">chrishentmatakala@yahoo.com</p>
           </div>
         </a>
 

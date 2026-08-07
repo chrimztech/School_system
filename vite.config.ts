@@ -17,7 +17,8 @@ export default defineConfig({
       proxy: {
         "/api": {
           target: "http://localhost:8090",
-          changeOrigin: true,
+          // Preserve e.g. lubu.localhost so backend tenant resolution is exercised in dev.
+          changeOrigin: false,
         },
       },
     },

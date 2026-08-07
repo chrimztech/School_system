@@ -1,7 +1,5 @@
 import axios from "axios";
 
-const BASE_URL = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "http://localhost:8090";
-
 export type BackendAuthSession = {
   token: string;
   id: string;
@@ -252,7 +250,9 @@ export type BackendPlatformWorkspace = {
 };
 
 export const apiClient = axios.create({
-  baseURL: BASE_URL,
+  // Browser requests must stay on the current origin so the backend receives
+  // the school hostname. The development server proxies /api without rewriting Host.
+  baseURL: "/",
   headers: { "Content-Type": "application/json" },
 });
 
@@ -293,12 +293,11 @@ export function isValidSchoolId(id: string | null | undefined): boolean {
 }
 
 export function schoolPath(schoolId: string, path: string) {
-  const storedId = typeof localStorage !== "undefined" ? localStorage.getItem("srms_school_id") : null;
-  const id = storedId || schoolId;
-  if (!id || id.trim().length < 2) {
+  const id = schoolId?.trim();
+  if (!isValidSchoolId(id)) {
     throw new Error(`No valid school ID`);
   }
-  return `/api/schools/${id}/${path}`;
+  return `/api/schools/${id}/${path.replace(/^\/+/, "")}`;
 }
 
 export const api = {
@@ -306,7 +305,7 @@ export const api = {
   public: {
     schoolBySlug: (slug: string) =>
       unwrap<{ id: string; name: string; shortCode: string; slug: string; primaryColor?: string | null; secondaryColor?: string | null; logoUrl?: string | null; faviconUrl?: string | null; district?: string | null; province?: string | null; type?: string | null; motto?: string | null }>(
-        apiClient.get(`/api/public/schools/by-slug/${slug}`)
+        apiClient.get(`/api/public/schools/by-slug/${encodeURIComponent(slug)}`)
       ),
   },
 

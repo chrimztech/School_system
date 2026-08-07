@@ -33,6 +33,7 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { schoolSlugFromHostname } from "@/lib/tenant-host";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — SRMS" }] }),
@@ -55,11 +56,7 @@ const PENDING_SLUG_KEY = "srms_pending_slug";
 
 function detectSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
-  const parts = window.location.hostname.split(".");
-  if (parts.length < 3) return null;
-  const sub = parts[0].toLowerCase();
-  if (["www", "app", "portal", "admin", "api", "mail"].includes(sub)) return null;
-  return sub;
+  return schoolSlugFromHostname(window.location.hostname);
 }
 
 // Set by the /s/$slug route — lets a plain path URL (srms.com/s/mongu-trust-academy)

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { api, type BackendGradingBand, type BackendSchool, type BackendSchoolDto } from "@/lib/api";
+import { schoolSlugFromHostname } from "@/lib/tenant-host";
 
 export type SchoolType = "NURSERY" | "PRIMARY" | "SECONDARY" | "COMBINED" | "FULL";
 export type ResultPublicationMode = "SEPARATE" | "COMBINED";
@@ -893,11 +894,7 @@ type TenantContextValue = {
 
 function detectSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
-  const parts = window.location.hostname.split(".");
-  if (parts.length < 3) return null;
-  const sub = parts[0].toLowerCase();
-  if (["www", "app", "portal", "admin", "api", "mail", "smtp"].includes(sub)) return null;
-  return sub;
+  return schoolSlugFromHostname(window.location.hostname);
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
