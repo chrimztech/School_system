@@ -18,6 +18,7 @@ import {
 
 import { PageHeader } from "@/components/page-header";
 import { Button, Chip, MenuItem, Switch, TextField } from "@mui/material";
+import { PLATFORM_DOMAIN } from "@/lib/tenant-host";
 import { badgeSx } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -391,9 +392,6 @@ function OnboardingPage() {
             <div className="sm:col-span-2">
               <p className="mb-1 text-sm font-medium">URL slug</p>
               <div className="flex items-center gap-0">
-                <span className="inline-flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
-                  srms.com/s/
-                </span>
                 <TextField
                   value={form.slug ?? ""}
                   onChange={(e) =>
@@ -406,12 +404,15 @@ function OnboardingPage() {
                   size="small"
                   fullWidth
                   slotProps={{ htmlInput: { className: "font-mono text-sm" } }}
-                  sx={{ "& .MuiOutlinedInput-root": { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderTopRightRadius: 0, borderBottomRightRadius: 0 } }}
                 />
+                <span className="inline-flex h-9 items-center rounded-r-md border border-l-0 border-input bg-muted px-3 text-xs text-muted-foreground select-none">
+                  .{PLATFORM_DOMAIN}
+                </span>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Unique link to this school's branded login page. Auto-generated from the short code
-                if left blank.
+                This school's dedicated sign-in address. Auto-generated from the short code if left
+                blank.
               </p>
             </div>
             <TextField
