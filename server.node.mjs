@@ -13,7 +13,7 @@ serve({
   fetch: (request) => app.fetch(request, undefined, undefined),
   middleware: [serveStatic({ dir: "./dist/client" })],
   port,
-  hostname: "0.0.0.0",
+  hostname: process.env.HOST || "127.0.0.1",
 });
 
 console.log(`SRMS frontend listening on port ${port}`);
