@@ -1,10 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   BookOpenCheck,
   Check,
+  Copy,
+  ExternalLink,
   GitBranch,
   GraduationCap,
   Image as ImageIcon,
@@ -13,11 +16,27 @@ import {
   Scale,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Upload,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
-import { Button, Chip, MenuItem, Switch, TextField } from "@mui/material";
+import {
+  Alert,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  MenuItem,
+  Stack,
+  Switch,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import { PLATFORM_DOMAIN } from "@/lib/tenant-host";
 import { badgeSx } from "@/lib/utils";
 import { toast } from "sonner";
@@ -111,8 +130,32 @@ function OnboardingPage() {
   const { addTenant } = useTenant();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [provisioned, setProvisioned] = useState<{
+    schoolName: string;
+    loginUrl: string;
+    adminEmail?: string;
+    adminPassword?: string;
+    staffCreated: number;
+    staffFailed: number;
+  } | null>(null);
   const logoInput = useRef<HTMLInputElement>(null);
   const faviconInput = useRef<HTMLInputElement>(null);
+
+  // Not persisted to the school record — purely a sanity check against the chosen plan's
+  // learner limit during onboarding, since actual enrollment only accrues from real student
+  // records afterward (see Tenant.totalStudents).
+  const [expectedEnrollment, setExpectedEnrollment] = useState<number | undefined>(undefined);
+
+  type StaffInvite = { id: string; name: string; email: string; role: string };
+  const [staffInvites, setStaffInvites] = useState<StaffInvite[]>([]);
+  const addStaffInvite = () =>
+    setStaffInvites((list) => [
+      ...list,
+      { id: `staff-${Date.now().toString(36)}-${list.length}`, name: "", email: "", role: "TEACHER" },
+    ]);
+  const updateStaffInvite = (id: string, patch: Partial<StaffInvite>) =>
+    setStaffInvites((list) => list.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const removeStaffInvite = (id: string) => setStaffInvites((list) => list.filter((s) => s.id !== id));
 
   const [form, setForm] = useState<Form>({
     name: "",
@@ -176,6 +219,8 @@ function OnboardingPage() {
   });
 
   const update = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const updateSubscription = <K extends keyof Form["subscription"]>(k: K, v: Form["subscription"][K]) =>
+    setForm((f) => ({ ...f, subscription: { ...f.subscription, [k]: v } }));
   const toggle = (k: keyof Form["features"]) =>
     setForm((f) => ({ ...f, features: { ...f.features, [k]: !f.features[k] } }));
   const setPlan = (planId: PlanId) =>
@@ -301,6 +346,8 @@ function OnboardingPage() {
       // Create school admin user if head teacher email is provided
       const adminEmail = form.headTeacherEmail?.trim() || form.email?.trim();
       const adminName = form.headTeacher?.trim() || form.name;
+      const loginUrl = `https://${created.slug || form.shortCode.toLowerCase()}.${PLATFORM_DOMAIN}/login`;
+      let adminCreated = false;
       if (adminEmail && created.id) {
         try {
           await api.users.create(created.id, {
@@ -309,19 +356,46 @@ function OnboardingPage() {
             role: "SCHOOL_ADMIN",
             password: "password123",
           });
-          toast.success(`${form.name} provisioned — admin account: ${adminEmail} / password123`);
+          adminCreated = true;
         } catch {
-          toast.success(`${form.name} provisioned successfully`);
           toast.warning("Could not create admin user — add manually in User Management");
         }
-      } else {
-        toast.success(`${form.name} provisioned successfully`);
+      }
+      let staffCreated = 0;
+      let staffFailed = 0;
+      for (const invite of staffInvites) {
+        const name = invite.name.trim();
+        const email = invite.email.trim();
+        if (!name || !email || !created.id) continue;
+        try {
+          await api.users.create(created.id, {
+            name,
+            email,
+            role: invite.role,
+            password: "password123",
+          });
+          staffCreated += 1;
+        } catch {
+          staffFailed += 1;
+        }
       }
 
-      navigate({ to: "/sys-admin" });
+      toast.success(`${form.name} provisioned successfully`);
+      setProvisioned({
+        schoolName: form.name,
+        loginUrl,
+        adminEmail: adminCreated ? adminEmail : undefined,
+        adminPassword: adminCreated ? "password123" : undefined,
+        staffCreated,
+        staffFailed,
+      });
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const copyToClipboard = (value: string, label: string) => {
+    void navigator.clipboard.writeText(value).then(() => toast.success(`${label} copied`));
   };
 
   const canContinue = step === 0 ? form.name.trim() && form.shortCode.trim() : true;
@@ -1086,6 +1160,16 @@ function OnboardingPage() {
               fullWidth
               size="small"
             />
+            <TextField
+              label="Billing contact"
+              value={form.subscription.billingContact}
+              onChange={(e) => updateSubscription("billingContact", e.target.value)}
+              placeholder="Name, email or phone for subscription invoices"
+              helperText="Who should receive SRMS subscription invoices — defaults to the official email if left blank"
+              fullWidth
+              size="small"
+              className="sm:col-span-2"
+            />
           </div>
         )}
 
@@ -1306,6 +1390,24 @@ function OnboardingPage() {
                   </MenuItem>
                 ))}
               </TextField>
+              <TextField
+                label="Current / expected enrollment"
+                type="number"
+                value={expectedEnrollment ?? ""}
+                onChange={(e) => setExpectedEnrollment(e.target.value ? Number(e.target.value) : undefined)}
+                placeholder="e.g. 650"
+                fullWidth
+                size="small"
+                sx={{ mt: 2 }}
+                slotProps={{ htmlInput: { min: 0 } }}
+              />
+              {expectedEnrollment != null && expectedEnrollment > PLAN_CATALOG[form.subscription.planId].learnerLimit && (
+                <Alert severity="warning" icon={<AlertTriangle className="h-4 w-4" />} sx={{ mt: 2 }}>
+                  {PLAN_CATALOG[form.subscription.planId].name} is capped at{" "}
+                  {PLAN_CATALOG[form.subscription.planId].learnerLimit.toLocaleString()} learners — below your
+                  expected enrollment of {expectedEnrollment.toLocaleString()}. Consider a higher plan.
+                </Alert>
+              )}
             </div>
 
             {FEATURE_CATEGORY_ORDER.map((category) => {
@@ -1402,6 +1504,67 @@ function OnboardingPage() {
                   <Chip key={k} size="small" label={k} sx={badgeSx("secondary")} />
                 ))}
             </div>
+
+            <div className="rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Staff accounts</p>
+                  <p className="text-xs text-muted-foreground">
+                    {form.headTeacherEmail || form.email
+                      ? "The head teacher gets a School Admin login automatically. Add others below if you know them now — everyone else can always be invited later from User Management."
+                      : "No head teacher email was given, so no admin login will be created yet — add one below or from User Management afterward."}
+                  </p>
+                </div>
+                <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={addStaffInvite}>
+                  Add staff
+                </Button>
+              </div>
+              {staffInvites.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {staffInvites.map((s) => (
+                    <div key={s.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[1.2fr_1.4fr_1fr_auto] sm:items-center">
+                      <TextField
+                        label="Name"
+                        value={s.name}
+                        onChange={(e) => updateStaffInvite(s.id, { name: e.target.value })}
+                        size="small"
+                        fullWidth
+                      />
+                      <TextField
+                        label="Email"
+                        type="email"
+                        value={s.email}
+                        onChange={(e) => updateStaffInvite(s.id, { email: e.target.value })}
+                        size="small"
+                        fullWidth
+                      />
+                      <TextField
+                        select
+                        label="Role"
+                        value={s.role}
+                        onChange={(e) => updateStaffInvite(s.id, { role: e.target.value })}
+                        size="small"
+                        fullWidth
+                      >
+                        <MenuItem value="DEPUTY_HEAD">Deputy Head</MenuItem>
+                        <MenuItem value="PRINCIPAL">Principal</MenuItem>
+                        <MenuItem value="HOD">Head of Department</MenuItem>
+                        <MenuItem value="TEACHER">Teacher</MenuItem>
+                        <MenuItem value="FINANCE">Finance Officer</MenuItem>
+                        <MenuItem value="CAREER_GUIDANCE">Careers Guidance</MenuItem>
+                        <MenuItem value="SCHOOL_ADMIN">School Admin</MenuItem>
+                      </TextField>
+                      <IconButton size="small" onClick={() => removeStaffInvite(s.id)} aria-label="Remove">
+                        <Trash2 className="h-4 w-4" />
+                      </IconButton>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    Each account is created with a temporary password and must be changed on first sign-in.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1420,6 +1583,83 @@ function OnboardingPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={provisioned != null} maxWidth="xs" fullWidth>
+        {provisioned && (
+          <>
+            <DialogTitle>{provisioned.schoolName} is live</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2.5} sx={{ mt: 0.5 }}>
+                <div>
+                  <Typography variant="caption" color="text.secondary">
+                    Workspace URL
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: "monospace", flex: 1, wordBreak: "break-all" }}
+                    >
+                      {provisioned.loginUrl}
+                    </Typography>
+                    <Tooltip title="Copy link">
+                      <IconButton size="small" onClick={() => copyToClipboard(provisioned.loginUrl, "Link")}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Open">
+                      <IconButton size="small" component="a" href={provisioned.loginUrl} target="_blank" rel="noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </div>
+
+                {provisioned.adminEmail ? (
+                  <div>
+                    <Typography variant="caption" color="text.secondary">
+                      Admin sign-in
+                    </Typography>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace", flex: 1 }}>
+                        {provisioned.adminEmail} / {provisioned.adminPassword}
+                      </Typography>
+                      <Tooltip title="Copy credentials">
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            copyToClipboard(`${provisioned.adminEmail} / ${provisioned.adminPassword}`, "Credentials")
+                          }
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      This is a temporary password — the admin should change it on first sign-in.
+                    </Typography>
+                  </div>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No admin account was created — add one from User Management once inside the workspace.
+                  </Typography>
+                )}
+
+                {(provisioned.staffCreated > 0 || provisioned.staffFailed > 0) && (
+                  <Typography variant="body2" color="text.secondary">
+                    {provisioned.staffCreated > 0 &&
+                      `${provisioned.staffCreated} additional staff account${provisioned.staffCreated === 1 ? "" : "s"} created (temporary password: password123).`}
+                    {provisioned.staffFailed > 0 &&
+                      ` ${provisioned.staffFailed} staff account${provisioned.staffFailed === 1 ? "" : "s"} failed — add ${provisioned.staffFailed === 1 ? "it" : "them"} manually in User Management.`}
+                  </Typography>
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => navigate({ to: "/sys-admin" })}>Done</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </div>
   );
 }

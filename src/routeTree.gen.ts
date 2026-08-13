@@ -75,6 +75,7 @@ import { Route as ContractCenterRouteImport } from './routes/contract-center'
 import { Route as ComplianceRouteImport } from './routes/compliance'
 import { Route as CommunicationRouteImport } from './routes/communication'
 import { Route as ClassesRouteImport } from './routes/classes'
+import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as CanteenRouteImport } from './routes/canteen'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as BursariesRouteImport } from './routes/bursaries'
@@ -423,6 +424,11 @@ const ClassesRoute = ClassesRouteImport.update({
   path: '/classes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangePasswordRoute = ChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CanteenRoute = CanteenRouteImport.update({
   id: '/canteen',
   path: '/canteen',
@@ -524,6 +530,7 @@ export interface FileRoutesByFullPath {
   '/bursaries': typeof BursariesRoute
   '/calendar': typeof CalendarRoute
   '/canteen': typeof CanteenRoute
+  '/change-password': typeof ChangePasswordRoute
   '/classes': typeof ClassesRoute
   '/communication': typeof CommunicationRoute
   '/compliance': typeof ComplianceRoute
@@ -609,6 +616,7 @@ export interface FileRoutesByTo {
   '/bursaries': typeof BursariesRoute
   '/calendar': typeof CalendarRoute
   '/canteen': typeof CanteenRoute
+  '/change-password': typeof ChangePasswordRoute
   '/classes': typeof ClassesRoute
   '/communication': typeof CommunicationRoute
   '/compliance': typeof ComplianceRoute
@@ -695,6 +703,7 @@ export interface FileRoutesById {
   '/bursaries': typeof BursariesRoute
   '/calendar': typeof CalendarRoute
   '/canteen': typeof CanteenRoute
+  '/change-password': typeof ChangePasswordRoute
   '/classes': typeof ClassesRoute
   '/communication': typeof CommunicationRoute
   '/compliance': typeof ComplianceRoute
@@ -782,6 +791,7 @@ export interface FileRouteTypes {
     | '/bursaries'
     | '/calendar'
     | '/canteen'
+    | '/change-password'
     | '/classes'
     | '/communication'
     | '/compliance'
@@ -867,6 +877,7 @@ export interface FileRouteTypes {
     | '/bursaries'
     | '/calendar'
     | '/canteen'
+    | '/change-password'
     | '/classes'
     | '/communication'
     | '/compliance'
@@ -952,6 +963,7 @@ export interface FileRouteTypes {
     | '/bursaries'
     | '/calendar'
     | '/canteen'
+    | '/change-password'
     | '/classes'
     | '/communication'
     | '/compliance'
@@ -1038,6 +1050,7 @@ export interface RootRouteChildren {
   BursariesRoute: typeof BursariesRoute
   CalendarRoute: typeof CalendarRoute
   CanteenRoute: typeof CanteenRoute
+  ChangePasswordRoute: typeof ChangePasswordRoute
   ClassesRoute: typeof ClassesRoute
   CommunicationRoute: typeof CommunicationRoute
   ComplianceRoute: typeof ComplianceRoute
@@ -1571,6 +1584,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClassesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/change-password': {
+      id: '/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof ChangePasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/canteen': {
       id: '/canteen'
       path: '/canteen'
@@ -1732,6 +1752,7 @@ const rootRouteChildren: RootRouteChildren = {
   BursariesRoute: BursariesRoute,
   CalendarRoute: CalendarRoute,
   CanteenRoute: CanteenRoute,
+  ChangePasswordRoute: ChangePasswordRoute,
   ClassesRoute: ClassesRoute,
   CommunicationRoute: CommunicationRoute,
   ComplianceRoute: ComplianceRoute,

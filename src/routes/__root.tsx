@@ -8,16 +8,17 @@ import {
   Scripts,
   Link,
 } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Search, LogOut, UserCircle, Command as CommandIcon, AlertTriangle, Clock, Lock } from "lucide-react";
 import { ThemeProvider, CssBaseline, Chip, Menu, MenuItem, ListItemIcon, Divider, Box, Typography } from "@mui/material";
 
 import appCss from "../styles.css?url";
-import { theme } from "@/theme";
+import { theme, buildTheme, contrastFor, isValidHexColor } from "@/theme";
 import { TenantProvider, useTenant, type Tenant } from "@/lib/tenant";
 import { AuthProvider, useAuth, ROLE_META } from "@/lib/auth";
 import { badgeSx } from "@/lib/utils";
 import { NotificationProvider } from "@/lib/notifications";
+import { useFavicon } from "@/hooks/use-favicon";
 import { NotificationBell } from "@/components/notification-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { WorkspaceSidebar, WorkspaceSidebarProvider, SidebarToggleButton } from "@/components/workspace-sidebar";
@@ -74,7 +75,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "SRMS — School Records Management System" },
       { name: "description", content: "Configurable school management for Zambian institutions: enrolment, attendance, assessments, fees, and parental communication." },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [{ rel: "stylesheet", href: appCss }, { rel: "icon", href: "/favicon.svg" }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -262,19 +263,17 @@ function SubscriptionBanner({ tenant }: { tenant: Tenant }) {
   return null;
 }
 
-function hexLuminance(hex: string): number {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-}
+type BrandColors = {
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
+};
 
-function buildShellStyle(primaryColor: string): React.CSSProperties | undefined {
-  if (!primaryColor || !/^#[0-9a-fA-F]{6}$/i.test(primaryColor)) return undefined;
-  const lum = hexLuminance(primaryColor);
-  const fg = lum > 0.35 ? "oklch(0.15 0 0)" : "oklch(0.99 0 0)";
-  return {
+function buildShellStyle(brand: BrandColors): React.CSSProperties | undefined {
+  const primaryColor = brand.primaryColor;
+  if (!isValidHexColor(primaryColor)) return undefined;
+  const fg = contrastFor(primaryColor);
+  const style: Record<string, string> = {
     "--primary": primaryColor,
     "--primary-foreground": fg,
     "--ring": primaryColor,
@@ -284,7 +283,16 @@ function buildShellStyle(primaryColor: string): React.CSSProperties | undefined 
     // Active nav item bg — primary tinted into the dark sidebar base
     "--sidebar-accent": `color-mix(in srgb, ${primaryColor} 14%, #0e1423)`,
     "--sidebar-accent-foreground": "oklch(0.94 0.005 245)",
-  } as React.CSSProperties;
+  };
+  if (isValidHexColor(brand.secondaryColor)) {
+    style["--secondary"] = brand.secondaryColor;
+    style["--secondary-foreground"] = contrastFor(brand.secondaryColor);
+  }
+  if (isValidHexColor(brand.accentColor)) {
+    style["--accent"] = brand.accentColor;
+    style["--accent-foreground"] = contrastFor(brand.accentColor);
+  }
+  return style as React.CSSProperties;
 }
 
 const SHELL_STYLE_PROPS = [
@@ -296,6 +304,10 @@ const SHELL_STYLE_PROPS = [
   "--sidebar-ring",
   "--sidebar-accent",
   "--sidebar-accent-foreground",
+  "--secondary",
+  "--secondary-foreground",
+  "--accent",
+  "--accent-foreground",
 ] as const;
 
 function AppShell() {
@@ -315,7 +327,9 @@ function AppShell() {
   // these on documentElement is the only way portaled UI also picks up the color.
   useEffect(() => {
     const root = document.documentElement;
-    const style = isSystemAdmin ? undefined : buildShellStyle(active.primaryColor);
+    const style = isSystemAdmin
+      ? undefined
+      : buildShellStyle({ primaryColor: active.primaryColor, secondaryColor: active.secondaryColor, accentColor: active.accentColor });
     if (style) {
       for (const [key, value] of Object.entries(style)) {
         root.style.setProperty(key, value as string);
@@ -326,19 +340,21 @@ function AppShell() {
     return () => {
       for (const key of SHELL_STYLE_PROPS) root.style.removeProperty(key);
     };
-  }, [isSystemAdmin, active.primaryColor]);
+  }, [isSystemAdmin, active.primaryColor, active.secondaryColor, active.accentColor]);
 
   // Apply school favicon to the browser tab
-  useEffect(() => {
-    if (!active.faviconUrl) return;
-    let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "icon";
-      document.head.appendChild(link);
-    }
-    link.href = active.faviconUrl;
-  }, [active.faviconUrl]);
+  useFavicon(active.faviconUrl);
+
+  // Recolor MUI's theme (buttons, chips, inputs, focus rings, …) to the active school's
+  // brand — the static `theme` export only covers the platform default, so without this
+  // MUI-native components stay the default blue/green regardless of tenant.
+  const muiTheme = useMemo(
+    () =>
+      buildTheme(
+        isSystemAdmin ? undefined : { primaryColor: active.primaryColor, secondaryColor: active.secondaryColor },
+      ),
+    [isSystemAdmin, active.primaryColor, active.secondaryColor],
+  );
 
   if (!clientReady) {
     return <div className="min-h-screen w-full bg-background" />;
@@ -355,9 +371,33 @@ function AppShell() {
 
   if (path === "/login" || !user) {
     return (
-      <div className="min-h-screen w-full bg-background">
-        {!user && path !== "/login" ? <RedirectToLogin /> : <Outlet />}
-      </div>
+      <ThemeProvider theme={muiTheme}>
+        <div className="min-h-screen w-full bg-background">
+          {!user && path !== "/login" ? <RedirectToLogin /> : <Outlet />}
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  // A freshly provisioned or admin-reset account must set its own password before it can
+  // reach anything else — that password is known to whoever created/reset the account.
+  if (user.mustChangePassword && path !== "/change-password") {
+    return (
+      <ThemeProvider theme={muiTheme}>
+        <div className="min-h-screen w-full bg-background">
+          <ForceChangePassword />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  if (path === "/change-password") {
+    return (
+      <ThemeProvider theme={muiTheme}>
+        <div className="min-h-screen w-full bg-background">
+          <Outlet />
+        </div>
+      </ThemeProvider>
     );
   }
 
@@ -367,7 +407,8 @@ function AppShell() {
   // }
 
   return (
-    <WorkspaceSidebarProvider>
+    <ThemeProvider theme={muiTheme}>
+      <WorkspaceSidebarProvider>
       <div className="app-shell flex min-h-screen w-full bg-background">
         <WorkspaceSidebar />
         <div className="workspace-frame flex min-w-0 flex-1 flex-col overflow-hidden bg-background/90">
@@ -419,6 +460,7 @@ function AppShell() {
         <CommandPalette />
       </div>
     </WorkspaceSidebarProvider>
+    </ThemeProvider>
   );
 }
 
@@ -426,6 +468,14 @@ function RedirectToLogin() {
   const router = useRouter();
   useEffect(() => {
     void router.navigate({ to: "/login" });
+  }, []);
+  return null;
+}
+
+function ForceChangePassword() {
+  const router = useRouter();
+  useEffect(() => {
+    void router.navigate({ to: "/change-password" });
   }, []);
   return null;
 }

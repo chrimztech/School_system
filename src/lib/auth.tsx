@@ -23,6 +23,7 @@ export type AppUser = {
   tenantId?: string;
   phone?: string;
   active?: boolean;
+  mustChangePassword?: boolean;
 };
 
 const SESSION_EVENT = "srms-session-changed";
@@ -114,6 +115,7 @@ type AuthContextValue = {
   loadingSession: boolean;
   signIn: (email: string) => boolean;
   completeSignIn: (session: BackendAuthSession | BackendAppUser) => void;
+  markPasswordChanged: () => void;
   signOut: () => void;
   switchRole: (role: Role) => void;
   can: (module: string) => Access;
@@ -205,6 +207,7 @@ function readStoredUser(): AppUser | null {
       tenantId: parsed.tenantId,
       phone: parsed.phone,
       active: parsed.active,
+      mustChangePassword: parsed.mustChangePassword,
     };
   } catch {
     return null;
@@ -232,6 +235,7 @@ function toAppUser(session: BackendAuthSession | BackendAppUser): AppUser {
     tenantId: session.schoolId ?? undefined,
     phone: "phone" in session ? session.phone ?? undefined : undefined,
     active: "active" in session ? session.active ?? undefined : undefined,
+    mustChangePassword: session.mustChangePassword ?? undefined,
   };
 }
 
@@ -379,6 +383,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (nextUser.tenantId) setActive(nextUser.tenantId);
         setLoadingSession(false);
         notifySessionChange();
+      },
+      markPasswordChanged: () => {
+        setUser((current) => {
+          if (!current) return current;
+          const next = { ...current, mustChangePassword: false };
+          persistUser(next);
+          return next;
+        });
       },
       signOut: () => {
         clearStoredSession();

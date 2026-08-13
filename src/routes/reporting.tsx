@@ -175,13 +175,20 @@ function ReportingPage() {
                       </Typography>
                     </Stack>
                     <Tooltip title={`${schedule}: ${count} report${count === 1 ? "" : "s"}`} placement="top" arrow>
-                      <Box sx={{ height: 10, borderRadius: 999, bgcolor: alpha("#2370bd", 0.14), overflow: "hidden" }}>
+                      <Box
+                        sx={{
+                          height: 10,
+                          borderRadius: 999,
+                          bgcolor: (t) => alpha(t.palette.primary.main, 0.14),
+                          overflow: "hidden",
+                        }}
+                      >
                         <Box
                           sx={{
                             height: "100%",
                             width: `${widthPct}%`,
                             borderRadius: 999,
-                            bgcolor: "#2370bd",
+                            bgcolor: "primary.main",
                             transition: "width 300ms ease",
                           }}
                         />

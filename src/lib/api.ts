@@ -9,6 +9,7 @@ export type BackendAuthSession = {
   role: string;
   schoolId?: string | null;
   initials?: string | null;
+  mustChangePassword?: boolean;
 };
 
 export type SubjectBreakdown = {
@@ -38,6 +39,7 @@ export type BackendAppUser = {
   schoolId?: string | null;
   phone?: string | null;
   active?: boolean;
+  mustChangePassword?: boolean;
 };
 
 export type BackendSchoolCampus = {

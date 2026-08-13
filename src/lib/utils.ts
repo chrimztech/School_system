@@ -8,8 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 /** Tone names matching the old shadcn Badge `variant` prop, for use with MUI Chip's `sx`. */
 export type BadgeTone = "default" | "secondary" | "destructive" | "outline" | "warning" | "success";
 
-const BADGE_TONES: Record<BadgeTone, { bg: string; fg: string; border: string }> = {
-  default: { bg: "rgba(35,112,189,0.1)", fg: "#2370bd", border: "rgba(35,112,189,0.2)" },
+const BADGE_TONES: Record<Exclude<BadgeTone, "default">, { bg: string; fg: string; border: string }> = {
   secondary: { bg: "#eff3f6", fg: "#222933", border: "rgba(219,222,226,0.7)" },
   destructive: { bg: "rgba(237,64,63,0.1)", fg: "#ed403f", border: "rgba(237,64,63,0.2)" },
   outline: { bg: "rgba(248,250,253,0.7)", fg: "#1a2028", border: "rgba(219,222,226,0.8)" },
@@ -17,8 +16,22 @@ const BADGE_TONES: Record<BadgeTone, { bg: string; fg: string; border: string }>
   success: { bg: "rgba(16,185,129,0.1)", fg: "#047857", border: "rgba(16,185,129,0.2)" },
 };
 
-/** MUI Chip `sx` treatment matching the old shadcn Badge visual variants. Use as `<Chip sx={badgeSx("success")} .../>`. */
+/** MUI Chip `sx` treatment matching the old shadcn Badge visual variants. Use as `<Chip sx={badgeSx("success")} .../>`.
+ * The "default" tone tracks the active school's brand color (CSS `--primary`) rather than a fixed hex, so it
+ * stays on-brand across tenants. */
 export function badgeSx(tone: BadgeTone = "default") {
+  if (tone === "default") {
+    return {
+      bgcolor: "color-mix(in srgb, var(--primary) 10%, transparent)",
+      color: "var(--primary)",
+      border: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)",
+      fontSize: 11,
+      fontWeight: 600,
+      letterSpacing: "0.01em",
+      height: "auto",
+      "& .MuiChip-label": { px: 1.25, py: 0.4 },
+    };
+  }
   const t = BADGE_TONES[tone];
   return {
     bgcolor: t.bg,
