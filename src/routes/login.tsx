@@ -8,12 +8,11 @@ import {
   Mail,
   Lock,
   ArrowRight,
+  Check,
   CalendarCheck,
   FileBadge,
   Wallet,
   ShieldCheck,
-  Sparkles,
-  LockKeyhole,
   BadgeCheck,
   TriangleAlert,
 } from "lucide-react";
@@ -31,17 +30,29 @@ import {
   CircularProgress,
   Fade,
   Collapse,
-  Divider,
   alpha,
   ThemeProvider,
   Tooltip,
 } from "@mui/material";
+import type { SxProps, Theme } from "@mui/material/styles";
 
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { schoolSlugFromHostname } from "@/lib/tenant-host";
 import { useFavicon } from "@/hooks/use-favicon";
 import { buildTheme } from "@/theme";
+
+// Default brand color for the unbranded/generic view (bare platform domain, or a school
+// that hasn't set a color yet). Scoped to this page only — the app-wide default in
+// theme.ts is a separate, larger change and deliberately left untouched here.
+const DEFAULT_BRAND = "#2447B8";
+const TEXT_PRIMARY = "#172033";
+const TEXT_SECONDARY = "#667085";
+const PAGE_BG = "#F7F9FC";
+// Roughly matches "collapse to a single card below ~1000-1100px" — MUI's built-in `lg`
+// breakpoint (1200px) sits noticeably above that, so this page uses its own threshold
+// instead of the theme default.
+const BP = 1040;
 
 const fadeSlideUp = keyframes`
   from { opacity: 0; transform: translateY(14px); }
@@ -116,6 +127,8 @@ const FEATURES = [
   { icon: ShieldCheck, label: "Role-based access, every campus", hint: "Secure" },
 ];
 
+type FieldErrors = { identifier?: string; password?: string };
+
 function LoginPage() {
   const { completeSignIn, user } = useAuth();
   const navigate = useNavigate();
@@ -123,7 +136,9 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [showForgot, setShowForgot] = useState(false);
   const [schoolBranding, setSchoolBranding] = useState<SchoolBranding | null>(null);
   const [capsLockOn, setCapsLockOn] = useState(false);
@@ -165,33 +180,65 @@ function LoginPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identifier.trim() || !password) return;
+
+    const nextFieldErrors: FieldErrors = {};
+    if (!identifier.trim()) nextFieldErrors.identifier = "Enter your email or phone number";
+    if (!password) nextFieldErrors.password = "Enter your password";
+    if (nextFieldErrors.identifier || nextFieldErrors.password) {
+      setFieldErrors(nextFieldErrors);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       const auth = await api.login(identifier.trim(), password);
       completeSignIn(auth);
+      setSuccess(true);
       toast.success(`Welcome back, ${auth.name}!`);
-      navigate({ to: "/" });
+      window.setTimeout(() => navigate({ to: "/" }), 450);
     } catch (err: unknown) {
-      const data = (err as { response?: { data?: { message?: string; error?: string } } })?.response
-        ?.data;
-      setError(data?.message ?? data?.error ?? "Invalid email/phone or password.");
-    } finally {
+      const response = (err as { response?: { data?: { message?: string; error?: string } } })?.response;
+      setError(
+        response
+          ? (response.data?.message ?? response.data?.error ?? "Invalid email/phone or password.")
+          : "Can't reach the server — check your connection and try again.",
+      );
       setLoading(false);
     }
   };
 
-  const brandPrimary = schoolBranding?.primaryColor ?? "#2370bd";
+  const brandPrimary = schoolBranding?.primaryColor ?? DEFAULT_BRAND;
   const brandAccent = schoolBranding?.secondaryColor ?? "#00c197";
 
   // Recolor MUI's theme to the resolved school's brand ahead of sign-in, so buttons,
   // inputs, and focus rings match the same colors as the gradients/logo above — not
   // just the platform default.
   const muiTheme = useMemo(
-    () => buildTheme({ primaryColor: schoolBranding?.primaryColor, secondaryColor: schoolBranding?.secondaryColor }),
+    () =>
+      buildTheme({
+        primaryColor: schoolBranding?.primaryColor ?? DEFAULT_BRAND,
+        secondaryColor: schoolBranding?.secondaryColor,
+      }),
     [schoolBranding?.primaryColor, schoolBranding?.secondaryColor],
   );
+
+  const fieldRadiusSx: SxProps<Theme> = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "12px",
+      transition: "box-shadow 180ms ease",
+    },
+    "& .MuiOutlinedInput-root .MuiInputAdornment-root svg": {
+      transition: "color 180ms ease",
+      color: "text.disabled",
+    },
+    "& .MuiOutlinedInput-root.Mui-focused .MuiInputAdornment-root svg": {
+      color: "primary.main",
+    },
+    "& .MuiOutlinedInput-root.Mui-focused": {
+      boxShadow: (t) => `0 0 0 4px ${alpha(t.palette.primary.main, 0.12)}`,
+    },
+  };
 
   return (
     <ThemeProvider theme={muiTheme}>
@@ -199,8 +246,9 @@ function LoginPage() {
       sx={{
         display: "grid",
         minHeight: "100vh",
-        gridTemplateColumns: { xs: "1fr", lg: "1.1fr 1fr" },
-        bgcolor: "background.default",
+        gridTemplateColumns: "1fr",
+        [`@media (min-width:${BP}px)`]: { gridTemplateColumns: "1.1fr 1fr" },
+        bgcolor: PAGE_BG,
       }}
     >
       {/* Left branding panel */}
@@ -208,7 +256,8 @@ function LoginPage() {
         sx={{
           position: "relative",
           overflow: "hidden",
-          display: { xs: "none", lg: "flex" },
+          display: "none",
+          [`@media (min-width:${BP}px)`]: { display: "flex" },
           flexDirection: "column",
           justifyContent: "space-between",
           p: 7,
@@ -266,20 +315,20 @@ function LoginPage() {
         />
 
         {/* Logo */}
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", position: "relative", zIndex: 1, ...reveal(0) }}>
+        <Stack direction="row" spacing={1.75} sx={{ alignItems: "center", position: "relative", zIndex: 1, ...reveal(0) }}>
           {schoolBranding?.logoUrl ? (
             <Box
               component="img"
               src={schoolBranding.logoUrl}
               alt={schoolBranding.name}
               sx={{
-                height: 36,
-                width: 36,
-                borderRadius: 2,
+                height: 52,
+                width: 52,
+                borderRadius: 2.5,
                 objectFit: "contain",
-                bgcolor: "rgba(255,255,255,0.1)",
-                p: 0.5,
-                boxShadow: `0 0 0 1px rgba(255,255,255,0.12), 0 6px 16px -4px ${alpha(brandPrimary, 0.5)}`,
+                bgcolor: "rgba(255,255,255,0.12)",
+                p: 0.75,
+                boxShadow: `0 0 0 1px rgba(255,255,255,0.14), 0 8px 20px -4px ${alpha(brandPrimary, 0.55)}`,
                 animation: `${scaleIn} 0.5s cubic-bezier(0.16, 1, 0.3, 1) both`,
               }}
             />
@@ -287,33 +336,33 @@ function LoginPage() {
             <Box
               sx={{
                 display: "flex",
-                height: 36,
-                width: 36,
+                height: 52,
+                width: 52,
                 alignItems: "center",
                 justifyContent: "center",
-                borderRadius: 2,
-                bgcolor: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 2.5,
+                bgcolor: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.14)",
               }}
             >
-              <GraduationCap size={18} color="#fff" />
+              <GraduationCap size={26} color="#fff" />
             </Box>
           )}
-          <Box sx={{ lineHeight: 1 }}>
+          <Box sx={{ lineHeight: 1.3 }}>
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 600, color: "#fff", letterSpacing: "-0.01em" }}>
+              <Typography sx={{ fontSize: 16, fontWeight: 600, color: "#fff", letterSpacing: "-0.01em" }}>
                 {schoolBranding ? schoolBranding.name : "SRMS"}
               </Typography>
               {schoolBranding && (
                 <Tooltip title="This is your school's verified workspace">
-                  <Box sx={{ display: "flex", color: "#34d399", animation: `${scaleIn} 0.4s ease 0.15s both` }}>
-                    <BadgeCheck size={13} />
+                  <Box sx={{ display: "flex", color: "#5eead4", animation: `${scaleIn} 0.4s ease 0.15s both` }}>
+                    <BadgeCheck size={14} />
                   </Box>
                 </Tooltip>
               )}
             </Stack>
             {schoolBranding && (
-              <Typography sx={{ fontSize: 10, color: "rgba(255,255,255,0.3)", mt: 0.25 }}>
+              <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.65)", mt: 0.25 }}>
                 {[schoolBranding.district, schoolBranding.province].filter(Boolean).join(" · ")}
               </Typography>
             )}
@@ -321,15 +370,15 @@ function LoginPage() {
         </Stack>
 
         {/* Hero content */}
-        <Box sx={{ position: "relative", zIndex: 1, maxWidth: 440 }}>
+        <Box sx={{ position: "relative", zIndex: 1, maxWidth: 460 }}>
           <Box
             sx={{
               display: "inline-flex",
               alignItems: "center",
               gap: 0.75,
               borderRadius: 999,
-              bgcolor: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              bgcolor: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.14)",
               px: 1.5,
               py: 0.5,
               mb: 4,
@@ -337,31 +386,31 @@ function LoginPage() {
             }}
           >
             <Box sx={{ height: 6, width: 6, borderRadius: "50%", bgcolor: "#34d399", animation: `${pulse} 2.2s ease-in-out infinite` }} />
-            <Typography sx={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.02em", color: "rgba(255,255,255,0.55)" }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.02em", color: "rgba(255,255,255,0.8)" }}>
               School management platform
             </Typography>
           </Box>
 
           {schoolBranding ? (
-            <Box sx={{ mb: 4, ...reveal(0.1) }}>
+            <Box sx={{ mb: 3, ...reveal(0.1) }}>
               <Typography
-                sx={{ fontSize: 38, fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.02em", color: "#fff", mb: schoolBranding.motto ? 1.5 : 0 }}
+                sx={{ fontSize: 44, fontWeight: 600, lineHeight: 1.12, letterSpacing: "-0.02em", color: "#fff", mb: schoolBranding.motto ? 1.5 : 0 }}
               >
                 {schoolBranding.name}
               </Typography>
               {schoolBranding.motto && (
-                <Typography sx={{ fontSize: 15, color: "rgba(255,255,255,0.45)", fontStyle: "italic", lineHeight: 1.6 }}>
+                <Typography sx={{ fontSize: 16, color: "rgba(255,255,255,0.75)", fontStyle: "italic", lineHeight: 1.6 }}>
                   "{schoolBranding.motto}"
                 </Typography>
               )}
             </Box>
           ) : (
-            <Typography sx={{ fontSize: 38, fontWeight: 600, lineHeight: 1.18, letterSpacing: "-0.02em", color: "#fff", mb: 4, ...reveal(0.1) }}>
-              The complete platform for school administration.
+            <Typography sx={{ fontSize: 44, fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.02em", color: "#fff", mb: 3, ...reveal(0.1) }}>
+              Sign in to your school's management platform.
             </Typography>
           )}
 
-          <Typography sx={{ fontSize: 14, color: "rgba(255,255,255,0.4)", lineHeight: 1.6, mb: 4, ...reveal(0.15) }}>
+          <Typography sx={{ fontSize: 16, color: "rgba(255,255,255,0.78)", lineHeight: 1.6, mb: 4, ...reveal(0.15) }}>
             Admissions through graduation — attendance, assessments, fees, and reporting, unified in
             one secure system of record.
           </Typography>
@@ -372,25 +421,25 @@ function LoginPage() {
                 key={label}
                 sx={{
                   borderRadius: 3,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  bgcolor: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  bgcolor: "rgba(255,255,255,0.05)",
                   p: 1.75,
                   backdropFilter: "blur(4px)",
                   transition: "background 200ms ease, border-color 200ms ease",
                   "&:hover": {
-                    bgcolor: "rgba(255,255,255,0.06)",
-                    borderColor: "rgba(255,255,255,0.16)",
+                    bgcolor: "rgba(255,255,255,0.08)",
+                    borderColor: "rgba(255,255,255,0.2)",
                   },
                   ...reveal(0.2 + i * 0.05),
                 }}
               >
                 <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
-                  <Icon size={16} color="rgba(255,255,255,0.5)" />
-                  <Typography sx={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.25)" }}>
+                  <Icon size={16} color="rgba(255,255,255,0.85)" />
+                  <Typography sx={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.55)" }}>
                     {hint}
                   </Typography>
                 </Stack>
-                <Typography sx={{ mt: 1, fontSize: 12.5, lineHeight: 1.4, color: "rgba(255,255,255,0.6)" }}>
+                <Typography sx={{ mt: 1, fontSize: 12.5, lineHeight: 1.4, color: "rgba(255,255,255,0.85)" }}>
                   {label}
                 </Typography>
               </Box>
@@ -406,17 +455,17 @@ function LoginPage() {
             justifyContent: "space-between",
             position: "relative",
             zIndex: 1,
-            borderTop: "1px solid rgba(255,255,255,0.08)",
+            borderTop: "1px solid rgba(255,255,255,0.12)",
             pt: 2.5,
             ...reveal(0.35),
           }}
         >
-          <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
+          <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
             © {new Date().getFullYear()} School Records Management System
           </Typography>
-          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: "rgba(255,255,255,0.25)" }}>
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: "rgba(255,255,255,0.6)" }}>
             <ShieldCheck size={14} />
-            <Typography sx={{ fontSize: 11 }}>256-bit SSL</Typography>
+            <Typography sx={{ fontSize: 11 }}>Protected with TLS</Typography>
           </Stack>
         </Stack>
       </Box>
@@ -425,6 +474,7 @@ function LoginPage() {
       <Box
         sx={{
           position: "relative",
+          overflow: "hidden",
           display: "flex",
           minHeight: "100vh",
           flexDirection: "column",
@@ -434,22 +484,49 @@ function LoginPage() {
           py: 8,
         }}
       >
+        {/* Ambient brand glow — ties this panel back to the left side's color instead of
+            reading as a flat, disconnected white void once the card's narrow 460px width
+            leaves most of a wide viewport empty. */}
+        <Box
+          sx={{
+            pointerEvents: "none",
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            height: 640,
+            width: 640,
+            transform: "translate(-50%, -50%)",
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${alpha(brandPrimary, 0.1)} 0%, transparent 68%)`,
+            transition: "background 700ms ease",
+          }}
+        />
+
         <Fade in timeout={500}>
-          <Box sx={{ width: "100%", maxWidth: 400 }}>
+          <Box sx={{ width: "100%", maxWidth: 460, position: "relative" }}>
             {/* Mobile brand header */}
-            <Stack spacing={1.5} sx={{ alignItems: "center", mb: 4.5, textAlign: "center", display: { xs: "flex", lg: "none" } }}>
+            <Stack
+              spacing={1.5}
+              sx={{
+                alignItems: "center",
+                mb: 4.5,
+                textAlign: "center",
+                display: "flex",
+                [`@media (min-width:${BP}px)`]: { display: "none" },
+              }}
+            >
               <Box
                 sx={{
                   display: "flex",
-                  height: 48,
-                  width: 48,
+                  height: 64,
+                  width: 64,
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: 3,
                   color: "#fff",
-                  boxShadow: 2,
                   background: `linear-gradient(135deg, ${brandPrimary}, ${brandAccent})`,
-                  transition: "background 700ms ease",
+                  boxShadow: `0 8px 20px -6px ${alpha(brandPrimary, 0.5)}`,
+                  transition: "background 700ms ease, box-shadow 700ms ease",
                 }}
               >
                 {schoolBranding?.logoUrl ? (
@@ -458,29 +535,29 @@ function LoginPage() {
                     src={schoolBranding.logoUrl}
                     alt={schoolBranding.name}
                     sx={{
-                      height: 28,
-                      width: 28,
-                      borderRadius: 1,
+                      height: 40,
+                      width: 40,
+                      borderRadius: 1.5,
                       objectFit: "contain",
-                      bgcolor: "rgba(255,255,255,0.15)",
+                      bgcolor: "rgba(255,255,255,0.18)",
                       animation: `${scaleIn} 0.5s cubic-bezier(0.16, 1, 0.3, 1) both`,
                     }}
                   />
                 ) : (
-                  <GraduationCap size={24} />
+                  <GraduationCap size={30} />
                 )}
               </Box>
               <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-                <Typography sx={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                <Typography sx={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em", color: TEXT_PRIMARY }}>
                   {schoolBranding?.name ?? "SRMS"}
                 </Typography>
                 {schoolBranding && (
                   <Box sx={{ display: "flex", color: "success.main" }}>
-                    <BadgeCheck size={14} />
+                    <BadgeCheck size={15} />
                   </Box>
                 )}
               </Stack>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: TEXT_SECONDARY }}>
                 School Records Management System
               </Typography>
             </Stack>
@@ -488,19 +565,19 @@ function LoginPage() {
             <Paper
               elevation={2}
               sx={{
-                p: { xs: 3.5, sm: 4 },
-                borderRadius: 5,
+                p: { xs: "28px", sm: "40px" },
+                borderRadius: "20px",
                 border: "1px solid",
                 borderColor: "divider",
               }}
             >
               <Box
                 sx={{
-                  height: 2,
+                  height: 3,
                   width: 80,
                   borderRadius: 1,
                   mb: 3,
-                  background: `linear-gradient(90deg, ${alpha(brandPrimary, 0.6)}, transparent)`,
+                  background: `linear-gradient(90deg, ${alpha(brandPrimary, 0.7)}, transparent)`,
                   transition: "background 700ms ease",
                 }}
               />
@@ -513,14 +590,15 @@ function LoginPage() {
                   spacing={1}
                   sx={{
                     alignItems: "center",
-                    mb: 2,
+                    mb: 2.5,
                     p: 1,
                     pr: 1.5,
-                    borderRadius: 3,
-                    bgcolor: (t) => alpha(t.palette.primary.main, 0.06),
+                    borderRadius: "12px",
+                    bgcolor: (t) => alpha(t.palette.primary.main, 0.07),
                     border: "1px solid",
-                    borderColor: (t) => alpha(t.palette.primary.main, 0.14),
+                    borderColor: (t) => alpha(t.palette.primary.main, 0.16),
                     transition: "background-color 700ms ease, border-color 700ms ease",
+                    ...reveal(0),
                   }}
                 >
                   {schoolBranding.logoUrl ? (
@@ -528,14 +606,14 @@ function LoginPage() {
                       component="img"
                       src={schoolBranding.logoUrl}
                       alt={schoolBranding.name}
-                      sx={{ height: 24, width: 24, borderRadius: 1.5, objectFit: "contain", bgcolor: "background.paper" }}
+                      sx={{ height: 30, width: 30, borderRadius: 1.5, objectFit: "contain", bgcolor: "background.paper" }}
                     />
                   ) : (
                     <Box
                       sx={{
                         display: "flex",
-                        height: 24,
-                        width: 24,
+                        height: 30,
+                        width: 30,
                         alignItems: "center",
                         justifyContent: "center",
                         borderRadius: 1.5,
@@ -543,25 +621,25 @@ function LoginPage() {
                         color: "primary.contrastText",
                       }}
                     >
-                      <GraduationCap size={13} />
+                      <GraduationCap size={16} />
                     </Box>
                   )}
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em", flex: 1, minWidth: 0 }} noWrap>
+                  <Typography sx={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em", flex: 1, minWidth: 0, color: TEXT_PRIMARY }} noWrap>
                     {schoolBranding.name}
                   </Typography>
                   <Tooltip title="This is your school's verified workspace">
                     <Box sx={{ display: "flex", color: "success.main", flexShrink: 0 }}>
-                      <BadgeCheck size={15} />
+                      <BadgeCheck size={16} />
                     </Box>
                   </Tooltip>
                 </Stack>
               )}
 
-              <Box sx={{ mb: 3 }}>
-                <Typography sx={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+              <Box sx={{ mb: 3, ...reveal(0.06) }}>
+                <Typography sx={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1.2, color: TEXT_PRIMARY }}>
                   Sign in
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                <Typography sx={{ fontSize: 14, color: TEXT_SECONDARY, mt: 0.5, lineHeight: 1.5 }}>
                   {schoolBranding
                     ? "Enter your credentials to continue"
                     : "to your school's management platform"}
@@ -569,71 +647,104 @@ function LoginPage() {
               </Box>
 
               {error && (
-                <Alert key={error} severity="error" sx={{ mb: 2.5, animation: `${shake} 0.4s ease` }}>
+                <Alert
+                  id="login-error"
+                  role="alert"
+                  key={error}
+                  severity="error"
+                  sx={{ mb: 2.5, borderRadius: "12px", animation: `${shake} 0.4s ease` }}
+                >
                   {error}
                 </Alert>
               )}
 
-              <Box component="form" onSubmit={submit} suppressHydrationWarning>
-                <Stack spacing={2}>
-                  <TextField
-                    id="email"
-                    label="Email or phone number"
-                    type="text"
-                    value={identifier}
-                    onChange={(e) => {
-                      setIdentifier(e.target.value);
-                      setError(null);
-                    }}
-                    placeholder="you@school.zm or 0977 000 000"
-                    autoComplete="username"
-                    autoFocus
-                    required
-                    fullWidth
-                    disabled={loading}
-                    error={Boolean(error)}
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Mail size={16} />
-                          </InputAdornment>
-                        ),
-                      },
-                    }}
-                  />
+              <Box component="form" onSubmit={submit} suppressHydrationWarning noValidate sx={reveal(0.12)}>
+                <Stack spacing={2.5}>
+                  <Box>
+                    <Typography
+                      component="label"
+                      htmlFor="email"
+                      sx={{ display: "block", fontSize: 13.5, fontWeight: 500, color: TEXT_PRIMARY, mb: 0.75 }}
+                    >
+                      Email or phone number <Box component="span" sx={{ color: TEXT_SECONDARY }}>*</Box>
+                    </Typography>
+                    <TextField
+                      id="email"
+                      type="text"
+                      value={identifier}
+                      onChange={(e) => {
+                        setIdentifier(e.target.value);
+                        setFieldErrors((f) => ({ ...f, identifier: undefined }));
+                        setError(null);
+                      }}
+                      placeholder="you@school.zm or 0977 000 000"
+                      autoComplete="username"
+                      autoFocus
+                      fullWidth
+                      disabled={loading}
+                      error={Boolean(error) || Boolean(fieldErrors.identifier)}
+                      helperText={fieldErrors.identifier}
+                      aria-describedby={error ? "login-error" : undefined}
+                      sx={fieldRadiusSx}
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Mail size={16} />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
+                  </Box>
 
                   <Box>
                     <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
-                      <Box component="label" htmlFor="password" sx={{ fontSize: 0 }} />
-                      <Box sx={{ flex: 1 }} />
+                      <Typography component="label" htmlFor="password" sx={{ fontSize: 13.5, fontWeight: 500, color: TEXT_PRIMARY }}>
+                        Password <Box component="span" sx={{ color: TEXT_SECONDARY }}>*</Box>
+                      </Typography>
                       <Button
                         type="button"
                         variant="text"
                         size="small"
                         onClick={() => setShowForgot((v) => !v)}
-                        sx={{ minWidth: 0, p: 0, fontSize: 12, fontWeight: 400, color: "text.secondary", textTransform: "none" }}
+                        sx={{
+                          minWidth: 0,
+                          minHeight: 0,
+                          p: 0.5,
+                          m: -0.5,
+                          borderRadius: "6px",
+                          fontSize: 12.5,
+                          fontWeight: 500,
+                          color: "primary.main",
+                          textTransform: "none",
+                          "&:focus-visible": {
+                            boxShadow: (t) => `0 0 0 2px ${alpha(t.palette.primary.main, 0.4)}`,
+                          },
+                        }}
                       >
                         Forgot password?
                       </Button>
                     </Stack>
                     <TextField
                       id="password"
-                      label="Password"
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
+                        setFieldErrors((f) => ({ ...f, password: undefined }));
                         setError(null);
                       }}
                       onKeyUp={(e) => setCapsLockOn(e.getModifierState?.("CapsLock") ?? false)}
                       onBlur={() => setCapsLockOn(false)}
                       placeholder="••••••••"
                       autoComplete="current-password"
-                      required
                       fullWidth
                       disabled={loading}
-                      error={Boolean(error)}
+                      error={Boolean(error) || Boolean(fieldErrors.password)}
+                      helperText={fieldErrors.password}
+                      aria-describedby={error ? "login-error" : undefined}
+                      sx={fieldRadiusSx}
                       slotProps={{
                         input: {
                           startAdornment: (
@@ -648,9 +759,15 @@ function LoginPage() {
                                 onClick={() => setShowPassword((v) => !v)}
                                 aria-label={showPassword ? "Hide password" : "Show password"}
                                 edge="end"
-                                size="small"
+                                sx={{ minWidth: 44, minHeight: 44 }}
                               >
-                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                <Box
+                                  key={showPassword ? "hide" : "show"}
+                                  component="span"
+                                  sx={{ display: "flex", animation: `${scaleIn} 0.2s ease both` }}
+                                >
+                                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </Box>
                               </IconButton>
                             </InputAdornment>
                           ),
@@ -666,7 +783,7 @@ function LoginPage() {
                   </Box>
 
                   <Collapse in={showForgot} timeout={200}>
-                    <Alert severity="info" icon={false} sx={{ bgcolor: "action.hover", color: "text.secondary", fontSize: 12 }}>
+                    <Alert severity="info" icon={false} sx={{ bgcolor: "action.hover", color: TEXT_SECONDARY, fontSize: 12.5, borderRadius: "12px" }}>
                       Contact your school administrator to reset your password — they can set a
                       temporary one from the user management panel.
                     </Alert>
@@ -677,19 +794,33 @@ function LoginPage() {
                     variant="contained"
                     size="large"
                     fullWidth
-                    disabled={loading || !identifier.trim() || !password}
-                    endIcon={!loading ? <ArrowRight size={16} /> : undefined}
+                    disabled={loading}
+                    endIcon={
+                      !loading && !success ? (
+                        <Box component="span" className="signin-arrow" sx={{ display: "flex", transition: "transform 200ms ease" }}>
+                          <ArrowRight size={16} />
+                        </Box>
+                      ) : undefined
+                    }
                     sx={{
+                      borderRadius: "12px",
+                      minHeight: 52,
                       boxShadow: (t) => `0 10px 24px -8px ${alpha(t.palette.primary.main, 0.55)}`,
                       transition: "box-shadow 200ms ease, transform 150ms ease",
                       "&:hover": {
                         boxShadow: (t) => `0 12px 28px -6px ${alpha(t.palette.primary.main, 0.65)}`,
                         transform: "translateY(-1px)",
                       },
+                      "&:hover .signin-arrow": { transform: "translateX(3px)" },
                       "&:active": { transform: "translateY(0)" },
                     }}
                   >
-                    {loading ? (
+                    {success ? (
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center", animation: `${scaleIn} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both` }}>
+                        <Check size={16} />
+                        <span>Signed in</span>
+                      </Stack>
+                    ) : loading ? (
                       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                         <CircularProgress size={16} color="inherit" />
                         <span>Signing in…</span>
@@ -701,34 +832,13 @@ function LoginPage() {
                 </Stack>
               </Box>
 
-              <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", my: 3, color: "text.disabled" }}>
-                <Divider sx={{ flex: 1 }} />
-                <Typography sx={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Secured by SRMS
-                </Typography>
-                <Divider sx={{ flex: 1 }} />
-              </Stack>
+              <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY, textAlign: "center", mt: 3, lineHeight: 1.6, ...reveal(0.18) }}>
+                Secured by SRMS · Protected with TLS · ECZ aligned
+              </Typography>
 
-              <Stack direction="row" spacing={2.5} sx={{ alignItems: "center", justifyContent: "center", color: "text.secondary" }}>
-                <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                  <LockKeyhole size={14} />
-                  <Typography variant="caption">Encrypted</Typography>
-                </Stack>
-                <Divider orientation="vertical" flexItem />
-                <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                  <Sparkles size={14} />
-                  <Typography variant="caption">ECZ aligned</Typography>
-                </Stack>
-                <Divider orientation="vertical" flexItem />
-                <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                  <ShieldCheck size={14} />
-                  <Typography variant="caption">99.9% uptime</Typography>
-                </Stack>
-              </Stack>
-
-              <Typography variant="caption" color="text.secondary" align="center" sx={{ display: "block", mt: 3 }}>
+              <Typography sx={{ fontSize: 12.5, color: TEXT_SECONDARY, textAlign: "center", mt: 2, lineHeight: 1.6, ...reveal(0.18) }}>
                 Need access? Contact your school administrator or{" "}
-                <Box component="span" sx={{ color: "text.primary" }}>
+                <Box component="span" sx={{ color: TEXT_PRIMARY, fontWeight: 500 }}>
                   support@srms.zm
                 </Box>
                 .

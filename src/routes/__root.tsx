@@ -284,14 +284,31 @@ function buildShellStyle(brand: BrandColors): React.CSSProperties | undefined {
     "--sidebar-accent": `color-mix(in srgb, ${primaryColor} 14%, #0e1423)`,
     "--sidebar-accent-foreground": "oklch(0.94 0.005 245)",
   };
-  if (isValidHexColor(brand.secondaryColor)) {
-    style["--secondary"] = brand.secondaryColor;
-    style["--secondary-foreground"] = contrastFor(brand.secondaryColor);
+  const secondaryColor = isValidHexColor(brand.secondaryColor) ? brand.secondaryColor : undefined;
+  const accentColor = isValidHexColor(brand.accentColor) ? brand.accentColor : undefined;
+  if (secondaryColor) {
+    style["--secondary"] = secondaryColor;
+    style["--secondary-foreground"] = contrastFor(secondaryColor);
   }
-  if (isValidHexColor(brand.accentColor)) {
-    style["--accent"] = brand.accentColor;
-    style["--accent-foreground"] = contrastFor(brand.accentColor);
+  if (accentColor) {
+    style["--accent"] = accentColor;
+    style["--accent-foreground"] = contrastFor(accentColor);
   }
+
+  // Dashboard/report charts (index.tsx, results-analysis.tsx, etc.) plot against
+  // var(--color-chart-1..5), which resolves through these five vars — previously never
+  // overridden per tenant, so every school's charts silently used the same platform
+  // default palette regardless of their brand color. Root chart-1/2/3 in the tenant's
+  // actual colors, and derive two more tints from primary so there's still visual
+  // separation between series for a school that's only set a primary color.
+  style["--chart-1"] = primaryColor;
+  style["--chart-2"] = secondaryColor ?? `color-mix(in srgb, ${primaryColor} 55%, white)`;
+  style["--chart-3"] = accentColor ?? `color-mix(in srgb, ${primaryColor} 70%, black)`;
+  style["--chart-4"] = `color-mix(in srgb, ${primaryColor} 35%, white)`;
+  style["--chart-5"] = secondaryColor
+    ? `color-mix(in srgb, ${secondaryColor} 60%, ${primaryColor})`
+    : `color-mix(in srgb, ${primaryColor} 85%, black)`;
+
   return style as React.CSSProperties;
 }
 
@@ -308,6 +325,11 @@ const SHELL_STYLE_PROPS = [
   "--secondary-foreground",
   "--accent",
   "--accent-foreground",
+  "--chart-1",
+  "--chart-2",
+  "--chart-3",
+  "--chart-4",
+  "--chart-5",
 ] as const;
 
 function AppShell() {
