@@ -315,20 +315,20 @@ function LoginPage() {
         />
 
         {/* Logo */}
-        <Stack direction="row" spacing={1.75} sx={{ alignItems: "center", position: "relative", zIndex: 1, ...reveal(0) }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center", position: "relative", zIndex: 1, ...reveal(0) }}>
           {schoolBranding?.logoUrl ? (
             <Box
               component="img"
               src={schoolBranding.logoUrl}
               alt={schoolBranding.name}
               sx={{
-                height: 52,
-                width: 52,
-                borderRadius: 2.5,
+                height: 68,
+                width: 68,
+                borderRadius: 3,
                 objectFit: "contain",
                 bgcolor: "rgba(255,255,255,0.12)",
-                p: 0.75,
-                boxShadow: `0 0 0 1px rgba(255,255,255,0.14), 0 8px 20px -4px ${alpha(brandPrimary, 0.55)}`,
+                p: 1,
+                boxShadow: `0 0 0 1px rgba(255,255,255,0.14), 0 10px 24px -4px ${alpha(brandPrimary, 0.55)}`,
                 animation: `${scaleIn} 0.5s cubic-bezier(0.16, 1, 0.3, 1) both`,
               }}
             />
@@ -336,33 +336,33 @@ function LoginPage() {
             <Box
               sx={{
                 display: "flex",
-                height: 52,
-                width: 52,
+                height: 68,
+                width: 68,
                 alignItems: "center",
                 justifyContent: "center",
-                borderRadius: 2.5,
+                borderRadius: 3,
                 bgcolor: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.14)",
               }}
             >
-              <GraduationCap size={26} color="#fff" />
+              <GraduationCap size={32} color="#fff" />
             </Box>
           )}
           <Box sx={{ lineHeight: 1.3 }}>
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-              <Typography sx={{ fontSize: 16, fontWeight: 600, color: "#fff", letterSpacing: "-0.01em" }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 600, color: "#fff", letterSpacing: "-0.01em" }}>
                 {schoolBranding ? schoolBranding.name : "SRMS"}
               </Typography>
               {schoolBranding && (
                 <Tooltip title="This is your school's verified workspace">
                   <Box sx={{ display: "flex", color: "#5eead4", animation: `${scaleIn} 0.4s ease 0.15s both` }}>
-                    <BadgeCheck size={14} />
+                    <BadgeCheck size={15} />
                   </Box>
                 </Tooltip>
               )}
             </Stack>
             {schoolBranding && (
-              <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.65)", mt: 0.25 }}>
+              <Typography sx={{ fontSize: 12, color: "rgba(255,255,255,0.65)", mt: 0.25 }}>
                 {[schoolBranding.district, schoolBranding.province].filter(Boolean).join(" · ")}
               </Typography>
             )}
@@ -463,10 +463,6 @@ function LoginPage() {
           <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
             © {new Date().getFullYear()} School Records Management System
           </Typography>
-          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: "rgba(255,255,255,0.6)" }}>
-            <ShieldCheck size={14} />
-            <Typography sx={{ fontSize: 11 }}>Protected with TLS</Typography>
-          </Stack>
         </Stack>
       </Box>
 
@@ -518,14 +514,14 @@ function LoginPage() {
               <Box
                 sx={{
                   display: "flex",
-                  height: 64,
-                  width: 64,
+                  height: 84,
+                  width: 84,
                   alignItems: "center",
                   justifyContent: "center",
-                  borderRadius: 3,
+                  borderRadius: 3.5,
                   color: "#fff",
                   background: `linear-gradient(135deg, ${brandPrimary}, ${brandAccent})`,
-                  boxShadow: `0 8px 20px -6px ${alpha(brandPrimary, 0.5)}`,
+                  boxShadow: `0 10px 26px -6px ${alpha(brandPrimary, 0.5)}`,
                   transition: "background 700ms ease, box-shadow 700ms ease",
                 }}
               >
@@ -535,16 +531,16 @@ function LoginPage() {
                     src={schoolBranding.logoUrl}
                     alt={schoolBranding.name}
                     sx={{
-                      height: 40,
-                      width: 40,
-                      borderRadius: 1.5,
+                      height: 54,
+                      width: 54,
+                      borderRadius: 2,
                       objectFit: "contain",
                       bgcolor: "rgba(255,255,255,0.18)",
                       animation: `${scaleIn} 0.5s cubic-bezier(0.16, 1, 0.3, 1) both`,
                     }}
                   />
                 ) : (
-                  <GraduationCap size={30} />
+                  <GraduationCap size={40} />
                 )}
               </Box>
               <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
@@ -587,13 +583,13 @@ function LoginPage() {
               {schoolBranding && (
                 <Stack
                   direction="row"
-                  spacing={1}
+                  spacing={1.25}
                   sx={{
                     alignItems: "center",
                     mb: 2.5,
-                    p: 1,
-                    pr: 1.5,
-                    borderRadius: "12px",
+                    p: 1.25,
+                    pr: 1.75,
+                    borderRadius: "14px",
                     bgcolor: (t) => alpha(t.palette.primary.main, 0.07),
                     border: "1px solid",
                     borderColor: (t) => alpha(t.palette.primary.main, 0.16),
@@ -606,25 +602,26 @@ function LoginPage() {
                       component="img"
                       src={schoolBranding.logoUrl}
                       alt={schoolBranding.name}
-                      sx={{ height: 30, width: 30, borderRadius: 1.5, objectFit: "contain", bgcolor: "background.paper" }}
+                      sx={{ height: 40, width: 40, borderRadius: 1.75, objectFit: "contain", bgcolor: "background.paper", flexShrink: 0 }}
                     />
                   ) : (
                     <Box
                       sx={{
                         display: "flex",
-                        height: 30,
-                        width: 30,
+                        height: 40,
+                        width: 40,
                         alignItems: "center",
                         justifyContent: "center",
-                        borderRadius: 1.5,
+                        borderRadius: 1.75,
                         bgcolor: "primary.main",
                         color: "primary.contrastText",
+                        flexShrink: 0,
                       }}
                     >
-                      <GraduationCap size={16} />
+                      <GraduationCap size={20} />
                     </Box>
                   )}
-                  <Typography sx={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em", flex: 1, minWidth: 0, color: TEXT_PRIMARY }} noWrap>
+                  <Typography sx={{ fontSize: 14.5, fontWeight: 600, letterSpacing: "-0.01em", flex: 1, minWidth: 0, color: TEXT_PRIMARY }} noWrap>
                     {schoolBranding.name}
                   </Typography>
                   <Tooltip title="This is your school's verified workspace">
@@ -833,13 +830,13 @@ function LoginPage() {
               </Box>
 
               <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY, textAlign: "center", mt: 3, lineHeight: 1.6, ...reveal(0.18) }}>
-                Secured by SRMS · Protected with TLS · ECZ aligned
+                Secured by SRMS · ECZ aligned
               </Typography>
 
               <Typography sx={{ fontSize: 12.5, color: TEXT_SECONDARY, textAlign: "center", mt: 2, lineHeight: 1.6, ...reveal(0.18) }}>
                 Need access? Contact your school administrator or{" "}
                 <Box component="span" sx={{ color: TEXT_PRIMARY, fontWeight: 500 }}>
-                  support@srms.zm
+                  chrishentmatakala@yahoo.com
                 </Box>
                 .
               </Typography>
