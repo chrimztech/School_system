@@ -72,7 +72,7 @@ import {
 } from "@mui/material";
 import { useTenant, formatGrade, gradingBandForPercentage } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
-import { api } from "@/lib/api";
+import { api, isValidSchoolId } from "@/lib/api";
 import { badgeSx, gradeChipSx } from "@/lib/utils";
 import { PaymentDialog } from "@/components/payment-dialog";
 
@@ -878,13 +878,14 @@ function ParentDashboard() {
   const { data: children = [], isLoading } = useQuery({
     queryKey: ["guardian-children", schoolId, user?.email, user?.phone],
     queryFn: () => api.students.listByGuardian(schoolId, { email: user?.email, phone: user?.phone }),
-    enabled: !!(user?.email || user?.phone),
+    enabled: isValidSchoolId(schoolId) && !!(user?.email || user?.phone),
   });
 
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements", schoolId],
     queryFn: () => api.communication.announcements(schoolId),
     retry: false,
+    enabled: isValidSchoolId(schoolId),
   });
 
   const childList = children as any[];
@@ -995,29 +996,34 @@ function StaffDashboard() {
   const [annForm, setAnnForm] = useState({ title: "", body: "", channels: "SMS" });
 
   const schoolId = school.id;
+  // active.id is "" until TenantProvider's async school-list fetch resolves (e.g. right
+  // after login, or on first mount before the token-triggered fetch completes) — firing
+  // these with an empty schoolId threw "No valid school ID" from schoolPath() every time,
+  // visible in the console and surfacing as a real (if transient) failed-query state.
+  const hasValidSchool = isValidSchoolId(schoolId);
   const { data: dash } = useQuery({
     queryKey: ["dashboard", schoolId],
     queryFn: () => api.dashboard(schoolId),
     retry: false,
-    enabled: !isSystemAdmin,
+    enabled: !isSystemAdmin && hasValidSchool,
   });
   const { data: attendanceSummary } = useQuery({
     queryKey: ["attendance-summary", schoolId],
     queryFn: () => api.attendance.summary(schoolId),
     retry: false,
-    enabled: !isSystemAdmin,
+    enabled: !isSystemAdmin && hasValidSchool,
   });
   const { data: feesCollected } = useQuery({
     queryKey: ["fees-collected", schoolId],
     queryFn: () => api.fees.collected(schoolId),
     retry: false,
-    enabled: !isSystemAdmin,
+    enabled: !isSystemAdmin && hasValidSchool,
   });
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements", schoolId],
     queryFn: () => api.communication.announcements(schoolId),
     retry: false,
-    enabled: !isSystemAdmin,
+    enabled: !isSystemAdmin && hasValidSchool,
   });
 
   const attendanceToday = attendanceSummary ??

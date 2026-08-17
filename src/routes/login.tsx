@@ -322,30 +322,32 @@ function LoginPage() {
               src={schoolBranding.logoUrl}
               alt={schoolBranding.name}
               sx={{
-                height: 68,
-                width: 68,
-                borderRadius: 3,
+                height: 100,
+                width: 100,
+                borderRadius: 3.5,
                 objectFit: "contain",
                 bgcolor: "rgba(255,255,255,0.12)",
-                p: 1,
-                boxShadow: `0 0 0 1px rgba(255,255,255,0.14), 0 10px 24px -4px ${alpha(brandPrimary, 0.55)}`,
+                p: 1.25,
+                boxShadow: `0 0 0 1px rgba(255,255,255,0.14), 0 14px 32px -6px ${alpha(brandPrimary, 0.6)}`,
                 animation: `${scaleIn} 0.5s cubic-bezier(0.16, 1, 0.3, 1) both`,
+                flexShrink: 0,
               }}
             />
           ) : (
             <Box
               sx={{
                 display: "flex",
-                height: 68,
-                width: 68,
+                height: 100,
+                width: 100,
                 alignItems: "center",
                 justifyContent: "center",
-                borderRadius: 3,
+                borderRadius: 3.5,
                 bgcolor: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.14)",
+                flexShrink: 0,
               }}
             >
-              <GraduationCap size={32} color="#fff" />
+              <GraduationCap size={46} color="#fff" />
             </Box>
           )}
           <Box sx={{ lineHeight: 1.3 }}>
@@ -514,14 +516,14 @@ function LoginPage() {
               <Box
                 sx={{
                   display: "flex",
-                  height: 84,
-                  width: 84,
+                  height: 112,
+                  width: 112,
                   alignItems: "center",
                   justifyContent: "center",
-                  borderRadius: 3.5,
+                  borderRadius: 4,
                   color: "#fff",
                   background: `linear-gradient(135deg, ${brandPrimary}, ${brandAccent})`,
-                  boxShadow: `0 10px 26px -6px ${alpha(brandPrimary, 0.5)}`,
+                  boxShadow: `0 14px 32px -6px ${alpha(brandPrimary, 0.55)}`,
                   transition: "background 700ms ease, box-shadow 700ms ease",
                 }}
               >
@@ -531,16 +533,16 @@ function LoginPage() {
                     src={schoolBranding.logoUrl}
                     alt={schoolBranding.name}
                     sx={{
-                      height: 54,
-                      width: 54,
-                      borderRadius: 2,
+                      height: 72,
+                      width: 72,
+                      borderRadius: 2.5,
                       objectFit: "contain",
                       bgcolor: "rgba(255,255,255,0.18)",
                       animation: `${scaleIn} 0.5s cubic-bezier(0.16, 1, 0.3, 1) both`,
                     }}
                   />
                 ) : (
-                  <GraduationCap size={40} />
+                  <GraduationCap size={52} />
                 )}
               </Box>
               <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
@@ -602,23 +604,23 @@ function LoginPage() {
                       component="img"
                       src={schoolBranding.logoUrl}
                       alt={schoolBranding.name}
-                      sx={{ height: 40, width: 40, borderRadius: 1.75, objectFit: "contain", bgcolor: "background.paper", flexShrink: 0 }}
+                      sx={{ height: 48, width: 48, borderRadius: 2, objectFit: "contain", bgcolor: "background.paper", flexShrink: 0 }}
                     />
                   ) : (
                     <Box
                       sx={{
                         display: "flex",
-                        height: 40,
-                        width: 40,
+                        height: 48,
+                        width: 48,
                         alignItems: "center",
                         justifyContent: "center",
-                        borderRadius: 1.75,
+                        borderRadius: 2,
                         bgcolor: "primary.main",
                         color: "primary.contrastText",
                         flexShrink: 0,
                       }}
                     >
-                      <GraduationCap size={20} />
+                      <GraduationCap size={24} />
                     </Box>
                   )}
                   <Typography sx={{ fontSize: 14.5, fontWeight: 600, letterSpacing: "-0.01em", flex: 1, minWidth: 0, color: TEXT_PRIMARY }} noWrap>
