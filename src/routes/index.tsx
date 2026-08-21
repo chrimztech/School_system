@@ -71,7 +71,7 @@ import {
   TableCell,
 } from "@mui/material";
 import { useTenant, formatGrade, gradingBandForPercentage } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api, isValidSchoolId } from "@/lib/api";
 import { badgeSx, gradeChipSx } from "@/lib/utils";
 import { PaymentDialog } from "@/components/payment-dialog";
@@ -869,7 +869,7 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
   );
 }
 
-function ParentDashboard() {
+export function ParentDashboard() {
   const { user } = useAuth();
   const { active } = useTenant();
   const schoolId = active.id;
@@ -987,7 +987,7 @@ function Dashboard() {
 
 function StaffDashboard() {
   const { active: school, tenants } = useTenant();
-  const { user, isSystemAdmin } = useAuth();
+  const { user, isSystemAdmin, can } = useAuth();
   const qc = useQueryClient();
 
   const isTeacher = user?.role === "teacher";
@@ -1005,19 +1005,19 @@ function StaffDashboard() {
     queryKey: ["dashboard", schoolId],
     queryFn: () => api.dashboard(schoolId),
     retry: false,
-    enabled: !isSystemAdmin && hasValidSchool,
+    enabled: !isSystemAdmin && hasValidSchool && can("attendance") !== false,
   });
   const { data: attendanceSummary } = useQuery({
     queryKey: ["attendance-summary", schoolId],
     queryFn: () => api.attendance.summary(schoolId),
     retry: false,
-    enabled: !isSystemAdmin && hasValidSchool,
+    enabled: !isSystemAdmin && hasValidSchool && can("fees") !== false,
   });
   const { data: feesCollected } = useQuery({
     queryKey: ["fees-collected", schoolId],
     queryFn: () => api.fees.collected(schoolId),
     retry: false,
-    enabled: !isSystemAdmin && hasValidSchool,
+    enabled: !isSystemAdmin && hasValidSchool && can("communication") !== false,
   });
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements", schoolId],
@@ -1368,7 +1368,7 @@ function StaffDashboard() {
             description={`Term ${school.currentTerm}, ${school.currentYear} · ${school.type} school configuration`}
             actions={
               <>
-                {!isTeacher && !isHOD && (
+                {isSchoolLeadershipRole(user?.role) && (
                   <Button component={Link} to="/students" startIcon={<Plus className="h-4 w-4" />}>
                     Enrol student
                   </Button>
@@ -1388,8 +1388,8 @@ function StaffDashboard() {
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {school.campuses.length} campus{school.campuses.length === 1 ? "" : "es"},{" "}
-                {school.totalTeachers.toLocaleString()} teachers, and{" "}
-                {school.totalClasses.toLocaleString()} classes.
+                {school.totalTeachers.toLocaleString()} teacher{school.totalTeachers === 1 ? "" : "s"}, and{" "}
+                {school.totalClasses.toLocaleString()} class{school.totalClasses === 1 ? "" : "es"}.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Chip size="small" label={`${school.curriculum ?? "ECZ"} curriculum`} sx={badgeSx("outline")} />
@@ -1433,22 +1433,22 @@ function StaffDashboard() {
                     What needs attention this term.
                   </p>
                 </div>
-                <Chip
+                {can("fees") !== false && <Chip
                   size="small"
                   label={`${fees.collectionRate}% collected`}
                   sx={badgeSx(fees.collectionRate >= 75 ? "success" : "warning")}
-                />
+                />}
               </div>
               <div className="mt-5 space-y-3">
                 {[
-                  {
+                  ...(can("attendance") !== false ? [{
                     label: "Attendance today",
                     value: `${attendanceToday.present} present · ${attendanceToday.absent} absent`,
-                  },
-                  {
+                  }] : []),
+                  ...(can("fees") !== false ? [{
                     label: "Fee collection",
                     value: `K ${fees.collected.toLocaleString()} received`,
-                  },
+                  }] : []),
                 ].map((item) => (
                   <div
                     key={item.label}
@@ -1478,7 +1478,7 @@ function StaffDashboard() {
               accent="success"
               icon={<CalendarCheck className="h-4 w-4" />}
             />
-            {!isTeacher && !isHOD && (
+            {can("fees") !== false && (
               <StatCard
                 label="Fees Collected"
                 value={`K ${fees.collected.toLocaleString()}`}
@@ -1487,7 +1487,7 @@ function StaffDashboard() {
                 icon={<Wallet className="h-4 w-4" />}
               />
             )}
-            {!isTeacher && !isHOD && (
+            {can("fees") !== false && (
               <StatCard
                 label="Outstanding"
                 value={`K ${fees.outstanding.toLocaleString()}`}
@@ -1541,6 +1541,7 @@ function StaffDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {can("fees") !== false && (
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm lg:col-span-2">
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -1581,6 +1582,7 @@ function StaffDashboard() {
                 )}
               </div>
             </div>
+            )}
 
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <h2 className="text-sm font-semibold text-foreground">Enrolment by phase</h2>
@@ -1613,6 +1615,7 @@ function StaffDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+            {can("enterprise-analytics") !== false && (
             <Link
               to="/enterprise-analytics"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/70 hover:bg-primary/5"
@@ -1630,7 +1633,9 @@ function StaffDashboard() {
                 Open executive dashboard
               </div>
             </Link>
+            )}
 
+            {can("security") !== false && (
             <Link
               to="/security"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-rose-500/70 hover:bg-rose-500/5"
@@ -1648,7 +1653,9 @@ function StaffDashboard() {
                 Review security dashboard
               </div>
             </Link>
+            )}
 
+            {can("vendor-management") !== false && (
             <Link
               to="/vendor-management"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-emerald-500/70 hover:bg-emerald-500/5"
@@ -1666,7 +1673,9 @@ function StaffDashboard() {
                 Manage key suppliers
               </div>
             </Link>
+            )}
 
+            {can("compliance") !== false && (
             <Link
               to="/compliance"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-slate-500/70 hover:bg-slate-500/5"
@@ -1684,9 +1693,11 @@ function StaffDashboard() {
                 Open compliance dashboard
               </div>
             </Link>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {can("procurement") !== false && (
             <Link
               to="/procurement"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-amber-500/70 hover:bg-amber-500/5"
@@ -1704,7 +1715,9 @@ function StaffDashboard() {
                 Review open requisitions
               </div>
             </Link>
+            )}
 
+            {can("facilities") !== false && (
             <Link
               to="/facilities"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-orange-500/70 hover:bg-orange-500/5"
@@ -1722,9 +1735,11 @@ function StaffDashboard() {
                 Manage campus operations
               </div>
             </Link>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {can("risk-register") !== false && (
             <Link
               to="/risk-register"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-red-500/70 hover:bg-red-500/5"
@@ -1742,7 +1757,9 @@ function StaffDashboard() {
                 Review open risk items
               </div>
             </Link>
+            )}
 
+            {can("alumni") !== false && (
             <Link
               to="/alumni"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-indigo-500/70 hover:bg-indigo-500/5"
@@ -1760,6 +1777,7 @@ function StaffDashboard() {
                 Open alumni network
               </div>
             </Link>
+            )}
 
             <Link
               to="/knowledge-base"
@@ -1781,6 +1799,7 @@ function StaffDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {can("bursaries") !== false && (
             <Link
               to="/bursaries"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-amber-500/70 hover:bg-amber-500/5"
@@ -1798,7 +1817,9 @@ function StaffDashboard() {
                 Review award pipeline
               </div>
             </Link>
+            )}
 
+            {can("student-welfare") !== false && (
             <Link
               to="/student-welfare"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-rose-500/70 hover:bg-rose-500/5"
@@ -1817,7 +1838,9 @@ function StaffDashboard() {
                 Open case and support queue
               </div>
             </Link>
+            )}
 
+            {can("staff-development") !== false && (
             <Link
               to="/staff-development"
               className="rounded-xl border border-border bg-card p-5 shadow-sm transition hover:border-emerald-500/70 hover:bg-emerald-500/5"
@@ -1835,6 +1858,7 @@ function StaffDashboard() {
                 Review capability pipeline
               </div>
             </Link>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -1892,7 +1916,9 @@ function StaffDashboard() {
                   title="No attendance marked yet today"
                   description="Per-class registers will show up here as teachers submit them."
                   actionSlot={
-                    <Button variant="outlined" size="small" component={Link} to="/attendance">Mark attendance</Button>
+                    can("attendance") === true
+                      ? <Button variant="outlined" size="small" component={Link} to="/attendance">Mark attendance</Button>
+                      : undefined
                   }
                   className="py-8"
                 />
@@ -1929,9 +1955,9 @@ function StaffDashboard() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Recent announcements</h2>
-              <Button variant="text" color="inherit" size="small" onClick={() => setAnnouncementOpen(true)} startIcon={<Plus className="h-3 w-3" />}>
+              {can("communication") === true && <Button variant="text" color="inherit" size="small" onClick={() => setAnnouncementOpen(true)} startIcon={<Plus className="h-3 w-3" />}>
                 New announcement
-              </Button>
+              </Button>}
             </div>
             <div className="divide-y divide-border">
               {announcementList.length === 0 && (
@@ -1962,7 +1988,7 @@ function StaffDashboard() {
               ))}
             </div>
           </div>
-          <Dialog open={announcementOpen} onClose={() => setAnnouncementOpen(false)} maxWidth="sm" fullWidth>
+          {can("communication") === true && <Dialog open={announcementOpen} onClose={() => setAnnouncementOpen(false)} maxWidth="sm" fullWidth>
             <DialogTitle>New announcement</DialogTitle>
             <DialogContent>
               <div className="grid gap-3">
@@ -2006,7 +2032,7 @@ function StaffDashboard() {
               </Button>
               <Button onClick={postAnnouncement}>Post announcement</Button>
             </DialogActions>
-          </Dialog>
+          </Dialog>}
         </>
       )}
     </div>

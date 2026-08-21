@@ -19,7 +19,18 @@ export const Route = createFileRoute("/staff-development")({
 
 type Appraisal = { id: string; staff: string; role: string; reviewer: string; cycle: string; score: number | null; status: "Draft" | "In Progress" | "Completed" };
 type Observation = { id: string; observer: string; observee: string; subject: string; grade: string; date: string; rating: 1 | 2 | 3 | 4 | 5; notes: string };
-type PDP = { id: string; staff: string; goals: number; nextReview: string; status: "Active" | "On Hold" | "Completed" };
+type PDP = {
+  id: string;
+  staff: string;
+  goals: number;
+  nextReview: string;
+  status: "Active" | "On Hold" | "Completed";
+  developmentArea?: string;
+  supportRequired?: string;
+  goal1?: string;
+  goal2?: string;
+  goal3?: string;
+};
 
 const CATEGORIES = ["Pedagogy", "Technology", "Leadership", "Safeguarding", "Subject Mastery", "Wellness"];
 
@@ -44,6 +55,8 @@ function StaffDevelopmentPage() {
   const [observationOpen, setObservationOpen] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
   const [pdpOpen, setPDPOpen] = useState(false);
+  const [selectedAppraisal, setSelectedAppraisal] = useState<Appraisal | null>(null);
+  const [selectedPdp, setSelectedPdp] = useState<PDP | null>(null);
   const [tab, setTab] = useState("appraisals");
 
   const [appraisalForm, setAppraisalForm] = useState({ staff: "", role: "Teacher", reviewer: "", cycle: "Term 2 · 2026", appraisalMethod: "Line manager review", startDate: new Date().toISOString().slice(0, 10), competencyFocus: "", targetScore: "70" });
@@ -103,6 +116,7 @@ function StaffDevelopmentPage() {
   const updateAppraisalMut = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => api.staffDevelopment.updateAppraisal(active.id, id, data),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["staff-appraisals", active.id] }),
+    onError: () => toast.error("Failed to update appraisal"),
   });
   const createObservationMut = useMutation({
     mutationFn: (data: any) => api.staffDevelopment.createObservation(active.id, data),
@@ -294,21 +308,38 @@ function StaffDevelopmentPage() {
                     <Chip size="small" label={a.status} sx={badgeSx(a.status === "Completed" ? "secondary" : a.status === "In Progress" ? "default" : "outline")} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="small" variant="text" color="inherit" onClick={() => {
-                      if (a.status !== "Completed") {
+                    <Button
+                      size="small"
+                      variant="text"
+                      color="inherit"
+                      disabled={updateAppraisalMut.isPending}
+                      onClick={() => {
+                        if (a.status === "Completed") {
+                          setSelectedAppraisal(a);
+                          return;
+                        }
                         const nextStatus = a.status === "Draft" ? "In Progress" : "Completed";
-                        updateAppraisalMut.mutate({
-                          id: a.id,
-                          data: {
-                            status: nextStatus,
-                            score: nextStatus === "Completed" ? (a.score ?? 0) : a.score,
+                        updateAppraisalMut.mutate(
+                          {
+                            id: a.id,
+                            data: {
+                              status: nextStatus,
+                              score: nextStatus === "Completed" ? (a.score ?? 0) : a.score,
+                            },
                           },
-                        });
-                        toast.success(nextStatus === "Completed" ? `${a.staff}'s appraisal completed` : `${a.staff}'s appraisal opened`);
-                      } else {
-                        toast.info(`${a.staff}'s appraisal opened`);
-                      }
-                    }}>{a.status === "Completed" ? "View" : "Open"}</Button>
+                          {
+                            onSuccess: () =>
+                              toast.success(
+                                nextStatus === "Completed"
+                                  ? `${a.staff}'s appraisal completed`
+                                  : `${a.staff}'s appraisal started`,
+                              ),
+                          },
+                        );
+                      }}
+                    >
+                      {a.status === "Completed" ? "View" : a.status === "Draft" ? "Start" : "Complete"}
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -629,7 +660,7 @@ function StaffDevelopmentPage() {
                     <Chip size="small" label={p.status} sx={badgeSx(p.status === "Active" ? "default" : p.status === "Completed" ? "secondary" : "outline")} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="small" variant="text" color="inherit" onClick={() => toast.success(`${p.staff}'s PDP opened`)}>Open</Button>
+                    <Button size="small" variant="text" color="inherit" onClick={() => setSelectedPdp(p)}>Open</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -638,7 +669,59 @@ function StaffDevelopmentPage() {
           </TableContainer>
         </div>
       )}
+
+      <Dialog open={!!selectedAppraisal} onClose={() => setSelectedAppraisal(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Appraisal details</DialogTitle>
+        <DialogContent>
+          {selectedAppraisal && (
+            <div className="grid gap-4 py-2 sm:grid-cols-2">
+              <Detail label="Staff member" value={selectedAppraisal.staff} />
+              <Detail label="Role" value={selectedAppraisal.role} />
+              <Detail label="Reviewer" value={selectedAppraisal.reviewer} />
+              <Detail label="Cycle" value={selectedAppraisal.cycle} />
+              <Detail label="Status" value={selectedAppraisal.status} />
+              <Detail label="Score" value={selectedAppraisal.score == null ? "Pending" : `${selectedAppraisal.score}%`} />
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedAppraisal(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!selectedPdp} onClose={() => setSelectedPdp(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Personal development plan</DialogTitle>
+        <DialogContent>
+          {selectedPdp && (
+            <div className="grid gap-4 py-2 sm:grid-cols-2">
+              <Detail label="Staff member" value={selectedPdp.staff} />
+              <Detail label="Status" value={selectedPdp.status} />
+              <Detail label="Goals" value={selectedPdp.goals} />
+              <Detail label="Next review" value={selectedPdp.nextReview} />
+              <Detail label="Development area" value={selectedPdp.developmentArea} />
+              <Detail label="Support required" value={selectedPdp.supportRequired} />
+              {[selectedPdp.goal1, selectedPdp.goal2, selectedPdp.goal3]
+                .filter(Boolean)
+                .map((goal, index) => (
+                  <Detail key={index} label={`Goal ${index + 1}`} value={goal} />
+                ))}
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedPdp(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </div>
     </AccessGuard>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm">{String(value ?? "Not recorded")}</p>
+    </div>
   );
 }

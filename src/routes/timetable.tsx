@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, downloadCsv } from "@/lib/utils";
@@ -38,6 +38,7 @@ function TimetablePage() {
   const { active } = useTenant();
   const { user } = useAuth();
   const teacherEmail = user?.role === "teacher" ? user.email : undefined;
+  const canManage = isSchoolLeadershipRole(user?.role) || user?.role === "hod";
   const [tab, setTab] = useState("class");
   const [klass, setKlass] = useState<string>("");
   const [teacher, setTeacher] = useState<string>("");
@@ -200,6 +201,7 @@ function TimetablePage() {
           <>
             <Button variant="outlined" onClick={exportCsv} startIcon={<Download className="h-4 w-4" />}>Export CSV</Button>
             <Button variant="outlined" onClick={() => window.print()} startIcon={<Printer className="h-4 w-4" />}>Print</Button>
+            {canManage && <>
             <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setNewSlotOpen(true)}>Add slot</Button>
             <Dialog open={newSlotOpen} onClose={() => setNewSlotOpen(false)} maxWidth="sm" fullWidth>
               <DialogTitle>Add timetable slot</DialogTitle>
@@ -331,6 +333,7 @@ function TimetablePage() {
                 <Button onClick={addSlot}>Add slot</Button>
               </DialogActions>
             </Dialog>
+            </>}
           </>
         }
       />

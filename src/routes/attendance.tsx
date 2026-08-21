@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarCheck, UserX, Clock, Plus, Loader2, HeartPulse, ShieldCheck, BarChart3, Bell } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
@@ -77,6 +77,37 @@ function AttendancePage() {
     queryFn: () => api.attendance.list(schoolId),
     staleTime: 0,
     refetchOnWindowFocus: true,
+  });
+
+  // Last 7 calendar days (oldest first) for the Weekly trend tab. The backend has no
+  // range endpoint — GET /attendance only ever returns today — so this pulls each day
+  // individually via the existing byDate endpoint and aggregates client-side.
+  const last7Dates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().slice(0, 10);
+  });
+  const weeklyQueries = useQueries({
+    queries: last7Dates.map((date) => ({
+      queryKey: ["attendance-by-date", schoolId, date],
+      queryFn: () => api.attendance.byDate(schoolId, date),
+      enabled: tab === "weekly" && Boolean(schoolId),
+      staleTime: 60_000,
+    })),
+  });
+  const weeklyLoading = tab === "weekly" && weeklyQueries.some((q) => q.isLoading);
+  const weeklyTrend = last7Dates.map((date, i) => {
+    const records = (weeklyQueries[i]?.data as any[]) ?? [];
+    const present = records.filter((r) => r.status === "present").length;
+    const total = records.length;
+    return {
+      date,
+      total,
+      present,
+      absent: records.filter((r) => r.status === "absent").length,
+      late: records.filter((r) => r.status === "late").length,
+      rate: total > 0 ? Math.round((present / total) * 100) : null,
+    };
   });
 
   // Records already submitted for the register date currently open in the dialog
@@ -327,12 +358,45 @@ function AttendancePage() {
       {tab === "weekly" && (
         <Box className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold">School-wide attendance · this week</h2>
-            <EmptyState
-              icon={BarChart3}
-              title="No weekly trend yet"
-              description="A day-by-day attendance trend will appear once a few registers have been submitted this week."
-            />
+            <h2 className="mb-1 text-sm font-semibold">School-wide attendance · last 7 days</h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Built from each day's submitted registers — a day with no chip below had no register submitted at all.
+            </p>
+            {weeklyLoading ? (
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading the week's registers…
+              </div>
+            ) : weeklyTrend.every((d) => d.total === 0) ? (
+              <EmptyState
+                icon={BarChart3}
+                title="No weekly trend yet"
+                description="A day-by-day attendance trend will appear once a few registers have been submitted this week."
+              />
+            ) : (
+              <div className="space-y-2">
+                {weeklyTrend.map((d) => (
+                  <div key={d.date} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+                    <p className="w-28 shrink-0 text-sm font-medium">
+                      {new Date(d.date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                    </p>
+                    {d.total === 0 ? (
+                      <p className="flex-1 text-xs text-muted-foreground">No register submitted</p>
+                    ) : (
+                      <>
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full bg-emerald-500" style={{ width: `${d.rate ?? 0}%` }} />
+                        </div>
+                        <p className="w-40 shrink-0 text-xs text-muted-foreground">
+                          {d.present} present · {d.absent} absent · {d.late} late
+                        </p>
+                        <p className="w-12 shrink-0 text-right text-xs font-semibold">{d.rate}%</p>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Box>
       )}
@@ -340,12 +404,39 @@ function AttendancePage() {
       {tab === "alerts" && (
         <Box className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold">SMS notifications sent today</h2>
-            <EmptyState
-              icon={Bell}
-              title="No parent notifications sent yet"
-              description="Absence alerts to guardians will be listed here once they go out."
-            />
+            <h2 className="mb-1 text-sm font-semibold">Today's absences flagged for follow-up</h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Every student marked absent, sick, or excused today — a parent SMS is queued automatically when a
+              register is submitted, but delivery status per message isn't tracked here yet.
+            </p>
+            {(() => {
+              const flagged = (recentRecords as any[]).filter((r) =>
+                ["absent", "sick", "excused"].includes(r.status),
+              );
+              return flagged.length === 0 ? (
+                <EmptyState
+                  icon={Bell}
+                  title="Nothing to follow up on"
+                  description="Every student marked in today's registers so far is present or late."
+                />
+              ) : (
+                <div className="space-y-2">
+                  {flagged.map((r: any, i: number) => (
+                    <div key={r.id ?? i} className="flex items-center justify-between rounded-md border border-border px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium">{r.studentName ?? r.student ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">{r.className ?? r.class ?? "—"}</p>
+                      </div>
+                      <Chip
+                        size="small"
+                        label={STATUS_ORDER.includes(r.status) ? STATUS_META[r.status as EntryStatus].label : r.status}
+                        sx={badgeSx(STATUS_ORDER.includes(r.status) ? STATUS_TONE[r.status as EntryStatus] : "outline")}
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </Box>
       )}

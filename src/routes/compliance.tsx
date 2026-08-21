@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ClipboardCheck, ShieldCheck, FileSearch } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { ClipboardCheck, Loader2, Plus, ShieldCheck, FileSearch } from "lucide-react";
 
-import { Button, Chip, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+import { Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 
 import { PageHeader } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
@@ -14,13 +16,48 @@ export const Route = createFileRoute("/compliance")({
   component: CompliancePage,
 });
 
+const CATEGORIES = ["Regulatory", "Policy", "Health & Safety", "HR", "Finance"];
+const STATUSES = ["Compliant", "Pending", "Non-compliant", "Exempt"];
+
+function createForm() {
+  return { title: "", category: CATEGORIES[0], status: "Pending", owner: "", dueDate: "", notes: "" };
+}
+
 function CompliancePage() {
   const { active } = useTenant();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(createForm());
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["compliance", active.id],
     queryFn: () => api.compliance.list(active.id),
   });
+
+  const createMut = useMutation({
+    mutationFn: (data: any) => api.compliance.create(active.id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["compliance", active.id] });
+      toast.success("Compliance item added");
+      setForm(createForm());
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to add compliance item"),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.compliance.update(active.id, id, { status }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["compliance", active.id] });
+      toast.success("Status updated");
+    },
+    onError: () => toast.error("Failed to update status"),
+  });
+
+  const addItem = () => {
+    if (!form.title.trim() || !form.owner.trim()) { toast.error("Title and owner are required"); return; }
+    createMut.mutate({ ...form, title: form.title.trim(), owner: form.owner.trim(), notes: form.notes.trim() || null });
+  };
 
   const compliantCount = (items as any[]).filter((i: any) => i.status === "Compliant").length;
   const totalCount = (items as any[]).length;
@@ -31,8 +68,72 @@ function CompliancePage() {
       <PageHeader
         title="Compliance management"
         description="Track policies, audits, regulatory readiness, and control status across your institution."
-        actions={<Button variant="contained" component={Link} to="/policy-library">Review compliance plan</Button>}
+        actions={
+          <>
+            <Button variant="outlined" component={Link} to="/policy-library">Review compliance plan</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add compliance item</Button>
+          </>
+        }
       />
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add compliance item</DialogTitle>
+        <DialogContent>
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <TextField
+              label="Title *"
+              fullWidth
+              size="small"
+              className="col-span-2"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="e.g. Fire safety certification renewal"
+              slotProps={{ htmlInput: { maxLength: 160 } }}
+            />
+            <TextField select label="Category" fullWidth size="small" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+            </TextField>
+            <TextField select label="Status" fullWidth size="small" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+              {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+            </TextField>
+            <TextField
+              label="Owner *"
+              fullWidth
+              size="small"
+              value={form.owner}
+              onChange={(e) => setForm({ ...form, owner: e.target.value })}
+              placeholder="e.g. Facilities, Finance"
+              slotProps={{ htmlInput: { maxLength: 100 } }}
+            />
+            <TextField
+              type="date"
+              label="Due date"
+              fullWidth
+              size="small"
+              value={form.dueDate}
+              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label="Notes"
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              className="col-span-2"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              slotProps={{ htmlInput: { maxLength: 400 } }}
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={addItem} disabled={createMut.isPending} startIcon={createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}>
+            Add item
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -119,11 +220,15 @@ function CompliancePage() {
                 <TableCell className="text-muted-foreground">{item.owner}</TableCell>
                 <TableCell className="text-muted-foreground">{item.dueDate || "—"}</TableCell>
                 <TableCell>
-                  <Chip
+                  <TextField
+                    select
                     size="small"
-                    label={item.status}
-                    sx={badgeSx(item.status === "Compliant" ? "secondary" : item.status === "Action needed" ? "destructive" : "warning")}
-                  />
+                    value={STATUSES.includes(item.status) ? item.status : "Pending"}
+                    onChange={(e) => updateMut.mutate({ id: item.id, status: e.target.value })}
+                    sx={{ minWidth: 140 }}
+                  >
+                    {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  </TextField>
                 </TableCell>
               </TableRow>
             ))}

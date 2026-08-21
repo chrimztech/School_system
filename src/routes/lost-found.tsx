@@ -92,6 +92,15 @@ function LostFoundPage() {
     onError: () => toast.error("Failed to record claim"),
   });
 
+  const disposeMutation = useMutation({
+    mutationFn: (item: any) => api.lostFound.update(schoolId, item.id, { ...item, status: "DISPOSED" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lost-found", schoolId] });
+      toast.success("Item marked as disposed");
+    },
+    onError: () => toast.error("Failed to update item"),
+  });
+
   const rawItems = itemsData as any[];
   const items = rawItems.map((i: any) => ({
     ...i,
@@ -343,7 +352,14 @@ function LostFoundPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button size="small" onClick={() => openClaim(item)}>Claim</Button>
-                        <Button size="small" variant="outlined" onClick={() => toast.success("Item marked as disposed")}>Dispose</Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={disposeMutation.isPending}
+                          onClick={() => disposeMutation.mutate(item)}
+                        >
+                          Dispose
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -79,6 +79,7 @@ import {
 } from "@mui/material";
 
 import { ROLE_META, useAuth } from "@/lib/auth";
+import { roleAllowedForPath } from "@/lib/route-access";
 import {
   type NavItem,
   platformBusiness,
@@ -299,7 +300,14 @@ function NavGroup({
   accentColor: string;
 }) {
   const { active } = useTenant();
-  const visible = items.filter((item) => can(item.module) !== false && isTenantModuleEnabled(active, item.module));
+  const { user } = useAuth();
+  const visible = items.filter(
+    (item) =>
+      can(item.module) !== false &&
+      isTenantModuleEnabled(active, item.module) &&
+      (!item.roles || (!!user && item.roles.includes(user.role))) &&
+      roleAllowedForPath(item.url, user?.role),
+  );
   if (visible.length === 0) return null;
 
   return (
@@ -544,8 +552,6 @@ export function WorkspaceSidebar() {
             can={can} accentColor={accentColor}
             items={[
               { title: "Home", url: "/", icon: LayoutDashboard, module: "dashboard" },
-              { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
-              { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
               { title: "Report Card", url: "/report-card", icon: FileText, module: "report-card" },
               { title: "Fee Balance", url: "/fees", icon: Wallet, module: "fees" },
               { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
@@ -577,6 +583,7 @@ export function WorkspaceSidebar() {
                 { title: "Teachers", url: "/teachers", icon: UserCog, module: "teachers" },
                 { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
                 { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
+                { title: "Result Approvals", url: "/results-approvals", icon: ClipboardCheck, module: "assessments" },
                 { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
                 { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
               ]}
@@ -601,6 +608,7 @@ export function WorkspaceSidebar() {
                 { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
                 { title: "Library", url: "/library", icon: BookOpen, module: "library" },
                 { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
+                { title: "My Children", url: "/my-children", icon: GraduationCap, module: "my-children" },
                 { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
                 { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
               ]}
@@ -646,6 +654,7 @@ export function WorkspaceSidebar() {
                 { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
                 { title: "Library", url: "/library", icon: BookOpen, module: "library" },
                 { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
+                { title: "My Children", url: "/my-children", icon: GraduationCap, module: "my-children" },
                 { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
                 { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
               ]}
@@ -673,6 +682,7 @@ export function WorkspaceSidebar() {
               can={can} accentColor={accentColor}
               items={[
                 { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },
+                { title: "My Children", url: "/my-children", icon: GraduationCap, module: "my-children" },
                 { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
                 { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
               ]}
@@ -689,6 +699,7 @@ export function WorkspaceSidebar() {
                 { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard" },
                 { title: "Students", url: "/students", icon: Users, module: "students" },
                 { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
+                { title: "Result Approvals", url: "/results-approvals", icon: ClipboardCheck, module: "assessments" },
                 { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
                 { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
               ]}
@@ -711,6 +722,7 @@ export function WorkspaceSidebar() {
               can={can} accentColor={accentColor}
               items={[
                 { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
+                { title: "My Children", url: "/my-children", icon: GraduationCap, module: "my-children" },
                 { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
                 { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
               ]}

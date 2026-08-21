@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import { Shield, Smartphone, Key, Loader2, Eye, EyeOff } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import Switch from "@mui/material/Switch";
-import { Button, IconButton, InputAdornment, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
+import { Button, Chip, IconButton, InputAdornment, TextField, Tooltip, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
+import { badgeSx } from "@/lib/utils";
 
 import { PageHeader } from "@/components/page-header";
 import { useAuth, ROLE_META } from "@/lib/auth";
@@ -107,10 +108,17 @@ function ProfilePage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="flex items-center gap-2 font-medium"><Smartphone className="h-4 w-4" />Two-factor authentication</p>
-              <p className="text-xs text-muted-foreground">Require an authenticator code on every sign-in.</p>
+              <p className="flex items-center gap-2 font-medium">
+                <Smartphone className="h-4 w-4" />Two-factor authentication
+                <Chip size="small" label="Coming soon" sx={badgeSx("outline")} />
+              </p>
+              <p className="text-xs text-muted-foreground">Require an authenticator code on every sign-in — not available yet.</p>
             </div>
-            <Switch defaultChecked />
+            <Tooltip title="Two-factor authentication isn't implemented yet">
+              <span>
+                <Switch checked={false} disabled />
+              </span>
+            </Tooltip>
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div>

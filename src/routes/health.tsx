@@ -125,8 +125,8 @@ function HealthPage() {
             <Button component={Link} to="/student-welfare" variant="outlined">
               Welfare cases
             </Button>
-            <Button variant="outlined" startIcon={<Download size={16} />} onClick={() => { window.print(); toast.success("Health register exported (PDF)"); }}>
-              Export register
+            <Button variant="outlined" startIcon={<Download size={16} />} onClick={() => window.print()}>
+              Print register
             </Button>
             <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>New visit</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>

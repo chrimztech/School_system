@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert, AlertTriangle, Lock, UserCheck } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button, Chip, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 
@@ -38,7 +37,7 @@ function SecurityPage() {
         actions={
           <>
             <Button component={Link} to="/risk-register" variant="outlined">Risk register</Button>
-            <Button onClick={() => toast.info("Security assessment queued")}>Run security assessment</Button>
+            <Button component={Link} to="/compliance">Review security controls</Button>
           </>
         }
       />

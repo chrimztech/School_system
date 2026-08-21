@@ -351,7 +351,7 @@ function resultRowsFingerprint(rows: ResultRow[]) {
   return JSON.stringify(rows.map(({ studentId, score, absent }) => ({ studentId, score, absent })));
 }
 
-function ResultsSheet({
+export function ResultsSheet({
   assessment,
   schoolId,
   classes,

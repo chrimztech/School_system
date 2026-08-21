@@ -87,6 +87,89 @@ function AccountingPage() {
     onError: () => toast.error("Failed to record expense"),
   });
 
+  const { data: chartAccountsRaw = [] } = useQuery({
+    queryKey: ["accounting-coa", active.id],
+    queryFn: () => api.accounting.chartOfAccounts(active.id),
+  });
+  const { data: budgetsRaw = [] } = useQuery({
+    queryKey: ["accounting-budgets", active.id],
+    queryFn: () => api.accounting.budgets(active.id),
+  });
+  const { data: fixedAssetsRaw = [] } = useQuery({
+    queryKey: ["accounting-assets", active.id],
+    queryFn: () => api.accounting.fixedAssets(active.id),
+  });
+
+  const [openCOA, setOpenCOA] = useState(false);
+  const [openBudget, setOpenBudget] = useState(false);
+  const [openAsset, setOpenAsset] = useState(false);
+
+  const createCOAMutation = useMutation({
+    mutationFn: (data: any) => api.accounting.createChartAccount(active.id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounting-coa", active.id] });
+      toast.success("Account added");
+      setOpenCOA(false);
+    },
+    onError: () => toast.error("Failed to add account"),
+  });
+
+  const createBudgetMutation = useMutation({
+    mutationFn: (data: any) => api.accounting.createBudgetLine(active.id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounting-budgets", active.id] });
+      toast.success("Budget line added");
+      setOpenBudget(false);
+    },
+    onError: () => toast.error("Failed to add budget line"),
+  });
+
+  const createAssetMutation = useMutation({
+    mutationFn: (data: any) => api.accounting.createFixedAsset(active.id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounting-assets", active.id] });
+      toast.success("Asset added");
+      setOpenAsset(false);
+    },
+    onError: () => toast.error("Failed to add asset"),
+  });
+
+  const addCOA = (form: HTMLFormElement) => {
+    const data = new FormData(form);
+    createCOAMutation.mutate({
+      code: String(data.get("code") ?? "").trim(),
+      name: String(data.get("name") ?? "").trim(),
+      type: String(data.get("type") ?? "Asset"),
+      balance: Number(data.get("balance") ?? 0),
+    });
+  };
+
+  const addBudget = (form: HTMLFormElement) => {
+    const data = new FormData(form);
+    createBudgetMutation.mutate({
+      category: String(data.get("category") ?? "").trim(),
+      allocated: Number(data.get("allocated") ?? 0),
+      spent: 0,
+      term: String(active.currentTerm ?? ""),
+      academicYear: active.currentYear,
+    });
+  };
+
+  const addAsset = (form: HTMLFormElement) => {
+    const data = new FormData(form);
+    createAssetMutation.mutate({
+      name: String(data.get("name") ?? "").trim(),
+      category: String(data.get("category") ?? "").trim(),
+      value: Number(data.get("value") ?? 0),
+      location: String(data.get("location") ?? "").trim() || null,
+      condition: String(data.get("condition") ?? "Good"),
+    });
+  };
+
+  const chartAccounts = chartAccountsRaw as any[];
+  const budgetLines = budgetsRaw as any[];
+  const fixedAssets = fixedAssetsRaw as any[];
+
   const journal = (journalRaw as any[]).map((je: any) => ({
     id: je.id ?? "",
     date: je.entryDate ?? je.date ?? "",
@@ -257,8 +340,38 @@ function AccountingPage() {
         description={`Double-entry general ledger · ${active.currency ?? "ZMW"} · ZRA / NAPSA / NHIMA compliant`}
         actions={
           <>
-            <Button variant="outlined" disabled startIcon={<Download size={16} />} title="Accounting export endpoint is not available yet.">
-              Export unavailable
+            <Button
+              variant="outlined"
+              startIcon={<Download size={16} />}
+              onClick={() => {
+                const rows = [
+                  ...journal.map((entry) => ({
+                    Record: "Journal",
+                    Date: entry.date,
+                    Reference: entry.ref,
+                    Description: entry.desc,
+                    Account: `${entry.debitAccount} / ${entry.creditAccount}`,
+                    Amount: entry.debit,
+                    Status: entry.status,
+                  })),
+                  ...expenses.map((expense) => ({
+                    Record: "Expense",
+                    Date: expense.date,
+                    Reference: expense.id,
+                    Description: `${expense.category} - ${expense.vendor}`,
+                    Account: expense.method,
+                    Amount: expense.amount,
+                    Status: expense.status,
+                  })),
+                ];
+                if (rows.length === 0) {
+                  toast.error("No accounting records to export");
+                  return;
+                }
+                downloadCsv(rows, `accounting-ledger-${active.shortCode}`);
+              }}
+            >
+              Export ledger
             </Button>
             <Button variant="outlined" component={Link} to="/payroll" startIcon={<Banknote size={16} />}>Payroll</Button>
             <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpenJE(true)}>New journal</Button>
@@ -359,9 +472,51 @@ function AccountingPage() {
 
       {/* COA */}
       {tab === "coa" && (
-        <Box>
+        <Box className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpenCOA(true)}>Add account</Button>
+            <Dialog open={openCOA} onClose={() => setOpenCOA(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Add account</DialogTitle>
+              <DialogContent>
+                <form id="coa-form" onSubmit={(e) => { e.preventDefault(); addCOA(e.currentTarget); }} className="grid gap-3 pt-1">
+                  <div className="grid grid-cols-2 gap-3">
+                    <TextField name="code" label="Account code" placeholder="1010" required fullWidth size="small" />
+                    <TextField select name="type" label="Type" defaultValue="Asset" fullWidth size="small">
+                      {["Asset", "Liability", "Equity", "Revenue", "Expense"].map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </TextField>
+                  </div>
+                  <TextField name="name" label="Account name" placeholder="Cash at bank" required fullWidth size="small" />
+                  <TextField name="balance" type="number" label="Opening balance (K)" defaultValue={0} fullWidth size="small" />
+                </form>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpenCOA(false)}>Cancel</Button>
+                <Button type="submit" form="coa-form" variant="contained" disabled={createCOAMutation.isPending}>Add account</Button>
+              </DialogActions>
+            </Dialog>
+          </div>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+            <TableContainer>
+              <Table>
+                <TableHead><TableRow>
+                  <TableCell>Code</TableCell><TableCell>Name</TableCell><TableCell>Type</TableCell>
+                  <TableCell className="text-right">Balance</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {chartAccounts.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-mono text-xs">{a.code}</TableCell>
+                      <TableCell className="font-medium">{a.name}</TableCell>
+                      <TableCell><Chip size="small" label={a.type} sx={badgeSx("outline")} /></TableCell>
+                      <TableCell className="text-right font-mono">{k(Number(a.balance) || 0)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {chartAccounts.length === 0 && (
+                    <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">No accounts set up yet.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </div>
         </Box>
       )}
@@ -469,19 +624,105 @@ function AccountingPage() {
 
       {/* Budgets */}
       {tab === "budgets" && (
-        <Box>
+        <Box className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpenBudget(true)}>Add budget line</Button>
+            <Dialog open={openBudget} onClose={() => setOpenBudget(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Add budget line</DialogTitle>
+              <DialogContent>
+                <form id="budget-form" onSubmit={(e) => { e.preventDefault(); addBudget(e.currentTarget); }} className="grid gap-3 pt-1">
+                  <TextField name="category" label="Category" placeholder="Teaching materials" required fullWidth size="small" />
+                  <TextField name="allocated" type="number" label="Allocated (K)" required fullWidth size="small" />
+                  <p className="text-xs text-muted-foreground">
+                    Term {active.currentTerm}, {active.currentYear}
+                  </p>
+                </form>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpenBudget(false)}>Cancel</Button>
+                <Button type="submit" form="budget-form" variant="contained" disabled={createBudgetMutation.isPending}>Add line</Button>
+              </DialogActions>
+            </Dialog>
+          </div>
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <h3 className="mb-4 text-sm font-semibold">Budget vs actual · YTD</h3>
-            <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+            <h3 className="mb-4 text-sm font-semibold">Budget vs actual · Term {active.currentTerm}, {active.currentYear}</h3>
+            {budgetLines.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {budgetLines.map((b) => {
+                  const allocated = Number(b.allocated) || 0;
+                  const spent = Number(b.spent) || 0;
+                  const pct = allocated > 0 ? Math.min(100, Math.round((spent / allocated) * 100)) : 0;
+                  return (
+                    <div key={b.id} className="rounded-lg border border-border p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{b.category}</p>
+                        <p className="text-xs text-muted-foreground">{k(spent)} of {k(allocated)} ({pct}%)</p>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                        <div className={`h-full ${pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </Box>
       )}
 
       {/* Assets */}
       {tab === "assets" && (
-        <Box>
+        <Box className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpenAsset(true)}>Add asset</Button>
+            <Dialog open={openAsset} onClose={() => setOpenAsset(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Add fixed asset</DialogTitle>
+              <DialogContent>
+                <form id="asset-form" onSubmit={(e) => { e.preventDefault(); addAsset(e.currentTarget); }} className="grid gap-3 pt-1">
+                  <TextField name="name" label="Asset name" placeholder="Photocopier — staffroom" required fullWidth size="small" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <TextField name="category" label="Category" placeholder="Equipment" required fullWidth size="small" />
+                    <TextField name="value" type="number" label="Value (K)" required fullWidth size="small" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <TextField name="location" label="Location" placeholder="Staffroom" fullWidth size="small" />
+                    <TextField select name="condition" label="Condition" defaultValue="Good" fullWidth size="small">
+                      {["New", "Good", "Fair", "Poor", "Damaged"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    </TextField>
+                  </div>
+                </form>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setOpenAsset(false)}>Cancel</Button>
+                <Button type="submit" form="asset-form" variant="contained" disabled={createAssetMutation.isPending}>Add asset</Button>
+              </DialogActions>
+            </Dialog>
+          </div>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+            <TableContainer>
+              <Table>
+                <TableHead><TableRow>
+                  <TableCell>Asset</TableCell><TableCell>Category</TableCell><TableCell>Location</TableCell>
+                  <TableCell>Condition</TableCell><TableCell className="text-right">Value</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {fixedAssets.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-medium">{a.name}</TableCell>
+                      <TableCell>{a.category}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.location || "—"}</TableCell>
+                      <TableCell><Chip size="small" label={a.condition} sx={badgeSx(a.condition === "Damaged" || a.condition === "Poor" ? "destructive" : "outline")} /></TableCell>
+                      <TableCell className="text-right font-mono">{k(Number(a.value) || 0)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {fixedAssets.length === 0 && (
+                    <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No assets recorded yet.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </div>
         </Box>
       )}

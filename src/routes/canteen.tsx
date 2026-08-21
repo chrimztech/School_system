@@ -103,6 +103,8 @@ function CanteenPage() {
   const [tab, setTab] = useState("access");
   const [saleOpen, setSaleOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [restockItem, setRestockItem] = useState<any>(null);
+  const [restockQty, setRestockQty] = useState("10");
   const [accessSearch, setAccessSearch] = useState("");
   const [saleForm, setSaleForm] = useState(createSaleForm);
   const [menuForm, setMenuForm] = useState(createMenuForm);
@@ -248,6 +250,17 @@ function CanteenPage() {
       setMenuOpen(false);
     },
     onError: () => toast.error("Failed to add menu item"),
+  });
+
+  const restockMutation = useMutation({
+    mutationFn: ({ item, quantity }: { item: any; quantity: number }) =>
+      api.canteen.updateMenuItem(schoolId, item.id, { ...item, stock: (Number(item.stock) || 0) + quantity }),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["canteen-menu", schoolId] });
+      toast.success(`${variables.item.name} restocked (+${variables.quantity})`);
+      setRestockItem(null);
+    },
+    onError: () => toast.error("Failed to update stock"),
   });
 
   // ── Submit handlers ───────────────────────────────────────────
@@ -611,6 +624,35 @@ function CanteenPage() {
                   </Button>
                 </DialogActions>
             </Dialog>
+
+            <Dialog open={!!restockItem} onClose={() => setRestockItem(null)} maxWidth="xs" fullWidth>
+              <DialogTitle>Restock {restockItem?.name}</DialogTitle>
+              <DialogContent>
+                <DialogContentText sx={{ mb: 2 }}>
+                  Current stock: {restockItem?.stock ?? 0}. Enter the quantity received.
+                </DialogContentText>
+                <TextField
+                  autoFocus
+                  label="Quantity received"
+                  type="number"
+                  fullWidth
+                  size="small"
+                  value={restockQty}
+                  onChange={(e) => setRestockQty(e.target.value)}
+                  slotProps={{ htmlInput: { min: 1 } }}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setRestockItem(null)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  disabled={restockMutation.isPending || !(Number(restockQty) > 0)}
+                  onClick={() => restockMutation.mutate({ item: restockItem, quantity: Number(restockQty) })}
+                >
+                  {restockMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Confirm restock
+                </Button>
+              </DialogActions>
+            </Dialog>
           </div>
           {menuLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
@@ -657,7 +699,15 @@ function CanteenPage() {
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button size="small" variant="text" color="inherit" onClick={() => toast.success(`Restock request raised for ${item.name}`)}>Restock</Button>
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="inherit"
+                          disabled={!Number.isFinite(item.stock)}
+                          onClick={() => { setRestockItem(item); setRestockQty("10"); }}
+                        >
+                          Restock
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

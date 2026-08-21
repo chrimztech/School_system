@@ -73,7 +73,10 @@ function ProcurementPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => api.procurement.update(active.id, id, { status }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["procurement", active.id] }); },
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["procurement", active.id] });
+      toast.success(`Updated to ${variables.status}`);
+    },
     onError: () => toast.error("Failed to update status"),
   });
 
@@ -199,7 +202,7 @@ function ProcurementPage() {
                           size="small"
                           className="w-40"
                           value={request.status}
-                          onChange={(event) => { updateMut.mutate({ id: request.id, status: event.target.value }); toast.success(`Updated to ${event.target.value}`); }}
+                          onChange={(event) => updateMut.mutate({ id: request.id, status: event.target.value })}
                         >
                           {["Draft", "Pending approval", "Approved", "Ordered"].map((status) => (
                             <MenuItem key={status} value={status}>{status}</MenuItem>
@@ -216,17 +219,104 @@ function ProcurementPage() {
         </Box>
       )}
 
-      {tab === "contracts" && (
-        <Box className="mt-4">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
-        </Box>
-      )}
+      {tab === "contracts" && (() => {
+        const committed = (requests as any[]).filter((r) => r.status === "Approved" || r.status === "Ordered");
+        return (
+          <Box className="mt-4">
+            {committed.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-sm">
+                No active commitments yet — requisitions become commitments once approved or ordered.
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Commitment</TableCell>
+                        <TableCell>Vendor</TableCell>
+                        <TableCell>Amount</TableCell>
+                        <TableCell>Status</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {committed.map((request: any) => {
+                        const details = parseRequisitionItem(request.item);
+                        return (
+                          <TableRow key={request.id}>
+                            <TableCell>
+                              <div className="font-medium">{details.title || request.item}</div>
+                              <div className="text-xs text-muted-foreground">{request.requester}</div>
+                            </TableCell>
+                            <TableCell>{request.vendor || "—"}</TableCell>
+                            <TableCell>K {Number(request.amount ?? 0).toLocaleString()}</TableCell>
+                            <TableCell><Chip size="small" label={request.status} sx={badgeSx(request.status === "Ordered" ? "secondary" : "default")} /></TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </div>
+            )}
+          </Box>
+        );
+      })()}
 
-      {tab === "approvals" && (
-        <Box className="mt-4">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
-        </Box>
-      )}
+      {tab === "approvals" && (() => {
+        const pending = (requests as any[]).filter((r) => r.status === "Pending approval");
+        return (
+          <Box className="mt-4">
+            {pending.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-sm">Nothing waiting on approval.</div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Request</TableCell>
+                        <TableCell>Department</TableCell>
+                        <TableCell>Amount</TableCell>
+                        <TableCell>Priority</TableCell>
+                        <TableCell className="text-right">Action</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {pending.map((request: any) => {
+                        const details = parseRequisitionItem(request.item);
+                        return (
+                          <TableRow key={request.id}>
+                            <TableCell>
+                              <div className="font-medium">{details.title || request.item}</div>
+                              <div className="text-xs text-muted-foreground">{request.requester} - {request.vendor}</div>
+                            </TableCell>
+                            <TableCell>{request.department}</TableCell>
+                            <TableCell>K {Number(request.amount ?? 0).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <Chip size="small" label={request.priority} sx={badgeSx(request.priority === "Critical" ? "destructive" : "secondary")} />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button size="small" color="error" variant="outlined" onClick={() => updateMut.mutate({ id: request.id, status: "Draft" })}>
+                                  Send back
+                                </Button>
+                                <Button size="small" variant="contained" onClick={() => updateMut.mutate({ id: request.id, status: "Approved" })}>
+                                  Approve
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </div>
+            )}
+          </Box>
+        );
+      })()}
     </div>
     </AccessGuard>
   );

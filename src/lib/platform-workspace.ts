@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { api, type BackendPlatformWorkspace } from "@/lib/api";
 
@@ -56,6 +57,16 @@ export function useSavePlatformWorkspace() {
     mutationFn: (patch: Partial<BackendPlatformWorkspace>) => api.platform.updateWorkspace(patch),
     onSuccess: (data) => {
       queryClient.setQueryData(PLATFORM_WORKSPACE_QUERY_KEY, data);
+    },
+    onError: (error: any) => {
+      // Every platform page below (sys-admin, plan-catalog, tenant-success, etc.) calls
+      // .mutate() and immediately shows its own success toast without waiting for the
+      // result — this was the only error feedback in the entire save path. Without it, a
+      // failed save (network error, validation, expired auth) looked identical to a
+      // successful one: green toast, no indication anything was actually lost.
+      toast.error(
+        error?.response?.data?.message ?? "Failed to save — your change was not persisted. Please try again.",
+      );
     },
   });
 }

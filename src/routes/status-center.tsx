@@ -173,18 +173,21 @@ function StatusCenterPage() {
   };
 
   const toggleStatusPage = (value: boolean) => {
-    saveWorkspace.mutate({
-      statusSettings: {
-        ...workspace?.statusSettings,
-        statusPageEnabled: value,
+    saveWorkspace.mutate(
+      {
+        statusSettings: {
+          ...workspace?.statusSettings,
+          statusPageEnabled: value,
+        },
+        platformAuditEvents: appendPlatformAuditEvent(workspace, {
+          actor: user?.name ?? "System Administrator",
+          tenant: "Platform",
+          area: "Support",
+          action: `${value ? "Enabled" : "Disabled"} public platform status page visibility`,
+        }),
       },
-      platformAuditEvents: appendPlatformAuditEvent(workspace, {
-        actor: user?.name ?? "System Administrator",
-        tenant: "Platform",
-        area: "Support",
-        action: `${value ? "Enabled" : "Disabled"} public platform status page visibility`,
-      }),
-    });
+      { onSuccess: () => toast.success(value ? "Public status page enabled" : "Public status page disabled") },
+    );
   };
 
   const loadAudience = (label: string) => {

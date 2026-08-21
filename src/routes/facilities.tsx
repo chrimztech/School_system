@@ -56,7 +56,10 @@ function FacilitiesPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => api.facilities.update(active.id, id, { status }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["facilities", active.id] }); },
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["facilities", active.id] });
+      toast.success(`Updated to ${variables.status}`);
+    },
     onError: () => toast.error("Failed to update status"),
   });
 
@@ -275,7 +278,7 @@ function FacilitiesPage() {
                         size="small"
                         className="w-36"
                         value={o.status}
-                        onChange={(e) => { updateMut.mutate({ id: o.id, status: e.target.value }); toast.success(`Updated to ${e.target.value}`); }}
+                        onChange={(e) => updateMut.mutate({ id: o.id, status: e.target.value })}
                       >
                         {["Open", "Scheduled", "In progress", "Closed"].map((s) => (
                           <MenuItem key={s} value={s}>{s}</MenuItem>

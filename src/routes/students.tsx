@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Button, Chip, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { useTenant, formatGrade } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { downloadCsv, badgeSx } from "@/lib/utils";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
@@ -75,7 +75,8 @@ function StudentsListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isTeacher = user?.role === "teacher";
-  const isHOD = user?.role === "hod";
+  const canManage = isSchoolLeadershipRole(user?.role);
+  const canViewFees = canManage || user?.role === "finance";
   const teacherEmail = isTeacher ? user.email : undefined;
   const qc = useQueryClient();
 
@@ -228,12 +229,12 @@ function StudentsListPage() {
             }}>
               Export
             </Button>
-            {!isTeacher && !isHOD && (
+            {canManage && (
               <Button variant="outlined" startIcon={<Upload className="h-4 w-4" />} onClick={() => setImportOpen(true)}>
                 Import
               </Button>
             )}
-            {!isTeacher && !isHOD && <>
+            {canManage && <>
               <Button variant="contained" startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Register student</Button>
               <Dialog open={open} onClose={() => { setOpen(false); setForm(createInitialForm()); setStep(1); }} maxWidth="lg" fullWidth>
                 <DialogTitle>Register new student</DialogTitle>
@@ -554,9 +555,9 @@ function StudentsListPage() {
                 <TableCell>Class</TableCell>
                 <TableCell>Parent / guardian</TableCell>
                 <TableCell>Phone</TableCell>
-                {!isTeacher && !isHOD && <TableCell>Fee balance</TableCell>}
+                {canViewFees && <TableCell>Fee balance</TableCell>}
                 <TableCell>Status</TableCell>
-                {!isTeacher && !isHOD && <TableCell />}
+                {canManage && <TableCell />}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -581,7 +582,7 @@ function StudentsListPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{student.guardianPhone ?? student.studentPhone ?? "-"}</TableCell>
-                  {!isTeacher && !isHOD && <TableCell>
+                  {canViewFees && <TableCell>
                     {student.feeBalance > 0 ? (
                       <span className="text-destructive">K {Number(student.feeBalance).toLocaleString()}</span>
                     ) : (
@@ -595,7 +596,7 @@ function StudentsListPage() {
                       sx={badgeSx((student.status ?? "").toLowerCase() === "active" ? "secondary" : "outline")}
                     />
                   </TableCell>
-                  {!isTeacher && !isHOD && <TableCell onClick={(e) => e.stopPropagation()}>
+                  {canManage && <TableCell onClick={(e) => e.stopPropagation()}>
                     <IconButton
                       size="small"
                       aria-label={`Remove ${fullStudentName(student)} from student records`}

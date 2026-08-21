@@ -30,6 +30,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as RiskRegisterRouteImport } from './routes/risk-register'
 import { Route as RevenueOpsRouteImport } from './routes/revenue-ops'
+import { Route as ResultsApprovalsRouteImport } from './routes/results-approvals'
 import { Route as ResultsAnalysisRouteImport } from './routes/results-analysis'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReportingRouteImport } from './routes/reporting'
@@ -48,6 +49,7 @@ import { Route as PartnerManagementRouteImport } from './routes/partner-manageme
 import { Route as ParentsRouteImport } from './routes/parents'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as MyChildrenRouteImport } from './routes/my-children'
 import { Route as LostFoundRouteImport } from './routes/lost-found'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LibraryRouteImport } from './routes/library'
@@ -199,6 +201,11 @@ const RevenueOpsRoute = RevenueOpsRouteImport.update({
   path: '/revenue-ops',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResultsApprovalsRoute = ResultsApprovalsRouteImport.update({
+  id: '/results-approvals',
+  path: '/results-approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResultsAnalysisRoute = ResultsAnalysisRouteImport.update({
   id: '/results-analysis',
   path: '/results-analysis',
@@ -287,6 +294,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyChildrenRoute = MyChildrenRouteImport.update({
+  id: '/my-children',
+  path: '/my-children',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LostFoundRoute = LostFoundRouteImport.update({
@@ -558,6 +570,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/lost-found': typeof LostFoundRoute
+  '/my-children': typeof MyChildrenRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/parents': typeof ParentsRoute
@@ -576,6 +589,7 @@ export interface FileRoutesByFullPath {
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
   '/results-analysis': typeof ResultsAnalysisRoute
+  '/results-approvals': typeof ResultsApprovalsRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -644,6 +658,7 @@ export interface FileRoutesByTo {
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/lost-found': typeof LostFoundRoute
+  '/my-children': typeof MyChildrenRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/parents': typeof ParentsRoute
@@ -662,6 +677,7 @@ export interface FileRoutesByTo {
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
   '/results-analysis': typeof ResultsAnalysisRoute
+  '/results-approvals': typeof ResultsApprovalsRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -731,6 +747,7 @@ export interface FileRoutesById {
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/lost-found': typeof LostFoundRoute
+  '/my-children': typeof MyChildrenRoute
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/parents': typeof ParentsRoute
@@ -749,6 +766,7 @@ export interface FileRoutesById {
   '/reporting': typeof ReportingRoute
   '/reports': typeof ReportsRoute
   '/results-analysis': typeof ResultsAnalysisRoute
+  '/results-approvals': typeof ResultsApprovalsRoute
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
@@ -819,6 +837,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/login'
     | '/lost-found'
+    | '/my-children'
     | '/notifications'
     | '/onboarding'
     | '/parents'
@@ -837,6 +856,7 @@ export interface FileRouteTypes {
     | '/reporting'
     | '/reports'
     | '/results-analysis'
+    | '/results-approvals'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -905,6 +925,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/login'
     | '/lost-found'
+    | '/my-children'
     | '/notifications'
     | '/onboarding'
     | '/parents'
@@ -923,6 +944,7 @@ export interface FileRouteTypes {
     | '/reporting'
     | '/reports'
     | '/results-analysis'
+    | '/results-approvals'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -991,6 +1013,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/login'
     | '/lost-found'
+    | '/my-children'
     | '/notifications'
     | '/onboarding'
     | '/parents'
@@ -1009,6 +1032,7 @@ export interface FileRouteTypes {
     | '/reporting'
     | '/reports'
     | '/results-analysis'
+    | '/results-approvals'
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
@@ -1078,6 +1102,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   LostFoundRoute: typeof LostFoundRoute
+  MyChildrenRoute: typeof MyChildrenRoute
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
   ParentsRoute: typeof ParentsRoute
@@ -1096,6 +1121,7 @@ export interface RootRouteChildren {
   ReportingRoute: typeof ReportingRoute
   ReportsRoute: typeof ReportsRoute
   ResultsAnalysisRoute: typeof ResultsAnalysisRoute
+  ResultsApprovalsRoute: typeof ResultsApprovalsRoute
   RevenueOpsRoute: typeof RevenueOpsRoute
   RiskRegisterRoute: typeof RiskRegisterRoute
   SecurityRoute: typeof SecurityRoute
@@ -1269,6 +1295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RevenueOpsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/results-approvals': {
+      id: '/results-approvals'
+      path: '/results-approvals'
+      fullPath: '/results-approvals'
+      preLoaderRoute: typeof ResultsApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/results-analysis': {
       id: '/results-analysis'
       path: '/results-analysis'
@@ -1393,6 +1426,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-children': {
+      id: '/my-children'
+      path: '/my-children'
+      fullPath: '/my-children'
+      preLoaderRoute: typeof MyChildrenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lost-found': {
@@ -1780,6 +1820,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   LostFoundRoute: LostFoundRoute,
+  MyChildrenRoute: MyChildrenRoute,
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
   ParentsRoute: ParentsRoute,
@@ -1798,6 +1839,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportingRoute: ReportingRoute,
   ReportsRoute: ReportsRoute,
   ResultsAnalysisRoute: ResultsAnalysisRoute,
+  ResultsApprovalsRoute: ResultsApprovalsRoute,
   RevenueOpsRoute: RevenueOpsRoute,
   RiskRegisterRoute: RiskRegisterRoute,
   SecurityRoute: SecurityRoute,

@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button, Chip } from "@mui/material";
 
@@ -89,7 +88,7 @@ function EnterpriseAnalyticsPage() {
             <h2 className="text-sm font-semibold text-foreground">Current initiatives</h2>
             <p className="text-xs text-muted-foreground">High-impact programs driving outcomes.</p>
           </div>
-          <Button variant="outlined" onClick={() => toast.info("Strategy roadmap opened")}>Review roadmap</Button>
+          <Button variant="outlined" component={Link} to="/strategic-plan">Review roadmap</Button>
         </div>
         <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
       </div>

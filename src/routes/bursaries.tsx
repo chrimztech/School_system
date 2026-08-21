@@ -405,6 +405,7 @@ function BursariesPage() {
                     ) : (
                       <div className="flex justify-end gap-2">
                         <Button size="small" variant="outlined" onClick={() => updateApplicationMutation.mutate({ id: a.id, status: "Review" })}>Review</Button>
+                        <Button size="small" color="error" variant="outlined" onClick={() => updateApplicationMutation.mutate({ id: a.id, status: "Declined" })}>Decline</Button>
                         <Button size="small" onClick={() => updateApplicationMutation.mutate({ id: a.id, status: "Approved" })}>Approve</Button>
                       </div>
                     )}

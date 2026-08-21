@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Chip, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
@@ -27,7 +27,7 @@ function TeachersListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isHOD = user?.role === "hod";
-  const canWrite = !isHOD;
+  const canWrite = isSchoolLeadershipRole(user?.role);
   const qc = useQueryClient();
 
   const [q, setQ] = useState("");
@@ -133,7 +133,7 @@ function TeachersListPage() {
       });
       setOpen(false);
     },
-    onError: () => toast.error("Failed to add teacher"),
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? "Failed to add teacher"),
   });
 
   const addTeacher = () => {

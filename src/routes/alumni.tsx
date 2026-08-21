@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { GraduationCap, Heart, Calendar, Send, Plus, Loader2 } from "lucide-react";
+import { GraduationCap, Heart, Calendar, Mail, Send, Plus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -206,7 +206,18 @@ function AlumniPage() {
                     <TableCell className="text-muted-foreground">{a.employer}</TableCell>
                     <TableCell>{a.location ?? a.city}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="small" variant="text" color="inherit" disabled title="Alumni messaging isn't set up yet">Message</Button>
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="inherit"
+                        component="a"
+                        href={a.email ? `mailto:${a.email}` : undefined}
+                        disabled={!a.email}
+                        startIcon={<Mail size={14} />}
+                        title={a.email ? `Email ${a.name}` : "No email address recorded"}
+                      >
+                        Email
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -224,8 +235,9 @@ function AlumniPage() {
         <Box className="rounded-xl border border-border bg-card">
           <EmptyState
             icon={Calendar}
-            title="No events or reunions yet"
-            description="Alumni gatherings and reunions you schedule will appear here."
+            title="Reunions and alumni gatherings aren't tracked separately yet"
+            description="Schedule them on the school Calendar for now."
+            actionSlot={<Button variant="outlined" component={Link} to="/calendar">Open Calendar</Button>}
           />
         </Box>
       )}
@@ -233,8 +245,8 @@ function AlumniPage() {
       {tab === "giving" && (
         <Box className="rounded-xl border border-border bg-card p-6">
           <EmptyState
-            title="No fundraising campaigns created yet"
-            description="Campaigns will appear here once they are set up."
+            title="Fundraising campaign tracking isn't built yet"
+            description="There's no way to log alumni donations or campaigns in the system yet."
           />
         </Box>
       )}
@@ -243,8 +255,8 @@ function AlumniPage() {
         <Box className="rounded-xl border border-border bg-card p-5">
           <EmptyState
             icon={Heart}
-            title="No mentorship pairings yet"
-            description="Alumni-to-student mentorship matches will appear here once set up."
+            title="Mentorship pairing isn't built yet"
+            description="There's no way to match alumni with students in the system yet."
           />
         </Box>
       )}

@@ -218,16 +218,17 @@ function VendorManagementPage() {
             <h2 className="text-sm font-semibold text-foreground">Procurement overview</h2>
             <p className="text-xs text-muted-foreground">Committed spend and vendor collaboration status.</p>
           </div>
-          <Chip size="small" label="Live" sx={badgeSx("success")} />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-muted/60 p-4">
             <p className="text-sm text-muted-foreground">Committed spend</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">K 1.8M</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">—</p>
+            <p className="text-xs text-muted-foreground">Not tracked</p>
           </div>
           <div className="rounded-xl bg-muted/60 p-4">
             <p className="text-sm text-muted-foreground">On-time delivery</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">96%</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">—</p>
+            <p className="text-xs text-muted-foreground">Not tracked</p>
           </div>
         </div>
       </div>

@@ -16,7 +16,7 @@ export default defineConfig({
     server: {
       proxy: {
         "/api": {
-          target: "http://localhost:8090",
+          target: process.env.SRMS_API_TARGET ?? "http://localhost:8090",
           // Preserve e.g. lubu.localhost so backend tenant resolution is exercised in dev.
           changeOrigin: false,
         },

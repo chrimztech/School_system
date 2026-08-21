@@ -47,6 +47,7 @@ export const Route = createFileRoute("/data-governance")({
 
 function DataGovernancePage() {
   const [tab, setTab] = useState("requests");
+  const [residencyRegionDraft, setResidencyRegionDraft] = useState<string | null>(null);
   const { user } = useAuth();
   const { tenants } = useTenant();
   const { data: workspace } = usePlatformWorkspace();
@@ -176,7 +177,7 @@ function DataGovernancePage() {
 
   const updateRule = (ruleId: string, patch: Partial<RetentionRule>) => {
     const nextRules = retention.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule));
-    saveWorkspace.mutate({ retentionRules: nextRules });
+    saveWorkspace.mutate({ retentionRules: nextRules }, { onSuccess: () => toast.success("Retention rule updated") });
   };
 
   const savePolicies = () => {
@@ -403,8 +404,16 @@ function DataGovernancePage() {
                 label="Regional residency policy"
                 fullWidth
                 size="small"
-                value={residency.residencyRegion}
-                onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, residencyRegion: event.target.value } })}
+                value={residencyRegionDraft ?? residency.residencyRegion}
+                onChange={(event) => setResidencyRegionDraft(event.target.value)}
+                onBlur={() => {
+                  if (residencyRegionDraft === null || residencyRegionDraft === residency.residencyRegion) return;
+                  saveWorkspace.mutate(
+                    { residencySettings: { ...residency, residencyRegion: residencyRegionDraft } },
+                    { onSuccess: () => toast.success("Residency policy updated") },
+                  );
+                  setResidencyRegionDraft(null);
+                }}
               />
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
                 <div>
@@ -413,7 +422,12 @@ function DataGovernancePage() {
                 </div>
                 <Switch
                   checked={residency.regionLock}
-                  onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, regionLock: event.target.checked } })}
+                  onChange={(event) =>
+                    saveWorkspace.mutate(
+                      { residencySettings: { ...residency, regionLock: event.target.checked } },
+                      { onSuccess: () => toast.success(event.target.checked ? "Region lock enabled" : "Region lock disabled") },
+                    )
+                  }
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
@@ -423,7 +437,12 @@ function DataGovernancePage() {
                 </div>
                 <Switch
                   checked={residency.deleteAfterExport}
-                  onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, deleteAfterExport: event.target.checked } })}
+                  onChange={(event) =>
+                    saveWorkspace.mutate(
+                      { residencySettings: { ...residency, deleteAfterExport: event.target.checked } },
+                      { onSuccess: () => toast.success("Setting updated") },
+                    )
+                  }
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-4">
@@ -433,7 +452,12 @@ function DataGovernancePage() {
                 </div>
                 <Switch
                   checked={residency.maskedSandbox}
-                  onChange={(event) => saveWorkspace.mutate({ residencySettings: { ...residency, maskedSandbox: event.target.checked } })}
+                  onChange={(event) =>
+                    saveWorkspace.mutate(
+                      { residencySettings: { ...residency, maskedSandbox: event.target.checked } },
+                      { onSuccess: () => toast.success("Setting updated") },
+                    )
+                  }
                 />
               </div>
             </div>

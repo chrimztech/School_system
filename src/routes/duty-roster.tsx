@@ -251,7 +251,7 @@ function DutyRosterPage() {
             <Table>
               <TableHead><TableRow>
                 <TableCell>Duty</TableCell><TableCell>Time</TableCell><TableCell>Staff</TableCell>
-                <TableCell>Location</TableCell><TableCell className="text-right">Action</TableCell>
+                <TableCell>Location</TableCell>
               </TableRow></TableHead>
               <TableBody>
                 {todayDuties.sort((a, b) => a.slot.localeCompare(b.slot)).map((d) => (
@@ -262,9 +262,6 @@ function DutyRosterPage() {
                     <TableCell className="text-muted-foreground">{d.slot}</TableCell>
                     <TableCell className="font-medium">{d.staff}</TableCell>
                     <TableCell>{d.location}</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="small" variant="text" color="inherit" onClick={() => toast.success(`Reminder sent to ${d.staff}`)}>Remind</Button>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -139,7 +139,11 @@ function ParentsPage() {
             }}>
               Export contacts
             </Button>
-            <Button variant="contained" startIcon={<MessageSquare size={16} />} onClick={() => toast.success("Communication hub coming soon")}>
+            <Button
+              variant="contained"
+              startIcon={<MessageSquare size={16} />}
+              onClick={() => navigate({ to: "/communication", hash: "broadcast" })}
+            >
               Send message
             </Button>
           </>
@@ -238,7 +242,11 @@ function ParentsPage() {
                       }
                       return null;
                     })()}
-                    <IconButton size="small" aria-label={`Message ${parent.name}`} onClick={() => toast.success(`Message draft opened for ${parent.name}`)}>
+                    <IconButton
+                      size="small"
+                      aria-label={`Open messages for ${parent.name}`}
+                      onClick={() => navigate({ to: "/communication", hash: "messages" })}
+                    >
                       <MessageSquare className="h-4 w-4" />
                     </IconButton>
                   </div>

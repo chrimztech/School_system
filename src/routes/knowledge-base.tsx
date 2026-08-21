@@ -17,7 +17,92 @@ type Article = {
   route: string;
 };
 
-const articles: Article[] = [];
+const articles: Article[] = [
+  {
+    title: "Onboard a new school",
+    category: "Setup",
+    audience: "Super admin",
+    summary: "Provision a school workspace — identity, curriculum, campuses, branding, plan, and the first admin login — end to end.",
+    route: "/onboarding",
+  },
+  {
+    title: "Brand a school's login and workspace",
+    category: "Setup",
+    audience: "School admin",
+    summary: "Set logo, favicon, and primary/secondary colours so a school's sign-in page and app match their identity.",
+    route: "/settings",
+  },
+  {
+    title: "Take and restore a backup",
+    category: "Data & backups",
+    audience: "School admin",
+    summary: "Trigger an on-demand export of a school's data, download it, or restore a school to a previous snapshot.",
+    route: "/backups",
+  },
+  {
+    title: "Mark a class register and read the weekly trend",
+    category: "Academic operations",
+    audience: "Teacher",
+    summary: "Submit daily attendance, see per-class breakdowns, and review the last 7 days' attendance rate.",
+    route: "/attendance",
+  },
+  {
+    title: "Verify and publish exam results",
+    category: "Academic operations",
+    audience: "HOD / Careers Guidance",
+    summary: "Move a mark sheet through the approval workflow — HOD verification, then release to report cards and parent accounts.",
+    route: "/results-approvals",
+  },
+  {
+    title: "Enter, import, and correct assessment marks",
+    category: "Academic operations",
+    audience: "Teacher",
+    summary: "Fill in a results sheet by hand or bulk-import via CSV, and submit it for HOD review.",
+    route: "/assessments",
+  },
+  {
+    title: "Record a fee payment and send reminders",
+    category: "Finance",
+    audience: "Finance officer",
+    summary: "Log a payment against a student's balance, print a receipt, or send bulk payment reminders to guardians.",
+    route: "/fees",
+  },
+  {
+    title: "Reporting and BI guides",
+    category: "Reporting",
+    audience: "Enterprise leadership",
+    summary: "Build and manage saved reports across academic, financial, and operational data.",
+    route: "/reporting",
+  },
+  {
+    title: "Manage staff accounts, roles, and permissions",
+    category: "Administration",
+    audience: "School admin",
+    summary: "Create logins for staff, assign roles, reset passwords, and understand what each role can see.",
+    route: "/user-management",
+  },
+  {
+    title: "Security operations handbook",
+    category: "Security",
+    audience: "Security officer",
+    summary: "Track access reviews, incidents, and operational safeguards across a school's estate.",
+    route: "/security",
+  },
+  {
+    title: "Governance review toolkit",
+    category: "Compliance",
+    audience: "Compliance officer",
+    summary: "Log compliance items, run risk reviews, and keep policy documentation current.",
+    route: "/risk-register",
+  },
+  {
+    title: "Approve pending platform changes",
+    category: "Platform operations",
+    audience: "Super admin",
+    summary: "Review and approve or escalate pending platform-level requests awaiting sign-off.",
+    route: "/approval-center",
+  },
+];
 
 export const Route = createFileRoute("/knowledge-base")({
   head: () => ({ meta: [{ title: "Knowledge Base - SRMS" }] }),

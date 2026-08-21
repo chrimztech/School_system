@@ -9,20 +9,20 @@ import {
   Link,
 } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
-import { Search, LogOut, UserCircle, Command as CommandIcon, AlertTriangle, Clock, Lock } from "lucide-react";
-import { ThemeProvider, CssBaseline, Chip, Menu, MenuItem, ListItemIcon, Divider, Box, Typography } from "@mui/material";
+import { Search, LogOut, UserCircle, Command as CommandIcon, Lock } from "lucide-react";
+import { ThemeProvider, CssBaseline, Menu, MenuItem, ListItemIcon, Divider, Box, Typography } from "@mui/material";
 
 import appCss from "../styles.css?url";
 import { theme, buildTheme, contrastFor, isValidHexColor } from "@/theme";
 import { TenantProvider, useTenant, type Tenant } from "@/lib/tenant";
 import { AuthProvider, useAuth, ROLE_META } from "@/lib/auth";
-import { badgeSx } from "@/lib/utils";
 import { NotificationProvider } from "@/lib/notifications";
 import { useFavicon } from "@/hooks/use-favicon";
 import { NotificationBell } from "@/components/notification-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { WorkspaceSidebar, WorkspaceSidebarProvider, SidebarToggleButton } from "@/components/workspace-sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { RouteAccessBoundary } from "@/components/access-guard";
 
 function NotFoundComponent() {
   return (
@@ -194,75 +194,6 @@ function SuspensionWall({ tenant }: { tenant: Tenant }) {
   );
 }
 
-function SubscriptionBanner({ tenant }: { tenant: Tenant }) {
-  const sub = tenant.subscription;
-  const learnerPct = sub.learnerLimit > 0 ? (tenant.totalStudents / sub.learnerLimit) * 100 : 0;
-  const smsPct = sub.smsQuota > 0 ? (sub.smsUsed / sub.smsQuota) * 100 : 0;
-
-  if (sub.status === "past_due") {
-    return (
-      <div className="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm shadow-sm">
-        <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-        <p className="flex-1">
-          <span className="font-semibold text-destructive">Payment overdue.</span>{" "}
-          Your account is past due. Please make payment to avoid suspension.
-        </p>
-        <Link to="/billing" className="shrink-0 text-xs font-semibold text-destructive underline underline-offset-2">
-          Pay now →
-        </Link>
-      </div>
-    );
-  }
-
-  if (sub.status === "trial") {
-    return (
-      <div className="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-sky-300/40 bg-sky-500/10 px-4 py-3 text-sm shadow-sm">
-        <Clock className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
-        <p className="flex-1">
-          <span className="font-semibold text-sky-700 dark:text-sky-300">Trial period.</span>{" "}
-          Your trial ends on {sub.renewalDate}. Upgrade to keep your data and access.
-        </p>
-        <Chip size="small" label="Trial" sx={{ ...badgeSx("default"), flexShrink: 0 }} />
-        <Link to="/billing" className="shrink-0 text-xs font-semibold text-sky-700 dark:text-sky-300 underline underline-offset-2">
-          Upgrade →
-        </Link>
-      </div>
-    );
-  }
-
-  if (learnerPct >= 90) {
-    return (
-      <div className="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm shadow-sm">
-        <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
-        <p className="flex-1">
-          <span className="font-semibold">Learner limit at {Math.round(learnerPct)}%.</span>{" "}
-          {tenant.totalStudents.toLocaleString()} of {sub.learnerLimit.toLocaleString()} used. Upgrade for more capacity.
-        </p>
-        <Link to="/billing" className="shrink-0 text-xs font-semibold underline underline-offset-2">
-          Upgrade →
-        </Link>
-      </div>
-    );
-  }
-
-  if (smsPct >= 80) {
-    return (
-      <div className="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm shadow-sm">
-        <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
-        <p className="flex-1">
-          <span className="font-semibold">SMS quota at {Math.round(smsPct)}%.</span>{" "}
-          {sub.smsUsed.toLocaleString()} of {sub.smsQuota.toLocaleString()} used this month.
-        </p>
-        <Link to="/billing" className="shrink-0 text-xs font-semibold underline underline-offset-2">
-          Upgrade →
-        </Link>
-      </div>
-    );
-  }
-
-  return null;
-}
-
 type BrandColors = {
   primaryColor?: string | null;
   secondaryColor?: string | null;
@@ -336,6 +267,7 @@ function AppShell() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { user, isSystemAdmin, loadingSession } = useAuth();
   const { active } = useTenant();
+  const router = useRouter();
 
   // Ensure SSR and first client render produce identical HTML.
   // Auth state reads from localStorage (client-only), so delay auth-dependent
@@ -378,6 +310,24 @@ function AppShell() {
     [isSystemAdmin, active.primaryColor, active.secondaryColor],
   );
 
+  // Redirects live here (in AppShell, which persists across the transition) rather than in a
+  // child component mounted only while the condition holds. A child whose own effect fires
+  // navigate() and whose unmounting is a direct consequence of that same navigation succeeding
+  // races TanStack Router's commit: the in-flight navigation gets aborted before history.pushState
+  // ever fires, reverting the location and immediately remounting the same child — an infinite
+  // "Maximum update depth exceeded" bounce between the two routes. Keeping the effect on a
+  // component that only re-renders (never unmounts) across the transition avoids that race.
+  useEffect(() => {
+    if (!clientReady || loadingSession) return;
+    if (!user) {
+      if (path !== "/login") void router.navigate({ to: "/login" });
+      return;
+    }
+    if (user.mustChangePassword && path !== "/change-password") {
+      void router.navigate({ to: "/change-password" });
+    }
+  }, [clientReady, loadingSession, user, path, router]);
+
   if (!clientReady) {
     return <div className="min-h-screen w-full bg-background" />;
   }
@@ -395,7 +345,7 @@ function AppShell() {
     return (
       <ThemeProvider theme={muiTheme}>
         <div className="min-h-screen w-full bg-background">
-          {!user && path !== "/login" ? <RedirectToLogin /> : <Outlet />}
+          {!user && path !== "/login" ? null : <Outlet />}
         </div>
       </ThemeProvider>
     );
@@ -406,9 +356,7 @@ function AppShell() {
   if (user.mustChangePassword && path !== "/change-password") {
     return (
       <ThemeProvider theme={muiTheme}>
-        <div className="min-h-screen w-full bg-background">
-          <ForceChangePassword />
-        </div>
+        <div className="min-h-screen w-full bg-background" />
       </ThemeProvider>
     );
   }
@@ -472,10 +420,11 @@ function AppShell() {
               </div>
             </div>
           </header>
-          {/* SubscriptionBanner hidden — {!isSystemAdmin && <SubscriptionBanner tenant={active} />} */}
           <main className="flex-1 overflow-x-hidden px-4 py-5 lg:px-6 lg:py-7">
             <div className="mx-auto w-full max-w-[1600px]">
-              <Outlet />
+              <RouteAccessBoundary pathname={path}>
+                <Outlet />
+              </RouteAccessBoundary>
             </div>
           </main>
         </div>
@@ -484,22 +433,6 @@ function AppShell() {
     </WorkspaceSidebarProvider>
     </ThemeProvider>
   );
-}
-
-function RedirectToLogin() {
-  const router = useRouter();
-  useEffect(() => {
-    void router.navigate({ to: "/login" });
-  }, []);
-  return null;
-}
-
-function ForceChangePassword() {
-  const router = useRouter();
-  useEffect(() => {
-    void router.navigate({ to: "/change-password" });
-  }, []);
-  return null;
 }
 
 function RootComponent() {

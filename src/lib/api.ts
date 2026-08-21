@@ -688,6 +688,7 @@ export const api = {
   lostFound: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "lost-found"))),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "lost-found"), data)),
+    update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `lost-found/${id}`), data)),
     claim: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `lost-found/${id}/claim`), data)),
   },
 
@@ -842,6 +843,13 @@ export const api = {
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `compliance/${id}`), data)),
   },
 
+  policyDocuments: {
+    list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "policy-documents"))),
+    create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "policy-documents"), data)),
+    update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `policy-documents/${id}`), data)),
+    delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `policy-documents/${id}`)),
+  },
+
   // Risk Register
   riskRegister: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "risk-register"))),
@@ -876,12 +884,20 @@ export const api = {
     postJournalEntry: (schoolId: string, id: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `accounting/journal/${id}/post`), {})),
     expenses: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "accounting/expenses"))),
     createExpense: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "accounting/expenses"), data)),
+    chartOfAccounts: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "accounting/chart-of-accounts"))),
+    createChartAccount: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "accounting/chart-of-accounts"), data)),
+    budgets: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "accounting/budgets"))),
+    createBudgetLine: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "accounting/budgets"), data)),
+    fixedAssets: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "accounting/fixed-assets"))),
+    createFixedAsset: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "accounting/fixed-assets"), data)),
   },
 
   // Reporting
   reporting: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "reporting/reports"))),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "reporting/reports"), data)),
+    update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `reporting/reports/${id}`), data)),
+    delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `reporting/reports/${id}`)),
   },
 
   // Audit

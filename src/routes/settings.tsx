@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   Building2,
   BookOpenCheck,
@@ -45,7 +45,6 @@ import {
   CAMPUS_STATUS_OPTIONS,
   FEATURE_META,
   FEATURE_ORDER,
-  PLAN_CATALOG,
   planIncludesFeature,
   createCampusDraft,
   ZAMBIA_2023_GRADING_BANDS,
@@ -377,7 +376,7 @@ function SettingsPage() {
       <div className="space-y-6">
         <PageHeader
           title="School Settings"
-          description="Manage school profile, plan-governed features, and operational defaults for the active tenant."
+          description="Manage school profile, enabled features, and operational defaults for the active tenant."
           actions={
             <Button variant="contained" onClick={() => void saveChanges()} disabled={saving} startIcon={<Save className="h-4 w-4" />}>
               Save changes
@@ -1187,14 +1186,16 @@ function SettingsPage() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Feature controls</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Modules on the {PLAN_CATALOG[school.subscription.planId].name} plan
+                  Enabled modules
                 </Typography>
               </Box>
             </AccordionSummary>
             <AccordionDetails sx={ACCORDION_DETAILS_SX}>
             <div className="space-y-6 pt-3">
               {FEATURE_CATEGORY_ORDER.map((category) => {
-                const keys = managedFeatures.filter((k) => FEATURE_META[k].category === category);
+                const keys = managedFeatures.filter(
+                  (k) => FEATURE_META[k].category === category && planIncludesFeature(school.subscription.planId, k),
+                );
                 if (keys.length === 0) return null;
                 return (
                   <div key={category}>
@@ -1204,33 +1205,17 @@ function SettingsPage() {
                     <div className="space-y-2">
                       {keys.map((feature) => {
                         const meta = FEATURE_META[feature];
-                        const unlocked = planIncludesFeature(school.subscription.planId, feature);
                         return (
                           <div
                             key={feature}
-                            className={`flex items-center justify-between gap-3 rounded-lg border border-border p-3 ${!unlocked ? "opacity-60" : ""}`}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
                           >
                             <div className="min-w-0">
-                              <p className="flex items-center gap-1.5 text-sm font-medium">
-                                {meta.label}
-                                {!unlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {unlocked ? (
-                                  meta.description
-                                ) : (
-                                  <>
-                                    Requires {PLAN_CATALOG[meta.availableFrom].name} plan —{" "}
-                                    <Link to="/billing" className="underline">
-                                      upgrade
-                                    </Link>
-                                  </>
-                                )}
-                              </p>
+                              <p className="text-sm font-medium">{meta.label}</p>
+                              <p className="text-xs text-muted-foreground">{meta.description}</p>
                             </div>
                             <Switch
                               checked={featureValues[feature]}
-                              disabled={!unlocked}
                               onChange={(e) => toggleFeature(feature, e.target.checked)}
                             />
                           </div>

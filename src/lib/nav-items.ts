@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { Role } from "@/lib/auth";
 
 import {
   Activity,
@@ -21,6 +22,7 @@ import {
   ContactRound,
   FileCog,
   FileText,
+  GraduationCap,
   HandCoins,
   HardDrive,
   Heart,
@@ -63,6 +65,7 @@ export type NavItem = {
   url: string;
   icon: ComponentType<{ className?: string }>;
   module: string;
+  roles?: readonly Role[];
   /** Command-palette-only keyboard shortcut hint (e.g. "G D"); ignored by the sidebar. */
   shortcut?: string;
 };
@@ -79,6 +82,13 @@ export const schoolOverview: NavItem[] = [
   { title: "Timetable", url: "/timetable", icon: CalendarDays, module: "timetable" },
   { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
   { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
+  {
+    title: "Result Approvals",
+    url: "/results-approvals",
+    icon: ClipboardCheck,
+    module: "assessments",
+    roles: ["super_admin", "school_admin", "principal", "deputy_head", "hod", "career_guidance"],
+  },
   { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
   { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
   { title: "Results Analysis", url: "/results-analysis", icon: BarChart3, module: "report-card" },
@@ -140,6 +150,7 @@ export const schoolAdmin: NavItem[] = [
   { title: "Users & Roles", url: "/access", icon: KeyRound, module: "access" },
   { title: "Audit Log", url: "/audit", icon: History, module: "settings" },
   { title: "Backups & Data", url: "/backups", icon: HardDrive, module: "settings" },
+  { title: "My Children", url: "/my-children", icon: GraduationCap, module: "my-children" },
   { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
   { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
   { title: "Settings", url: "/settings", icon: Settings, module: "settings" },
@@ -155,6 +166,8 @@ export const platformCore: NavItem[] = [
 ];
 
 export const platformBusiness: NavItem[] = [
+  { title: "Plan Catalog", url: "/plan-catalog", icon: Receipt, module: "plan-catalog" },
+  { title: "Revenue Ops", url: "/revenue-ops", icon: BarChart3, module: "revenue-ops" },
   { title: "Contract Center", url: "/contract-center", icon: FileText, module: "contract-center" },
   { title: "Partner Management", url: "/partner-management", icon: Users2, module: "partner-management" },
   { title: "Approval Center", url: "/approval-center", icon: ClipboardCheck, module: "approval-center" },

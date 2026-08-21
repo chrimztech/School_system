@@ -1,8 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Building2, Globe2, Users2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import TableContainer from "@mui/material/TableContainer";
@@ -34,7 +33,7 @@ function DistrictManagementPage() {
       <PageHeader
         title="District management"
         description="Central oversight for multi-school operations, capacity planning and performance benchmarking."
-        actions={<Button variant="contained" onClick={() => toast.success("District roll-up sync queued")}>Sync school data</Button>}
+        actions={<Button variant="contained" component={Link} to="/sys-admin">Manage schools</Button>}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

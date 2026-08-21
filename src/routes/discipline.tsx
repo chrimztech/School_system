@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
@@ -36,6 +36,8 @@ function DisciplinePage() {
   const schoolId = active.id;
   const { user } = useAuth();
   const isTeacher = user?.role === "teacher";
+  const canLog = isSchoolLeadershipRole(user?.role) || isTeacher || user?.role === "hod";
+  const canResolve = isSchoolLeadershipRole(user?.role) || user?.role === "hod";
   const teacherEmail = isTeacher ? user.email : undefined;
   // Teachers can log incidents but cannot escalate to expulsion/long suspension or resolve cases
   const availableActions = isTeacher
@@ -164,6 +166,7 @@ function DisciplinePage() {
         actions={
           <>
             <Button variant="outlined" component={Link} to="/student-welfare">Welfare cases</Button>
+            {canLog && <>
             <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Log incident</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
                 <DialogTitle>Log disciplinary incident</DialogTitle>
@@ -232,6 +235,7 @@ function DisciplinePage() {
                   </Button>
                 </DialogActions>
             </Dialog>
+            </>}
           </>
         }
       />
@@ -259,7 +263,7 @@ function DisciplinePage() {
                 <TableCell>Action</TableCell>
                 <TableCell>Repeats</TableCell>
                 <TableCell>Parent notified</TableCell>
-                {!isTeacher && <TableCell className="text-right">Resolve</TableCell>}
+                {canResolve && <TableCell className="text-right">Resolve</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -283,7 +287,7 @@ function DisciplinePage() {
                       ? <Chip size="small" label="Sent" sx={badgeSx("secondary")} />
                       : <Chip size="small" label="Pending" sx={badgeSx("destructive")} />}
                   </TableCell>
-                  {!isTeacher && <TableCell className="text-right">
+                  {canResolve && <TableCell className="text-right">
                     {(d.status ?? "Open") === "Resolved" ? (
                       <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success" />Resolved</span>
                     ) : (

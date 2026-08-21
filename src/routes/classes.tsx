@@ -9,7 +9,7 @@ import { Button, Chip, Checkbox, IconButton, InputAdornment, MenuItem, TextField
 import { badgeSx } from "@/lib/utils";
 import { useTenant, gradeRangeForType } from "@/lib/tenant";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/classes")({
   head: () => ({ meta: [{ title: "Classes — SRMS" }] }),
@@ -49,19 +49,30 @@ function blankClassForm(year: string, defaultPhase = "") {
 }
 
 // ── Class detail sheet ────────────────────────────────────────────
-function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: any; schoolId: string; onClose: () => void; readOnly?: boolean }) {
+function ClassDetailSheet({
+  cls, schoolId, onClose, readOnly = false, canAssignTeachers = false, assignableTeachers = [],
+}: {
+  cls: any; schoolId: string; onClose: () => void; readOnly?: boolean;
+  canAssignTeachers?: boolean; assignableTeachers?: any[];
+}) {
   const qc = useQueryClient();
   const [detailTab, setDetailTab] = useState("pupils");
   const [enrollSearch, setEnrollSearch] = useState("");
   const [teacherDialog, setTeacherDialog] = useState(false);
   const [enrollDialog, setEnrollDialog] = useState(false);
   const [promoteDialog, setPromoteDialog] = useState(false);
+  const [classTeacherDialog, setClassTeacherDialog] = useState(false);
   const [teacherForm, setTeacherForm] = useState({ teacherId: "", teacherName: "", subjectId: "", subjectName: "" });
+  const [classTeacherPick, setClassTeacherPick] = useState("");
+  // Optimistic local override so the header updates immediately after a class-teacher
+  // change — `cls` is a snapshot from the list query at the moment the drawer opened and
+  // won't reflect a refetch while it's still open.
+  const [classTeacherOverride, setClassTeacherOverride] = useState<{ id: string; name: string } | null>(null);
 
   // Reset teacher form when dialog opens and auto-select first teacher + first subject
   useEffect(() => {
     if (!teacherDialog) { setTeacherForm({ teacherId: "", teacherName: "", subjectId: "", subjectName: "" }); return; }
-    const firstT = (allTeachers as any[])[0];
+    const firstT = assignableTeachers[0];
     const firstS = (allSubjects as any[])[0];
     setTeacherForm({
       teacherId: firstT?.id ?? "",
@@ -85,11 +96,6 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
   const { data: allStudents = [] } = useQuery({
     queryKey: ["students", schoolId],
     queryFn: () => api.students.list(schoolId),
-  });
-
-  const { data: allTeachers = [] } = useQuery({
-    queryKey: ["teachers", schoolId],
-    queryFn: () => api.teachers.list(schoolId),
   });
 
   const { data: allSubjects = [] } = useQuery({
@@ -174,6 +180,17 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
     onError: () => toast.error("Failed to remove assignment"),
   });
 
+  const setClassTeacherMut = useMutation({
+    mutationFn: (data: { classTeacherId: string; classTeacherName: string }) => api.classes.update(schoolId, cls.id, data),
+    onSuccess: (_, data) => {
+      void qc.invalidateQueries({ queryKey: ["classes", schoolId] });
+      setClassTeacherOverride({ id: data.classTeacherId, name: data.classTeacherName });
+      toast.success(`${data.classTeacherName} set as class teacher`);
+      setClassTeacherDialog(false);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to set class teacher"),
+  });
+
   const submitTeacher = () => {
     if (!teacherForm.teacherId) { toast.error("Select a teacher"); return; }
     if (!teacherForm.subjectName.trim()) { toast.error("Select or enter a subject"); return; }
@@ -193,13 +210,62 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
       <Box sx={{ width: { xs: "100vw", sm: 720 }, display: "flex", flexDirection: "column", height: "100%" }}>
         <Box sx={{ borderBottom: 1, borderColor: "divider", px: 3, py: 2 }}>
           <Typography variant="h6">{cls.name}</Typography>
-          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span>{gradeLabel(cls.grade, cls.phase)}{cls.section ? ` · ${cls.section}` : ""}</span>
             {cls.room && <span>Room {cls.room}</span>}
             {cls.academicYear && <span>{cls.academicYear}</span>}
-            <span className="font-medium text-foreground">Class teacher: {cls.classTeacherName ?? cls.classTeacher ?? "—"}</span>
+            <span className="font-medium text-foreground">
+              Class teacher: {classTeacherOverride?.name ?? cls.classTeacherName ?? cls.classTeacher ?? "—"}
+            </span>
+            {canAssignTeachers && (
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<UserCog className="h-3.5 w-3.5" />}
+                onClick={() => { setClassTeacherPick(classTeacherOverride?.id ?? cls.classTeacherId ?? ""); setClassTeacherDialog(true); }}
+              >
+                Change
+              </Button>
+            )}
           </div>
         </Box>
+
+        <Dialog open={classTeacherDialog} onClose={() => setClassTeacherDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Set class teacher for {cls.name}</DialogTitle>
+          <DialogContent>
+            <TextField
+              select
+              label="Class teacher *"
+              fullWidth
+              size="small"
+              value={classTeacherPick}
+              onChange={(e) => setClassTeacherPick(e.target.value)}
+              sx={{ mt: 1 }}
+            >
+              <MenuItem value="" disabled>Select teacher</MenuItem>
+              {assignableTeachers.length === 0 && (
+                <MenuItem value="" disabled>No teachers in your department yet</MenuItem>
+              )}
+              {assignableTeachers.map((t: any) => (
+                <MenuItem key={t.id} value={t.id}>{t.firstName} {t.lastName}{t.subject ? ` · ${t.subject}` : ""}</MenuItem>
+              ))}
+            </TextField>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="outlined" color="inherit" onClick={() => setClassTeacherDialog(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              disabled={!classTeacherPick || setClassTeacherMut.isPending}
+              onClick={() => {
+                const teacher = assignableTeachers.find((t: any) => t.id === classTeacherPick);
+                if (!teacher) return;
+                setClassTeacherMut.mutate({ classTeacherId: teacher.id, classTeacherName: `${teacher.firstName} ${teacher.lastName}` });
+              }}
+            >
+              {setClassTeacherMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Box className="flex flex-1 flex-col overflow-hidden">
           <Tabs value={detailTab} onChange={(_e, v) => setDetailTab(v)} className="mx-6 mt-4 w-auto self-start">
@@ -313,6 +379,8 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
           <Box className="flex flex-1 flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-6 py-3">
               <p className="text-sm text-muted-foreground">Teachers assigned to teach subjects in this class</p>
+              {canAssignTeachers && (
+              <>
               <Button size="small" variant="contained" startIcon={<UserCog className="h-3.5 w-3.5" />} onClick={() => setTeacherDialog(true)}>Assign teacher</Button>
               <Dialog open={teacherDialog} onClose={() => setTeacherDialog(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Assign subject teacher to {cls.name}</DialogTitle>
@@ -326,12 +394,15 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                       value={teacherForm.teacherId}
                       onChange={(e) => {
                         const v = e.target.value;
-                        const t = (allTeachers as any[]).find((x: any) => x.id === v);
+                        const t = assignableTeachers.find((x: any) => x.id === v);
                         setTeacherForm({ ...teacherForm, teacherId: v, teacherName: t ? `${t.firstName} ${t.lastName}` : "" });
                       }}
                     >
                       <MenuItem value="" disabled>Select teacher</MenuItem>
-                      {(allTeachers as any[]).map((t: any) => (
+                      {assignableTeachers.length === 0 && (
+                        <MenuItem value="" disabled>No teachers in your department yet</MenuItem>
+                      )}
+                      {assignableTeachers.map((t: any) => (
                         <MenuItem key={t.id} value={t.id}>
                           {t.firstName} {t.lastName}{t.subject ? ` · ${t.subject}` : ""}
                         </MenuItem>
@@ -382,6 +453,8 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                   </Button>
                 </DialogActions>
               </Dialog>
+              </>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -401,7 +474,7 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                   <TableBody>
                     {classTeachers.length === 0 ? (
                       <TableRow><TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
-                        No subject teachers assigned yet. Use "Assign teacher" above.
+                        {canAssignTeachers ? 'No subject teachers assigned yet. Use "Assign teacher" above.' : "No subject teachers assigned yet."}
                       </TableCell></TableRow>
                     ) : classTeachers.map((t: any) => (
                       <TableRow key={t.id}>
@@ -409,9 +482,11 @@ function ClassDetailSheet({ cls, schoolId, onClose, readOnly = false }: { cls: a
                         <TableCell>{t.subjectName}</TableCell>
                         <TableCell className="text-muted-foreground">{t.academicYear}</TableCell>
                         <TableCell>
-                          <IconButton size="small" color="error" aria-label={`Remove ${t.teacherName} from class`} onClick={() => removeTeacherMut.mutate(t.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </IconButton>
+                          {canAssignTeachers && (
+                            <IconButton size="small" color="error" aria-label={`Remove ${t.teacherName} from class`} onClick={() => removeTeacherMut.mutate(t.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </IconButton>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -591,7 +666,15 @@ function ClassesPage() {
   const schoolId = active.id;
   const { user } = useAuth();
   const teacherEmail = user?.role === "teacher" ? user.email : undefined;
+  const canManage = isSchoolLeadershipRole(user?.role);
+  const isHOD = user?.role === "hod";
   const qc = useQueryClient();
+
+  const { data: departmentsRaw = [] } = useQuery({
+    queryKey: ["departments", schoolId],
+    queryFn: () => api.departments.list(schoolId),
+    enabled: isHOD,
+  });
 
   const currentYear = String(active.currentYear ?? new Date().getFullYear());
   const showPrimary = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(active.type);
@@ -612,6 +695,22 @@ function ClassesPage() {
     queryKey: ["teachers", schoolId],
     queryFn: () => api.teachers.list(schoolId),
   });
+
+  // A department head only manages their own department's proceedings — mirrors the same
+  // email-match scoping departments.tsx uses so both pages agree on which department(s) a
+  // given HOD actually heads. Leadership roles (canManage) see every teacher, unscoped.
+  const myTeacherRecord = isHOD
+    ? (teachersRaw as any[]).find((t: any) => t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase())
+    : undefined;
+  const myDepartmentNames = isHOD
+    ? (departmentsRaw as any[])
+        .filter((d: any) => myTeacherRecord && d.headTeacherId === myTeacherRecord.id)
+        .map((d: any) => d.name)
+    : [];
+  const canAssignTeachers = canManage || isHOD;
+  const assignableTeachers = isHOD
+    ? (teachersRaw as any[]).filter((t: any) => t.department && myDepartmentNames.includes(t.department))
+    : (teachersRaw as any[]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.classes.create(schoolId, data),
@@ -695,22 +794,20 @@ function ClassesPage() {
           </div>
         </div>
         <p className="mt-3 text-xs text-primary underline-offset-2 hover:underline">
-          {isTeacher ? "Click to view class roster →" : "Click to manage pupils & teachers →"}
+          {canManage ? "Click to manage pupils & teachers →" : "Click to view class roster →"}
         </p>
       </button>
     );
   };
 
-  const isTeacher = user?.role === "teacher";
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Classes"
-        description={isTeacher
+        description={!canManage
           ? `${active.name} · Your assigned classes for this term.`
           : `${gradeRangeForType(active.type)} · ${active.name}. Create classes, enrol pupils and assign subject teachers.`}
-        actions={!isTeacher && (
+        actions={canManage && (
           <>
             <Button variant="contained" startIcon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>Create class</Button>
             <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
@@ -901,7 +998,9 @@ function ClassesPage() {
           cls={detailClass}
           schoolId={schoolId}
           onClose={() => setDetailClass(null)}
-          readOnly={isTeacher}
+          readOnly={!canManage}
+          canAssignTeachers={canAssignTeachers}
+          assignableTeachers={assignableTeachers}
         />
       )}
     </div>

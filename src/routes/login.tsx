@@ -144,8 +144,11 @@ function LoginPage() {
   const [capsLockOn, setCapsLockOn] = useState(false);
 
   useEffect(() => {
-    if (user) navigate({ to: "/" });
-  }, [user, navigate]);
+    // Skip while the submit handler's own delayed navigate (below) is pending —
+    // otherwise this fires immediately on login and races it, bouncing the router
+    // back to "/" ~450ms later after AppShell has already redirected onward.
+    if (user && !success) navigate({ to: "/" });
+  }, [user, success, navigate]);
 
   useEffect(() => {
     const slug = detectSubdomainSlug() ?? consumePendingSlug();
@@ -246,8 +249,13 @@ function LoginPage() {
       sx={{
         display: "grid",
         minHeight: "100vh",
-        gridTemplateColumns: "1fr",
-        [`@media (min-width:${BP}px)`]: { gridTemplateColumns: "1.1fr 1fr" },
+        width: "100%",
+        maxWidth: "100vw",
+        overflowX: "hidden",
+        gridTemplateColumns: "minmax(0, 1fr)",
+        [`@media (min-width:${BP}px)`]: {
+          gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1fr)",
+        },
         bgcolor: PAGE_BG,
       }}
     >
@@ -473,12 +481,13 @@ function LoginPage() {
         sx={{
           position: "relative",
           overflow: "hidden",
+          minWidth: 0,
           display: "flex",
           minHeight: "100vh",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          px: { xs: 3, sm: 5 },
+          px: { xs: 2, sm: 5 },
           py: 8,
         }}
       >
@@ -501,7 +510,7 @@ function LoginPage() {
         />
 
         <Fade in timeout={500}>
-          <Box sx={{ width: "100%", maxWidth: 460, position: "relative" }}>
+          <Box sx={{ width: "100%", maxWidth: 460, minWidth: 0, position: "relative" }}>
             {/* Mobile brand header */}
             <Stack
               spacing={1.5}
@@ -563,7 +572,10 @@ function LoginPage() {
             <Paper
               elevation={2}
               sx={{
-                p: { xs: "28px", sm: "40px" },
+                width: "100%",
+                minWidth: 0,
+                boxSizing: "border-box",
+                p: { xs: "24px", sm: "40px" },
                 borderRadius: "20px",
                 border: "1px solid",
                 borderColor: "divider",
@@ -698,7 +710,15 @@ function LoginPage() {
                   </Box>
 
                   <Box>
-                    <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.75 }}>
+                    <Stack
+                      direction="row"
+                      sx={{
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        columnGap: 1,
+                        mb: 0.75,
+                      }}
+                    >
                       <Typography component="label" htmlFor="password" sx={{ fontSize: 13.5, fontWeight: 500, color: TEXT_PRIMARY }}>
                         Password <Box component="span" sx={{ color: TEXT_SECONDARY }}>*</Box>
                       </Typography>
@@ -715,6 +735,7 @@ function LoginPage() {
                           borderRadius: "6px",
                           fontSize: 12.5,
                           fontWeight: 500,
+                          flexShrink: 0,
                           color: "primary.main",
                           textTransform: "none",
                           "&:focus-visible": {

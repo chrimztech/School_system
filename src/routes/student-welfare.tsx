@@ -94,7 +94,16 @@ function StudentWelfarePage() {
 
   const openCases = (cases as any[]).filter((c: any) => c.status !== "Resolved").length;
   const resolvedCases = (cases as any[]).filter((c: any) => c.status === "Resolved").length;
-  const highRisk = 0;
+  // "At risk" = an open/monitoring case that's gone quiet — no contact logged in 14+ days,
+  // derived from the same case data already loaded rather than a separate tracked concept.
+  const STALE_DAYS = 14;
+  const atRiskCases = (cases as any[]).filter((c: any) => {
+    if (c.status === "Resolved") return false;
+    if (!c.lastContact) return true;
+    const daysSince = (Date.now() - new Date(c.lastContact).getTime()) / 86_400_000;
+    return daysSince >= STALE_DAYS;
+  });
+  const highRisk = atRiskCases.length;
 
   return (
     <AccessGuard module="student-welfare">
@@ -298,7 +307,47 @@ function StudentWelfarePage() {
       {/* AT-RISK */}
       {tab === "atrisk" && (
         <Box className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <div className="border-b border-border p-3">
+            <p className="text-xs text-muted-foreground">
+              Open or monitoring cases with no logged contact in {STALE_DAYS}+ days — these need a follow-up.
+            </p>
+          </div>
+          {atRiskCases.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              Nothing flagged — every open case has been contacted recently.
+            </div>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead><TableRow>
+                  <TableCell>Student</TableCell><TableCell>Grade</TableCell><TableCell>Type</TableCell>
+                  <TableCell>Assigned to</TableCell><TableCell>Last contact</TableCell>
+                  <TableCell className="text-right">Action</TableCell>
+                </TableRow></TableHead>
+                <TableBody>
+                  {atRiskCases.map((c: any) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.student}</TableCell>
+                      <TableCell>{c.grade}</TableCell>
+                      <TableCell><Chip size="small" label={c.type} sx={badgeSx("outline")} /></TableCell>
+                      <TableCell className="text-muted-foreground">{c.assignedTo || "Unassigned"}</TableCell>
+                      <TableCell className="text-destructive">{c.lastContact || "Never"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="inherit"
+                          onClick={() => createSessionMut.mutate({ student: c.student, counselor: c.assignedTo, sessionDate: new Date().toISOString().slice(0, 10), sessionType: "Individual", notes: "Follow-up session" })}
+                        >
+                          Log session
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Box>
       )}
     </div>

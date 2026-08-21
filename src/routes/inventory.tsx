@@ -341,8 +341,8 @@ function InventoryPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Stock items" value={stockItems.length} accent="primary" icon={<Package className="h-4 w-4" />} />
         <StatCard label="Low-stock alerts" value={lowCount} hint="Below reorder level" accent="warning" icon={<AlertTriangle className="h-4 w-4" />} />
-        <StatCard label="Open POs" value={0} accent="accent" icon={<ShoppingCart className="h-4 w-4" />} />
-        <StatCard label="Suppliers" value={0} accent="success" icon={<Truck className="h-4 w-4" />} />
+        <StatCard label="Open POs" value="—" hint="Tracked in Procurement" accent="accent" icon={<ShoppingCart className="h-4 w-4" />} />
+        <StatCard label="Suppliers" value="—" hint="Tracked in Vendor Management" accent="success" icon={<Truck className="h-4 w-4" />} />
       </div>
 
       <Box>
@@ -411,8 +411,9 @@ function InventoryPage() {
         <Box className="rounded-xl border border-border bg-card">
           <EmptyState
             icon={ShoppingCart}
-            title="No purchase orders yet"
-            description="Purchase orders raised against suppliers will appear here."
+            title="Purchase orders are tracked in Procurement"
+            description="Requisitions, approvals, and order status live on the Procurement page."
+            actionSlot={<Button variant="outlined" component={Link} to="/procurement">Open Procurement</Button>}
           />
         </Box>
       )}
@@ -421,8 +422,9 @@ function InventoryPage() {
         <Box className="rounded-xl border border-border bg-card">
           <EmptyState
             icon={Truck}
-            title="No suppliers on file yet"
-            description="Registered suppliers and their contact details will appear here."
+            title="Suppliers are tracked in Vendor Management"
+            description="Registered suppliers, contracts, and contact details live on the Vendor Management page."
+            actionSlot={<Button variant="outlined" component={Link} to="/vendor-management">Open Vendor Management</Button>}
           />
         </Box>
       )}
@@ -431,8 +433,8 @@ function InventoryPage() {
         <Box className="rounded-xl border border-border bg-card p-5">
           <EmptyState
             icon={Package}
-            title="No goods received yet"
-            description="Delivery records against purchase orders will appear here."
+            title="Goods-received tracking isn't built yet"
+            description="Delivery records against purchase orders aren't tracked separately from stock movements yet."
           />
         </Box>
       )}

@@ -3,14 +3,23 @@ import { PackageX, ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@mui/material";
-import { useAuth } from "@/lib/auth";
+import { useAuth, type Role } from "@/lib/auth";
 import { useTenant, isTenantModuleEnabled } from "@/lib/tenant";
+import { routeAccessForPath } from "@/lib/route-access";
 
-export function AccessGuard({ module, children }: { module: string; children: ReactNode }) {
-  const { can, isSystemAdmin } = useAuth();
+export function AccessGuard({
+  module,
+  allowedRoles,
+  children,
+}: {
+  module: string;
+  allowedRoles?: readonly Role[];
+  children: ReactNode;
+}) {
+  const { can, isSystemAdmin, user } = useAuth();
   const { active } = useTenant();
 
-  if (can(module) === false) {
+  if (can(module) === false || (allowedRoles && (!user || !allowedRoles.includes(user.role)))) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
         <ShieldAlert className="h-10 w-10 text-destructive" />
@@ -41,4 +50,20 @@ export function AccessGuard({ module, children }: { module: string; children: Re
   }
 
   return <>{children}</>;
+}
+
+export function RouteAccessBoundary({
+  pathname,
+  children,
+}: {
+  pathname: string;
+  children: ReactNode;
+}) {
+  const rule = routeAccessForPath(pathname);
+  if (!rule.module) return <>{children}</>;
+  return (
+    <AccessGuard module={rule.module} allowedRoles={rule.allowedRoles}>
+      {children}
+    </AccessGuard>
+  );
 }

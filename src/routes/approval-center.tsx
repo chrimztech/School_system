@@ -160,18 +160,21 @@ function ApprovalCenterPage() {
   };
 
   const updatePolicy = (key: keyof typeof policies, value: boolean) => {
-    saveWorkspace.mutate({
-      approvalPolicies: {
-        ...policies,
-        [key]: value,
+    saveWorkspace.mutate(
+      {
+        approvalPolicies: {
+          ...policies,
+          [key]: value,
+        },
+        platformAuditEvents: appendPlatformAuditEvent(workspace, {
+          actor: user?.name ?? "System Administrator",
+          tenant: "Platform",
+          area: "Operations",
+          action: `${value ? "Enabled" : "Disabled"} approval policy ${key}`,
+        }),
       },
-      platformAuditEvents: appendPlatformAuditEvent(workspace, {
-        actor: user?.name ?? "System Administrator",
-        tenant: "Platform",
-        area: "Operations",
-        action: `${value ? "Enabled" : "Disabled"} approval policy ${key}`,
-      }),
-    });
+      { onSuccess: () => toast.success(`Policy ${value ? "enabled" : "disabled"}`) },
+    );
   };
 
   return (
@@ -241,9 +244,10 @@ function ApprovalCenterPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button size="small" variant="outlined" onClick={() => updateStatus(item.id, "Approved")}>Approve</Button>
-                      <Button size="small" variant="outlined" onClick={() => updateStatus(item.id, item.status === "Escalated" ? "Rejected" : "Escalated")}>
-                        {item.status === "Escalated" ? "Reject" : "Escalate"}
-                      </Button>
+                      <Button size="small" color="error" variant="outlined" onClick={() => updateStatus(item.id, "Rejected")}>Reject</Button>
+                      {item.status !== "Escalated" && (
+                        <Button size="small" variant="outlined" onClick={() => updateStatus(item.id, "Escalated")}>Escalate</Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

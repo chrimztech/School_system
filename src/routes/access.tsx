@@ -26,7 +26,7 @@ import {
 } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { useAuth, ACCESS, MODULE_MATRIX, ROLE_META, type Role } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth, ACCESS, MODULE_MATRIX, ROLE_META, type Role } from "@/lib/auth";
 import { AccessGuard } from "@/components/access-guard";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
@@ -309,7 +309,7 @@ function AccessPage() {
     );
   }
 
-  if (!user || (user.role !== "super_admin" && user.role !== "school_admin")) {
+  if (!user || !isSchoolLeadershipRole(user.role)) {
     return (
       <div className="space-y-6">
         <PageHeader title="Users & Roles" />
@@ -317,7 +317,7 @@ function AccessPage() {
           <Shield className="mx-auto h-10 w-10 text-muted-foreground" />
           <h2 className="mt-3 text-base font-semibold">Restricted</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Only School Admins and System Admins can manage users and roles.
+            Only school leadership and the System Administrator can manage users and roles.
             {user && <span className="block mt-1 text-xs font-mono text-muted-foreground/60">Detected role: {user.role}</span>}
           </p>
         </div>

@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Clock3, Database, Settings2 } from "lucide-react";
+import { FileText, Clock3, Database, Settings2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
-import { Box, Button, MenuItem, Paper, Stack, TextField, Tooltip, Typography, alpha, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
+import { Box, Button, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography, alpha, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { api } from "@/lib/api";
@@ -45,6 +45,24 @@ function ReportingPage() {
       setOpen(false);
     },
     onError: () => toast.error("Failed to create report"),
+  });
+
+  const updateReportMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.reporting.update(schoolId, id, { status }),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["saved-reports", schoolId] });
+      toast.success(`Report ${variables.status === "Active" ? "activated" : "set to draft"}`);
+    },
+    onError: () => toast.error("Failed to update report"),
+  });
+
+  const deleteReportMutation = useMutation({
+    mutationFn: (id: string) => api.reporting.delete(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["saved-reports", schoolId] });
+      toast.success("Report removed");
+    },
+    onError: () => toast.error("Failed to remove report"),
   });
 
   const reports: SavedReport[] = (reportsRaw as any[]).map((report) => ({
@@ -264,13 +282,14 @@ function ReportingPage() {
               <TableCell>Schedule</TableCell>
               <TableCell>Owner</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell className="text-right">Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Loading reports...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading reports...</TableCell></TableRow>
             ) : reports.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">No saved reports found in the database.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No saved reports found in the database.</TableCell></TableRow>
             ) : reports.map((report) => (
               <TableRow key={report.id}>
                 <TableCell>{report.name}</TableCell>
@@ -278,6 +297,28 @@ function ReportingPage() {
                 <TableCell>{report.owner}</TableCell>
                 <TableCell>
                   <Chip size="small" label={report.status} sx={badgeSx(report.status === "Active" ? "secondary" : "outline")} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", alignItems: "center" }}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      color="inherit"
+                      disabled={updateReportMutation.isPending}
+                      onClick={() => updateReportMutation.mutate({ id: report.id, status: report.status === "Active" ? "Draft" : "Active" })}
+                    >
+                      {report.status === "Active" ? "Set to draft" : "Activate"}
+                    </Button>
+                    <Tooltip title="Remove report">
+                      <IconButton
+                        size="small"
+                        disabled={deleteReportMutation.isPending}
+                        onClick={() => deleteReportMutation.mutate(report.id)}
+                      >
+                        <Trash2 size={14} />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}

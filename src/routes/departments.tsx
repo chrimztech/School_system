@@ -524,7 +524,16 @@ function DepartmentsPage() {
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
                   onClick={() => toggleExpand(d.id)}
                 >
-                  <button className="text-muted-foreground shrink-0">
+                  <button
+                    type="button"
+                    className="text-muted-foreground shrink-0"
+                    aria-label={`${isOpen ? "Collapse" : "Expand"} ${d.name}`}
+                    aria-expanded={isOpen}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleExpand(d.id);
+                    }}
+                  >
                     {isOpen
                       ? <ChevronDown className="h-4 w-4" />
                       : <ChevronRight className="h-4 w-4" />}
@@ -658,7 +667,16 @@ function DepartmentsPage() {
                 className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
                 onClick={() => toggleExpand("__unassigned__")}
               >
-                <button className="text-muted-foreground shrink-0">
+                <button
+                  type="button"
+                  className="text-muted-foreground shrink-0"
+                  aria-label={`${expanded.has("__unassigned__") ? "Collapse" : "Expand"} unassigned records`}
+                  aria-expanded={expanded.has("__unassigned__")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleExpand("__unassigned__");
+                  }}
+                >
                   {expanded.has("__unassigned__")
                     ? <ChevronDown className="h-4 w-4" />
                     : <ChevronRight className="h-4 w-4" />}

@@ -19,37 +19,85 @@ export const Route = createFileRoute("/exams")({
 // Zambia 2025: Secondary uses Forms; Grade 7 abolished (now Form 1)
 const GRADES = ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
 
-function SeatingPlanTab({ papers }: { papers: any[] }) {
+function shuffledIndices(n: number) {
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+function SeatingPlanTab({ papers, schoolId }: { papers: any[]; schoolId: string }) {
   const [selectedId, setSelectedId] = useState<string>("");
   const paper = papers.find((p) => p.id === selectedId) ?? papers[0];
+  const [seatOrder, setSeatOrder] = useState<number[] | null>(null);
+
+  const { data: candidates = [] } = useQuery({
+    queryKey: ["examCandidates", schoolId, paper?.id],
+    queryFn: () => api.exams.candidates(schoolId, paper.id),
+    enabled: !!paper,
+  });
 
   if (!paper) return <p className="py-8 text-center text-muted-foreground">No papers scheduled. Schedule a paper to generate a seating plan.</p>;
 
   const cols = 12;
-  const count = Number(paper.candidates) || 0;
+  const roster = candidates as any[];
+  const count = roster.length;
+  const order = seatOrder && seatOrder.length === count ? seatOrder : Array.from({ length: count }, (_, i) => i);
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <TextField select value={paper.id} onChange={(e) => setSelectedId(e.target.value)} size="small" sx={{ width: 288 }}>
+      <div className="mb-3 flex flex-wrap items-center gap-3 print:hidden">
+        <TextField
+          select
+          value={paper.id}
+          onChange={(e) => { setSelectedId(e.target.value); setSeatOrder(null); }}
+          size="small"
+          sx={{ width: 288 }}
+        >
           {papers.map((p) => <MenuItem key={p.id} value={p.id}>{p.subject} — {p.grade} ({p.examDate})</MenuItem>)}
         </TextField>
-        <span className="text-sm text-muted-foreground">{paper.room} · {count} candidates · {cols} cols × {Math.ceil(count / cols)} rows</span>
+        <span className="text-sm text-muted-foreground">{paper.room} · {count} registered candidates · {cols} cols × {Math.ceil(count / cols)} rows</span>
+      </div>
+      <div className="mb-3 hidden print:block">
+        <h2 className="text-base font-semibold">{paper.subject} — {paper.grade} — {paper.room}</h2>
+        <p className="text-sm text-muted-foreground">{paper.examDate} · {count} candidates</p>
       </div>
       {count > 0 ? (
         <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-          {Array.from({ length: count }).map((_, i) => (
-            <div key={i} className="aspect-square flex items-center justify-center rounded border border-primary/20 bg-primary/10 text-center text-[10px] font-mono leading-none">
-              {String(i + 1).padStart(3, "0")}
-            </div>
-          ))}
+          {order.map((candidateIdx, seatIdx) => {
+            const candidate = roster[candidateIdx];
+            return (
+              <div
+                key={seatIdx}
+                title={candidate?.candidateName ?? `Seat ${seatIdx + 1}`}
+                className="aspect-square flex flex-col items-center justify-center rounded border border-primary/20 bg-primary/10 text-center leading-none"
+              >
+                <span className="text-[10px] font-mono">{String(seatIdx + 1).padStart(3, "0")}</span>
+                <span className="mt-0.5 w-full truncate px-0.5 text-[7px] text-muted-foreground">
+                  {candidate?.candidateName?.split(" ")[0] ?? ""}
+                </span>
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <p className="py-4 text-sm text-muted-foreground">Candidate count not set for this paper.</p>
+        <p className="py-4 text-sm text-muted-foreground">
+          No candidates registered for this paper yet — add candidates from the Schedule tab before generating a seating plan.
+        </p>
       )}
-      <div className="mt-4 flex justify-end gap-2">
-        <Button variant="outlined" onClick={() => toast.success("Seating plan reshuffled")}>Reshuffle</Button>
-        <Button variant="contained" onClick={() => toast.success("Plan emailed to invigilators")}>Publish</Button>
+      <div className="mt-4 flex justify-end gap-2 print:hidden">
+        <Button
+          variant="outlined"
+          disabled={count === 0}
+          onClick={() => { setSeatOrder(shuffledIndices(count)); toast.success("Seating order reshuffled"); }}
+        >
+          Reshuffle
+        </Button>
+        <Button variant="contained" disabled={count === 0} onClick={() => window.print()}>
+          Print seating plan
+        </Button>
       </div>
     </>
   );
@@ -441,7 +489,7 @@ function ExamsPage() {
         description="ECZ & internal exam scheduling, seating plans, invigilation roster and candidate registers."
         actions={
           <>
-            <Button variant="outlined" startIcon={<FileSpreadsheet size={16} />} onClick={() => { window.print(); toast.success("Seating plan PDF generated"); }}>
+            <Button variant="outlined" startIcon={<FileSpreadsheet size={16} />} onClick={() => setTab("seating")}>
               Seating plan
             </Button>
             <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Schedule paper</Button>
@@ -640,7 +688,7 @@ function ExamsPage() {
 
         {tab === "seating" && (
         <Box className="rounded-xl border border-border bg-card p-5">
-          <SeatingPlanTab papers={papers as any[]} />
+          <SeatingPlanTab papers={papers as any[]} schoolId={active.id} />
         </Box>
         )}
 

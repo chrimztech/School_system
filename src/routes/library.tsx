@@ -8,9 +8,17 @@ import { Button, Chip, InputAdornment, MenuItem, TextField, Dialog, DialogConten
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
+import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+
+function defaultDueDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  return d.toISOString().slice(0, 10);
+}
 
 export const Route = createFileRoute("/library")({
   head: () => ({ meta: [{ title: "Library — SRMS" }] }),
@@ -21,6 +29,8 @@ const CATEGORIES = ["Textbook", "Literature", "Reference", "Fiction", "Non-ficti
 
 function LibraryPage() {
   const { active } = useTenant();
+  const { user } = useAuth();
+  const canManage = isSchoolLeadershipRole(user?.role);
   const schoolId = active.id;
   const qc = useQueryClient();
 
@@ -52,6 +62,47 @@ function LibraryPage() {
     queryKey: ["library-loans", schoolId],
     queryFn: () => api.library.loans(schoolId),
   });
+
+  const [issueBook, setIssueBook] = useState<any>(null);
+  const [issueBorrower, setIssueBorrower] = useState<PersonOption | null>(null);
+  const [issueDueDate, setIssueDueDate] = useState(defaultDueDate());
+
+  const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
+    queryKey: ["library-picker-students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: !!issueBook,
+  });
+  const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s: any) => ({
+    id: s.id,
+    label: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.id,
+    sublabel: s.className || s.grade,
+  }));
+
+  const issueLoanMutation = useMutation({
+    mutationFn: (data: any) => api.library.issueLoan(schoolId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["library-loans", schoolId] });
+      qc.invalidateQueries({ queryKey: ["library-books", schoolId] });
+      toast.success(`"${issueBook?.title}" issued to ${issueBorrower?.label}`);
+      setIssueBook(null);
+      setIssueBorrower(null);
+      setIssueDueDate(defaultDueDate());
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to issue book"),
+  });
+
+  const confirmIssue = () => {
+    if (!issueBorrower) { toast.error("Select a student to issue the book to"); return; }
+    issueLoanMutation.mutate({
+      bookId: issueBook.id,
+      bookTitle: issueBook.title,
+      borrowerType: "STUDENT",
+      borrowerId: issueBorrower.id,
+      borrowerName: issueBorrower.label,
+      loanDate: new Date().toISOString().slice(0, 10),
+      dueDate: issueDueDate,
+    });
+  };
 
   const addBookMutation = useMutation({
     mutationFn: (data: any) => api.library.createBook(schoolId, data),
@@ -138,7 +189,7 @@ function LibraryPage() {
       <PageHeader
         title="School Library"
         description={`Catalogue and lending · ${active.shortCode}`}
-        actions={
+        actions={canManage ? (
           <>
             <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add title</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
@@ -293,7 +344,7 @@ function LibraryPage() {
               </DialogActions>
             </Dialog>
           </>
-        }
+        ) : undefined}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -331,6 +382,7 @@ function LibraryPage() {
                 <TableCell className="text-right">Copies</TableCell>
                 <TableCell className="text-right">Available</TableCell>
                 <TableCell className="text-right">Out</TableCell>
+                {canManage && <TableCell className="text-right">Action</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -350,11 +402,22 @@ function LibraryPage() {
                     <TableCell className="text-right">{b.totalCopies ?? b.copies}</TableCell>
                     <TableCell className="text-right"><span className={available === 0 ? "text-destructive" : ""}>{available}</span></TableCell>
                     <TableCell className="text-right">{b.borrowedCopies ?? b.borrowed ?? 0}</TableCell>
+                    {canManage && <TableCell className="text-right">
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="inherit"
+                        disabled={available === 0}
+                        onClick={() => { setIssueBook(b); setIssueBorrower(null); setIssueDueDate(defaultDueDate()); }}
+                      >
+                        Issue
+                      </Button>
+                    </TableCell>}
                   </TableRow>
                 );
               })}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No books in catalogue yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No books in catalogue yet.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -379,7 +442,7 @@ function LibraryPage() {
                 <TableCell>Title</TableCell>
                 <TableCell>Due date</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell className="text-right">Action</TableCell>
+                {canManage && <TableCell className="text-right">Action</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -394,7 +457,7 @@ function LibraryPage() {
                       <TableCell>{l.bookTitle ?? l.title}</TableCell>
                       <TableCell className={isOverdue ? "text-destructive" : "text-muted-foreground"}>{(l.dueDate ?? "").slice(0, 10)}</TableCell>
                       <TableCell><Chip size="small" label={isOverdue ? "Overdue" : "On time"} sx={badgeSx(isOverdue ? "destructive" : "outline")} /></TableCell>
-                      <TableCell className="text-right">
+                      {canManage && <TableCell className="text-right">
                         <Button
                           size="small"
                           variant="text"
@@ -405,7 +468,7 @@ function LibraryPage() {
                         >
                           Return
                         </Button>
-                      </TableCell>
+                      </TableCell>}
                     </TableRow>
                   );
                 })
@@ -415,6 +478,46 @@ function LibraryPage() {
           </TableContainer>
         )}
       </div>
+
+      {canManage && <Dialog open={!!issueBook} onClose={() => setIssueBook(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Issue "{issueBook?.title}"</DialogTitle>
+        <DialogContent>
+          <div className="space-y-3 pt-1">
+            <div>
+              <p className="mb-1 text-sm font-medium">Student</p>
+              <PersonCombobox
+                options={studentOptions}
+                loading={pickerStudentsLoading}
+                placeholder="Search students…"
+                emptyText="No students found."
+                onSelect={setIssueBorrower}
+              />
+              {issueBorrower && (
+                <p className="mt-1 text-xs text-muted-foreground">Selected: {issueBorrower.label}</p>
+              )}
+            </div>
+            <TextField
+              type="date"
+              label="Due date"
+              value={issueDueDate}
+              onChange={(e) => setIssueDueDate(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setIssueBook(null)}>Cancel</Button>
+          <Button
+            onClick={confirmIssue}
+            disabled={issueLoanMutation.isPending || !issueBorrower}
+            startIcon={issueLoanMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Issue book
+          </Button>
+        </DialogActions>
+      </Dialog>}
     </div>
     </AccessGuard>
   );

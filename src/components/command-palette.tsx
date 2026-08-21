@@ -14,6 +14,7 @@ import {
   Box,
 } from "@mui/material";
 import { useAuth } from "@/lib/auth";
+import { roleAllowedForPath } from "@/lib/route-access";
 import {
   type NavItem,
   platformBusiness,
@@ -26,8 +27,6 @@ import {
   schoolOverview,
   schoolStudentLife,
 } from "@/lib/nav-items";
-import { toast } from "sonner";
-
 // Palette-only entries not surfaced in either sidebar (system-wide or utility pages).
 const paletteOnly: NavItem[] = [
   { title: "Reports", url: "/reports", icon: FileText, module: "reports" },
@@ -62,7 +61,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -84,32 +83,34 @@ export function CommandPalette() {
     navigate({ to: url });
   };
 
-  const allowed = (i: NavItem) => !i.module || can(i.module) !== false;
+  const allowed = (i: NavItem) =>
+    (!i.module || can(i.module) !== false) &&
+    (!i.roles || (!!user && i.roles.includes(user.role))) &&
+    roleAllowedForPath(i.url, user?.role);
 
   const groups = useMemo(() => {
     const toActions = (items: NavItem[]): Action[] =>
       items.filter(allowed).map((i) => ({ key: i.url, title: i.title, icon: i.icon, onSelect: () => go(i.url), shortcut: i.shortcut }));
 
     const extras: Action[] = [
-      {
+      ...(can("reports") !== false ? [{
         key: "export-school-data",
-        title: "Export school data",
+        title: "Open reports and exports",
         icon: FileText,
         onSelect: () => {
           setOpen(false);
-          toast.success("Export queued — you'll be emailed when ready");
+          navigate({ to: "/reports" });
         },
-      },
-      {
+      }] : []),
+      ...(!["teacher", "hod", "parent"].includes(user?.role ?? "") ? [{
         key: "send-broadcast",
         title: "Send broadcast",
         icon: MessageSquare,
         onSelect: () => {
           setOpen(false);
-          toast.info("Broadcast composer opened");
           navigate({ to: "/communication", hash: "broadcast" });
         },
-      },
+      }] : []),
     ];
 
     const all: { heading: string; items: Action[] }[] = [
@@ -125,7 +126,7 @@ export function CommandPalette() {
     return all
       .map((group) => ({ ...group, items: group.items.filter((item) => item.title.toLowerCase().includes(q)) }))
       .filter((group) => group.items.length > 0);
-  }, [query, can]);
+  }, [query, can, user]);
 
   const hasResults = groups.some((group) => group.items.length > 0);
 

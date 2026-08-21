@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
@@ -61,8 +61,7 @@ function ActivitiesPage() {
   const { active } = useTenant();
   const schoolId = active.id;
   const { user } = useAuth();
-  const isTeacher = user?.role === "teacher";
-  const isHOD = user?.role === "hod";
+  const canManage = isSchoolLeadershipRole(user?.role);
   const qc = useQueryClient();
 
   const [clubOpen, setClubOpen] = useState(false);
@@ -130,7 +129,6 @@ function ActivitiesPage() {
 
   const activeClubs = clubs.filter((club) => String(club.status).toUpperCase() === "ACTIVE");
   const totalMembers = activeClubs.reduce((sum: number, club: any) => sum + (club.members ?? 0), 0);
-  const upcomingFixtures = 0;
 
   const addClub = () => {
     if (!clubForm.name.trim() || !clubForm.leader.trim()) {
@@ -172,8 +170,8 @@ function ActivitiesPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Active clubs" value={activeClubs.length} accent="primary" icon={<Star className="h-4 w-4" />} />
         <StatCard label="Total members" value={totalMembers} hint="Club enrolments" accent="accent" icon={<Users className="h-4 w-4" />} />
-        <StatCard label="Sports teams" value={0} accent="success" icon={<Trophy className="h-4 w-4" />} />
-        <StatCard label="Upcoming fixtures" value={upcomingFixtures} accent="warning" icon={<CalendarDays className="h-4 w-4" />} />
+        <StatCard label="Sports teams" value="—" hint="Not tracked yet" accent="success" icon={<Trophy className="h-4 w-4" />} />
+        <StatCard label="Upcoming fixtures" value="—" hint="Not tracked yet" accent="warning" icon={<CalendarDays className="h-4 w-4" />} />
       </div>
 
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -186,7 +184,7 @@ function ActivitiesPage() {
       {tab === "clubs" && (
         <div className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            {!isTeacher && !isHOD && <>
+            {canManage && <>
               <Button size="small" startIcon={<Plus size={14} />} onClick={() => setClubOpen(true)}>New club</Button>
               <Dialog open={clubOpen} onClose={() => setClubOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Create club / society</DialogTitle>
@@ -336,7 +334,7 @@ function ActivitiesPage() {
                       <TableCell>
                         <Chip size="small" label={club.status} sx={badgeSx(isActive ? "default" : "secondary")} />
                       </TableCell>
-                      {!isTeacher && !isHOD && <TableCell className="text-right">
+                      {canManage && <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             size="small"
@@ -373,19 +371,25 @@ function ActivitiesPage() {
 
       {tab === "teams" && (
         <div className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <div className="py-12 text-center text-muted-foreground text-sm">
+            Sports team rosters aren't tracked separately yet — manage sports as a club above for now.
+          </div>
         </div>
       )}
 
       {tab === "membership" && (
         <div className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <div className="py-12 text-center text-muted-foreground text-sm">
+            Individual membership records aren't tracked yet — club member counts are on the Clubs &amp; societies tab.
+          </div>
         </div>
       )}
 
       {tab === "fixtures" && (
         <div className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">No records yet.</div>
+          <div className="py-12 text-center text-muted-foreground text-sm">
+            A fixtures calendar isn't tracked yet — use the school Calendar to schedule matches and events.
+          </div>
         </div>
       )}
     </div>
