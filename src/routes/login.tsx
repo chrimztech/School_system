@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { keyframes } from "@emotion/react";
 import {
@@ -110,7 +110,6 @@ function detectSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
   return schoolSlugFromHostname(window.location.hostname);
 }
-
 // Set by the /s/$slug route — lets a plain path URL (srms.com/s/mongu-trust-academy)
 // resolve the same school branding a real subdomain would, without needing wildcard DNS.
 function consumePendingSlug(): string | null {
@@ -130,8 +129,7 @@ const FEATURES = [
 type FieldErrors = { identifier?: string; password?: string };
 
 function LoginPage() {
-  const { completeSignIn, user } = useAuth();
-  const navigate = useNavigate();
+  const { completeSignIn } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -142,13 +140,6 @@ function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
   const [schoolBranding, setSchoolBranding] = useState<SchoolBranding | null>(null);
   const [capsLockOn, setCapsLockOn] = useState(false);
-
-  useEffect(() => {
-    // Skip while the submit handler's own delayed navigate (below) is pending —
-    // otherwise this fires immediately on login and races it, bouncing the router
-    // back to "/" ~450ms later after AppShell has already redirected onward.
-    if (user && !success) navigate({ to: "/" });
-  }, [user, success, navigate]);
 
   useEffect(() => {
     const slug = detectSubdomainSlug() ?? consumePendingSlug();
@@ -199,7 +190,6 @@ function LoginPage() {
       completeSignIn(auth);
       setSuccess(true);
       toast.success(`Welcome back, ${auth.name}!`);
-      window.setTimeout(() => navigate({ to: "/" }), 450);
     } catch (err: unknown) {
       const response = (err as { response?: { data?: { message?: string; error?: string } } })?.response;
       setError(

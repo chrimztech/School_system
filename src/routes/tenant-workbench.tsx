@@ -7,6 +7,7 @@ import Button from "@mui/material/Button";
 
 import { Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
+import { SchoolDetailsDialog } from "@/components/school-details-dialog";
 import { useAuth } from "@/lib/auth";
 import { appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
@@ -35,6 +36,7 @@ function TenantWorkbenchPage() {
   const saveWorkspace = useSavePlatformWorkspace();
   const handoffs = (workspace?.tenantHandoffs ?? []) as HandoffRecord[];
   const [tab, setTab] = useState("tenants");
+  const [detailsId, setDetailsId] = useState<string | null>(null);
 
   if (user?.role !== "super_admin") {
     return (
@@ -80,6 +82,15 @@ function TenantWorkbenchPage() {
       }),
     });
     toast.success("Tenant context switched");
+    navigate({ to: destination });
+  };
+
+  const detailsSchool = tenants.find((tenant) => tenant.id === detailsId) ?? null;
+
+  const openSchoolArea = (destination: "/settings" | "/access") => {
+    if (!detailsSchool) return;
+    setActive(detailsSchool.id);
+    setDetailsId(null);
     navigate({ to: destination });
   };
 
@@ -132,6 +143,14 @@ function TenantWorkbenchPage() {
         )}
       />
 
+      <SchoolDetailsDialog
+        school={detailsSchool}
+        open={Boolean(detailsSchool)}
+        onClose={() => setDetailsId(null)}
+        onManageUsers={() => openSchoolArea("/access")}
+        onEditSettings={() => openSchoolArea("/settings")}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Tenants" value={stats.totalTenants} accent="primary" icon={<Building2 className="h-4 w-4" />} />
         <StatCard label="Trial schools" value={stats.trials} accent="warning" icon={<Wrench className="h-4 w-4" />} />
@@ -174,6 +193,7 @@ function TenantWorkbenchPage() {
                   <TableCell>{tenant.totalStudents}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button size="small" variant="outlined" onClick={() => setDetailsId(tenant.id)}>Details</Button>
                       <Button size="small" variant="outlined" onClick={() => openWorkspace(tenant.id, "/")}>Open workspace</Button>
                       <Button size="small" variant="outlined" onClick={() => openWorkspace(tenant.id, "/billing")}>Billing</Button>
                     </div>

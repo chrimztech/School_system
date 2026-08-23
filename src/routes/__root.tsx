@@ -16,6 +16,7 @@ import appCss from "../styles.css?url";
 import { theme, buildTheme, contrastFor, isValidHexColor } from "@/theme";
 import { TenantProvider, useTenant, type Tenant } from "@/lib/tenant";
 import { AuthProvider, useAuth, ROLE_META } from "@/lib/auth";
+import { authRedirectFor } from "@/lib/auth-navigation";
 import { NotificationProvider } from "@/lib/notifications";
 import { useFavicon } from "@/hooks/use-favicon";
 import { NotificationBell } from "@/components/notification-bell";
@@ -318,14 +319,8 @@ function AppShell() {
   // "Maximum update depth exceeded" bounce between the two routes. Keeping the effect on a
   // component that only re-renders (never unmounts) across the transition avoids that race.
   useEffect(() => {
-    if (!clientReady || loadingSession) return;
-    if (!user) {
-      if (path !== "/login") void router.navigate({ to: "/login" });
-      return;
-    }
-    if (user.mustChangePassword && path !== "/change-password") {
-      void router.navigate({ to: "/change-password" });
-    }
+    const to = authRedirectFor({ clientReady, loadingSession, user, path });
+    if (to) void router.navigate({ to, replace: true });
   }, [clientReady, loadingSession, user, path, router]);
 
   if (!clientReady) {

@@ -2,6 +2,12 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 import { api, type BackendAppUser, type BackendAuthSession } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
+import {
+  AUTH_PROVIDER_SESSION_SOURCE,
+  SESSION_CHANGE_EVENT,
+  dispatchSessionChange,
+  sessionChangeCameFrom,
+} from "@/lib/session-events";
 
 export type Role =
   | "super_admin"
@@ -37,7 +43,6 @@ export type AppUser = {
   mustChangePassword?: boolean;
 };
 
-const SESSION_EVENT = "srms-session-changed";
 const TOKEN_STORAGE_KEY = "srms_token";
 const USER_STORAGE_KEY = "srms_user";
 const SCHOOL_STORAGE_KEY = "srms_school_id";
@@ -188,11 +193,6 @@ function mergeUser(users: AppUser[], nextUser: AppUser) {
   return users.map((user, index) => (index === existing ? { ...user, ...nextUser } : user));
 }
 
-function notifySessionChange() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(SESSION_EVENT));
-}
-
 function persistUser(user: AppUser | null) {
   if (typeof window === "undefined") return;
   if (user) {
@@ -309,13 +309,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (typeof window === "undefined") return undefined;
 
-    const onSessionChanged = () => {
+    const onSessionChanged = (event: Event) => {
+      // signIn/completeSignIn/signOut have already synchronously updated this provider.
+      // The event still tells TenantProvider to refresh, but re-hydrating auth here would
+      // block the post-login redirect on a redundant /api/auth/me round trip.
+      if (sessionChangeCameFrom(event, AUTH_PROVIDER_SESSION_SOURCE)) return;
       setLoadingSession(true);
       void hydrateSession();
     };
 
-    window.addEventListener(SESSION_EVENT, onSessionChanged);
-    return () => window.removeEventListener(SESSION_EVENT, onSessionChanged);
+    window.addEventListener(SESSION_CHANGE_EVENT, onSessionChanged);
+    return () => window.removeEventListener(SESSION_CHANGE_EVENT, onSessionChanged);
     // Intentionally run once (mount + manual SESSION_EVENT re-hydration only): `setActive`
     // wraps the stable `setActiveId` setter from TenantProvider's useState, so its behavior
     // never actually changes — but its *identity* is rebuilt on every tenants/activeId update
@@ -380,7 +384,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (nextUser.tenantId) setActive(nextUser.tenantId);
         setLoadingSession(false);
-        notifySessionChange();
+        dispatchSessionChange(AUTH_PROVIDER_SESSION_SOURCE);
         return true;
       },
       completeSignIn: (session) => {
@@ -400,7 +404,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (nextUser.tenantId) setActive(nextUser.tenantId);
         setLoadingSession(false);
-        notifySessionChange();
+        dispatchSessionChange(AUTH_PROVIDER_SESSION_SOURCE);
       },
       markPasswordChanged: () => {
         setUser((current) => {
@@ -414,7 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearStoredSession();
         setUser(null);
         setLoadingSession(false);
-        notifySessionChange();
+        dispatchSessionChange(AUTH_PROVIDER_SESSION_SOURCE);
       },
       switchRole: (role) => {
         setUser((current) => {

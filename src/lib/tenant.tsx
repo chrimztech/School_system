@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 import { api, type BackendGradingBand, type BackendSchool, type BackendSchoolDto } from "@/lib/api";
 import { schoolSlugFromHostname } from "@/lib/tenant-host";
+import { SESSION_CHANGE_EVENT } from "@/lib/session-events";
 
 export type SchoolType = "NURSERY" | "PRIMARY" | "SECONDARY" | "COMBINED" | "FULL";
 export type ResultPublicationMode = "SEPARATE" | "COMBINED";
@@ -511,7 +512,6 @@ const EMPTY_TENANT: Tenant = normaliseTenantStructure({
 });
 
 const SCHOOL_STORAGE_KEY = "srms_school_id";
-const SESSION_EVENT = "srms-session-changed";
 
 function normalisePlanId(planId: string | null | undefined, fallback: PlanId = "core"): PlanId {
   return (Object.keys(PLAN_CATALOG) as PlanId[]).includes(planId as PlanId) ? (planId as PlanId) : fallback;
@@ -977,8 +977,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       void loadBackendTenants();
     };
 
-    window.addEventListener(SESSION_EVENT, onSessionChanged);
-    return () => window.removeEventListener(SESSION_EVENT, onSessionChanged);
+    window.addEventListener(SESSION_CHANGE_EVENT, onSessionChanged);
+    return () => window.removeEventListener(SESSION_CHANGE_EVENT, onSessionChanged);
   }, []);
 
   const value = useMemo<TenantContextValue>(() => {

@@ -15,6 +15,7 @@ import {
   TableContainer, Table, TableHead, TableBody, TableRow, TableCell,
 } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
+import { SchoolDetailsDialog } from "@/components/school-details-dialog";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -134,6 +135,7 @@ function SysAdminPage() {
   const [q, setQ] = useState("");
   const [rowMenuAnchor, setRowMenuAnchor] = useState<HTMLElement | null>(null);
   const [rowMenuTenantId, setRowMenuTenantId] = useState<string | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; shortCode: string } | null>(null);
@@ -275,10 +277,12 @@ function SysAdminPage() {
     toast.success("Portfolio export queued");
   };
 
-  const openTenantWorkspace = (tenantId: string, destination: "/" | "/billing" | "/access") => {
+  const openTenantWorkspace = (tenantId: string, destination: "/" | "/billing" | "/access" | "/settings") => {
     setActive(tenantId);
     navigate({ to: destination });
   };
+
+  const detailsSchool = tenants.find((tenant) => tenant.id === detailsId) ?? null;
 
   // Revenue per plan
   const revenueByPlan = PLAN_IDS.map((p) => {
@@ -458,6 +462,22 @@ function SysAdminPage() {
         </DialogActions>
       </Dialog>
 
+      <SchoolDetailsDialog
+        school={detailsSchool}
+        open={Boolean(detailsSchool)}
+        onClose={() => setDetailsId(null)}
+        onManageUsers={() => {
+          if (!detailsSchool) return;
+          setDetailsId(null);
+          openTenantWorkspace(detailsSchool.id, "/access");
+        }}
+        onEditSettings={() => {
+          if (!detailsSchool) return;
+          setDetailsId(null);
+          openTenantWorkspace(detailsSchool.id, "/settings");
+        }}
+      />
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
         <StatCard label="Subscriber schools" value={tenants.length} accent="primary" icon={<School className="h-4 w-4" />} />
@@ -549,7 +569,9 @@ function SysAdminPage() {
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-sm">{t.name}</p>
+                        <button type="button" className="text-left font-medium text-sm hover:text-primary hover:underline" onClick={() => setDetailsId(t.id)}>
+                          {t.name}
+                        </button>
                         <p className="text-xs text-muted-foreground">{t.district} · {t.province}</p>
                       </div>
                     </div>
@@ -609,6 +631,8 @@ function SysAdminPage() {
             if (!t) return null;
             const closeMenu = () => { setRowMenuAnchor(null); setRowMenuTenantId(null); };
             return [
+              <MenuItem key="details" onClick={() => { setDetailsId(t.id); closeMenu(); }}>View school details</MenuItem>,
+              <Divider key="details-divider" />,
               <MenuItem key="workspace" onClick={() => { openTenantWorkspace(t.id, "/"); closeMenu(); }}>Open workspace</MenuItem>,
               <MenuItem key="billing" onClick={() => { openTenantWorkspace(t.id, "/billing"); closeMenu(); }}>Open billing</MenuItem>,
               <MenuItem key="access" onClick={() => { openTenantWorkspace(t.id, "/access"); closeMenu(); }}>Manage users</MenuItem>,

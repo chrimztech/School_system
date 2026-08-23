@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "build:render": "vite build --config vite.config.render.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-isolation=none src/lib/tenant-host.test.ts src/lib/api.test.ts src/lib/route-access.test.ts",
+    "test": "node --test --test-isolation=none src/lib/tenant-host.test.ts src/lib/api.test.ts src/lib/route-access.test.ts src/lib/auth-navigation.test.ts src/lib/session-events.test.ts",
     "start": "node server.node.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
