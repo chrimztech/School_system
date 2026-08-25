@@ -168,6 +168,9 @@ export type Tenant = {
   accentColor?: string;
   fontFamily?: string;
   reportFooter?: string;
+  /** Zamtel sender ID SMS from this school appears to come from — must already be approved on
+   * the platform's Zamtel account; falls back to the platform default when unset. */
+  smsSenderId?: string;
   offlineMode?: boolean;
   slug?: string;
   subscription: TenantSubscription;
@@ -616,6 +619,7 @@ function toSchoolDto(tenant: Tenant): BackendSchoolDto {
     logoUrl: tenant.logoUrl,
     faviconUrl: tenant.faviconUrl,
     reportFooter: tenant.reportFooter,
+    smsSenderId: tenant.smsSenderId,
     registrationNo: tenant.registrationNo,
     tpinNo: tenant.tpinNo,
     moeCode: tenant.moeCode,
@@ -777,6 +781,7 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
       logoUrl: school.logoUrl ?? undefined,
       faviconUrl: school.faviconUrl ?? undefined,
       reportFooter: school.reportFooter ?? undefined,
+      smsSenderId: school.smsSenderId ?? undefined,
       termStart: school.termStart ?? undefined,
       termEnd: school.termEnd ?? undefined,
       offlineMode: Boolean(school.offlineMode),
@@ -849,6 +854,7 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
     logoUrl: school.logoUrl ?? existing?.logoUrl,
     faviconUrl: school.faviconUrl ?? existing?.faviconUrl,
     reportFooter: school.reportFooter ?? existing?.reportFooter,
+    smsSenderId: school.smsSenderId ?? existing?.smsSenderId,
     termStart: school.termStart ?? existing?.termStart,
     termEnd: school.termEnd ?? existing?.termEnd,
     offlineMode: school.offlineMode ?? existing?.offlineMode ?? false,

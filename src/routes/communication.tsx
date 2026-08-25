@@ -40,7 +40,7 @@ function statusLabel(status: string) {
 function CommunicationPage() {
   const { active } = useTenant();
   const schoolId = active.id;
-  const { user } = useAuth();
+  const { user, isSystemAdmin } = useAuth();
   const isTeacher = user?.role === "teacher";
   const isHOD = user?.role === "hod";
   const isParent = user?.role === "parent";
@@ -86,6 +86,17 @@ function CommunicationPage() {
   const { data: announcements = [], isLoading: annoLoading } = useQuery({
     queryKey: ["announcements", schoolId],
     queryFn: () => api.communication.announcements(schoolId),
+  });
+
+  // Super-admin only — the Zamtel account is one platform-wide credit pool shared across every
+  // school, not a per-school resource, so it's meaningless (and misleading) to show a single
+  // school's admins "the" SMS balance. Also only fetched once the broadcast tab is open with
+  // SMS actually selected — no point checking credit for an email/WhatsApp-only send.
+  const { data: smsBalance } = useQuery({
+    queryKey: ["sms-balance", schoolId],
+    queryFn: () => api.communication.smsBalance(schoolId),
+    enabled: isSystemAdmin && tab === "broadcast" && broadcastChannels.includes("SMS"),
+    staleTime: 30_000,
   });
 
   const replyMutation = useMutation({
@@ -526,6 +537,26 @@ function CommunicationPage() {
                 </div>
                 {broadcastChannels.length === 0 && (
                   <p className="mt-1 text-xs text-destructive">Select at least one channel</p>
+                )}
+                {broadcastChannels.includes("SMS") && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Recipients will see it sent from{" "}
+                    <span className="font-medium text-foreground">
+                      {active.smsSenderId || "the platform default sender ID"}
+                    </span>
+                    {!active.smsSenderId && " — ask a platform admin to register this school's own sender ID in Settings for that to show your school's name instead"}.
+                  </p>
+                )}
+                {broadcastChannels.includes("SMS") && smsBalance !== undefined && (
+                  smsBalance < 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      SMS balance unavailable — Zamtel BulkSMS isn't configured or is unreachable.
+                    </p>
+                  ) : (
+                    <p className={`mt-1 text-xs ${smsBalance < 50 ? "text-destructive" : "text-muted-foreground"}`}>
+                      SMS balance: {smsBalance.toLocaleString()} credit{smsBalance === 1 ? "" : "s"}
+                    </p>
+                  )
                 )}
               </div>
 

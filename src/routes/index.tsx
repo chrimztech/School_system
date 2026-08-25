@@ -15,6 +15,7 @@ import {
   Award,
   ShieldCheck,
   BookText,
+  MessageSquare,
   HandCoins,
   Heart,
   Building2,
@@ -1026,6 +1027,16 @@ function StaffDashboard() {
     enabled: !isSystemAdmin && hasValidSchool,
   });
 
+  // One Zamtel credit pool shared platform-wide (not per-school), so any valid schoolId works —
+  // the endpoint itself only checks that the caller is super_admin, not which school this is.
+  const { data: smsBalance } = useQuery({
+    queryKey: ["sms-balance", schoolId],
+    queryFn: () => api.communication.smsBalance(schoolId),
+    retry: false,
+    enabled: isSystemAdmin && hasValidSchool,
+    staleTime: 30_000,
+  });
+
   const attendanceToday = attendanceSummary ??
     (dash as any)?.attendanceToday ?? { present: 0, absent: 0, late: 0, rate: 0 };
   const fees = feesCollected ??
@@ -1092,6 +1103,20 @@ function StaffDashboard() {
                 You are viewing the shared platform workspace across {tenants.length} connected
                 schools.
               </p>
+              <div className="mt-2 flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                {smsBalance === undefined ? (
+                  <span className="text-xs text-muted-foreground">Checking SMS balance…</span>
+                ) : smsBalance < 0 ? (
+                  <span className="text-xs text-muted-foreground">SMS balance unavailable — Zamtel BulkSMS unreachable or not configured</span>
+                ) : (
+                  <Chip
+                    size="small"
+                    label={`SMS balance: ${smsBalance.toLocaleString()} credit${smsBalance === 1 ? "" : "s"}`}
+                    sx={badgeSx(smsBalance < 50 ? "warning" : "outline")}
+                  />
+                )}
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outlined" component={Link} to="/sys-admin">Open system admin</Button>

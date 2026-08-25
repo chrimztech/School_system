@@ -104,6 +104,7 @@ export type BackendSchool = {
   yearFounded?: number | null;
   weekStart?: string | null;
   gradingScale?: string | null;
+  smsSenderId?: string | null;
   resultPublicationMode?: string | null;
   gradingBands?: BackendGradingBand[] | null;
   passMark?: number | null;
@@ -178,6 +179,7 @@ export type BackendSchoolDto = {
   yearFounded?: number;
   weekStart?: string;
   gradingScale?: string;
+  smsSenderId?: string;
   resultPublicationMode?: string;
   gradingBands?: BackendGradingBand[];
   passMark?: number;
@@ -571,6 +573,7 @@ export const api = {
     closeMessage: (schoolId: string, id: string) => unwrap<any>(
       apiClient.put(schoolPath(schoolId, `messages/${id}/close`), {}),
     ),
+    smsBalance: (schoolId: string) => unwrap<number>(apiClient.get(schoolPath(schoolId, "sms-balance"))),
   },
 
   // Discipline

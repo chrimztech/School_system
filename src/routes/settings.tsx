@@ -114,6 +114,7 @@ function SettingsPage() {
   const [campuses, setCampuses] = useState<Campus[]>(school.campuses);
   const [name, setName] = useState(school.name);
   const [motto, setMotto] = useState(school.motto);
+  const [smsSenderId, setSmsSenderId] = useState(school.smsSenderId ?? "");
   const [term, setTerm] = useState(String(school.currentTerm));
   const [year, setYear] = useState(String(school.currentYear));
   const [defaultCurrency, setDefaultCurrency] = useState(school.currency ?? "ZMW");
@@ -257,6 +258,7 @@ function SettingsPage() {
       await updateActive({
         name: name.trim(),
         motto: motto.trim(),
+        ...(isSystemAdmin ? { smsSenderId: smsSenderId.trim() } : {}),
         type: selectedType,
         levels,
         campuses,
@@ -955,6 +957,18 @@ function SettingsPage() {
                 fullWidth
                 size="small"
               />
+              {isSystemAdmin && (
+                <TextField
+                  label="SMS sender ID"
+                  value={smsSenderId}
+                  onChange={(e) => setSmsSenderId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                  placeholder={school.shortCode.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11) || "e.g. the school's short code"}
+                  helperText="What SMS to this school's parents/staff appear to come from — the full school name won't fit (Zamtel caps sender IDs at 11 letters/numbers, no spaces), so a short code like the one above works best. It must be registered and approved on the Zamtel BulkSMS account before it'll actually send under that name. Leave blank to use the platform default."
+                  slotProps={{ htmlInput: { maxLength: 11 } }}
+                  fullWidth
+                  size="small"
+                />
+              )}
               <div>
                 <p className="mb-1 text-sm font-medium">URL slug</p>
                 <div className="flex items-center gap-0">
