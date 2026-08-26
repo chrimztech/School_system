@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { useTenant, gradeFormLabels } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/communication")({
@@ -47,9 +47,11 @@ function CommunicationPage() {
   const { active } = useTenant();
   const schoolId = active.id;
   const { user, isSystemAdmin } = useAuth();
-  const isTeacher = user?.role === "teacher";
-  const isHOD = user?.role === "hod";
-  const isParent = user?.role === "parent";
+  // Creating announcements/broadcasts is a privileged sub-capability of the Communication
+  // module, distinct from just having access to it — restricted to school leadership so
+  // teachers, HODs, parents, finance, and career guidance (all of whom can read/reply to
+  // messages) can't also mass-broadcast to the whole school.
+  const canCreateAnnouncements = isSchoolLeadershipRole(user?.role);
   const qc = useQueryClient();
 
   const hash = useRouterState({ select: (s) => s.location.hash });
@@ -234,7 +236,7 @@ function CommunicationPage() {
         title="Communication"
         description="SMS · WhatsApp · Email · USSD fallback for parents without smartphones"
         actions={
-          !isTeacher && !isHOD && !isParent && (
+          canCreateAnnouncements && (
             <Button variant="contained" onClick={() => setTab("broadcast")} startIcon={<Send className="h-4 w-4" />}>New broadcast</Button>
           )
         }
@@ -257,7 +259,7 @@ function CommunicationPage() {
           }
         />
         <Tab value="announcements" label="Announcements" />
-        {!isTeacher && !isHOD && !isParent && <Tab value="broadcast" label="Send broadcast" />}
+        {canCreateAnnouncements && <Tab value="broadcast" label="Send broadcast" />}
       </Tabs>
 
       {/* ── Messages tab ─────────────────────────────────────────── */}
@@ -341,7 +343,7 @@ function CommunicationPage() {
       {tab === "announcements" && (
         <div className="mt-4 space-y-3">
           <div className="flex justify-end">
-            {!isTeacher && !isHOD && (
+            {canCreateAnnouncements && (
               <>
                 <Button variant="contained" size="small" startIcon={<Plus className="h-4 w-4" />} onClick={() => setAnnoOpen(true)}>New announcement</Button>
                 <Dialog open={annoOpen} onClose={() => setAnnoOpen(false)} maxWidth="sm" fullWidth>
@@ -444,7 +446,7 @@ function CommunicationPage() {
                         {ann.requireAck && <span className="text-blue-600">Ack required</span>}
                       </div>
                     </div>
-                    {!isTeacher && !isHOD && (
+                    {canCreateAnnouncements && (
                       <IconButton
                         size="small"
                         aria-label="Delete announcement"

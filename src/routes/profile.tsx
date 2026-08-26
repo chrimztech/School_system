@@ -89,8 +89,12 @@ function ProfilePage() {
           </div>
           <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+260 977 000 000" slotProps={{ htmlInput: { maxLength: 20 } }} fullWidth size="small" />
           <TextField label="Role" value={ROLE_META[user.role].label} disabled fullWidth size="small" className="bg-muted/50" />
-          <TextField label="Tenant scope" value={user.role === "super_admin" ? "Platform-wide access" : `${active.name} (${active.shortCode})`} disabled fullWidth size="small" className="bg-muted/50" />
-          <TextField label="Active plan" value={user.role === "super_admin" ? `Managing ${activePlan.name} tenant` : activePlan.name} disabled fullWidth size="small" className="bg-muted/50" />
+          {user.role !== "parent" && (
+            <>
+              <TextField label="Tenant scope" value={user.role === "super_admin" ? "Platform-wide access" : `${active.name} (${active.shortCode})`} disabled fullWidth size="small" className="bg-muted/50" />
+              <TextField label="Active plan" value={user.role === "super_admin" ? `Managing ${activePlan.name} tenant` : activePlan.name} disabled fullWidth size="small" className="bg-muted/50" />
+            </>
+          )}
         </div>
         <div className="mt-4 flex justify-end">
           <Button

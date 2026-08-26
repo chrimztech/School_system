@@ -18,7 +18,7 @@ export const Route = createFileRoute("/help")({
   component: HelpPage,
 });
 
-const faqs = [
+const staffFaqs = [
   { q: "How do I onboard a new school?", a: "Open the school switcher and choose Onboard new school. Complete the wizard with branding, statutory details, and finance setup." },
   { q: "How is data backed up?", a: "Nightly encrypted snapshots run at 02:00 CAT and are retained for 90 days. You can also trigger manual snapshots from Backups & Data." },
   { q: "Can parents pay via Mobile Money?", a: "Yes. Enable MTN MoMo or Airtel Money in Integrations. Parents then see those channels on fee statements." },
@@ -27,9 +27,19 @@ const faqs = [
   { q: "How do I manage user permissions?", a: "Use Access Control or User Management to assign roles, inspect the role matrix, and review least-privilege access." },
 ];
 
+const parentFaqs = [
+  { q: "How do I pay school fees?", a: "Go to Fee Balance and choose Pay now. Mobile Money and card payments are available where the school has enabled them." },
+  { q: "How do I see my child's report card?", a: "Go to Report Card to view published results for the current and past terms." },
+  { q: "How do I message a teacher or the school?", a: "Go to Communication to send a message or read replies from staff." },
+  { q: "How do I update my phone number?", a: "Go to My profile and update the Phone field, then click Save changes." },
+  { q: "I have more than one child at this school — where do I see all of them?", a: "Use the My Children list in the sidebar to switch between your children." },
+];
+
 function HelpPage() {
   const { user, isSystemAdmin } = useAuth();
   const { active } = useTenant();
+  const isParent = user?.role === "parent";
+  const faqs = isParent ? parentFaqs : staffFaqs;
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
 
@@ -68,9 +78,11 @@ function HelpPage() {
         description="Documentation, FAQs, and direct access to the support team."
         actions={
           <>
-            <Button component={Link} to="/knowledge-base" variant="outlined" startIcon={<BookOpen size={16} />}>
-              Knowledge base
-            </Button>
+            {!isParent && (
+              <Button component={Link} to="/knowledge-base" variant="outlined" startIcon={<BookOpen size={16} />}>
+                Knowledge base
+              </Button>
+            )}
             {isSystemAdmin && (
               <Button component={Link} to="/support-desk" startIcon={<LifeBuoy size={16} />}>
                 Support desk
@@ -81,21 +93,25 @@ function HelpPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Link to="/knowledge-base" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><BookOpen className="h-5 w-5" /></div>
-          <div>
-            <p className="font-semibold">Documentation</p>
-            <p className="text-xs text-muted-foreground">Step-by-step guides</p>
-          </div>
-        </Link>
+        {!isParent && (
+          <Link to="/knowledge-base" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><BookOpen className="h-5 w-5" /></div>
+            <div>
+              <p className="font-semibold">Documentation</p>
+              <p className="text-xs text-muted-foreground">Step-by-step guides</p>
+            </div>
+          </Link>
+        )}
 
-        <Link to="/support-desk" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><MessageCircle className="h-5 w-5" /></div>
-          <div>
-            <p className="font-semibold">Support desk</p>
-            <p className="text-xs text-muted-foreground">Open tickets, live chat, and knowledge base</p>
-          </div>
-        </Link>
+        {isSystemAdmin && (
+          <Link to="/support-desk" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><MessageCircle className="h-5 w-5" /></div>
+            <div>
+              <p className="font-semibold">Support desk</p>
+              <p className="text-xs text-muted-foreground">Open tickets, live chat, and knowledge base</p>
+            </div>
+          </Link>
+        )}
 
         <a href="tel:+260976911338" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Phone className="h-5 w-5" /></div>
