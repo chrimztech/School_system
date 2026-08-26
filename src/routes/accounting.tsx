@@ -13,7 +13,7 @@ import {
   Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow,
 } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, formatGrade } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, downloadCsv } from "@/lib/utils";
@@ -304,7 +304,7 @@ function AccountingPage() {
       .map((s) => ({
         Student: `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim(),
         "Admission No.": s.admissionNumber ?? "",
-        Grade: s.grade ?? "",
+        Grade: s.grade ? formatGrade(s.grade, active.type) : "",
         "Outstanding balance": Number(s.feeBalance).toFixed(2),
       }));
   };

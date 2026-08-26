@@ -8,7 +8,7 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { Button, Chip, Checkbox, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Drawer, Box, Typography, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { useTenant, gradeRangeForType } from "@/lib/tenant";
-import { api } from "@/lib/api";
+import { api, isValidSchoolId } from "@/lib/api";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/classes")({
@@ -50,10 +50,10 @@ function blankClassForm(year: string, defaultPhase = "") {
 
 // ── Class detail sheet ────────────────────────────────────────────
 function ClassDetailSheet({
-  cls, schoolId, onClose, readOnly = false, canAssignTeachers = false, assignableTeachers = [],
+  cls, schoolId, onClose, readOnly = false, canAssignTeachers = false, assignableTeachers = [], canDelete = false,
 }: {
   cls: any; schoolId: string; onClose: () => void; readOnly?: boolean;
-  canAssignTeachers?: boolean; assignableTeachers?: any[];
+  canAssignTeachers?: boolean; assignableTeachers?: any[]; canDelete?: boolean;
 }) {
   const qc = useQueryClient();
   const [detailTab, setDetailTab] = useState("pupils");
@@ -62,6 +62,7 @@ function ClassDetailSheet({
   const [enrollDialog, setEnrollDialog] = useState(false);
   const [promoteDialog, setPromoteDialog] = useState(false);
   const [classTeacherDialog, setClassTeacherDialog] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [teacherForm, setTeacherForm] = useState({ teacherId: "", teacherName: "", subjectId: "", subjectName: "" });
   const [classTeacherPick, setClassTeacherPick] = useState("");
   // Optimistic local override so the header updates immediately after a class-teacher
@@ -191,6 +192,16 @@ function ClassDetailSheet({
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to set class teacher"),
   });
 
+  const deleteClassMut = useMutation({
+    mutationFn: () => api.classes.delete(schoolId, cls.id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["classes", schoolId] });
+      toast.success(`${cls.name} removed`);
+      onClose();
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to remove class"),
+  });
+
   const submitTeacher = () => {
     if (!teacherForm.teacherId) { toast.error("Select a teacher"); return; }
     if (!teacherForm.subjectName.trim()) { toast.error("Select or enter a subject"); return; }
@@ -209,7 +220,14 @@ function ClassDetailSheet({
     <Drawer anchor="right" open onClose={onClose}>
       <Box sx={{ width: { xs: "100vw", sm: 720 }, display: "flex", flexDirection: "column", height: "100%" }}>
         <Box sx={{ borderBottom: 1, borderColor: "divider", px: 3, py: 2 }}>
-          <Typography variant="h6">{cls.name}</Typography>
+          <div className="flex items-start justify-between gap-2">
+            <Typography variant="h6">{cls.name}</Typography>
+            {canDelete && (
+              <IconButton size="small" aria-label={`Delete ${cls.name}`} sx={{ color: "error.main" }} onClick={() => setDeleteConfirm(true)}>
+                <Trash2 className="h-4 w-4" />
+              </IconButton>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span>{gradeLabel(cls.grade, cls.phase)}{cls.section ? ` · ${cls.section}` : ""}</span>
             {cls.room && <span>Room {cls.room}</span>}
@@ -229,6 +247,21 @@ function ClassDetailSheet({
             )}
           </div>
         </Box>
+
+        <Dialog open={deleteConfirm} onClose={() => setDeleteConfirm(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Remove {cls.name}?</DialogTitle>
+          <DialogContent>
+            <p className="text-sm text-muted-foreground">
+              This removes the class from the list. Enrolled learners and attendance/assessment history are not deleted.
+            </p>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="outlined" color="inherit" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
+            <Button variant="contained" color="error" onClick={() => deleteClassMut.mutate()} disabled={deleteClassMut.isPending}>
+              {deleteClassMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Remove
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Dialog open={classTeacherDialog} onClose={() => setClassTeacherDialog(false)} maxWidth="sm" fullWidth>
           <DialogTitle>Set class teacher for {cls.name}</DialogTitle>
@@ -337,7 +370,7 @@ function ClassDetailSheet({
                 <Table>
                   <TableHead><TableRow>
                     <TableCell>Student</TableCell>
-                    <TableCell>Grade</TableCell>
+                    <TableCell>Grade / Form</TableCell>
                     <TableCell>Year</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell className="w-10" />
@@ -350,7 +383,7 @@ function ClassDetailSheet({
                     ) : enrolments.map((e: any) => (
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.studentName}</TableCell>
-                        <TableCell className="text-muted-foreground">{e.grade || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{e.grade ? gradeLabel(e.grade, cls.phase) : "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{e.academicYear}</TableCell>
                         <TableCell>
                           <Chip
@@ -669,11 +702,14 @@ function ClassesPage() {
   const canManage = isSchoolLeadershipRole(user?.role);
   const isHOD = user?.role === "hod";
   const qc = useQueryClient();
+  // active.id is "" until TenantProvider's async school-list fetch resolves — firing these
+  // with an empty schoolId threw "No valid school ID" from schoolPath() every time.
+  const hasValidSchool = isValidSchoolId(schoolId);
 
   const { data: departmentsRaw = [] } = useQuery({
     queryKey: ["departments", schoolId],
     queryFn: () => api.departments.list(schoolId),
-    enabled: isHOD,
+    enabled: isHOD && hasValidSchool,
   });
 
   const currentYear = String(active.currentYear ?? new Date().getFullYear());
@@ -689,11 +725,13 @@ function ClassesPage() {
   const { data: classesRaw = [], isLoading } = useQuery({
     queryKey: ["classes", schoolId, teacherEmail],
     queryFn: () => api.classes.list(schoolId, teacherEmail),
+    enabled: hasValidSchool,
   });
 
   const { data: teachersRaw = [] } = useQuery({
     queryKey: ["teachers", schoolId],
     queryFn: () => api.teachers.list(schoolId),
+    enabled: hasValidSchool,
   });
 
   // A department head only manages their own department's proceedings — mirrors the same
@@ -1001,6 +1039,7 @@ function ClassesPage() {
           readOnly={!canManage}
           canAssignTeachers={canAssignTeachers}
           assignableTeachers={assignableTeachers}
+          canDelete={canManage}
         />
       )}
     </div>

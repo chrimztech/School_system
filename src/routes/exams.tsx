@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Button, Chip, Checkbox, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, gradeFormLabels } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { downloadCsv, badgeSx } from "@/lib/utils";
 
@@ -15,9 +15,6 @@ export const Route = createFileRoute("/exams")({
   head: () => ({ meta: [{ title: "Exams — SRMS" }] }),
   component: ExamsPage,
 });
-
-// Zambia 2025: Secondary uses Forms; Grade 7 abolished (now Form 1)
-const GRADES = ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
 
 function shuffledIndices(n: number) {
   const order = Array.from({ length: n }, (_, i) => i);
@@ -201,7 +198,7 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
               <TableContainer>
               <Table>
                 <TableHead><TableRow>
-                  <TableCell>Name</TableCell><TableCell>Type</TableCell><TableCell>Grade</TableCell><TableCell className="text-right">Remove</TableCell>
+                  <TableCell>Name</TableCell><TableCell>Type</TableCell><TableCell>Form</TableCell><TableCell className="text-right">Remove</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
                   {isLoading ? (
@@ -237,7 +234,7 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
 const GCE_IMPORT_COLUMNS = [
   { key: "firstName", label: "First Name", required: true, example: "Chola" },
   { key: "lastName", label: "Last Name", required: true, example: "Banda" },
-  { key: "grade", label: "Grade", required: true, example: "Grade 12" },
+  { key: "grade", label: "Form", required: true, example: "Form 5" },
   { key: "examNumber", label: "Exam Number", example: "0012345" },
   { key: "nrc", label: "NRC", example: "123456/78/1" },
   { key: "gender", label: "Gender", example: "Female" },
@@ -265,7 +262,7 @@ function GceAddDialog({ open, onOpenChange, schoolId, onDone }: { open: boolean;
         <div className="grid grid-cols-2 gap-3">
           <TextField label="First name *" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} fullWidth size="small" />
           <TextField label="Last name *" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} fullWidth size="small" />
-          <TextField label="Grade *" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="Grade 12" fullWidth size="small" />
+          <TextField label="Form *" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="Form 5" fullWidth size="small" />
           <TextField label="Exam number" value={form.examNumber} onChange={(e) => setForm({ ...form, examNumber: e.target.value })} fullWidth size="small" />
           <TextField label="NRC" value={form.nrc} onChange={(e) => setForm({ ...form, nrc: e.target.value })} fullWidth size="small" />
           <TextField label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} fullWidth size="small" />
@@ -314,7 +311,7 @@ function GceRoster({ schoolId }: { schoolId: string }) {
         <TableContainer>
         <Table>
           <TableHead><TableRow>
-            <TableCell>Name</TableCell><TableCell>Exam number</TableCell><TableCell>Grade</TableCell>
+            <TableCell>Name</TableCell><TableCell>Exam number</TableCell><TableCell>Form</TableCell>
             <TableCell>Subjects</TableCell><TableCell>Status</TableCell>
           </TableRow></TableHead>
           <TableBody>
@@ -354,8 +351,8 @@ function GceRoster({ schoolId }: { schoolId: string }) {
               result.errors.push({ row: i + 2, error: "First Name and Last Name are required" });
               continue;
             }
-            if (!row["Grade"]?.trim()) {
-              result.errors.push({ row: i + 2, error: "Grade is required" });
+            if (!row["Form"]?.trim()) {
+              result.errors.push({ row: i + 2, error: "Form is required" });
               continue;
             }
             valid.push({
@@ -363,7 +360,7 @@ function GceRoster({ schoolId }: { schoolId: string }) {
               dto: {
                 firstName: row["First Name"].trim(),
                 lastName: row["Last Name"].trim(),
-                grade: row["Grade"].trim(),
+                grade: row["Form"].trim(),
                 examNumber: row["Exam Number"]?.trim() || null,
                 nrc: row["NRC"]?.trim() || null,
                 gender: row["Gender"]?.trim() || null,
@@ -444,12 +441,13 @@ const PAPER_TYPES = ["Paper 1", "Paper 2", "Paper 3", "Practical", "Oral", "Cour
 
 function ExamsPage() {
   const { active } = useTenant();
+  const gradeOptions = gradeFormLabels(active.type);
   const qc = useQueryClient();
   const [tab, setTab] = useState("schedule");
   const [open, setOpen] = useState(false);
   const [candidatesPaper, setCandidatesPaper] = useState<any>(null);
   const [form, setForm] = useState({
-    subject: "", grade: GRADES[2], examDate: "", startTime: "08:00",
+    subject: "", grade: gradeOptions[0], examDate: "", startTime: "08:00",
     duration: "2h", room: ROOMS[0], candidates: "30", invigilator: "",
     examBoard: EXAM_BOARDS[0], paperType: PAPER_TYPES[0], totalMarks: "100",
     passMark: "50", examFee: "", syllabusCode: "", secondInvigilator: "",
@@ -479,7 +477,7 @@ function ExamsPage() {
     const subCode = form.subject.toUpperCase().replace(/\s+/g, "-").slice(0, 8);
     const code = `INT-${gradeCode}-${subCode}-P${(papers as any[]).length + 1}`;
     createMut.mutate({ code, subject: form.subject, grade: form.grade, examDate: form.examDate, startTime: form.startTime, duration: form.duration, room: form.room, candidates: Number(form.candidates) || 30, invigilator: form.invigilator, examBoard: form.examBoard, paperType: form.paperType, totalMarks: Number(form.totalMarks) || 100, passMark: Number(form.passMark) || 50, examFee: Number(form.examFee) || 0, syllabusCode: form.syllabusCode.trim() || null, secondInvigilator: form.secondInvigilator.trim() || null, markSchemeLocation: form.markSchemeLocation.trim() || null, specialArrangements: form.specialArrangements.trim() || null, status: "SCHEDULED" });
-    setForm({ subject: "", grade: GRADES[2], examDate: "", startTime: "08:00", duration: "2h", room: ROOMS[0], candidates: "30", invigilator: "", examBoard: EXAM_BOARDS[0], paperType: PAPER_TYPES[0], totalMarks: "100", passMark: "50", examFee: "", syllabusCode: "", secondInvigilator: "", markSchemeLocation: "", specialArrangements: "" });
+    setForm({ subject: "", grade: gradeOptions[0], examDate: "", startTime: "08:00", duration: "2h", room: ROOMS[0], candidates: "30", invigilator: "", examBoard: EXAM_BOARDS[0], paperType: PAPER_TYPES[0], totalMarks: "100", passMark: "50", examFee: "", syllabusCode: "", secondInvigilator: "", markSchemeLocation: "", specialArrangements: "" });
   };
 
   return (
@@ -508,7 +506,7 @@ function ExamsPage() {
                     size="small"
                   />
                   <TextField select label="Grade" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} fullWidth size="small">
-                    {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                    {gradeOptions.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                   <TextField select label="Exam board" value={form.examBoard} onChange={(e) => setForm({ ...form, examBoard: e.target.value })} fullWidth size="small">
                     {EXAM_BOARDS.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
@@ -655,7 +653,7 @@ function ExamsPage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Paper code</TableCell><TableCell>Subject</TableCell><TableCell>Grade</TableCell>
+              <TableCell>Paper code</TableCell><TableCell>Subject</TableCell><TableCell>Grade / Form</TableCell>
               <TableCell>Date</TableCell><TableCell>Start</TableCell><TableCell>Duration</TableCell>
               <TableCell>Room</TableCell><TableCell>Candidates</TableCell><TableCell>Status</TableCell><TableCell className="text-right">Actions</TableCell>
             </TableRow></TableHead>

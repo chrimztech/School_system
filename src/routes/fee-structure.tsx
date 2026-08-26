@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, gradeFormLabels } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
@@ -22,13 +22,14 @@ type Levy = { id: string; name: string; amount: number; grade: string; mandatory
 type Discount = { id: string; name: string; type: "Percentage" | "Fixed"; value: number; condition: string; active: boolean };
 type BillingRule = { id: string; term: string; dueDate: string; lateFee: number; reminderDays: number };
 
-// Zambia 2025: Secondary uses Form 1-6 (O-Level Form 1-4, A-Level Form 5-6); Primary Grade 1-6
-const GRADES = ["All forms", "Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
 const FEE_CATEGORIES = ["Tuition", "Boarding", "Exam registration", "Sport", "ICT", "Library", "Uniform", "Other"];
 
 function FeeStructurePage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  // "All forms" is a wildcard sentinel value (compared by exact string elsewhere in this
+  // file) meaning "applies to every grade/form" — kept unchanged regardless of school type.
+  const gradeOptions = ["All forms", ...gradeFormLabels(active.type)];
   const qc = useQueryClient();
   const emptyBillingForm = { term: "Term 1", dueDate: "", lateFee: "", reminderDays: "7", gracePeriodDays: "0", lateFeeMethod: "Fixed amount", maxPenalty: "" };
 
@@ -54,7 +55,7 @@ function FeeStructurePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-structures", schoolId] });
       toast.success(`Fee item added`);
-      setFeeForm({ category: FEE_CATEGORIES[0], customCategory: "", grade: GRADES[1], amount: "", frequency: "Per term", academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "" });
+      setFeeForm({ category: FEE_CATEGORIES[0], customCategory: "", grade: gradeOptions[1], amount: "", frequency: "Per term", academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "" });
       setFeeOpen(false);
     },
     onError: () => toast.error("Failed to add fee item"),
@@ -68,7 +69,7 @@ function FeeStructurePage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["fee-levies", schoolId] });
       toast.success("Levy added");
-      setLevyForm({ name: "", amount: "", grade: GRADES[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
+      setLevyForm({ name: "", amount: "", grade: gradeOptions[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
       setLevyOpen(false);
     },
     onError: () => toast.error("Failed to add levy"),
@@ -164,8 +165,8 @@ function FeeStructurePage() {
   const [editingBillingId, setEditingBillingId] = useState<string | null>(null);
   const [tab, setTab] = useState("tariff");
 
-  const [feeForm, setFeeForm] = useState({ category: FEE_CATEGORIES[0], customCategory: "", grade: GRADES[1], amount: "", frequency: "Per term" as FeeItem["frequency"], academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "" });
-  const [levyForm, setLevyForm] = useState({ name: "", amount: "", grade: GRADES[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
+  const [feeForm, setFeeForm] = useState({ category: FEE_CATEGORIES[0], customCategory: "", grade: gradeOptions[1], amount: "", frequency: "Per term" as FeeItem["frequency"], academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "" });
+  const [levyForm, setLevyForm] = useState({ name: "", amount: "", grade: gradeOptions[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
   const [discountForm, setDiscountForm] = useState({ name: "", type: "Percentage" as Discount["type"], value: "", condition: "", maxBeneficiaries: "", validFrom: "", validTo: "", requiresBoardApproval: "no" });
   const [billingForm, setBillingForm] = useState(emptyBillingForm);
 
@@ -354,7 +355,7 @@ function FeeStructurePage() {
                     fullWidth
                     size="small"
                   >
-                    {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                    {gradeOptions.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                   <TextField
                     type="number"
@@ -454,7 +455,7 @@ function FeeStructurePage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Category</TableCell><TableCell>Grade</TableCell><TableCell>Amount</TableCell>
+              <TableCell>Category</TableCell><TableCell>Grade / Form</TableCell><TableCell>Amount</TableCell>
               <TableCell>Frequency</TableCell><TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
@@ -522,7 +523,7 @@ function FeeStructurePage() {
                     fullWidth
                     size="small"
                   >
-                    {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                    {gradeOptions.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                   <TextField
                     select

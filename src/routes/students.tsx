@@ -196,7 +196,7 @@ function StudentsListPage() {
                 "Middle Name": s.middleName ?? "",
                 "Last Name": s.lastName ?? "",
                 "Preferred Name": s.preferredName ?? "",
-                Grade: s.grade ?? "",
+                Grade: s.grade ? formatGrade(s.grade, active.type) : "",
                 Section: s.section ?? "",
                 Gender: s.gender ?? "",
                 "Date of Birth": s.dateOfBirth ?? "",
@@ -635,7 +635,7 @@ function StudentsListPage() {
           { key: "firstName", label: "First Name", required: true, example: "Mwansa" },
           { key: "lastName", label: "Last Name", required: true, example: "Tembo" },
           { key: "middleName", label: "Middle Name", example: "Joseph" },
-          { key: "grade", label: "Grade", required: true, example: "8" },
+          { key: "grade", label: active.type === "SECONDARY" ? "Form" : "Grade", required: true, example: active.type === "SECONDARY" ? "3" : "8" },
           { key: "section", label: "Section", example: "A" },
           { key: "gender", label: "Gender", required: true, example: "Male" },
           { key: "dateOfBirth", label: "Date of Birth", example: "2010-06-15" },
@@ -667,8 +667,9 @@ function StudentsListPage() {
               result.errors.push({ row: i + 2, error: "First Name and Last Name are required" });
               continue;
             }
-            if (!row["Grade"]?.trim()) {
-              result.errors.push({ row: i + 2, error: "Grade is required" });
+            const gradeColumn = active.type === "SECONDARY" ? "Form" : "Grade";
+            if (!row[gradeColumn]?.trim()) {
+              result.errors.push({ row: i + 2, error: `${gradeColumn} is required` });
               continue;
             }
             if (!row["Guardian Name"]?.trim() || !row["Guardian Phone"]?.trim()) {
@@ -681,7 +682,7 @@ function StudentsListPage() {
                 firstName: row["First Name"].trim(),
                 middleName: row["Middle Name"]?.trim() || null,
                 lastName: row["Last Name"].trim(),
-                grade: Number(row["Grade"]) || 1,
+                grade: Number(row[gradeColumn]) || 1,
                 section: row["Section"]?.trim() || "A",
                 gender: row["Gender"]?.trim() || "Male",
                 dateOfBirth: row["Date of Birth"]?.trim() || null,

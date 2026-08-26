@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, gradeFormLabels } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
@@ -27,12 +27,13 @@ type Renewal = { id: string; student: string; sponsor: string; reviewDate: strin
 function BursariesPage() {
   const { active } = useTenant();
   const schoolId = active.id;
+  const gradeOptions = gradeFormLabels(active.type);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("awards");
   const [form, setForm] = useState({
     student: "",
-    grade: "Form 1",
+    grade: gradeOptions[0],
     sponsor: "Board bursary fund",
     coverage: "50% tuition",
     amount: "",
@@ -77,7 +78,7 @@ function BursariesPage() {
       setOpen(false);
       setForm({
         student: "",
-        grade: "Form 1",
+        grade: gradeOptions[0],
         sponsor: "Board bursary fund",
         coverage: "50% tuition",
         amount: "",
@@ -189,7 +190,7 @@ function BursariesPage() {
                       fullWidth
                       size="small"
                     >
-                      {["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"].map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                      {gradeOptions.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                     </TextField>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">

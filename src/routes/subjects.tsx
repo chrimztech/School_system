@@ -10,87 +10,12 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Drawer, Box, Typography, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
-import { api } from "@/lib/api";
+import { api, isValidSchoolId } from "@/lib/api";
 
 export const Route = createFileRoute("/subjects")({
   head: () => ({ meta: [{ title: "Subjects - SRMS" }] }),
   component: SubjectsPage,
 });
-
-// ── Zambia MoE / ECZ 2025 curriculum ─────────────────────────────
-// Source: 2023 Zambia Education Curriculum Framework (rolled out Jan 2025)
-// New structure: Primary Grade 1-6 | O-Level Form 1-4 | A-Level Form 5-6
-// Key changes: Integrated Science split into Biology/Chemistry/Physics;
-//              Computer Studies replaced by ICT; CTS -> Design & Technology Studies;
-//              Grade 7 abolished — old Grade 7 learners now enter Form 1 (secondary)
-const MOE_SUBJECTS = [
-  // ── Primary Grade 1-6 ─────────────────────────────────────────
-  { code: "ENG",  name: "English Language",                       department: "Languages",             phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 7, compulsory: true  },
-  { code: "MAT",  name: "Mathematics",                            department: "Mathematics",            phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 7, compulsory: true  },
-  { code: "ZAM",  name: "Zambian Languages",                      department: "Languages",             phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 6, compulsory: true  },
-  { code: "SST",  name: "Social & Environmental Studies",         department: "Social Sciences",        phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 4, compulsory: true  },
-  { code: "SCI",  name: "Integrated Science",                     department: "Sciences",               phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 4, compulsory: true  },
-  { code: "CRE",  name: "Religious Education",                    department: "Religious Education",    phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 3, compulsory: true  },
-  { code: "PE",   name: "Physical Education",                     department: "Arts & Physical Ed.",   phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 2, compulsory: true  },
-  { code: "CAR",  name: "Creative Arts",                          department: "Arts & Physical Ed.",   phase: "primary", gradeFrom: 1, gradeTo: 6, periodsPerWeek: 2, compulsory: true  },
-  { code: "HEC",  name: "Home Economics",                         department: "Technical & Vocational", phase: "primary", gradeFrom: 4, gradeTo: 6, periodsPerWeek: 2, compulsory: false },
-  { code: "AGR",  name: "Agricultural Science",                   department: "Sciences",               phase: "primary", gradeFrom: 4, gradeTo: 6, periodsPerWeek: 2, compulsory: false },
-  // ── O-Level Secondary Form 1-4 ────────────────────────────────
-  // Core (compulsory for all secondary learners)
-  { code: "ENG",  name: "English Language",                       department: "Languages",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 6, compulsory: true  },
-  { code: "MAT",  name: "Mathematics",                            department: "Mathematics",            phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 6, compulsory: true  },
-  { code: "CIV",  name: "Civic Education",                        department: "Social Sciences",        phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 3, compulsory: true  },
-  { code: "CRE",  name: "Religious Education",                    department: "Religious Education",    phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 3, compulsory: true  },
-  { code: "ZAM",  name: "Zambian Languages",                      department: "Languages",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: true  },
-  { code: "PE",   name: "Physical Education",                     department: "Arts & Physical Ed.",   phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 2, compulsory: true  },
-  // Sciences (Integrated Science replaced by 3 separate subjects at secondary level)
-  { code: "BIO",  name: "Biology",                                department: "Sciences",               phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 5, compulsory: false },
-  { code: "CHE",  name: "Chemistry",                              department: "Sciences",               phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 5, compulsory: false },
-  { code: "PHY",  name: "Physics",                                department: "Sciences",               phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 5, compulsory: false },
-  { code: "AGR",  name: "Agricultural Science",                   department: "Sciences",               phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "ADM",  name: "Additional Mathematics",                 department: "Mathematics",            phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  // Humanities
-  { code: "GEO",  name: "Geography",                              department: "Humanities",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "HIS",  name: "History",                                department: "Humanities",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "COM",  name: "Commerce",                               department: "Humanities",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "BST",  name: "Business Studies",                       department: "Humanities",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "ACT",  name: "Principles of Accounts",                 department: "Humanities",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  // Languages
-  { code: "LIT",  name: "Literature in English",                  department: "Languages",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "LZL",  name: "Literature in Zambian Languages",        department: "Languages",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 3, compulsory: false },
-  { code: "FRE",  name: "French",                                 department: "Languages",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  // Technology & vocational
-  { code: "ICT",  name: "Information & Communication Technology", department: "Technology",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "DTS",  name: "Design & Technology Studies",            department: "Technology",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  { code: "HEC",  name: "Home Economics",                         department: "Technology",             phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 4, compulsory: false },
-  // Arts
-  { code: "ART",  name: "Art & Design",                           department: "Arts & Physical Ed.",   phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 3, compulsory: false },
-  { code: "MUS",  name: "Music",                                  department: "Arts & Physical Ed.",   phase: "olevel", gradeFrom: 1, gradeTo: 4, periodsPerWeek: 2, compulsory: false },
-  // ── A-Level Secondary Form 5-6 ────────────────────────────────
-  // Core (compulsory)
-  { code: "GP",   name: "General Paper",                          department: "General Studies",        phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 3, compulsory: true  },
-  // Principal subjects — Sciences
-  { code: "BIO",  name: "Biology",                                department: "Sciences",               phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 6, compulsory: false },
-  { code: "CHE",  name: "Chemistry",                              department: "Sciences",               phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 6, compulsory: false },
-  { code: "PHY",  name: "Physics",                                department: "Sciences",               phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 6, compulsory: false },
-  { code: "MAT",  name: "Mathematics",                            department: "Mathematics",            phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 6, compulsory: false },
-  { code: "FMA",  name: "Further Mathematics",                    department: "Mathematics",            phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "AGR",  name: "Agricultural Science",                   department: "Sciences",               phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  // Principal subjects — Humanities
-  { code: "HIS",  name: "History",                                department: "Humanities",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "GEO",  name: "Geography",                              department: "Humanities",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "ECO",  name: "Economics",                              department: "Humanities",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "ACT",  name: "Principles of Accounts",                 department: "Humanities",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "BST",  name: "Business Studies",                       department: "Humanities",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "SOC",  name: "Sociology",                              department: "Humanities",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 4, compulsory: false },
-  // Principal subjects — Languages
-  { code: "ENG",  name: "English Language",                       department: "Languages",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "LIT",  name: "Literature in English",                  department: "Languages",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "FRE",  name: "French",                                 department: "Languages",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  // Principal subjects — Technology
-  { code: "ICT",  name: "Information & Communication Technology", department: "Technology",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-  { code: "DTS",  name: "Design & Technology Studies",            department: "Technology",             phase: "alevel", gradeFrom: 5, gradeTo: 6, periodsPerWeek: 5, compulsory: false },
-];
 
 const PHASES = [
   { value: "primary", label: "Primary (Grade 1-6)" },
@@ -128,6 +53,7 @@ function SubjectsPage() {
   const { active } = useTenant();
   const schoolId = active.id;
   const qc = useQueryClient();
+  const hasValidSchool = isValidSchoolId(schoolId);
 
   const showPrimary  = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(active.type);
   const isSecondary  = ["SECONDARY", "COMBINED", "FULL"].includes(active.type);
@@ -135,7 +61,7 @@ function SubjectsPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
-  const [seedConfirm, setSeedConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deptSheetOpen, setDeptSheetOpen] = useState(false);
   const [deptEdit, setDeptEdit] = useState<any | null>(null);
   const [deptForm, setDeptForm] = useState(emptyDeptForm);
@@ -144,6 +70,7 @@ function SubjectsPage() {
   const { data: rawDepts = [] } = useQuery({
     queryKey: ["departments", schoolId],
     queryFn: () => api.departments.list(schoolId),
+    enabled: hasValidSchool,
   });
   const deptList = rawDepts as any[];
   const deptNames = deptList.map((d: any) => d.name);
@@ -151,6 +78,7 @@ function SubjectsPage() {
   const { data: rawTeachers = [] } = useQuery({
     queryKey: ["teachers", schoolId],
     queryFn: () => api.teachers.list(schoolId),
+    enabled: hasValidSchool,
   });
   const teacherList = rawTeachers as any[];
 
@@ -164,6 +92,7 @@ function SubjectsPage() {
   const { data: rawSubjects = [], isLoading } = useQuery({
     queryKey: ["subjects", schoolId],
     queryFn: () => api.subjects.list(schoolId),
+    enabled: hasValidSchool,
   });
 
   const subjectList = rawSubjects as any[];
@@ -190,30 +119,14 @@ function SubjectsPage() {
     onError: () => toast.error("Failed to update subject"),
   });
 
-  const seedMut = useMutation({
-    mutationFn: async () => {
-      const toSeed = MOE_SUBJECTS.filter((s) =>
-        (s.phase === "primary" && showPrimary) ||
-        ((s.phase === "olevel" || s.phase === "alevel") && isSecondary),
-      );
-      // Auto-create any departments that don't exist yet
-      const uniqueDepts = [...new Set(toSeed.map((s) => s.department))];
-      const existingNames = new Set(deptList.map((d: any) => d.name));
-      await Promise.all(
-        uniqueDepts
-          .filter((name) => !existingNames.has(name))
-          .map((name) => api.departments.create(schoolId, { name })),
-      );
-      return api.subjects.bulk(schoolId, toSeed);
-    },
-    onSuccess: (created: any) => {
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.subjects.delete(schoolId, id),
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["subjects", schoolId] });
-      void qc.invalidateQueries({ queryKey: ["departments", schoolId] });
-      const n = Array.isArray(created) ? created.length : 0;
-      toast.success(n > 0 ? `${n} MoE subjects seeded` : "All MoE subjects already present");
-      setSeedConfirm(false);
+      toast.success(`${deleteTarget?.name ?? "Subject"} removed`);
+      setDeleteTarget(null);
     },
-    onError: () => toast.error("Failed to seed subjects"),
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to remove subject"),
   });
 
   const createDeptMut = useMutation({
@@ -318,12 +231,16 @@ function SubjectsPage() {
 
   const defaultTab   = showPrimary && !isSecondary ? "primary" : "olevel";
   const [phaseTab, setPhaseTab] = useState(defaultTab);
+  // The tenant context starts with a placeholder school (type "PRIMARY") until the real
+  // school data loads, so `defaultTab` above can be computed from stale data at mount time —
+  // this resyncs the tab once the real type is known, so a secondary school's page doesn't
+  // get stuck showing an empty "primary" tab that no longer matches any rendered Tab.
+  useEffect(() => {
+    if (phaseTab === "primary" && !showPrimary) setPhaseTab(isSecondary ? "olevel" : "primary");
+    else if (phaseTab !== "primary" && !isSecondary && showPrimary) setPhaseTab("primary");
+  }, [showPrimary, isSecondary]);
   const activeList   = phaseTab === "primary" ? primary : phaseTab === "olevel" ? olevel : alevel;
   const hasNoSubjects = subjectList.length === 0;
-
-  const seedCount = MOE_SUBJECTS.filter((s) =>
-    (s.phase === "primary" && showPrimary) || ((s.phase === "olevel" || s.phase === "alevel") && isSecondary),
-  ).length;
 
   // ── Grouped table ─────────────────────────────────────────────
   const SubjectTable = ({ list }: { list: any[] }) => {
@@ -340,7 +257,7 @@ function SubjectsPage() {
         <EmptyState
           icon={BookOpen}
           title="No subjects in this phase yet"
-          description="Use “Seed MoE curriculum” to load the Zambia 2025 ECZ syllabus."
+          description="Click “Add subject” to create the first one."
         />
       );
     }
@@ -356,7 +273,7 @@ function SubjectsPage() {
             <TableCell className="text-center w-20">Type</TableCell>
             <TableCell className="text-center w-24">Forms / Grades</TableCell>
             <TableCell className="text-center w-24">Periods/wk</TableCell>
-            <TableCell className="w-10" />
+            <TableCell className="w-20" />
           </TableRow>
         </TableHead>
         <TableBody>
@@ -382,9 +299,12 @@ function SubjectsPage() {
                   </TableCell>
                   <TableCell className="text-center tabular-nums text-xs text-muted-foreground">{formRangeLabel(s) || "—"}</TableCell>
                   <TableCell className="text-center tabular-nums text-sm">{s.periodsPerWeek ?? s.periods ?? 4}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
                     <IconButton size="small" aria-label={`Edit ${s.name}`} onClick={() => openEdit(s)}>
                       <Pencil size={14} />
+                    </IconButton>
+                    <IconButton size="small" aria-label={`Delete ${s.name}`} sx={{ color: "error.main" }} onClick={() => setDeleteTarget(s)}>
+                      <Trash2 size={14} />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -411,9 +331,6 @@ function SubjectsPage() {
             <Button variant="outlined" startIcon={<Building2 size={16} />} onClick={() => setDeptSheetOpen(true)}>
               Departments ({deptList.length})
             </Button>
-            <Button variant="outlined" startIcon={<BookOpen size={16} />} onClick={() => setSeedConfirm(true)}>
-              Seed MoE curriculum
-            </Button>
             <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setAddOpen(true)}>Add subject</Button>
             <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
               <DialogTitle>Add subject</DialogTitle>
@@ -423,7 +340,7 @@ function SubjectsPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <TextField label="Code *" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="BIO" slotProps={{ htmlInput: { maxLength: 6 } }} fullWidth size="small" />
                     <TextField select label="Phase" value={form.phase} onChange={(e) => setForm({ ...form, phase: e.target.value })} fullWidth size="small">
-                      {PHASES.map((p) => <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>)}
+                      {PHASES.filter((p) => (p.value === "primary" ? showPrimary : isSecondary)).map((p) => <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>)}
                     </TextField>
                   </div>
                   <TextField label="Subject name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Biology" slotProps={{ htmlInput: { maxLength: 80 } }} fullWidth size="small" />
@@ -453,31 +370,18 @@ function SubjectsPage() {
         }
       />
 
-      {/* MoE seed confirmation */}
-      <Dialog open={seedConfirm} onClose={() => setSeedConfirm(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Seed Zambia MoE 2025 curriculum</DialogTitle>
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove {deleteTarget?.name}?</DialogTitle>
         <DialogContent>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>This will add up to <strong>{seedCount} subjects</strong> from the Zambia 2025 ECZ curriculum:</p>
-            <ul className="ml-4 list-disc space-y-0.5">
-              {showPrimary  && <li>10 Primary subjects (Grade 1-6) — 8 core, 2 optional</li>}
-              {isSecondary  && <li>26 O-Level subjects (Form 1-4) — 6 core, 20 optional</li>}
-              {isSecondary  && <li>17 A-Level subjects (Form 5-6) — 1 core (General Paper), 16 principals</li>}
-            </ul>
-            <p className="text-xs pt-1 border-t border-border">
-              <strong>2025 key changes:</strong> Integrated Science is now split into Biology, Chemistry &amp; Physics separately. Computer Studies is replaced by ICT. CTS becomes Design &amp; Technology Studies. Grade 7 no longer exists — that cohort now enters Form 1 (secondary).
-            </p>
-            <p className="flex items-start gap-1.5 pt-1">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-              Subjects already present (same code + phase) are skipped — no duplicates.
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            This removes the subject from the curriculum. Existing marks/assessments referencing it are not deleted.
+          </p>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" color="inherit" onClick={() => setSeedConfirm(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => seedMut.mutate()} disabled={seedMut.isPending}>
-            {seedMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Seed {seedCount} subjects
+          <Button variant="outlined" color="inherit" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={() => deleteMut.mutate(deleteTarget.id)} disabled={deleteMut.isPending}>
+            {deleteMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Remove
           </Button>
         </DialogActions>
       </Dialog>
@@ -654,7 +558,7 @@ function SubjectsPage() {
       {hasNoSubjects && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-          <span>No subjects configured yet. Click <strong>Seed MoE curriculum</strong> to load the full Zambia 2025 ECZ syllabus automatically.</span>
+          <span>No subjects configured yet. Click <strong>Add subject</strong> to create the first one.</span>
         </div>
       )}
 

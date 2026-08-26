@@ -1106,6 +1106,27 @@ export function gradeRangeForType(type: SchoolType): string {
  * "Form N-6" per gradeRangeForType's documented split — do not duplicate this logic inline;
  * every place that renders a student's grade should call this instead.
  */
+/**
+ * Grade/Form label options appropriate for a school's type — used to populate select
+ * dropdowns, filters, and audience pickers so a pure SECONDARY school is never offered
+ * "Grade 1-6" (it only has Form 1-6) and a pure PRIMARY/NURSERY school is never offered
+ * Forms. COMBINED/FULL schools offer both.
+ */
+export function gradeFormLabels(type: SchoolType): string[] {
+  const forms = ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6"];
+  const grades = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
+  switch (type) {
+    case "SECONDARY":
+      return forms;
+    case "PRIMARY":
+    case "NURSERY":
+      return grades;
+    case "COMBINED":
+    case "FULL":
+      return [...grades, ...forms];
+  }
+}
+
 export function formatGrade(grade: number | string | null | undefined, type: SchoolType): string {
   const n = Number(grade);
   if (!n) return "—";

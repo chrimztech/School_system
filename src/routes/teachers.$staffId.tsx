@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Button, Chip, Breadcrumbs, IconButton, Link as MuiLink, Typography, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, formatGrade } from "@/lib/tenant";
 import { api } from "@/lib/api";
 
 const QUALIFICATIONS = ["BSc Ed. (UNZA)", "BA Ed. (CBU)", "BSc Ed.", "BA Ed.", "Diploma Ed.", "BSc Computing", "MA Ed.", "MEd."];
@@ -363,7 +363,7 @@ function TeacherProfilePage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Class</TableCell>
-                  <TableCell>Grade</TableCell>
+                  <TableCell>Grade / Form</TableCell>
                   <TableCell>Section</TableCell>
                   <TableCell>Subject</TableCell>
                 </TableRow>
@@ -372,7 +372,7 @@ function TeacherProfilePage() {
                 {assignments.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">{a.name}</TableCell>
-                    <TableCell>{a.grade ? `Grade ${a.grade}` : "—"}</TableCell>
+                    <TableCell>{a.grade ? formatGrade(a.grade, active.type) : "—"}</TableCell>
                     <TableCell>{a.section || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{a.subjectName || "—"}</TableCell>
                   </TableRow>

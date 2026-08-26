@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, gradeFormLabels } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, downloadCsv } from "@/lib/utils";
@@ -18,17 +18,16 @@ export const Route = createFileRoute("/student-welfare")({
 });
 
 const CASE_TYPES = ["Academic", "Emotional", "Social", "Family", "Medical"] as const;
-const GRADES = ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
-
 
 function StudentWelfarePage() {
   const { active } = useTenant();
+  const gradeOptions = gradeFormLabels(active.type);
   const qc = useQueryClient();
 
   const [tab, setTab] = useState("cases");
   const [caseOpen, setCaseOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
-  const [caseForm, setCaseForm] = useState({ student: "", grade: GRADES[0], type: "Academic", assignedTo: "" });
+  const [caseForm, setCaseForm] = useState({ student: "", grade: gradeOptions[0], type: "Academic", assignedTo: "" });
   const [sessionForm, setSessionForm] = useState({ student: "", counselor: "", date: "", type: "Individual", notes: "" });
 
   const { data: cases = [], isLoading: casesLoading } = useQuery({
@@ -83,7 +82,7 @@ function StudentWelfarePage() {
   const logCase = () => {
     if (!caseForm.student.trim()) { toast.error("Student name is required"); return; }
     createCaseMut.mutate({ student: caseForm.student.trim(), grade: caseForm.grade, type: caseForm.type, assignedTo: caseForm.assignedTo, status: "Open", lastContact: new Date().toISOString().slice(0, 10) });
-    setCaseForm({ student: "", grade: GRADES[0], type: "Academic", assignedTo: "" });
+    setCaseForm({ student: "", grade: gradeOptions[0], type: "Academic", assignedTo: "" });
   };
 
   const logSession = () => {
@@ -111,7 +110,7 @@ function StudentWelfarePage() {
       <PageHeader
         title="Student Welfare"
         description="Pastoral care cases, counseling sessions, and at-risk student monitoring."
-        actions={<Button variant="outlined" onClick={() => { downloadCsv((cases as any[]).map((c: any) => ({ Student: c.student, Grade: c.grade, Type: c.type, "Assigned To": c.assignedTo, "Last Contact": c.lastContact, Status: c.status })), "welfare-report"); toast.success("Welfare report exported"); }}>Export report</Button>}
+        actions={<Button variant="outlined" onClick={() => { downloadCsv((cases as any[]).map((c: any) => ({ Student: c.student, "Grade / Form": c.grade, Type: c.type, "Assigned To": c.assignedTo, "Last Contact": c.lastContact, Status: c.status })), "welfare-report"); toast.success("Welfare report exported"); }}>Export report</Button>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -159,7 +158,7 @@ function StudentWelfarePage() {
                   <TextField label="Student name *" fullWidth size="small" value={caseForm.student} onChange={(e) => setCaseForm({ ...caseForm, student: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   <div className="grid grid-cols-2 gap-3">
                     <TextField select label="Grade" fullWidth size="small" value={caseForm.grade} onChange={(e) => setCaseForm({ ...caseForm, grade: e.target.value })}>
-                      {GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                      {gradeOptions.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                     </TextField>
                     <TextField select label="Case type" fullWidth size="small" value={caseForm.type} onChange={(e) => setCaseForm({ ...caseForm, type: e.target.value })}>
                       {CASE_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
@@ -189,7 +188,7 @@ function StudentWelfarePage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Student</TableCell><TableCell>Grade</TableCell><TableCell>Type</TableCell>
+              <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell><TableCell>Type</TableCell>
               <TableCell>Assigned to</TableCell><TableCell>Last contact</TableCell><TableCell>Status</TableCell>
               <TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
@@ -320,7 +319,7 @@ function StudentWelfarePage() {
             <TableContainer>
               <Table>
                 <TableHead><TableRow>
-                  <TableCell>Student</TableCell><TableCell>Grade</TableCell><TableCell>Type</TableCell>
+                  <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell><TableCell>Type</TableCell>
                   <TableCell>Assigned to</TableCell><TableCell>Last contact</TableCell>
                   <TableCell className="text-right">Action</TableCell>
                 </TableRow></TableHead>

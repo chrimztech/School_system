@@ -512,7 +512,7 @@ function TransportPage() {
             <Table>
               <TableHead><TableRow>
                 <TableCell>Student</TableCell>
-                <TableCell>Grade</TableCell>
+                <TableCell>Grade / Form</TableCell>
                 <TableCell>Stop</TableCell>
                 <TableCell className="text-right">Actions</TableCell>
               </TableRow></TableHead>

@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
-import { useTenant } from "@/lib/tenant";
+import { useTenant, gradeFormLabels } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 
@@ -16,11 +16,17 @@ export const Route = createFileRoute("/communication")({
   component: CommunicationPage,
 });
 
-const AUDIENCES = [
-  "All", "All parents", "All staff", "All alumni", "All secondary",
-  "Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6",
-  "All primary", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
-];
+function audiencesForType(type: any): string[] {
+  const base = ["All", "All parents", "All staff", "All alumni"];
+  const showPrimary = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(type);
+  const showSecondary = ["SECONDARY", "COMBINED", "FULL"].includes(type);
+  const grades = gradeFormLabels(type);
+  return [
+    ...base,
+    ...(showSecondary ? ["All secondary", ...grades.filter((g) => g.startsWith("Form"))] : []),
+    ...(showPrimary ? ["All primary", ...grades.filter((g) => g.startsWith("Grade"))] : []),
+  ];
+}
 
 function statusVariant(status: string) {
   const s = status?.toUpperCase();
@@ -69,7 +75,8 @@ function CommunicationPage() {
 
   // Announcement dialog
   const [annoOpen, setAnnoOpen] = useState(false);
-  const [annoForm, setAnnoForm] = useState({ title: "", body: "", audience: "All", channels: "SMS, WhatsApp" });
+  const [annoForm, setAnnoForm] = useState({ title: "", body: "", audience: "All" });
+  const [annoChannels, setAnnoChannels] = useState<string[]>(["SMS", "WhatsApp"]);
 
   useEffect(() => {
     const next = hash === "#broadcast" || hash === "broadcast" ? "broadcast"
@@ -125,7 +132,8 @@ function CommunicationPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["announcements", schoolId] });
       toast.success("Announcement published");
-      setAnnoForm({ title: "", body: "", audience: "All", channels: "SMS, WhatsApp" });
+      setAnnoForm({ title: "", body: "", audience: "All" });
+      setAnnoChannels(["SMS", "WhatsApp"]);
       setAnnoOpen(false);
     },
     onError: () => toast.error("Failed to publish announcement"),
@@ -176,11 +184,12 @@ function CommunicationPage() {
 
   const createAnnouncement = () => {
     if (!annoForm.title.trim() || !annoForm.body.trim()) { toast.error("Title and message are required"); return; }
+    if (annoChannels.length === 0) { toast.error("Select at least one channel"); return; }
     createAnnouncementMutation.mutate({
       title: annoForm.title.trim(),
       body: annoForm.body.trim(),
       audience: annoForm.audience,
-      channels: annoForm.channels.trim() || null,
+      channels: annoChannels.join(", "),
       publishDate: new Date().toISOString().slice(0, 10),
       createdBy: user?.name ?? user?.email ?? "Staff",
       active: true,
@@ -189,6 +198,11 @@ function CommunicationPage() {
 
   const toggleChannel = (channel: string) =>
     setBroadcastChannels((prev) =>
+      prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel]
+    );
+
+  const toggleAnnoChannel = (channel: string) =>
+    setAnnoChannels((prev) =>
       prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel]
     );
 
@@ -351,17 +365,26 @@ function CommunicationPage() {
                       fullWidth
                       size="small"
                     >
-                      {AUDIENCES.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                      {audiencesForType(active.type).map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
                     </TextField>
-                    <TextField
-                      label="Channels"
-                      value={annoForm.channels}
-                      onChange={(e) => setAnnoForm({ ...annoForm, channels: e.target.value })}
-                      placeholder="SMS, WhatsApp, Email"
-                      slotProps={{ htmlInput: { maxLength: 80 } }}
-                      fullWidth
-                      size="small"
-                    />
+                    <div>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">Channels</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {["SMS", "WhatsApp", "Email", "USSD"].map((ch) => (
+                          <button key={ch} type="button" onClick={() => toggleAnnoChannel(ch)}>
+                            <Chip
+                              size="small"
+                              icon={ch === "USSD" ? <Phone size={12} /> : undefined}
+                              label={ch}
+                              sx={{ ...badgeSx(annoChannels.includes(ch) ? "secondary" : "outline"), cursor: "pointer" }}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      {annoChannels.length === 0 && (
+                        <p className="mt-1 text-xs text-destructive">Select at least one channel</p>
+                      )}
+                    </div>
                     <TextField
                       label="Message *"
                       multiline
@@ -376,7 +399,7 @@ function CommunicationPage() {
                 </DialogContent>
                 <DialogActions>
                   <Button variant="outlined" color="inherit" onClick={() => setAnnoOpen(false)}>Cancel</Button>
-                  <Button variant="contained" onClick={createAnnouncement} disabled={createAnnouncementMutation.isPending}>
+                  <Button variant="contained" onClick={createAnnouncement} disabled={createAnnouncementMutation.isPending || annoChannels.length === 0}>
                     {createAnnouncementMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Publish
                   </Button>

@@ -26,6 +26,7 @@ type Breakdown = "CLASS" | "GRADE" | "SUBJECT" | "SCHOOL";
 
 function ResultsAnalysisPage() {
   const { active } = useTenant();
+  const levelWord = active.type === "SECONDARY" ? "form" : (active.type === "PRIMARY" || active.type === "NURSERY") ? "grade" : "grade/form";
   const schoolId = active.id;
 
   const [breakdown, setBreakdown] = useState<Breakdown>("CLASS");
@@ -109,7 +110,7 @@ function ResultsAnalysisPage() {
               onChange={(e) => setBreakdown(e.target.value as Breakdown)}
             >
               <MenuItem value="CLASS">By class</MenuItem>
-              <MenuItem value="GRADE">By grade level</MenuItem>
+              <MenuItem value="GRADE">By {levelWord} level</MenuItem>
               <MenuItem value="SUBJECT">By subject</MenuItem>
               <MenuItem value="SCHOOL">Whole school</MenuItem>
             </TextField>
@@ -129,7 +130,7 @@ function ResultsAnalysisPage() {
             )}
 
             {breakdown === "GRADE" && (
-              <TextField select label="Grade level" value={grade} size="small" onChange={(e) => setGrade(e.target.value)}>
+              <TextField select label={`${levelWord.charAt(0).toUpperCase()}${levelWord.slice(1)} level`} value={grade} size="small" onChange={(e) => setGrade(e.target.value)}>
                 <MenuItem value="" disabled>
                   Select grade
                 </MenuItem>
@@ -221,7 +222,7 @@ function ResultsAnalysisPage() {
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                <h2 className="mb-4 text-sm font-semibold">Grade distribution</h2>
+                <h2 className="mb-4 text-sm font-semibold">{levelWord.charAt(0).toUpperCase()}{levelWord.slice(1)} distribution</h2>
                 <div className="h-64">
                   {!hasData ? (
                     <EmptyState

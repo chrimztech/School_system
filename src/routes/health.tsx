@@ -337,7 +337,7 @@ function HealthPage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Student</TableCell><TableCell>Grade</TableCell>
+              <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell>
               <TableCell>Vaccination status</TableCell><TableCell>Last checkup</TableCell><TableCell>Notes</TableCell>
             </TableRow></TableHead>
             <TableBody>
@@ -369,7 +369,7 @@ function HealthPage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Student</TableCell><TableCell>Grade</TableCell>
+              <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell>
               <TableCell>Allergies</TableCell><TableCell>Chronic conditions</TableCell><TableCell>Emergency contact</TableCell>
             </TableRow></TableHead>
             <TableBody>
