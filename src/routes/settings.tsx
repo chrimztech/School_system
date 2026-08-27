@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Building2,
   BookOpenCheck,
+  CalendarRange,
   Check,
   ChevronDown,
   GitBranch,
@@ -10,16 +11,20 @@ import {
   Lock,
   LayoutGrid,
   Palette,
+  Pencil,
+  Plus,
   RotateCcw,
   Save,
   Scale,
   School as SchoolIcon,
   SlidersHorizontal,
   ToggleLeft,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/page-header";
 import {
@@ -29,9 +34,20 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogActions,
+  DialogTitle,
+  IconButton,
   InputAdornment,
   MenuItem,
   Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -140,6 +156,81 @@ function SettingsPage() {
   const [slug, setSlug] = useState(school.slug ?? "");
   const logoInput = useRef<HTMLInputElement>(null);
   const faviconInput = useRef<HTMLInputElement>(null);
+
+  // ── Academic term calendar (when each term starts/ends) ────────────────
+  const qc = useQueryClient();
+  const { data: academicTerms = [] } = useQuery({
+    queryKey: ["academic-terms", school.id],
+    queryFn: () => api.academicTerms.list(school.id),
+    enabled: Boolean(school.id),
+  });
+  const [termDialogOpen, setTermDialogOpen] = useState(false);
+  const [editingTermId, setEditingTermId] = useState<string | null>(null);
+  const [termForm, setTermForm] = useState({ academicYear: String(school.currentYear), term: "1", startDate: "", endDate: "", name: "" });
+  const [deleteTermTarget, setDeleteTermTarget] = useState<any | null>(null);
+
+  const createTermMut = useMutation({
+    mutationFn: (data: any) => api.academicTerms.create(school.id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["academic-terms", school.id] });
+      toast.success("Term added");
+      setTermDialogOpen(false);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to add term"),
+  });
+  const updateTermMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.academicTerms.update(school.id, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["academic-terms", school.id] });
+      toast.success("Term updated");
+      setTermDialogOpen(false);
+      setEditingTermId(null);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to update term"),
+  });
+  const deleteTermMut = useMutation({
+    mutationFn: (id: string) => api.academicTerms.delete(school.id, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["academic-terms", school.id] });
+      toast.success("Term removed");
+      setDeleteTermTarget(null);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to remove term"),
+  });
+
+  const openAddTerm = () => {
+    setTermForm({ academicYear: String(school.currentYear), term: "1", startDate: "", endDate: "", name: "" });
+    setEditingTermId(null);
+    setTermDialogOpen(true);
+  };
+  const openEditTerm = (t: any) => {
+    setTermForm({
+      academicYear: String(t.academicYear),
+      term: String(t.term),
+      startDate: t.startDate ?? "",
+      endDate: t.endDate ?? "",
+      name: t.name ?? "",
+    });
+    setEditingTermId(t.id);
+    setTermDialogOpen(true);
+  };
+  const saveTerm = () => {
+    if (!termForm.startDate || !termForm.endDate) { toast.error("Start and end dates are required"); return; }
+    if (termForm.endDate <= termForm.startDate) { toast.error("End date must be after the start date"); return; }
+    const payload = {
+      academicYear: Number(termForm.academicYear),
+      term: Number(termForm.term),
+      startDate: termForm.startDate,
+      endDate: termForm.endDate,
+      name: termForm.name.trim() || null,
+    };
+    if (editingTermId) {
+      updateTermMut.mutate({ id: editingTermId, data: payload });
+    } else {
+      createTermMut.mutate(payload);
+    }
+  };
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const readAsDataUrl = (file: File, setter: (value: string) => void) => {
     if (file.size > 2_000_000) {
@@ -1015,6 +1106,150 @@ function SettingsPage() {
             </div>
             </AccordionDetails>
           </Accordion>
+
+          <Accordion disableGutters sx={ACCORDION_SX}>
+            <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>
+              <SectionIcon icon={CalendarRange} />
+              <Box>
+                <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Academic term calendar</Typography>
+                <Typography variant="caption" color="text.secondary">When each term starts and ends</Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={ACCORDION_DETAILS_SX}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Define the start and end date for each term. Report cards, fee due dates, and the
+                  calendar can then reference these instead of dates being re-typed everywhere.
+                </p>
+                <Button size="small" variant="outlined" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={openAddTerm}>
+                  Add term
+                </Button>
+              </div>
+              <TableContainer className="mt-3">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Year</TableCell>
+                      <TableCell>Term</TableCell>
+                      <TableCell>Starts</TableCell>
+                      <TableCell>Ends</TableCell>
+                      <TableCell />
+                      <TableCell className="text-right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(academicTerms as any[]).map((t) => {
+                      const isCurrent = t.startDate <= todayIso && todayIso <= t.endDate;
+                      return (
+                        <TableRow key={t.id}>
+                          <TableCell>{t.academicYear}</TableCell>
+                          <TableCell>{t.name || `Term ${t.term}`}</TableCell>
+                          <TableCell>{t.startDate}</TableCell>
+                          <TableCell>{t.endDate}</TableCell>
+                          <TableCell>
+                            {isCurrent && <Chip size="small" label="Current" sx={badgeSx("default")} />}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                            <IconButton size="small" aria-label={`Edit ${t.name || `Term ${t.term}`}`} onClick={() => openEditTerm(t)}>
+                              <Pencil size={14} />
+                            </IconButton>
+                            <IconButton size="small" aria-label={`Delete ${t.name || `Term ${t.term}`}`} sx={{ color: "error.main" }} onClick={() => setDeleteTermTarget(t)}>
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {academicTerms.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                          No terms defined yet. Click "Add term" to set the first one's dates.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </AccordionDetails>
+          </Accordion>
+
+          <Dialog open={termDialogOpen} onClose={() => { setTermDialogOpen(false); setEditingTermId(null); }} maxWidth="xs" fullWidth>
+            <DialogTitle>{editingTermId ? "Edit term" : "Add term"}</DialogTitle>
+            <DialogContent>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <TextField
+                  label="Academic year"
+                  type="number"
+                  value={termForm.academicYear}
+                  onChange={(e) => setTermForm({ ...termForm, academicYear: e.target.value })}
+                  disabled={!!editingTermId}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Term"
+                  value={termForm.term}
+                  onChange={(e) => setTermForm({ ...termForm, term: e.target.value })}
+                  disabled={!!editingTermId}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="1">Term 1</MenuItem>
+                  <MenuItem value="2">Term 2</MenuItem>
+                  <MenuItem value="3">Term 3</MenuItem>
+                </TextField>
+                <TextField
+                  type="date"
+                  label="Start date"
+                  value={termForm.startDate}
+                  onChange={(e) => setTermForm({ ...termForm, startDate: e.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="date"
+                  label="End date"
+                  value={termForm.endDate}
+                  onChange={(e) => setTermForm({ ...termForm, endDate: e.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  fullWidth
+                  size="small"
+                />
+                <div className="col-span-2">
+                  <TextField
+                    label="Label (optional)"
+                    placeholder="e.g. Term 1 — First Term"
+                    value={termForm.name}
+                    onChange={(e) => setTermForm({ ...termForm, name: e.target.value })}
+                    fullWidth
+                    size="small"
+                  />
+                </div>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => { setTermDialogOpen(false); setEditingTermId(null); }}>Cancel</Button>
+              <Button variant="contained" onClick={saveTerm} disabled={createTermMut.isPending || updateTermMut.isPending}>
+                {(createTermMut.isPending || updateTermMut.isPending) && <Check className="mr-2 h-4 w-4 animate-spin" />}
+                {editingTermId ? "Save changes" : "Add term"}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          <Dialog open={!!deleteTermTarget} onClose={() => setDeleteTermTarget(null)} maxWidth="xs" fullWidth>
+            <DialogTitle>Remove {deleteTermTarget?.name || `Term ${deleteTermTarget?.term}`}?</DialogTitle>
+            <DialogContent>
+              <p className="text-sm text-muted-foreground">This removes the term's start/end dates. This cannot be undone.</p>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setDeleteTermTarget(null)}>Cancel</Button>
+              <Button variant="contained" color="error" onClick={() => deleteTermMut.mutate(deleteTermTarget.id)} disabled={deleteTermMut.isPending}>
+                Remove
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           <Accordion disableGutters sx={ACCORDION_SX}>
             <AccordionSummary expandIcon={<ChevronDown className="h-4 w-4" />} sx={ACCORDION_SUMMARY_SX}>

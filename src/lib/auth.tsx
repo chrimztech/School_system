@@ -331,7 +331,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const loadUsers = async () => {
-      if (!user || !hasBackendSession()) return;
+      // The backend only lets school-account-manager roles (super admin, school admin,
+      // principal, deputy head) list a school's users — every other role always got a 403
+      // here, on every single page load, silently swallowed by the catch below. Skip the
+      // doomed request entirely instead of generating console noise for no functional gain.
+      if (!user || !hasBackendSession() || !isSchoolLeadershipRole(user.role)) return;
 
       try {
         const records = user.role === "super_admin"

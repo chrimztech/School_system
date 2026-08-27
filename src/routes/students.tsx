@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/page-header";
-import { Button, Chip, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import { Button, Chip, Checkbox, FormControlLabel, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { useTenant, formatGrade } from "@/lib/tenant";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -62,6 +62,8 @@ function createInitialForm() {
     emergencyContactRelationship: "Father",
     emergencyContactPhone: "",
     status: "active",
+    boardingStatus: "DAY",
+    needsTransport: false,
   };
 }
 
@@ -102,6 +104,10 @@ function StudentsListPage() {
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [step, setStep] = useState(1);
+  // Most learners live with their guardian, so retyping the same address as a separate
+  // "residential address" field is pure duplicate data entry for the common case — default
+  // to mirroring it, and only let staff type a different one when it's actually different.
+  const [sameAsGuardianAddress, setSameAsGuardianAddress] = useState(true);
   const [form, setForm] = useState(createInitialForm);
 
   const { data: students = [], isLoading } = useQuery({
@@ -140,6 +146,7 @@ function StudentsListPage() {
 
       setForm(createInitialForm());
       setStep(1);
+      setSameAsGuardianAddress(true);
       setOpen(false);
     },
     onError: () => toast.error("Failed to enrol student"),
@@ -168,6 +175,7 @@ function StudentsListPage() {
     }
     createMutation.mutate({
       ...form,
+      address: sameAsGuardianAddress ? form.guardianAddress : form.address,
       grade: Number(form.grade),
       bloodGroup: form.bloodGroup || null,
     });
@@ -236,7 +244,7 @@ function StudentsListPage() {
             )}
             {canManage && <>
               <Button variant="contained" startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Register student</Button>
-              <Dialog open={open} onClose={() => { setOpen(false); setForm(createInitialForm()); setStep(1); }} maxWidth="lg" fullWidth>
+              <Dialog open={open} onClose={() => { setOpen(false); setForm(createInitialForm()); setStep(1); setSameAsGuardianAddress(true); }} maxWidth="lg" fullWidth>
                 <DialogTitle>Register new student</DialogTitle>
                 <DialogContent>
                 <DialogContentText sx={{ mb: 2 }}>Records the student's personal details. Class enrolment is done separately on the Classes page.</DialogContentText>
@@ -386,13 +394,30 @@ function StudentsListPage() {
                 {step === 3 && (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={sameAsGuardianAddress}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setSameAsGuardianAddress(checked);
+                              if (checked) setForm((prev) => ({ ...prev, address: prev.guardianAddress }));
+                            }}
+                          />
+                        }
+                        label="Learner lives at the same address as their parent/guardian"
+                      />
+                    </div>
+                    <div className="col-span-2">
                       <TextField
                         label="Residential address"
                         multiline
                         minRows={3}
-                        value={form.address}
+                        value={sameAsGuardianAddress ? form.guardianAddress : form.address}
                         onChange={(e) => setForm({ ...form, address: e.target.value })}
                         placeholder="Plot 10, Kafue Road, Lusaka"
+                        disabled={sameAsGuardianAddress}
+                        helperText={sameAsGuardianAddress ? "Matches the parent/guardian address above — untick the box to enter a different one." : undefined}
                         fullWidth
                         size="small"
                       />
@@ -420,6 +445,28 @@ function StudentsListPage() {
                     >
                       {CHANNEL_STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                     </TextField>
+                    <TextField
+                      select
+                      label="Boarding status"
+                      value={form.boardingStatus}
+                      onChange={(e) => setForm({ ...form, boardingStatus: e.target.value })}
+                      fullWidth
+                      size="small"
+                    >
+                      <MenuItem value="DAY">Day scholar</MenuItem>
+                      <MenuItem value="BOARDING">Boarding</MenuItem>
+                    </TextField>
+                    <div className="flex items-center">
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={form.needsTransport}
+                            onChange={(e) => setForm({ ...form, needsTransport: e.target.checked })}
+                          />
+                        }
+                        label="Needs school transport"
+                      />
+                    </div>
                     <div className="col-span-2">
                       <TextField
                         label="Medical conditions"
@@ -457,7 +504,7 @@ function StudentsListPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="text" color="inherit" onClick={() => { setOpen(false); setForm(createInitialForm()); setStep(1); }}>Cancel</Button>
+                    <Button variant="text" color="inherit" onClick={() => { setOpen(false); setForm(createInitialForm()); setStep(1); setSameAsGuardianAddress(true); }}>Cancel</Button>
                     {step < 3 ? (
                       <Button variant="contained" onClick={nextStep} endIcon={<ChevronRight className="h-4 w-4" />}>
                         Next

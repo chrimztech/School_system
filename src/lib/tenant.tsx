@@ -896,6 +896,11 @@ type TenantContextValue = {
   isFeatureIncluded: (feature: FeatureKey, tenant?: Tenant) => boolean;
   isFeatureEnabled: (feature: FeatureKey, tenant?: Tenant) => boolean;
   isModuleEnabled: (module: string, tenant?: Tenant) => boolean;
+  /** True while the initial (or a post-login) fetch of the user's schools is still in
+   *  flight — `active.id` is "" and not yet trustworthy during this window. Route content
+   *  that depends on a resolved schoolId should wait for this to go false rather than each
+   *  query independently guessing whether the empty id is real or just not-loaded-yet. */
+  isResolving: boolean;
 };
 
 function detectSubdomainSlug(): string | null {
@@ -911,6 +916,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return "";
     return window.localStorage.getItem(SCHOOL_STORAGE_KEY) ?? "";
   });
+  const [isResolving, setIsResolving] = useState(true);
 
   const persistTenant = async (tenant: Tenant) => {
     await api.schools.update(tenant.id, toSchoolDto(tenant));
@@ -933,13 +939,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadBackendTenants = async () => {
       if (typeof window === "undefined") return;
-      if (!window.localStorage.getItem("srms_token")) {
-        setTenants([]);
-        setActiveId("");
-        return;
-      }
-
+      setIsResolving(true);
       try {
+        if (!window.localStorage.getItem("srms_token")) {
+          setTenants([]);
+          setActiveId("");
+          return;
+        }
+
         const schools = await api.schools.list();
         if (schools.length === 0) {
           setTenants([]);
@@ -972,6 +979,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         window.localStorage.setItem(SCHOOL_STORAGE_KEY, nextActiveId);
       } catch (error) {
         console.warn("Failed to load schools from backend", error);
+      } finally {
+        setIsResolving(false);
       }
     };
 
@@ -993,6 +1002,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     return {
       tenants,
       active,
+      isResolving,
       activePlan: PLAN_CATALOG[active.subscription.planId],
       setActive: (id) => {
         setActiveId(id);
@@ -1072,7 +1082,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       isFeatureEnabled: (feature, tenant = active) => isTenantFeatureEnabled(tenant, feature),
       isModuleEnabled: (module, tenant = active) => isTenantModuleEnabled(tenant, module),
     };
-  }, [tenants, activeId]);
+  }, [tenants, activeId, isResolving]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }
@@ -1140,4 +1150,26 @@ export function formatGrade(grade: number | string | null | undefined, type: Sch
     case "FULL":
       return n <= 6 ? `Grade ${n}` : `Form ${n - 6}`;
   }
+}
+
+/**
+ * The exact inverse of formatGrade — turns a label like "Form 3" or "Grade 5" back into the
+ * raw numeric grade this school's type actually stores. Do not shortcut this with a plain
+ * `parseInt` on the label: for COMBINED/FULL schools "Form 3" is stored as raw grade 9 (the
+ * +6 offset), not 3 — a naive digit-extraction silently mismatches every Form-based fee
+ * structure/levy against the real student grade on those school types. Returns null for a
+ * wildcard label (e.g. "All forms", "All grades") or anything unparseable.
+ */
+export function gradeLabelToNumber(label: string | null | undefined, type: SchoolType): number | null {
+  if (!label) return null;
+  const trimmed = label.trim();
+  const match = /^(Form|Grade)\s+(\d+)$/i.exec(trimmed);
+  if (!match) return null;
+  const kind = match[1].toLowerCase();
+  const n = Number(match[2]);
+  if (!n) return null;
+  if (type === "COMBINED" || type === "FULL") {
+    return kind === "form" ? n + 6 : n;
+  }
+  return n;
 }

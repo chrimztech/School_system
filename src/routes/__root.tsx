@@ -267,7 +267,7 @@ const SHELL_STYLE_PROPS = [
 function AppShell() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { user, isSystemAdmin, loadingSession } = useAuth();
-  const { active } = useTenant();
+  const { active, isResolving: tenantResolving } = useTenant();
   const router = useRouter();
 
   // Ensure SSR and first client render produce identical HTML.
@@ -297,8 +297,11 @@ function AppShell() {
     };
   }, [isSystemAdmin, active.primaryColor, active.secondaryColor, active.accentColor]);
 
-  // Apply school favicon to the browser tab
-  useFavicon(active.faviconUrl);
+  // Apply school favicon to the browser tab — never a specific school's while in the
+  // system-admin/platform workspace view, same as the brand color right above: `active`
+  // still resolves to whichever school happens to be selected underneath even when the
+  // super admin isn't actually looking at that school's own workspace.
+  useFavicon(isSystemAdmin ? undefined : active.faviconUrl);
 
   // Recolor MUI's theme (buttons, chips, inputs, focus rings, …) to the active school's
   // brand — the static `theme` export only covers the platform default, so without this
@@ -417,9 +420,19 @@ function AppShell() {
           </header>
           <main className="flex-1 overflow-x-hidden px-4 py-5 lg:px-6 lg:py-7">
             <div className="mx-auto w-full max-w-[1600px]">
-              <RouteAccessBoundary pathname={path}>
-                <Outlet />
-              </RouteAccessBoundary>
+              {tenantResolving ? (
+                // Route components read active.id as soon as they mount — rendering them
+                // before the school list finishes resolving fires every schoolId-scoped
+                // query with the placeholder empty id, throwing "No valid school ID" from
+                // every one of them. Hold the outlet here instead of guarding each query.
+                <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
+                  Loading workspace…
+                </div>
+              ) : (
+                <RouteAccessBoundary pathname={path}>
+                  <Outlet />
+                </RouteAccessBoundary>
+              )}
             </div>
           </main>
         </div>

@@ -421,6 +421,13 @@ export const api = {
     delete: (schoolId: string, id: string)        => apiClient.delete(schoolPath(schoolId, `departments/${id}`)),
   },
 
+  academicTerms: {
+    list:   (schoolId: string)                        => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "academic-terms"))),
+    create: (schoolId: string, data: any)             => unwrap<any>(apiClient.post(schoolPath(schoolId, "academic-terms"), data)),
+    update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `academic-terms/${id}`), data)),
+    delete: (schoolId: string, id: string)            => apiClient.delete(schoolPath(schoolId, `academic-terms/${id}`)),
+  },
+
   // Custom roles & permissions
   roles: {
     list:           (schoolId: string)                                      => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "roles"))),
@@ -536,10 +543,14 @@ export const api = {
     structures: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/structures"))),
     createStructure: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/structures"), data)),
     updateStructure: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `fees/structures/${id}`), data)),
+    deleteStructure: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `fees/structures/${id}`)),
     recordPayment: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/payments"), data)),
+    updatePayment: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `fees/payments/${id}`), data)),
+    reversePayment: (schoolId: string, id: string) => unwrap<any>(apiClient.delete(schoolPath(schoolId, `fees/payments/${id}`))),
     studentPayments: (schoolId: string, studentId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `fees/payments/student/${studentId}`))),
     levies: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/levies"))),
     createLevy: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/levies"), data)),
+    updateLevy: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `fees/levies/${id}`), data)),
     deleteLevy: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `fees/levies/${id}`)),
     discounts: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/discounts"))),
     createDiscount: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/discounts"), data)),

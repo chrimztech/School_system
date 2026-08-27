@@ -1103,25 +1103,24 @@ function StaffDashboard() {
                 You are viewing the shared platform workspace across {tenants.length} connected
                 schools.
               </p>
-              <div className="mt-2 flex items-center gap-1.5">
-                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                {smsBalance === undefined ? (
-                  <span className="text-xs text-muted-foreground">Checking SMS balance…</span>
-                ) : smsBalance < 0 ? (
-                  <span className="text-xs text-muted-foreground">SMS balance unavailable — Zamtel BulkSMS unreachable or not configured</span>
-                ) : (
-                  <Chip
-                    size="small"
-                    label={`SMS balance: ${smsBalance.toLocaleString()} credit${smsBalance === 1 ? "" : "s"}`}
-                    sx={badgeSx(smsBalance < 50 ? "warning" : "outline")}
-                  />
-                )}
-              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="outlined" component={Link} to="/sys-admin">Open system admin</Button>
               <Button variant="text" color="inherit" component={Link} to="/platform-ops">Open platform ops</Button>
             </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {smsBalance === undefined ? (
+              <span className="text-sm text-muted-foreground">Checking SMS balance…</span>
+            ) : smsBalance < 0 ? (
+              <span className="text-sm text-muted-foreground">SMS balance unavailable — Zamtel BulkSMS unreachable or not configured</span>
+            ) : (
+              <span className="text-sm font-medium text-foreground">
+                SMS balance: {smsBalance.toLocaleString()} credit{smsBalance === 1 ? "" : "s"}
+                {smsBalance < 50 && <span className="ml-1.5 text-xs font-normal text-warning">— running low</span>}
+              </span>
+            )}
           </div>
         </div>
       )}

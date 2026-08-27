@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
-import { useTenant, gradeFormLabels } from "@/lib/tenant";
+import { useTenant, gradeFormLabels, gradeLabelToNumber } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/fee-structure")({
   component: FeeStructurePage,
 });
 
-type FeeItem = { id: string; category: string; grade: string; amount: number; frequency: "Per term" | "Annual" | "Once-off"; status: "Active" | "Inactive" };
+type FeeItem = { id: string; category: string; grade: string; amount: number; frequency: "Per term" | "Annual" | "Once-off"; status: "Active" | "Inactive"; boardingStatus: string };
 type Levy = { id: string; name: string; amount: number; grade: string; mandatory: boolean };
 type Discount = { id: string; name: string; type: "Percentage" | "Fixed"; value: number; condition: string; active: boolean };
 type BillingRule = { id: string; term: string; dueDate: string; lateFee: number; reminderDays: number };
@@ -55,7 +55,7 @@ function FeeStructurePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-structures", schoolId] });
       toast.success(`Fee item added`);
-      setFeeForm({ category: FEE_CATEGORIES[0], customCategory: "", grade: gradeOptions[1], amount: "", frequency: "Per term", academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "" });
+      setFeeForm(emptyFeeForm());
       setFeeOpen(false);
     },
     onError: () => toast.error("Failed to add fee item"),
@@ -64,15 +64,45 @@ function FeeStructurePage() {
     mutationFn: ({ id, data }: { id: string; data: any }) => api.fees.updateStructure(schoolId, id, data),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["fee-structures", schoolId] }),
   });
+  const editFeeMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.fees.updateStructure(schoolId, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["fee-structures", schoolId] });
+      toast.success("Fee item updated");
+      setFeeForm(emptyFeeForm());
+      setEditingFeeId(null);
+      setFeeOpen(false);
+    },
+    onError: () => toast.error("Failed to update fee item"),
+  });
+  const deleteFeeMutation = useMutation({
+    mutationFn: ({ id }: { id: string; name: string }) => api.fees.deleteStructure(schoolId, id),
+    onSuccess: (_: any, { name }: { id: string; name: string }) => {
+      void qc.invalidateQueries({ queryKey: ["fee-structures", schoolId] });
+      toast.success(`${name} removed`);
+    },
+    onError: () => toast.error("Failed to remove fee item"),
+  });
   const createLevyMutation = useMutation({
     mutationFn: (data: any) => api.fees.createLevy(schoolId, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["fee-levies", schoolId] });
       toast.success("Levy added");
-      setLevyForm({ name: "", amount: "", grade: gradeOptions[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
+      setLevyForm(emptyLevyForm());
       setLevyOpen(false);
     },
     onError: () => toast.error("Failed to add levy"),
+  });
+  const editLevyMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.fees.updateLevy(schoolId, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["fee-levies", schoolId] });
+      toast.success("Levy updated");
+      setLevyForm(emptyLevyForm());
+      setEditingLevyId(null);
+      setLevyOpen(false);
+    },
+    onError: () => toast.error("Failed to update levy"),
   });
   const deleteLevyMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => api.fees.deleteLevy(schoolId, id),
@@ -131,6 +161,7 @@ function FeeStructurePage() {
       amount: f.termFee ?? f.amount ?? 0,
       frequency: "Per term" as FeeItem["frequency"],
       status: (f.active === false ? "Inactive" : "Active") as FeeItem["status"],
+      boardingStatus: f.boardingStatus ?? "",
     };
   });
 
@@ -163,10 +194,14 @@ function FeeStructurePage() {
   const [discountOpen, setDiscountOpen] = useState(false);
   const [billingOpen, setBillingOpen] = useState(false);
   const [editingBillingId, setEditingBillingId] = useState<string | null>(null);
+  const [editingFeeId, setEditingFeeId] = useState<string | null>(null);
+  const [editingLevyId, setEditingLevyId] = useState<string | null>(null);
   const [tab, setTab] = useState("tariff");
 
-  const [feeForm, setFeeForm] = useState({ category: FEE_CATEGORIES[0], customCategory: "", grade: gradeOptions[1], amount: "", frequency: "Per term" as FeeItem["frequency"], academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "" });
-  const [levyForm, setLevyForm] = useState({ name: "", amount: "", grade: gradeOptions[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
+  const emptyFeeForm = () => ({ category: FEE_CATEGORIES[0], customCategory: "", grade: gradeOptions[1], amount: "", frequency: "Per term" as FeeItem["frequency"], academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "", boardingStatus: "" });
+  const emptyLevyForm = () => ({ name: "", amount: "", grade: gradeOptions[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
+  const [feeForm, setFeeForm] = useState(emptyFeeForm);
+  const [levyForm, setLevyForm] = useState(emptyLevyForm);
   const [discountForm, setDiscountForm] = useState({ name: "", type: "Percentage" as Discount["type"], value: "", condition: "", maxBeneficiaries: "", validFrom: "", validTo: "", requiresBoardApproval: "no" });
   const [billingForm, setBillingForm] = useState(emptyBillingForm);
 
@@ -179,12 +214,13 @@ function FeeStructurePage() {
       ? feeForm.customCategory.trim()
       : feeForm.category;
     if (!cat) { toast.error("Please enter a custom category name"); return; }
-    const gradeNum = parseInt(feeForm.grade.replace(/\D/g, ""), 10) || 1;
     const isAllGrades = feeForm.grade === "All forms";
-    createFeeMutation.mutate({
+    const gradeNum = isAllGrades ? null : gradeLabelToNumber(feeForm.grade, active.type);
+    const maxGrade = active.type === "COMBINED" || active.type === "FULL" ? 12 : 6;
+    const payload = {
       name: `${feeForm.grade} ${cat}`,
-      gradeFrom: isAllGrades ? 1 : gradeNum,
-      gradeTo: isAllGrades ? 6 : gradeNum,
+      gradeFrom: isAllGrades ? 1 : (gradeNum ?? 1),
+      gradeTo: isAllGrades ? maxGrade : (gradeNum ?? 1),
       termFee: Number(feeForm.amount),
       annualFee: Number(feeForm.amount) * 3,
       term: feeForm.term,
@@ -193,13 +229,44 @@ function FeeStructurePage() {
       latePenaltyAmount: Number(feeForm.latePenaltyAmount) || null,
       penaltyGraceDays: Number(feeForm.penaltyGraceDays) || 7,
       notes: feeForm.notes.trim() || null,
+      boardingStatus: feeForm.boardingStatus || null,
       active: true,
+    };
+    if (editingFeeId) {
+      editFeeMutation.mutate({ id: editingFeeId, data: payload });
+    } else {
+      createFeeMutation.mutate(payload);
+    }
+  };
+
+  const openFeeEdit = (feeId: string) => {
+    const raw = rawFees.find((f: any) => f.id === feeId);
+    if (!raw) return;
+    const isAllGrades = raw.gradeFrom === 1 && raw.gradeTo === (active.type === "COMBINED" || active.type === "FULL" ? 12 : 6) && raw.gradeFrom !== raw.gradeTo;
+    const gradeLabel = isAllGrades ? "All forms" : gradeOptions.find((g) => gradeLabelToNumber(g, active.type) === raw.gradeFrom) ?? gradeOptions[0];
+    const nameParts = String(raw.name ?? "").split(" ");
+    const category = FEE_CATEGORIES.find((c) => raw.name?.endsWith(c)) ?? "__other__";
+    setFeeForm({
+      category,
+      customCategory: category === "__other__" ? nameParts.slice(1).join(" ") : "",
+      grade: gradeLabel,
+      amount: String(raw.termFee ?? ""),
+      frequency: "Per term",
+      academicYear: String(raw.academicYear ?? "2026"),
+      term: raw.term ?? "Term 2",
+      dueDate: raw.dueDate ?? "",
+      latePenaltyAmount: raw.latePenaltyAmount != null ? String(raw.latePenaltyAmount) : "",
+      penaltyGraceDays: raw.penaltyGraceDays != null ? String(raw.penaltyGraceDays) : "7",
+      notes: raw.notes ?? "",
+      boardingStatus: raw.boardingStatus ?? "",
     });
+    setEditingFeeId(feeId);
+    setFeeOpen(true);
   };
 
   const addLevy = () => {
     if (!levyForm.name.trim() || !levyForm.amount || Number(levyForm.amount) <= 0) { toast.error("Name and a valid amount are required"); return; }
-    createLevyMutation.mutate({
+    const payload = {
       name: levyForm.name.trim(),
       amount: Number(levyForm.amount),
       grade: levyForm.grade,
@@ -207,7 +274,26 @@ function FeeStructurePage() {
       description: levyForm.description.trim() || null,
       applicableTo: levyForm.applicableTo,
       effectiveFrom: levyForm.effectiveFrom || null,
+    };
+    if (editingLevyId) {
+      editLevyMutation.mutate({ id: editingLevyId, data: payload });
+    } else {
+      createLevyMutation.mutate(payload);
+    }
+  };
+
+  const openLevyEdit = (levy: any) => {
+    setLevyForm({
+      name: levy.name ?? "",
+      amount: String(levy.amount ?? ""),
+      grade: levy.grade ?? gradeOptions[0],
+      mandatory: levy.mandatory !== false,
+      description: levy.description ?? "",
+      applicableTo: levy.applicableTo ?? "All students",
+      effectiveFrom: levy.effectiveFrom ?? "",
     });
+    setEditingLevyId(levy.id);
+    setLevyOpen(true);
   };
 
   const addDiscount = () => {
@@ -317,9 +403,9 @@ function FeeStructurePage() {
       {tab === "tariff" && (
         <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setFeeOpen(true)}>Add fee</Button>
-            <Dialog open={feeOpen} onClose={() => setFeeOpen(false)} maxWidth="lg" fullWidth>
-              <DialogTitle>Add fee item</DialogTitle>
+            <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setFeeForm(emptyFeeForm()); setEditingFeeId(null); setFeeOpen(true); }}>Add fee</Button>
+            <Dialog open={feeOpen} onClose={() => { setFeeOpen(false); setEditingFeeId(null); }} maxWidth="lg" fullWidth>
+              <DialogTitle>{editingFeeId ? "Edit fee item" : "Add fee item"}</DialogTitle>
               <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -327,7 +413,12 @@ function FeeStructurePage() {
                       select
                       label="Category"
                       value={feeForm.category}
-                      onChange={(e) => setFeeForm({ ...feeForm, category: e.target.value, customCategory: "" })}
+                      onChange={(e) => {
+                        const category = e.target.value;
+                        // A Boarding-category item defaults to boarding-only so it's never
+                        // accidentally billed to day scholars — staff can still override below.
+                        setFeeForm({ ...feeForm, category, customCategory: "", boardingStatus: category === "Boarding" ? "BOARDING" : feeForm.boardingStatus });
+                      }}
                       fullWidth
                       size="small"
                     >
@@ -425,6 +516,19 @@ function FeeStructurePage() {
                     fullWidth
                     size="small"
                   />
+                  <TextField
+                    select
+                    label="Applies to"
+                    value={feeForm.boardingStatus}
+                    onChange={(e) => setFeeForm({ ...feeForm, boardingStatus: e.target.value })}
+                    fullWidth
+                    size="small"
+                    helperText="A boarding-only fee is never billed to day scholars, and vice versa"
+                  >
+                    <MenuItem value="">All students</MenuItem>
+                    <MenuItem value="BOARDING">Boarding students only</MenuItem>
+                    <MenuItem value="DAY">Day scholars only</MenuItem>
+                  </TextField>
                   <div className="col-span-2">
                     <TextField
                       label="Notes / conditions"
@@ -439,10 +543,10 @@ function FeeStructurePage() {
                 </div>
               </DialogContent>
               <DialogActions>
-                <Button variant="outlined" color="inherit" onClick={() => setFeeOpen(false)}>Cancel</Button>
-                <Button onClick={addFee} disabled={createFeeMutation.isPending}>
-                  {createFeeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Add fee
+                <Button variant="outlined" color="inherit" onClick={() => { setFeeOpen(false); setEditingFeeId(null); }}>Cancel</Button>
+                <Button onClick={addFee} disabled={createFeeMutation.isPending || editFeeMutation.isPending}>
+                  {(createFeeMutation.isPending || editFeeMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingFeeId ? "Save changes" : "Add fee"}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -455,7 +559,7 @@ function FeeStructurePage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Category</TableCell><TableCell>Grade / Form</TableCell><TableCell>Amount</TableCell>
+              <TableCell>Category</TableCell><TableCell>Grade / Form</TableCell><TableCell>Applies to</TableCell><TableCell>Amount</TableCell>
               <TableCell>Frequency</TableCell><TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
@@ -463,20 +567,31 @@ function FeeStructurePage() {
                 <TableRow key={f.id}>
                   <TableCell className="font-medium">{f.category}</TableCell>
                   <TableCell>{f.grade}</TableCell>
+                  <TableCell>
+                    {f.boardingStatus === "BOARDING" ? (
+                      <Chip size="small" label="Boarding only" sx={badgeSx("secondary")} />
+                    ) : f.boardingStatus === "DAY" ? (
+                      <Chip size="small" label="Day only" sx={badgeSx("secondary")} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">All students</span>
+                    )}
+                  </TableCell>
                   <TableCell>K {f.amount.toLocaleString()}</TableCell>
                   <TableCell><Chip size="small" label={f.frequency} sx={badgeSx("secondary")} /></TableCell>
                   <TableCell>
                     <Chip size="small" label={f.status} sx={badgeSx(f.status === "Active" ? "default" : "outline")} />
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button size="small" variant="text" onClick={() => openFeeEdit(f.id)}>Edit</Button>
                     <Button size="small" variant="text" color="inherit" onClick={() => toggleFeeStatus(f.id)}>
                       {f.status === "Active" ? "Deactivate" : "Activate"}
                     </Button>
+                    <Button size="small" variant="text" color="error" onClick={() => deleteFeeMutation.mutate({ id: f.id, name: f.category })}>Delete</Button>
                   </TableCell>
                 </TableRow>
               ))}
               {fees.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No fee items configured.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No fee items configured.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -489,9 +604,9 @@ function FeeStructurePage() {
       {tab === "levies" && (
         <Box className="rounded-xl border border-border bg-card">
           <div className="flex justify-end border-b border-border p-3">
-            <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => setLevyOpen(true)}>Add levy</Button>
-            <Dialog open={levyOpen} onClose={() => setLevyOpen(false)} maxWidth="lg" fullWidth>
-              <DialogTitle>Add levy</DialogTitle>
+            <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setLevyForm(emptyLevyForm()); setEditingLevyId(null); setLevyOpen(true); }}>Add levy</Button>
+            <Dialog open={levyOpen} onClose={() => { setLevyOpen(false); setEditingLevyId(null); }} maxWidth="lg" fullWidth>
+              <DialogTitle>{editingLevyId ? "Edit levy" : "Add levy"}</DialogTitle>
               <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
@@ -565,8 +680,11 @@ function FeeStructurePage() {
                 </div>
               </DialogContent>
               <DialogActions>
-                <Button variant="outlined" color="inherit" onClick={() => setLevyOpen(false)}>Cancel</Button>
-                <Button onClick={addLevy}>Add levy</Button>
+                <Button variant="outlined" color="inherit" onClick={() => { setLevyOpen(false); setEditingLevyId(null); }}>Cancel</Button>
+                <Button onClick={addLevy} disabled={createLevyMutation.isPending || editLevyMutation.isPending}>
+                  {(createLevyMutation.isPending || editLevyMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingLevyId ? "Save changes" : "Add levy"}
+                </Button>
               </DialogActions>
             </Dialog>
           </div>
@@ -586,6 +704,7 @@ function FeeStructurePage() {
                     <Chip size="small" label={l.mandatory ? "Mandatory" : "Optional"} sx={badgeSx(l.mandatory ? "default" : "secondary")} />
                   </TableCell>
                   <TableCell className="text-right">
+                    <Button size="small" variant="text" onClick={() => openLevyEdit((leviesRaw as any[]).find((raw) => raw.id === l.id) ?? l)}>Edit</Button>
                     <Button size="small" variant="text" color="inherit" onClick={() => deleteLevyMutation.mutate({ id: l.id, name: l.name })}>Remove</Button>
                   </TableCell>
                 </TableRow>

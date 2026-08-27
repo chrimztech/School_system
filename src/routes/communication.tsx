@@ -242,6 +242,14 @@ function CommunicationPage() {
         }
       />
 
+      {isSystemAdmin && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          Everything on this page — messages, announcements, and broadcasts — applies to{" "}
+          <strong>{active.name}</strong> only, not all schools. Switch schools from the sidebar's{" "}
+          <strong>Portfolio control</strong> switcher before sending if you meant to reach a different school's parents.
+        </div>
+      )}
+
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab
           value="messages"

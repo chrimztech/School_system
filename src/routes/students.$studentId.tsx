@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button, Chip, Breadcrumbs, IconButton, Link as MuiLink, MenuItem, TextField, Typography, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { badgeSx, gradeChipSx } from "@/lib/utils";
 import { useTenant, formatGrade } from "@/lib/tenant";
-import { api } from "@/lib/api";
+import { api, isValidSchoolId } from "@/lib/api";
 
 export const Route = createFileRoute("/students/$studentId")({
   head: () => ({ meta: [{ title: "Student Profile - SRMS" }] }),
@@ -18,6 +18,9 @@ function StudentProfilePage() {
   const { studentId } = Route.useParams();
   const { active } = useTenant();
   const schoolId = active.id;
+  // active.id is "" until TenantProvider's async school-list fetch resolves — firing these
+  // with an empty schoolId threw "No valid school ID" from schoolPath() every time.
+  const hasValidSchool = isValidSchoolId(schoolId);
   const qc = useQueryClient();
   const term = String(active.currentTerm ?? "1");
   const year = String(active.currentYear ?? new Date().getFullYear());
@@ -28,6 +31,7 @@ function StudentProfilePage() {
   const { data: student, isLoading } = useQuery({
     queryKey: ["student", schoolId, studentId],
     queryFn: () => api.students.get(schoolId, studentId),
+    enabled: hasValidSchool && !!studentId,
   });
 
   const reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" =
@@ -36,7 +40,7 @@ function StudentProfilePage() {
   const { data: termGradeHistory = [] } = useQuery({
     queryKey: ["published-term-grades", schoolId, studentId, year, reportingPeriod],
     queryFn: () => api.termGrades.publishedHistory(schoolId, studentId, year, reportingPeriod),
-    enabled: !!schoolId && !!studentId,
+    enabled: hasValidSchool && !!studentId,
   });
 
   const termGrades = (termGradeHistory as any[]).filter((g) => g.term === term);
@@ -48,22 +52,25 @@ function StudentProfilePage() {
   const { data: feePayments = [] } = useQuery({
     queryKey: ["student-fees", schoolId, studentId],
     queryFn: () => api.fees.studentPayments(schoolId, studentId),
-    enabled: !!studentId,
+    enabled: hasValidSchool && !!studentId,
   });
 
   const { data: enrolments = [] } = useQuery({
     queryKey: ["transport-enrolments", schoolId],
     queryFn: () => api.transport.enrolments(schoolId),
+    enabled: hasValidSchool,
   });
 
   const { data: routes = [] } = useQuery({
     queryKey: ["transport-routes", schoolId],
     queryFn: () => api.transport.routes(schoolId),
+    enabled: hasValidSchool,
   });
 
   const { data: vehicles = [] } = useQuery({
     queryKey: ["transport-vehicles", schoolId],
     queryFn: () => api.transport.vehicles(schoolId),
+    enabled: hasValidSchool,
   });
 
   const enrolMutation = useMutation({
@@ -312,6 +319,14 @@ function StudentProfilePage() {
             <div className="flex justify-between gap-2">
               <dt className="text-muted-foreground">Blood group</dt>
               <dd className="font-medium">{s.bloodGroup || "—"}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Boarding status</dt>
+              <dd className="font-medium">{s.boardingStatus === "BOARDING" ? "Boarding" : "Day scholar"}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">School transport</dt>
+              <dd className="font-medium">{s.needsTransport ? "Needed" : "Not needed"}</dd>
             </div>
             <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Medical conditions</p>

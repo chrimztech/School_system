@@ -243,6 +243,16 @@
 @media print {
   body * {
     visibility: hidden;
+    /* The app shell and its ancestors use Tailwind's min-h-screen (min-height: 100vh).
+       visibility:hidden keeps an element's layout box (unlike display:none), so that
+       min-height still reserves a full viewport of vertical space even while invisible —
+       the browser then paginates extra blank pages after the print area to cover it. */
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  html, body {
+    height: auto !important;
   }
 
   .print-area,
@@ -254,6 +264,7 @@
     position: absolute;
     inset: 0;
     width: 100%;
+    height: auto !important;
     box-shadow: none !important;
     border: none !important;
   }

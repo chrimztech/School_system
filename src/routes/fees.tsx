@@ -205,6 +205,57 @@ function FeesPage() {
     onError: () => toast.error("Failed to queue reminders"),
   });
 
+  const [editPaymentTarget, setEditPaymentTarget] = useState<any | null>(null);
+  const [editPaymentForm, setEditPaymentForm] = useState({ amount: "", method: METHODS[0], paymentDate: "", referenceNumber: "", description: "" });
+  const [reversePaymentTarget, setReversePaymentTarget] = useState<any | null>(null);
+
+  const updatePaymentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.fees.updatePayment(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fees-payments", schoolId] });
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      toast.success("Payment corrected");
+      setEditPaymentTarget(null);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to update payment"),
+  });
+
+  const reversePaymentMutation = useMutation({
+    mutationFn: (id: string) => api.fees.reversePayment(schoolId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fees-payments", schoolId] });
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      toast.success("Payment reversed — the amount was added back to the student's balance");
+      setReversePaymentTarget(null);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to reverse payment"),
+  });
+
+  const openEditPayment = (p: any) => {
+    setEditPaymentForm({
+      amount: String(p.amount ?? ""),
+      method: p.method ?? METHODS[0],
+      paymentDate: (p.paymentDate ?? "").slice(0, 10),
+      referenceNumber: p.referenceNumber ?? "",
+      description: p.description ?? "",
+    });
+    setEditPaymentTarget(p);
+  };
+
+  const saveEditPayment = () => {
+    if (!editPaymentForm.amount || Number(editPaymentForm.amount) <= 0) { toast.error("Amount must be a positive number"); return; }
+    updatePaymentMutation.mutate({
+      id: editPaymentTarget.id,
+      data: {
+        amount: Number(editPaymentForm.amount),
+        method: editPaymentForm.method,
+        paymentDate: editPaymentForm.paymentDate || null,
+        referenceNumber: editPaymentForm.referenceNumber.trim() || null,
+        description: editPaymentForm.description.trim() || null,
+      },
+    });
+  };
+
   const [lastPayment, setLastPayment] = useState<{
     studentName: string; amount: number; newBalance: number;
     receiptNumber: string; referenceNumber: string; method: string;
@@ -794,9 +845,9 @@ function FeesPage() {
                     <TableCell>{p.method}</TableCell>
                     <TableCell className="text-muted-foreground">{(p.paymentDate ?? p.date ?? "").slice(0, 10)}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={status} sx={badgeSx(status === "completed" ? "secondary" : status === "failed" ? "destructive" : "outline")} />
+                      <Chip size="small" label={status} sx={badgeSx(status === "completed" ? "secondary" : status === "failed" || status === "reversed" ? "destructive" : "outline")} />
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       {status === "pending" && p.gatewayProvider && (
                         <Button
                           size="small"
@@ -808,6 +859,13 @@ function FeesPage() {
                           Recheck
                         </Button>
                       )}
+                      {status === "completed" && (
+                        <>
+                          <Button size="small" variant="text" onClick={() => openEditPayment(p)}>Edit</Button>
+                          <Button size="small" variant="text" color="error" onClick={() => setReversePaymentTarget(p)}>Reverse</Button>
+                        </>
+                      )}
+                      {status === "reversed" && <span className="text-xs text-muted-foreground">Reversed</span>}
                     </TableCell>
                   </TableRow>
                 );
@@ -826,6 +884,65 @@ function FeesPage() {
           </TableContainer>
         )}
       </div>
+
+      {/* Correct a mis-keyed payment — reverses the old amount off the balance and re-applies
+          the corrected one, so the fix never leaves the balance out of sync. */}
+      <Dialog open={!!editPaymentTarget} onClose={() => setEditPaymentTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Correct payment — {editPaymentTarget?.studentName ?? editPaymentTarget?.student}</DialogTitle>
+        <DialogContent>
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <TextField
+              type="number"
+              label="Amount (K) *"
+              slotProps={{ htmlInput: { min: 1 } }}
+              value={editPaymentForm.amount}
+              onChange={(e) => setEditPaymentForm({ ...editPaymentForm, amount: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField select label="Method" value={editPaymentForm.method} onChange={(e) => setEditPaymentForm({ ...editPaymentForm, method: e.target.value })} fullWidth size="small">
+              {METHODS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+            </TextField>
+            <TextField
+              type="date"
+              label="Payment date"
+              value={editPaymentForm.paymentDate}
+              onChange={(e) => setEditPaymentForm({ ...editPaymentForm, paymentDate: e.target.value })}
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+            />
+            <TextField label="Reference number" value={editPaymentForm.referenceNumber} onChange={(e) => setEditPaymentForm({ ...editPaymentForm, referenceNumber: e.target.value })} fullWidth size="small" />
+            <div className="col-span-2">
+              <TextField label="Notes" value={editPaymentForm.description} onChange={(e) => setEditPaymentForm({ ...editPaymentForm, description: e.target.value })} fullWidth size="small" />
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setEditPaymentTarget(null)}>Cancel</Button>
+          <Button variant="contained" onClick={saveEditPayment} disabled={updatePaymentMutation.isPending}>
+            {updatePaymentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save correction
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reversal confirmation — the payment stays visible (marked "reversed") rather than
+          disappearing, so the ledger keeps an audit trail of what actually happened. */}
+      <Dialog open={!!reversePaymentTarget} onClose={() => setReversePaymentTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Reverse this payment?</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-muted-foreground">
+            K {Number(reversePaymentTarget?.amount ?? 0).toLocaleString()} will be added back to{" "}
+            {reversePaymentTarget?.studentName ?? reversePaymentTarget?.student}'s outstanding balance. The payment stays on record, marked as reversed, for audit purposes.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setReversePaymentTarget(null)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={() => reversePaymentMutation.mutate(reversePaymentTarget.id)} disabled={reversePaymentMutation.isPending}>
+            {reversePaymentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Reverse payment
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
     </AccessGuard>
   );

@@ -74,7 +74,12 @@ function AccessPage() {
       id: u.id as string,
       name: u.name as string,
       email: u.email as string,
-      role: (u.role as string) ?? "teacher",
+      // Backend sends the role as its uppercase enum name (e.g. "TEACHER"); every MenuItem
+      // value in this page's role selects is the lowercase Role type ("teacher"). Left
+      // un-normalized, MUI's Select can never match the current value against any option
+      // and silently renders blank — which is exactly what makes changing a role feel unsafe
+      // (you can't see what it currently is before picking something else).
+      role: ((u.role as string) ?? "teacher").toLowerCase(),
       phone: u.phone as string | undefined,
       initials: (u.initials as string | undefined) ?? (u.name as string)?.slice(0, 2).toUpperCase() ?? "??",
       hasLogin: true,
