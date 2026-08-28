@@ -171,6 +171,14 @@ export type Tenant = {
   /** Zamtel sender ID SMS from this school appears to come from — must already be approved on
    * the platform's Zamtel account; falls back to the platform default when unset. */
   smsSenderId?: string;
+  /** Reply-To address for announcement/receipt emails sent on this school's behalf — mail still
+   * goes out through the platform's own SMTP account, so this doesn't change the "From" address,
+   * but replies land in the school's own inbox instead of the platform's. */
+  communicationsEmail?: string;
+  /** WhatsApp Business number this school's messages should appear to come from. Config only —
+   * actual WhatsApp sending isn't connected yet (needs Meta Business verification and approved
+   * message templates), so the WhatsApp channel stays disabled everywhere it's offered. */
+  whatsappNumber?: string;
   offlineMode?: boolean;
   slug?: string;
   subscription: TenantSubscription;
@@ -620,6 +628,8 @@ function toSchoolDto(tenant: Tenant): BackendSchoolDto {
     faviconUrl: tenant.faviconUrl,
     reportFooter: tenant.reportFooter,
     smsSenderId: tenant.smsSenderId,
+    communicationsEmail: tenant.communicationsEmail,
+    whatsappNumber: tenant.whatsappNumber,
     registrationNo: tenant.registrationNo,
     tpinNo: tenant.tpinNo,
     moeCode: tenant.moeCode,
@@ -782,6 +792,8 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
       faviconUrl: school.faviconUrl ?? undefined,
       reportFooter: school.reportFooter ?? undefined,
       smsSenderId: school.smsSenderId ?? undefined,
+      communicationsEmail: school.communicationsEmail ?? undefined,
+      whatsappNumber: school.whatsappNumber ?? undefined,
       termStart: school.termStart ?? undefined,
       termEnd: school.termEnd ?? undefined,
       offlineMode: Boolean(school.offlineMode),
@@ -855,6 +867,8 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
     faviconUrl: school.faviconUrl ?? existing?.faviconUrl,
     reportFooter: school.reportFooter ?? existing?.reportFooter,
     smsSenderId: school.smsSenderId ?? existing?.smsSenderId,
+    communicationsEmail: school.communicationsEmail ?? existing?.communicationsEmail,
+    whatsappNumber: school.whatsappNumber ?? existing?.whatsappNumber,
     termStart: school.termStart ?? existing?.termStart,
     termEnd: school.termEnd ?? existing?.termEnd,
     offlineMode: school.offlineMode ?? existing?.offlineMode ?? false,

@@ -384,6 +384,10 @@ function StudentProfilePage() {
         </div>
       </div>
 
+      {/* A student marked as not needing school transport has nothing to show or do here —
+          only surface this card if they actually need transport, or already have a real
+          enrolment on file (e.g. from before the flag existed) that staff still need to see. */}
+      {(s.needsTransport || currentEnrolment) && (
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold">Transport</h2>
@@ -428,6 +432,7 @@ function StudentProfilePage() {
           <p className="py-4 text-center text-sm text-muted-foreground">Not currently assigned to a bus route.</p>
         )}
       </div>
+      )}
 
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold">Fee payment history</h2>

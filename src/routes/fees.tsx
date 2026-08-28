@@ -175,7 +175,7 @@ function FeesPage() {
         title: "Fee payment reminder",
         body: individualReminderMessage(student),
         audience: "All parents",
-        channels: "SMS, WhatsApp",
+        channels: "SMS",
         publishDate: new Date().toISOString().slice(0, 10),
         active: true,
       });
@@ -375,7 +375,7 @@ function FeesPage() {
                     <>
                       <div className="flex items-center gap-2 text-sm">
                         <Users className="h-4 w-4 text-muted-foreground" />
-                        <span>Reminders will be sent to <strong>{debtors.length}</strong> parent{debtors.length !== 1 ? "s" : ""} via SMS and WhatsApp.</span>
+                        <span>Reminders will be sent to <strong>{debtors.length}</strong> parent{debtors.length !== 1 ? "s" : ""} via SMS.</span>
                       </div>
                       <div className="max-h-52 overflow-y-auto rounded-xl border border-border">
                         <TableContainer>
@@ -399,9 +399,8 @@ function FeesPage() {
                       </div>
                       <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
                         <p className="font-medium text-foreground">Channels</p>
-                        <p>• WhatsApp (if integration active)</p>
-                        <p>• SMS fallback for non-smartphone guardians</p>
-                        <p>• USSD for offline households</p>
+                        <p>• SMS to the parent/guardian's registered phone number</p>
+                        <p>• WhatsApp coming soon — not yet connected</p>
                       </div>
                     </>
                   )}
@@ -426,7 +425,7 @@ function FeesPage() {
                 {reminderPreviewStudent && (
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      To the parent/guardian of <strong className="text-foreground">{reminderPreviewStudent.firstName} {reminderPreviewStudent.lastName}</strong> via SMS and WhatsApp:
+                      To the parent/guardian of <strong className="text-foreground">{reminderPreviewStudent.firstName} {reminderPreviewStudent.lastName}</strong> via SMS:
                     </p>
                     <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm leading-6">
                       {individualReminderMessage(reminderPreviewStudent)}

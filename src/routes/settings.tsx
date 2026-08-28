@@ -131,6 +131,8 @@ function SettingsPage() {
   const [name, setName] = useState(school.name);
   const [motto, setMotto] = useState(school.motto);
   const [smsSenderId, setSmsSenderId] = useState(school.smsSenderId ?? "");
+  const [communicationsEmail, setCommunicationsEmail] = useState(school.communicationsEmail ?? "");
+  const [whatsappNumber, setWhatsappNumber] = useState(school.whatsappNumber ?? "");
   const [term, setTerm] = useState(String(school.currentTerm));
   const [year, setYear] = useState(String(school.currentYear));
   const [defaultCurrency, setDefaultCurrency] = useState(school.currency ?? "ZMW");
@@ -343,13 +345,18 @@ function SettingsPage() {
       toast.error("CA, mid-term, and examination weights must be valid percentages totalling 100");
       return;
     }
+    if (communicationsEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(communicationsEmail.trim())) {
+      toast.error("Communications email must be a valid email address");
+      return;
+    }
 
     setSaving(true);
     try {
       await updateActive({
         name: name.trim(),
         motto: motto.trim(),
-        ...(isSystemAdmin ? { smsSenderId: smsSenderId.trim() } : {}),
+        communicationsEmail: communicationsEmail.trim(),
+        ...(isSystemAdmin ? { smsSenderId: smsSenderId.trim(), whatsappNumber: whatsappNumber.trim() } : {}),
         type: selectedType,
         levels,
         campuses,
@@ -1048,6 +1055,16 @@ function SettingsPage() {
                 fullWidth
                 size="small"
               />
+              <TextField
+                label="Communications email"
+                type="email"
+                value={communicationsEmail}
+                onChange={(e) => setCommunicationsEmail(e.target.value)}
+                placeholder="e.g. office@yourschool.edu.zm"
+                helperText="Where replies to announcement and payment-receipt emails should land. Messages still send from the platform's own address, but this is set as the reply-to, so parents and staff who hit reply reach your school's own inbox. Leave blank to use the platform default."
+                fullWidth
+                size="small"
+              />
               {isSystemAdmin && (
                 <TextField
                   label="SMS sender ID"
@@ -1056,6 +1073,17 @@ function SettingsPage() {
                   placeholder={school.shortCode.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11) || "e.g. the school's short code"}
                   helperText="What SMS to this school's parents/staff appear to come from — the full school name won't fit (Zamtel caps sender IDs at 11 letters/numbers, no spaces), so a short code like the one above works best. It must be registered and approved on the Zamtel BulkSMS account before it'll actually send under that name. Leave blank to use the platform default."
                   slotProps={{ htmlInput: { maxLength: 11 } }}
+                  fullWidth
+                  size="small"
+                />
+              )}
+              {isSystemAdmin && (
+                <TextField
+                  label="WhatsApp Business number"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder="e.g. +260971234567"
+                  helperText="Config only for now — WhatsApp sending isn't connected yet (it needs Meta Business verification and pre-approved message templates), so the WhatsApp channel stays disabled everywhere it's offered until that integration is built. This just records the number ahead of it."
                   fullWidth
                   size="small"
                 />

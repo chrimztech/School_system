@@ -105,6 +105,8 @@ export type BackendSchool = {
   weekStart?: string | null;
   gradingScale?: string | null;
   smsSenderId?: string | null;
+  communicationsEmail?: string | null;
+  whatsappNumber?: string | null;
   resultPublicationMode?: string | null;
   gradingBands?: BackendGradingBand[] | null;
   passMark?: number | null;
@@ -180,6 +182,8 @@ export type BackendSchoolDto = {
   weekStart?: string;
   gradingScale?: string;
   smsSenderId?: string;
+  communicationsEmail?: string;
+  whatsappNumber?: string;
   resultPublicationMode?: string;
   gradingBands?: BackendGradingBand[];
   passMark?: number;
@@ -928,6 +932,13 @@ export const api = {
       unwrap<void>(apiClient.post(schoolPath(schoolId, `backups/${id}/restore`))),
     remove: (schoolId: string, id: string) =>
       unwrap<void>(apiClient.delete(schoolPath(schoolId, `backups/${id}`))),
+    import: (schoolId: string, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return unwrap<void>(apiClient.post(schoolPath(schoolId, "backups/import"), form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }));
+    },
     download: async (schoolId: string, id: string, fileName: string) => {
       const res = await apiClient.get(schoolPath(schoolId, `backups/${id}/download`), { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data]));

@@ -16,6 +16,17 @@ export const Route = createFileRoute("/communication")({
   component: CommunicationPage,
 });
 
+// WhatsApp sending isn't wired up yet — it needs Meta Business verification and pre-approved
+// message templates that can't happen from this app's config alone (see the school-settings
+// WhatsApp number field). Show it as a real option so it's visible/plannable, but disabled, so
+// nobody picks it believing a message will actually go out.
+const CHANNEL_OPTIONS: { id: string; disabled?: boolean }[] = [
+  { id: "SMS" },
+  { id: "WhatsApp", disabled: true },
+  { id: "Email" },
+  { id: "USSD" },
+];
+
 function audiencesForType(type: any): string[] {
   const base = ["All", "All parents", "All staff", "All alumni"];
   const showPrimary = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(type);
@@ -69,7 +80,7 @@ function CommunicationPage() {
   const [broadcastRecipients, setBroadcastRecipients] = useState("All parents");
   const [broadcastSubject, setBroadcastSubject] = useState("");
   const [broadcastBody, setBroadcastBody] = useState("");
-  const [broadcastChannels, setBroadcastChannels] = useState<string[]>(["SMS", "WhatsApp"]);
+  const [broadcastChannels, setBroadcastChannels] = useState<string[]>(["SMS"]);
   const [broadcastPriority, setBroadcastPriority] = useState("Normal");
   const [broadcastScheduled, setBroadcastScheduled] = useState("");
   const [broadcastLanguage, setBroadcastLanguage] = useState("English");
@@ -78,7 +89,7 @@ function CommunicationPage() {
   // Announcement dialog
   const [annoOpen, setAnnoOpen] = useState(false);
   const [annoForm, setAnnoForm] = useState({ title: "", body: "", audience: "All" });
-  const [annoChannels, setAnnoChannels] = useState<string[]>(["SMS", "WhatsApp"]);
+  const [annoChannels, setAnnoChannels] = useState<string[]>(["SMS"]);
 
   useEffect(() => {
     const next = hash === "#broadcast" || hash === "broadcast" ? "broadcast"
@@ -135,7 +146,7 @@ function CommunicationPage() {
       qc.invalidateQueries({ queryKey: ["announcements", schoolId] });
       toast.success("Announcement published");
       setAnnoForm({ title: "", body: "", audience: "All" });
-      setAnnoChannels(["SMS", "WhatsApp"]);
+      setAnnoChannels(["SMS"]);
       setAnnoOpen(false);
     },
     onError: () => toast.error("Failed to publish announcement"),
@@ -380,13 +391,19 @@ function CommunicationPage() {
                     <div>
                       <p className="text-xs font-medium uppercase text-muted-foreground">Channels</p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {["SMS", "WhatsApp", "Email", "USSD"].map((ch) => (
-                          <button key={ch} type="button" onClick={() => toggleAnnoChannel(ch)}>
+                        {CHANNEL_OPTIONS.map(({ id: ch, disabled }) => (
+                          <button
+                            key={ch}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => toggleAnnoChannel(ch)}
+                            title={disabled ? "WhatsApp isn't connected yet — messages on this channel won't send" : undefined}
+                          >
                             <Chip
                               size="small"
                               icon={ch === "USSD" ? <Phone size={12} /> : undefined}
-                              label={ch}
-                              sx={{ ...badgeSx(annoChannels.includes(ch) ? "secondary" : "outline"), cursor: "pointer" }}
+                              label={disabled ? `${ch} (soon)` : ch}
+                              sx={{ ...badgeSx(annoChannels.includes(ch) ? "secondary" : "outline"), cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1 }}
                             />
                           </button>
                         ))}
@@ -557,13 +574,19 @@ function CommunicationPage() {
               <div>
                 <p className="text-xs font-medium uppercase text-muted-foreground">Channels</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {["SMS", "WhatsApp", "Email", "USSD"].map((ch) => (
-                    <button key={ch} type="button" onClick={() => toggleChannel(ch)}>
+                  {CHANNEL_OPTIONS.map(({ id: ch, disabled }) => (
+                    <button
+                      key={ch}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => toggleChannel(ch)}
+                      title={disabled ? "WhatsApp isn't connected yet — messages on this channel won't send" : undefined}
+                    >
                       <Chip
                         size="small"
                         icon={ch === "USSD" ? <Phone size={12} /> : undefined}
-                        label={ch}
-                        sx={{ ...badgeSx(broadcastChannels.includes(ch) ? "secondary" : "outline"), cursor: "pointer" }}
+                        label={disabled ? `${ch} (soon)` : ch}
+                        sx={{ ...badgeSx(broadcastChannels.includes(ch) ? "secondary" : "outline"), cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1 }}
                       />
                     </button>
                   ))}

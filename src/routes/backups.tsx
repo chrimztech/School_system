@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  HardDrive, Download, ShieldAlert, Loader2, RotateCcw, Trash2, CheckCircle2, XCircle, Clock,
+  HardDrive, Download, ShieldAlert, Loader2, RotateCcw, Trash2, CheckCircle2, XCircle, Clock, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,6 +53,8 @@ function BackupsPage() {
   const [exportForm, setExportForm] = useState({ dataset: "Student register", format: "CSV", rows: "842" });
   const [restoreTarget, setRestoreTarget] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canManage = !!user && ADMIN_ROLES.has(user.role);
 
@@ -98,6 +100,25 @@ function BackupsPage() {
       setDeleteTarget(null);
     },
   });
+
+  const importMut = useMutation({
+    mutationFn: (file: File) => api.backup.import(schoolId, file),
+    onSuccess: () => {
+      toast.success("Restore from file complete");
+      setImportFile(null);
+      void qc.invalidateQueries({ queryKey: ["backups", schoolId] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Import failed — check the file and try again");
+      setImportFile(null);
+    },
+  });
+
+  const handleImportPick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setImportFile(file);
+    e.target.value = "";
+  };
 
   const handleSnapshotDownload = async (backup: any) => {
     setDownloading(backup.id);
@@ -200,14 +221,30 @@ function BackupsPage() {
         title="Backups & Data"
         description="Tenant-scoped snapshots, restore, and ad-hoc exports."
         actions={
-          <Button
-            variant="contained"
-            startIcon={createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <HardDrive size={16} />}
-            onClick={() => createMut.mutate()}
-            disabled={createMut.isPending}
-          >
-            Backup now
-          </Button>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".gz,.json.gz,application/gzip"
+              className="hidden"
+              onChange={handleImportPick}
+            />
+            <Button
+              variant="outlined"
+              startIcon={<Upload size={16} />}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Import backup
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <HardDrive size={16} />}
+              onClick={() => createMut.mutate()}
+              disabled={createMut.isPending}
+            >
+              Backup now
+            </Button>
+          </div>
         }
       />
 
@@ -340,6 +377,13 @@ function BackupsPage() {
           </div>
           <div className="flex items-center justify-between border-t border-border pt-4">
             <div>
+              <p className="font-medium">Portable restore</p>
+              <p className="text-xs text-muted-foreground">Every snapshot covers all of this school's records — every table, every row — in one downloadable file. Use “Import backup” above to restore from a file downloaded earlier, moved from another environment, or kept off-site after its original snapshot was pruned.</p>
+            </div>
+            <Chip size="small" icon={<CheckCircle2 size={12} />} label="Active" sx={badgeSx("success")} />
+          </div>
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <div>
               <p className="font-medium">Encryption at rest</p>
               <p className="text-xs text-muted-foreground">Not yet available — snapshot files are stored unencrypted on the application server's disk.</p>
             </div>
@@ -419,6 +463,29 @@ function BackupsPage() {
             onClick={() => restoreTarget && restoreMut.mutate(restoreTarget.id)}
           >
             {restoreMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            Restore
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!importFile} onClose={() => (importMut.isPending ? null : setImportFile(null))} maxWidth="sm" fullWidth>
+        <DialogTitle>Restore from uploaded file?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <strong>{importFile?.name}</strong> will replace every current record for this school
+            with whatever it contains. Anything created or changed since that file was exported
+            will be lost. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={importMut.isPending} onClick={() => setImportFile(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={importMut.isPending}
+            onClick={() => importFile && importMut.mutate(importFile)}
+          >
+            {importMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
             Restore
           </Button>
         </DialogActions>

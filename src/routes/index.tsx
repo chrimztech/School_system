@@ -1039,8 +1039,14 @@ function StaffDashboard() {
 
   const attendanceToday = attendanceSummary ??
     (dash as any)?.attendanceToday ?? { present: 0, absent: 0, late: 0, rate: 0 };
-  const fees = feesCollected ??
-    (dash as any)?.fees ?? { collected: 0, outstanding: 0, collectionRate: 0 };
+  // dash.fees (the /dashboard endpoint) computes outstanding and collectionRate properly;
+  // the standalone /fees/collected endpoint only ever returns a bare total-collected number,
+  // so its client-side wrapper fills outstanding/collectionRate with hardcoded zeros — taking
+  // it first previously shadowed the real numbers and showed "0% collected" next to a real
+  // K-amount received. Prefer the complete source, fall back to the partial one only if the
+  // dashboard call itself failed.
+  const fees = (dash as any)?.fees ??
+    feesCollected ?? { collected: 0, outstanding: 0, collectionRate: 0 };
   const announcementList = announcements as any[];
 
   const feeTrend =
@@ -1718,9 +1724,6 @@ function StaffDashboard() {
               </div>
             </Link>
             )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {can("procurement") !== false && (
             <Link
               to="/procurement"
@@ -1760,9 +1763,6 @@ function StaffDashboard() {
               </div>
             </Link>
             )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {can("risk-register") !== false && (
             <Link
               to="/risk-register"
@@ -1820,9 +1820,6 @@ function StaffDashboard() {
                 Browse admin playbooks
               </div>
             </Link>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {can("bursaries") !== false && (
             <Link
               to="/bursaries"
@@ -2044,7 +2041,7 @@ function StaffDashboard() {
                   size="small"
                 >
                   <MenuItem value="SMS">SMS</MenuItem>
-                  <MenuItem value="WhatsApp">WhatsApp</MenuItem>
+                  <MenuItem value="WhatsApp" disabled title="WhatsApp isn't connected yet">WhatsApp (soon)</MenuItem>
                   <MenuItem value="Email">Email</MenuItem>
                   <MenuItem value="USSD">USSD</MenuItem>
                 </TextField>
