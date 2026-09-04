@@ -40,6 +40,10 @@ export type BackendAppUser = {
   phone?: string | null;
   active?: boolean;
   mustChangePassword?: boolean;
+  // Only present on the response to a create-user call made with no password — a freshly
+  // generated one-time value the caller must show the admin immediately, since it is never
+  // returned again by any later list/get call.
+  temporaryPassword?: string | null;
 };
 
 export type BackendSchoolCampus = {

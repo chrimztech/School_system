@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Shield, Trash2, UserPlus, Check, X, Pencil, Loader2, Save, KeyRound } from "lucide-react";
+import { Plus, Shield, Trash2, UserPlus, Check, X, Pencil, Loader2, Save, KeyRound, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -13,6 +13,7 @@ import {
   MenuItem,
   Dialog,
   DialogContent,
+  DialogContentText,
   DialogActions,
   DialogTitle,
   Tabs,
@@ -37,7 +38,16 @@ export const Route = createFileRoute("/access")({
   component: AccessPage,
 });
 
-const modules = [...MODULE_MATRIX];
+// Platform-level modules (system-admin console pages) are false for every school-tenant
+// role and never appear in a school's nav — showing them here is 17 rows of dead "×" that
+// a school admin has to scroll past to find anything relevant to running their school.
+const PLATFORM_ONLY_MODULES = new Set([
+  "onboarding", "district-management", "platform-ops", "tenant-success", "plan-catalog",
+  "support-desk", "platform-config", "tenant-lifecycle", "platform-audit", "revenue-ops",
+  "data-governance", "partner-management", "contract-center", "status-center",
+  "approval-center", "developer-console", "tenant-workbench",
+]);
+const modules = MODULE_MATRIX.filter((m) => !PLATFORM_ONLY_MODULES.has(m));
 
 // Access level options for custom role permission cells
 const ACCESS_OPTIONS = [
@@ -109,6 +119,19 @@ function AccessPage() {
   // ── Reset-password dialog state ────────────────────────────────────────────
   const [resetTarget, setResetTarget] = useState<{ id: string; name: string; email: string } | null>(null);
   const [resetPassword, setResetPassword] = useState("");
+
+  // ── Generated-credential reveal dialog ─────────────────────────────────────
+  // Shown once, right after creating a user/login with no password specified — the backend
+  // generates a random temporary password and returns it only in that response, never again,
+  // so this is the one chance to hand it to the admin.
+  const [generatedCredential, setGeneratedCredential] = useState<{ name: string; email: string; password: string } | null>(null);
+  const copyGeneratedPassword = () => {
+    if (!generatedCredential) return;
+    navigator.clipboard?.writeText(generatedCredential.password).then(
+      () => toast.success("Password copied"),
+      () => toast.error("Couldn't copy — select and copy it manually"),
+    );
+  };
 
   const resetPasswordMut = useMutation({
     mutationFn: ({ userId, password }: { userId: string; password: string }) =>
@@ -225,7 +248,7 @@ function AccessPage() {
   const submitAddUser = async () => {
     if (!form.name || !form.email) { toast.error("Name and email required"); return; }
     try {
-      await api.users.create(schoolId, {
+      const created = await api.users.create(schoolId, {
         name: form.name,
         email: form.email,
         role: form.role,
@@ -234,8 +257,11 @@ function AccessPage() {
       });
       toast.success(`${form.name} added as ${ROLE_META[form.role as Role]?.label ?? form.role}`);
       void qc.invalidateQueries({ queryKey: ["school-users", schoolId] });
-      setForm({ name: "", email: "", phone: "", password: "", role: "teacher" });
       setOpen(false);
+      if (created.temporaryPassword) {
+        setGeneratedCredential({ name: form.name, email: form.email, password: created.temporaryPassword });
+      }
+      setForm({ name: "", email: "", phone: "", password: "", role: "teacher" });
     } catch (error: any) {
       toast.error(error?.response?.data?.message ?? error?.message ?? "Unable to add user");
     }
@@ -265,7 +291,7 @@ function AccessPage() {
     if (!createLoginTarget) return;
     setCreatingLogin(true);
     try {
-      await api.users.create(schoolId, {
+      const created = await api.users.create(schoolId, {
         name: createLoginTarget.name,
         email: createLoginTarget.email,
         role: "teacher",
@@ -274,6 +300,9 @@ function AccessPage() {
       });
       toast.success(`Login created for ${createLoginTarget.name}`);
       void qc.invalidateQueries({ queryKey: ["school-users", schoolId] });
+      if (created.temporaryPassword) {
+        setGeneratedCredential({ name: createLoginTarget.name, email: createLoginTarget.email, password: created.temporaryPassword });
+      }
       setCreateLoginTarget(null);
       setCreateLoginPassword("");
     } catch (error: any) {
@@ -360,7 +389,7 @@ function AccessPage() {
                   <TextField label="Name" fullWidth size="small" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                   <TextField label="Email" type="email" fullWidth size="small" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                   <TextField label="Phone" fullWidth size="small" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+260 977 000 000" />
-                  <TextField label="Temporary password" type="password" fullWidth size="small" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Optional starter password" />
+                  <TextField label="Temporary password" type="password" fullWidth size="small" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Leave blank to auto-generate one" />
                   <TextField select label="Role" fullWidth size="small" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
                     {assignableRoles.map((r) => (
                       <MenuItem key={r} value={r}>{ROLE_META[r].label}</MenuItem>
@@ -737,7 +766,7 @@ function AccessPage() {
               size="small"
               value={createLoginPassword}
               onChange={(e) => setCreateLoginPassword(e.target.value)}
-              placeholder="Optional — they can reset later"
+              placeholder="Leave blank to auto-generate one"
             />
             <p className="text-xs text-muted-foreground">
               Role will be set to <strong>Teacher</strong>. The staff member can log in with this email immediately after account creation.
@@ -822,6 +851,32 @@ function AccessPage() {
           >
             Save changes
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Generated-credential reveal dialog ─────────────────────────────── */}
+      <Dialog open={!!generatedCredential} onClose={() => setGeneratedCredential(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Temporary password generated</DialogTitle>
+        <DialogContent>
+          <div className="space-y-3">
+            <DialogContentText>
+              No password was entered for <strong>{generatedCredential?.name}</strong>, so a random one was
+              generated. Share it with them now — it won't be shown again, and they'll be asked to set
+              their own password the first time they sign in.
+            </DialogContentText>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <div>
+                <p className="text-xs text-muted-foreground">{generatedCredential?.email}</p>
+                <p className="font-mono text-lg font-semibold tracking-wide">{generatedCredential?.password}</p>
+              </div>
+              <Button size="small" variant="outlined" startIcon={<Copy size={14} />} onClick={copyGeneratedPassword}>
+                Copy
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setGeneratedCredential(null)}>Done</Button>
         </DialogActions>
       </Dialog>
     </div>
