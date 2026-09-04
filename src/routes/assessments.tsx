@@ -1840,7 +1840,7 @@ function AssessmentsPage() {
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+          <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap lg:ml-auto">
             <TextField
               select
               size="small"
@@ -1849,7 +1849,7 @@ function AssessmentsPage() {
                 setStatusFilter(event.target.value as "ALL" | WorkflowStatus);
                 if (event.target.value !== "ALL") setQueueView("ALL");
               }}
-              sx={{ width: 170 }}
+              sx={{ width: { xs: "100%", sm: 170 } }}
             >
               <MenuItem value="ALL">All workflow stages</MenuItem>
               {(Object.keys(WORKFLOW_META) as WorkflowStatus[]).map((status) => (
@@ -1863,7 +1863,7 @@ function AssessmentsPage() {
               size="small"
               value={cycleFilter}
               onChange={(event) => setCycleFilter(event.target.value as "ALL" | ReportingPeriod)}
-              sx={{ width: 160 }}
+              sx={{ width: { xs: "100%", sm: 160 } }}
             >
               <MenuItem value="ALL">All reporting cycles</MenuItem>
               {active.resultPublicationMode === "SEPARATE" ? (
@@ -1875,7 +1875,7 @@ function AssessmentsPage() {
                 <MenuItem value="COMBINED">Combined term</MenuItem>
               )}
             </TextField>
-            <Chip size="small" label={`${filteredAssessments.length} shown`} sx={{ ...badgeSx("secondary"), height: 32, px: 1.5 }} />
+            <Chip size="small" label={`${filteredAssessments.length} shown`} sx={{ ...badgeSx("secondary"), gridColumn: { xs: "1 / -1", sm: "auto" }, height: 32, px: 1.5, justifySelf: { xs: "start", sm: "auto" } }} />
           </div>
         </div>
 

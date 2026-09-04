@@ -19,8 +19,9 @@ export function NotificationBell() {
   return (
     <>
       <button
-        className="relative rounded-md p-2 text-muted-foreground hover:bg-muted"
+        className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         onClick={(e) => setAnchorEl(e.currentTarget)}
+        aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
       >
         <Bell className="h-4 w-4" />
         {unread > 0 && (
@@ -36,7 +37,7 @@ export function NotificationBell() {
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <Box sx={{ width: 384 }}>
+        <Box sx={{ width: { xs: "calc(100vw - 24px)", sm: 384 }, maxWidth: 384 }}>
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-sm font-semibold">Notifications</p>

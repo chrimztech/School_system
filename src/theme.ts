@@ -73,18 +73,33 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
     },
     typography: {
       fontFamily: fontStack,
-      button: { textTransform: "none", fontWeight: 600 },
+      h1: { fontWeight: 650, letterSpacing: "-0.035em" },
+      h2: { fontWeight: 650, letterSpacing: "-0.03em" },
+      h3: { fontWeight: 650, letterSpacing: "-0.025em" },
+      h4: { fontWeight: 650, letterSpacing: "-0.02em" },
+      h5: { fontWeight: 650, letterSpacing: "-0.015em" },
+      h6: { fontWeight: 650, letterSpacing: "-0.01em" },
+      button: { textTransform: "none", fontWeight: 650, letterSpacing: "-0.005em" },
     },
     shadows,
     components: {
       MuiButton: {
         styleOverrides: {
-          root: { borderRadius: 10 },
+          root: {
+            borderRadius: 10,
+            minHeight: 40,
+            paddingInline: 16,
+            boxShadow: "none",
+          },
+          contained: {
+            boxShadow: "0 1px 2px rgb(15 23 42 / 0.12), 0 6px 16px rgb(15 23 42 / 0.08)",
+            "&:hover": { boxShadow: "0 2px 4px rgb(15 23 42 / 0.12), 0 8px 20px rgb(15 23 42 / 0.1)" },
+          },
         },
       },
       MuiPaper: {
         styleOverrides: {
-          root: { backgroundImage: "none" },
+          root: { backgroundImage: "none", backgroundClip: "padding-box" },
         },
       },
       MuiChip: {
@@ -94,17 +109,76 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
       },
       MuiOutlinedInput: {
         styleOverrides: {
-          root: { borderRadius: 10 },
+          root: {
+            borderRadius: 10,
+            backgroundColor: alpha(brand.paper, 0.72),
+            transition: "background-color 160ms ease, box-shadow 160ms ease",
+            "&:hover": { backgroundColor: brand.paper },
+            "&.Mui-focused": { backgroundColor: brand.paper, boxShadow: `0 0 0 3px ${alpha(primary, 0.12)}` },
+          },
         },
       },
       MuiDialog: {
         styleOverrides: {
-          paper: { borderRadius: 20 },
+          paper: {
+            borderRadius: 20,
+            border: `1px solid ${alpha(brand.border, 0.9)}`,
+            boxShadow: "0 24px 80px rgb(15 23 42 / 0.2)",
+          },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: { fontSize: "1.125rem", fontWeight: 650, padding: "20px 24px 12px" },
+        },
+      },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: { padding: "12px 24px 20px", gap: 8 },
+        },
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          head: {
+            color: brand.mutedForeground,
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            letterSpacing: "0.035em",
+            textTransform: "uppercase",
+            backgroundColor: alpha(brand.muted, 0.86),
+          },
+          body: { fontSize: "0.82rem" },
+        },
+      },
+      MuiTableRow: {
+        styleOverrides: {
+          root: { "&:last-child td": { borderBottom: 0 } },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: { minHeight: 42, borderRadius: 8, marginInline: 6 },
         },
       },
       MuiTooltip: {
         styleOverrides: {
           tooltip: { fontSize: "0.75rem" },
+        },
+      },
+      // Every page in the app renders its section tabs with plain <Tabs>/<Tab> and no per-page
+      // overflow handling. On a phone-width viewport that silently clips trailing tabs off the
+      // edge of the screen with no way to reach them — scrollable mode (with touch-swipe and
+      // auto scroll buttons) fixes every one of those pages from this single place.
+      MuiTabs: {
+        defaultProps: {
+          variant: "scrollable",
+          scrollButtons: "auto",
+          allowScrollButtonsMobile: true,
+        },
+        styleOverrides: {
+          scrollButtons: {
+            "&.Mui-disabled": { opacity: 0.3 },
+          },
         },
       },
     },

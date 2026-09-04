@@ -59,6 +59,7 @@ import {
   UtensilsCrossed,
   Wallet,
   Wrench,
+  X,
 } from "lucide-react";
 import {
   Box,
@@ -158,11 +159,13 @@ export function WorkspaceSidebarProvider({ children }: { children: ReactNode }) 
 }
 
 export function SidebarToggleButton() {
-  const { toggle } = useWorkspaceSidebarUI();
+  const { toggle, isMobile, mobileOpen } = useWorkspaceSidebarUI();
   return (
     <IconButton
       onClick={toggle}
-      aria-label="Toggle sidebar"
+      aria-label={isMobile ? "Open navigation" : "Toggle sidebar"}
+      aria-expanded={isMobile ? mobileOpen : undefined}
+      aria-controls={isMobile ? "workspace-navigation" : undefined}
       sx={{
         height: 36,
         width: 36,
@@ -301,6 +304,7 @@ function NavGroup({
 }) {
   const { active } = useTenant();
   const { user } = useAuth();
+  const { isMobile, setMobileOpen } = useWorkspaceSidebarUI();
   const visible = items.filter(
     (item) =>
       can(item.module) !== false &&
@@ -345,11 +349,15 @@ function NavGroup({
             key={item.url}
             component={Link}
             to={item.url}
+            onClick={() => {
+              if (isMobile) setMobileOpen(false);
+            }}
             sx={{
               position: "relative",
               borderRadius: 3,
               mb: 0.375,
               py: 0.875,
+              minHeight: 44,
               justifyContent: collapsed ? "center" : "flex-start",
               color: activeItem ? sidebarFg : alpha(sidebarFg, 0.72),
               overflow: "hidden",
@@ -425,7 +433,7 @@ export function WorkspaceSidebar() {
   const accentColor = isSystemAdmin ? "#00c197" : active.primaryColor || "#00c197";
 
   const drawerBody = (isCollapsed: boolean) => (
-    <Box sx={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", bgcolor: sidebarBg, color: sidebarFg, overflow: "hidden" }}>
+    <Box id={isMobile ? "workspace-navigation" : undefined} sx={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", bgcolor: sidebarBg, color: sidebarFg, overflow: "hidden" }}>
       <Box
         sx={{
           pointerEvents: "none",
@@ -439,6 +447,20 @@ export function WorkspaceSidebar() {
           filter: "blur(10px)",
         }}
       />
+      {isMobile && (
+        <Box sx={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", px: 2, pt: 1.5 }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: alpha(sidebarFg, 0.55) }}>
+            Navigation
+          </Typography>
+          <IconButton
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation"
+            sx={{ height: 40, width: 40, color: sidebarFg, border: "1px solid", borderColor: sidebarBorder, bgcolor: sidebarAccentBg }}
+          >
+            <X size={18} />
+          </IconButton>
+        </Box>
+      )}
       <Box sx={{ position: "relative", p: isCollapsed ? 1 : 1.5, display: "flex", flexDirection: "column", gap: 1.25 }}>
         {isSystemAdmin ? (
           <>
@@ -804,7 +826,7 @@ export function WorkspaceSidebar() {
         anchor="left"
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        slotProps={{ paper: { sx: { width: 288, border: "none", bgcolor: sidebarBg } } }}
+        slotProps={{ paper: { sx: { width: "min(304px, 88vw)", border: "none", bgcolor: sidebarBg } } }}
       >
         {drawerBody(false)}
       </Drawer>

@@ -757,7 +757,7 @@ function FeesPage() {
                       <Button
                         size="small"
                         variant="contained"
-                        className="h-7 text-xs"
+                        className="h-7 whitespace-nowrap text-xs"
                         onClick={() => {
                           setForm((f) => ({ ...f, studentId: s.id, studentName: `${s.firstName} ${s.lastName}`, grade: s.className || formatGrade(s.grade, active.type) }));
                           setOpen(true);
@@ -778,8 +778,8 @@ function FeesPage() {
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
           <h2 className="text-sm font-semibold">Recent payments</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <TextField select size="small" value={ledgerTermFilter} onChange={(e) => setLedgerTermFilter(e.target.value)} sx={{ width: 160 }}>
+          <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <TextField className="col-span-3 sm:col-span-1" select size="small" value={ledgerTermFilter} onChange={(e) => setLedgerTermFilter(e.target.value)} sx={{ width: { xs: "100%", sm: 160 } }}>
               <MenuItem value="ALL">All terms</MenuItem>
               {TERMS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
             </TextField>
@@ -789,7 +789,7 @@ function FeesPage() {
               value={ledgerFrom}
               onChange={(e) => setLedgerFrom(e.target.value)}
               aria-label="From date"
-              sx={{ width: 144 }}
+              sx={{ width: { xs: "100%", sm: 144 } }}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <span className="text-xs text-muted-foreground">to</span>
@@ -799,7 +799,7 @@ function FeesPage() {
               value={ledgerTo}
               onChange={(e) => setLedgerTo(e.target.value)}
               aria-label="To date"
-              sx={{ width: 144 }}
+              sx={{ width: { xs: "100%", sm: 144 } }}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             {(ledgerTermFilter !== "ALL" || ledgerFrom || ledgerTo) && (
@@ -807,7 +807,7 @@ function FeesPage() {
                 variant="text"
                 color="inherit"
                 size="small"
-                className="h-8 text-xs"
+                className="col-span-3 h-8 text-xs sm:col-span-1"
                 onClick={() => { setLedgerTermFilter("ALL"); setLedgerFrom(""); setLedgerTo(""); }}
               >
                 Clear

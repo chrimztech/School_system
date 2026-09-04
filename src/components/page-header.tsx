@@ -12,14 +12,14 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 border-b border-border/70 pb-6">
+    <div className="page-header flex flex-col gap-4 border-b border-border/70 pb-5 sm:pb-6">
       <div className="hero-divider" />
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-3xl">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-[2rem]">{title}</h1>
-          {description && <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <div className="min-w-0 max-w-3xl">
+          <h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-foreground sm:text-[2rem]">{title}</h1>
+          {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="page-header-actions flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">{actions}</div>}
       </div>
     </div>
   );
@@ -69,7 +69,7 @@ export function StatCard({
   const tones = accentClasses[accent];
 
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm", tones.card)}>
+    <div className={cn("relative min-w-0 overflow-hidden rounded-2xl border bg-card p-4 shadow-sm sm:p-5", tones.card)}>
       <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b to-transparent", tones.ribbon)} />
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
@@ -79,7 +79,7 @@ export function StatCard({
           </div>
         )}
       </div>
-      <p className="relative z-10 mt-4 text-[1.9rem] font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="relative z-10 mt-3 break-words text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground sm:mt-4 sm:text-[1.9rem]">{value}</p>
       {hint && <p className="relative z-10 mt-2 text-xs leading-5 text-muted-foreground">{hint}</p>}
     </div>
   );

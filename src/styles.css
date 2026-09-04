@@ -137,6 +137,8 @@
 @layer base {
   html {
     color-scheme: light;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
   }
 
   * {
@@ -145,6 +147,7 @@
 
   body {
     min-height: 100vh;
+    overflow-x: hidden;
     background-color: var(--color-background);
     color: var(--color-foreground);
     background-image:
@@ -161,6 +164,11 @@
   ::selection {
     background: color-mix(in oklab, var(--primary) 18%, white);
     color: var(--color-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--ring) 78%, white);
+    outline-offset: 2px;
   }
 
   ::-webkit-scrollbar {
@@ -203,6 +211,16 @@
   backdrop-filter: blur(18px);
 }
 
+@supports (padding: max(0px)) {
+  .workspace-frame > header {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .workspace-frame > main {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+}
+
 .surface-card {
   border: 1px solid color-mix(in oklab, var(--border) 78%, white);
   background: color-mix(in oklab, var(--card) 92%, white);
@@ -234,6 +252,172 @@
   height: 1px;
   width: 5rem;
   background: linear-gradient(90deg, color-mix(in oklab, var(--primary) 60%, transparent), transparent);
+}
+
+/* Wide tables (most list pages) already scroll horizontally inside their MUI TableContainer on
+   a narrow phone screen — that part works. What's missing is any visual hint that they can: the
+   right edge just looks cut off mid-word, indistinguishable from a rendering bug. This is the
+   classic CSS-only "scroll shadow" trick — two gradients pinned to the container's edges
+   (background-attachment: local, so they scroll with the content) sitting on top of two fixed
+   ones (background-attachment: scroll, so they don't move). The near-edge local gradient covers
+   its own fixed shadow at rest and uncovers it on scroll, so each shadow only appears once
+   there's actually more content in that direction — no JS/scroll-listener needed, and it
+   self-corrects if a table happens to fit and never needs to scroll at all. Targets MUI's own
+   stable global class name directly so it works regardless of which styled-engine MUI uses. */
+.MuiTableContainer-root {
+  background-image:
+    linear-gradient(to right, var(--card) 30%, rgba(0, 0, 0, 0)),
+    linear-gradient(to right, rgba(0, 0, 0, 0), var(--card) 70%),
+    linear-gradient(to right, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0) 20px),
+    linear-gradient(to left, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0) 20px);
+  background-position: left, right, left, right;
+  background-repeat: no-repeat;
+  background-color: var(--card);
+  background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.MuiTableContainer-root .MuiTable-root {
+  min-width: max-content;
+}
+
+.MuiTableContainer-root .MuiTableCell-head {
+  white-space: nowrap;
+}
+
+.page-header-actions > * {
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  body {
+    background-size: auto, 24px 24px, 24px 24px;
+  }
+
+  .app-shell::before {
+    background-size: auto, 24px 24px, 24px 24px;
+    opacity: 0.42;
+  }
+
+  .page-header-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .page-header-actions .MuiButton-root {
+    min-height: 44px;
+  }
+
+  .MuiButton-root {
+    min-height: 44px;
+  }
+
+  .MuiIconButton-root {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .MuiInputBase-input,
+  .MuiSelect-select {
+    font-size: 16px !important;
+  }
+
+  .MuiTableCell-root {
+    padding: 12px 14px;
+  }
+
+  .MuiDialog-paper {
+    width: calc(100% - 24px) !important;
+    max-width: calc(100% - 24px) !important;
+    max-height: calc(100% - 24px) !important;
+    margin: 12px !important;
+    border-radius: 18px !important;
+  }
+
+  .MuiDialogTitle-root {
+    padding: 18px 18px 10px !important;
+  }
+
+  .MuiDialogContent-root {
+    padding-inline: 18px !important;
+  }
+
+  .MuiDialogActions-root {
+    align-items: stretch !important;
+    flex-direction: column-reverse;
+    padding: 12px 18px 18px !important;
+  }
+
+  .MuiDialogActions-root > :not(style) {
+    width: 100%;
+    margin: 0 !important;
+  }
+
+  .MuiDialog-root .grid.grid-cols-2,
+  .MuiDialog-root .grid.grid-cols-3,
+  .MuiDialog-root .grid.grid-cols-4,
+  .MuiDrawer-paperAnchorRight .grid.grid-cols-2,
+  .MuiDrawer-paperAnchorRight .grid.grid-cols-3,
+  .MuiDrawer-paperAnchorRight .grid.grid-cols-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .MuiDialog-root .col-span-2,
+  .MuiDialog-root .col-span-3,
+  .MuiDialog-root .col-span-4,
+  .MuiDrawer-paperAnchorRight .col-span-2,
+  .MuiDrawer-paperAnchorRight .col-span-3,
+  .MuiDrawer-paperAnchorRight .col-span-4 {
+    grid-column: 1 / -1;
+  }
+
+  .MuiPopover-paper,
+  .MuiMenu-paper {
+    max-width: calc(100vw - 24px) !important;
+  }
+
+  .MuiTabs-root {
+    max-width: 100%;
+  }
+
+  .MuiTab-root {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+
+  .interactive-card:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 419px) {
+  .page-header-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-header-actions > * {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .shadow-sm {

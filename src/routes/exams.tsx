@@ -51,7 +51,7 @@ function SeatingPlanTab({ papers, schoolId }: { papers: any[]; schoolId: string 
           value={paper.id}
           onChange={(e) => { setSelectedId(e.target.value); setSeatOrder(null); }}
           size="small"
-          sx={{ width: 288 }}
+          sx={{ width: { xs: "100%", sm: 288 } }}
         >
           {papers.map((p) => <MenuItem key={p.id} value={p.id}>{p.subject} — {p.grade} ({p.examDate})</MenuItem>)}
         </TextField>

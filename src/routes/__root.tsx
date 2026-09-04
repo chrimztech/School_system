@@ -106,6 +106,9 @@ function UserMenu() {
     <>
       <button
         onClick={(e) => setAnchorEl(e.currentTarget)}
+        aria-label="Open account menu"
+        aria-haspopup="menu"
+        aria-expanded={Boolean(anchorEl)}
         className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/70 px-2.5 py-2 shadow-sm transition hover:border-primary/20 hover:bg-card"
       >
         <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm">{user.initials}</div>
@@ -158,6 +161,21 @@ function GlobalSearchButton() {
       <kbd className="ml-auto inline-flex items-center gap-0.5 rounded-full border border-border/80 bg-background/90 px-2 py-1 text-[10px] font-semibold shadow-sm">
         <CommandIcon className="h-3 w-3" />K
       </kbd>
+    </button>
+  );
+}
+
+function MobileSearchButton() {
+  const trigger = () => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true }));
+  };
+  return (
+    <button
+      onClick={trigger}
+      aria-label="Search students, staff and pages"
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+    >
+      <Search className="h-[18px] w-[18px]" />
     </button>
   );
 }
@@ -389,6 +407,28 @@ function AppShell() {
             )}
             <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
               <SidebarToggleButton />
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 lg:hidden">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-card p-1.5 shadow-sm"
+                  style={isSystemAdmin ? undefined : { backgroundColor: active.primaryColor }}
+                >
+                  {isSystemAdmin ? (
+                    <span className="text-[10px] font-bold text-foreground">SR</span>
+                  ) : active.logoUrl ? (
+                    <img src={active.logoUrl} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="text-[10px] font-bold text-white">{active.shortCode.slice(0, 2)}</span>
+                  )}
+                </div>
+                <div className="hidden min-w-0 min-[420px]:block">
+                  <p className="truncate text-xs font-semibold text-foreground">
+                    {isSystemAdmin ? "Platform workspace" : active.name}
+                  </p>
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {isSystemAdmin ? "Administration" : `Term ${active.currentTerm}`}
+                  </p>
+                </div>
+              </div>
               <div className="hidden min-w-0 items-center gap-3 lg:flex">
                 <div
                   className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-2 shadow-sm"
@@ -412,13 +452,14 @@ function AppShell() {
                 </div>
               </div>
               <GlobalSearchButton />
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+                <MobileSearchButton />
                 <NotificationBell />
                 <UserMenu />
               </div>
             </div>
           </header>
-          <main className="flex-1 overflow-x-hidden px-4 py-5 lg:px-6 lg:py-7">
+          <main className="flex-1 overflow-x-hidden px-3.5 py-5 sm:px-5 lg:px-6 lg:py-7">
             <div className="mx-auto w-full max-w-[1600px]">
               {tenantResolving ? (
                 // Route components read active.id as soon as they mount — rendering them

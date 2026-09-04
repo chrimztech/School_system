@@ -153,7 +153,7 @@ function AdmissionsPage() {
           <StatCard label="Rejected / withdrawn" value={counts.rejected} icon={<XCircle className="h-4 w-4" />} accent="destructive" />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
             <Tab value="ALL" label="All" />
             {STATUSES.map((s) => <Tab key={s} value={s} label={s.charAt(0) + s.slice(1).toLowerCase()} />)}
@@ -164,7 +164,8 @@ function AdmissionsPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             slotProps={{ input: { startAdornment: <Search size={14} className="mr-2 text-muted-foreground" /> } }}
-            sx={{ minWidth: 260 }}
+            fullWidth
+            sx={{ minWidth: { xs: 0, sm: 260 }, width: { xs: "100%", sm: "auto" } }}
           />
         </div>
 

@@ -386,8 +386,8 @@ function TimetablePage() {
 
           {tab === "class" && (
           <Box className="space-y-4">
-            <div className="flex items-center gap-3">
-              <TextField select value={selectedClass} onChange={(e) => setKlass(e.target.value)} size="small" sx={{ width: 224 }}>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <TextField select value={selectedClass} onChange={(e) => setKlass(e.target.value)} size="small" sx={{ width: { xs: "100%", sm: 224 } }}>
                 <MenuItem value="" disabled>Select class</MenuItem>
                 {classes.map((c: string) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
               </TextField>
@@ -400,8 +400,8 @@ function TimetablePage() {
 
           {tab === "teacher" && (
           <Box className="space-y-4">
-            <div className="flex items-center gap-3">
-              <TextField select value={selectedTeacher} onChange={(e) => setTeacher(e.target.value)} size="small" sx={{ width: 256 }}>
+            <div className="flex flex-wrap items-center gap-3">
+              <TextField select value={selectedTeacher} onChange={(e) => setTeacher(e.target.value)} size="small" sx={{ width: { xs: "100%", sm: 256 } }}>
                 <MenuItem value="" disabled>Select teacher</MenuItem>
                 {teachers.map((t: string) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </TextField>

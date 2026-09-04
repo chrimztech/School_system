@@ -1,10 +1,10 @@
 import { createFileRoute, useRouterState } from "@tanstack/react-router";
-import { Send, MessageSquare, Phone, Loader2, Plus, ChevronDown, ChevronUp, CheckCheck, X, Trash2, Pencil } from "lucide-react";
+import { Send, MessageSquare, Phone, Loader2, Plus, ChevronDown, ChevronUp, CheckCheck, X, Trash2, Pencil, Megaphone, Radio, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { PageHeader } from "@/components/page-header";
+import { PageHeader, StatCard } from "@/components/page-header";
 import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { useTenant, gradeFormLabels } from "@/lib/tenant";
@@ -282,6 +282,7 @@ function CommunicationPage() {
   const msgList = messages as any[];
   const annoList = announcements as any[];
   const openCount = msgList.filter((m) => m.status?.toUpperCase() === "OPEN").length;
+  const urgentCount = annoList.filter((a) => a.priority === "Urgent" || a.priority === "Emergency").length;
 
   return (
     <div className="space-y-6">
@@ -302,6 +303,23 @@ function CommunicationPage() {
           <strong>Portfolio control</strong> switcher before sending if you meant to reach a different school's parents.
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          label="Open parent messages"
+          value={openCount}
+          accent={openCount > 0 ? "destructive" : "success"}
+          icon={<MessageSquare className="h-4 w-4" />}
+        />
+        <StatCard label="Total messages" value={msgList.length} accent="primary" icon={<Radio className="h-4 w-4" />} />
+        <StatCard label="Announcements published" value={annoList.length} accent="accent" icon={<Megaphone className="h-4 w-4" />} />
+        <StatCard
+          label="Urgent / emergency active"
+          value={urgentCount}
+          accent={urgentCount > 0 ? "warning" : "success"}
+          icon={<AlertTriangle className="h-4 w-4" />}
+        />
+      </div>
 
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab
@@ -441,8 +459,8 @@ function CommunicationPage() {
                     >
                       {["Normal", "Urgent", "Emergency"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                     </TextField>
-                    <div>
-                      <p className="text-xs font-medium uppercase text-muted-foreground">Channels</p>
+                    <div className="rounded-lg border border-border bg-muted/30 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Channels</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {CHANNEL_OPTIONS.map(({ id: ch, disabled }) => (
                           <button
@@ -501,8 +519,13 @@ function CommunicationPage() {
                 typeof ann.channels === "string"
                   ? ann.channels.split(",").map((c: string) => c.trim()).filter(Boolean)
                   : ann.channels ?? [];
+              const priorityBorder = ann.priority === "Emergency"
+                ? "border-l-4 border-l-destructive"
+                : ann.priority === "Urgent"
+                  ? "border-l-4 border-l-amber-500"
+                  : "";
               return (
-                <div key={ann.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div key={ann.id} className={`rounded-xl border border-border bg-card p-4 shadow-sm ${priorityBorder}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -511,7 +534,7 @@ function CommunicationPage() {
                           <Chip
                             size="small"
                             label={ann.priority}
-                            sx={{ ...badgeSx(ann.priority === "Emergency" ? "destructive" : "secondary"), fontSize: 12 }}
+                            sx={{ ...badgeSx(ann.priority === "Emergency" ? "destructive" : "warning"), fontSize: 12 }}
                           />
                         )}
                       </div>
@@ -562,6 +585,15 @@ function CommunicationPage() {
       {tab === "broadcast" && (
         <div className="mt-4">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 border-b border-border pb-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Megaphone className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Compose broadcast</p>
+                <p className="text-xs text-muted-foreground">Sends immediately, or schedules for later</p>
+              </div>
+            </div>
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <TextField
@@ -634,8 +666,8 @@ function CommunicationPage() {
                 </TextField>
               </div>
 
-              <div>
-                <p className="text-xs font-medium uppercase text-muted-foreground">Channels</p>
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Channels</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {CHANNEL_OPTIONS.map(({ id: ch, disabled }) => (
                     <button
