@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CreditCard, Loader2, Smartphone, CheckCircle2, XCircle } from "lucide-react";
+import { CreditCard, Loader2, Smartphone, CheckCircle2, XCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
@@ -50,6 +50,17 @@ export function PaymentDialog({
   const [momoForm, setMomoForm] = useState(() => createMomoForm(student));
   const [momoPaymentId, setMomoPaymentId] = useState<string | null>(null);
   const [tab, setTab] = useState("card");
+
+  // Online payment needs real ZynlePay merchant credentials configured for this school — until
+  // that's done, show an honest "not available yet" state instead of card/MoMo forms that would
+  // fail with a raw gateway error (e.g. "Wrong API credentials") the moment someone submits them.
+  const { data: gatewayStatus, isLoading: gatewayStatusLoading } = useQuery({
+    queryKey: ["fees-gateway-status", schoolId],
+    queryFn: () => api.fees.gatewayStatus(schoolId),
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const gatewayAvailable = gatewayStatus?.available ?? false;
 
   useEffect(() => {
     if (open) {
@@ -144,6 +155,22 @@ export function PaymentDialog({
     <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="sm" fullWidth>
       <DialogTitle>Pay fees for {fullName}</DialogTitle>
       <DialogContent>
+        {gatewayStatusLoading ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />Checking payment options…
+          </div>
+        ) : !gatewayAvailable ? (
+          <div className="flex flex-col items-center gap-2 py-10 text-center">
+            <Wallet className="h-8 w-8 text-muted-foreground opacity-50" />
+            <p className="text-sm font-medium">Online payment isn't available yet</p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              This school hasn't connected an online payment option yet. Please pay fees at the
+              school office, or contact them for other ways to pay.
+            </p>
+            <Button variant="outlined" size="small" sx={{ mt: 1 }} onClick={() => onOpenChange(false)}>Close</Button>
+          </div>
+        ) : (
+          <>
         <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="fullWidth" sx={{ mb: 2 }}>
           <Tab value="card" icon={<CreditCard size={14} />} iconPosition="start" label="Card" />
           <Tab value="momo" icon={<Smartphone size={14} />} iconPosition="start" label="Mobile Money" />
@@ -280,6 +307,8 @@ export function PaymentDialog({
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </DialogContent>
     </Dialog>

@@ -566,6 +566,8 @@ export const api = {
     billingRules: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/billing-rules"))),
     createBillingRule: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/billing-rules"), data)),
     updateBillingRule: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `fees/billing-rules/${id}`), data)),
+    gatewayStatus: (schoolId: string) =>
+      unwrap<{ available: boolean }>(apiClient.get(schoolPath(schoolId, "fees/payments/gateway-status"))),
     initiateCardPayment: (schoolId: string, studentId: string, data: any) =>
       unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/payments/card/initiate"), { studentId, ...data })),
     initiateMomoPayment: (schoolId: string, studentId: string, data: any) =>
