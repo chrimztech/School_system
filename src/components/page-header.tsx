@@ -12,7 +12,7 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="page-header flex flex-col gap-4 border-b border-border/70 pb-5 sm:pb-6">
+    <header className="page-header flex flex-col gap-3 border-b border-border/70 pb-5 sm:pb-6">
       <div className="hero-divider" />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div className="min-w-0 max-w-3xl">
@@ -21,7 +21,7 @@ export function PageHeader({
         </div>
         {actions && <div className="page-header-actions flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">{actions}</div>}
       </div>
-    </div>
+    </header>
   );
 }
 
@@ -69,7 +69,7 @@ export function StatCard({
   const tones = accentClasses[accent];
 
   return (
-    <div className={cn("relative min-w-0 overflow-hidden rounded-2xl border bg-card p-4 shadow-sm sm:p-5", tones.card)}>
+    <div className={cn("stat-card relative min-w-0 overflow-hidden rounded-2xl border bg-card p-4 shadow-sm sm:p-5", tones.card)}>
       <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b to-transparent", tones.ribbon)} />
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>

@@ -18,6 +18,7 @@ import {
   CalendarCheck,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronsUpDown,
   ClipboardCheck,
   ClipboardList,
@@ -98,10 +99,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-export const SIDEBAR_WIDTH = 272;
-export const SIDEBAR_WIDTH_COLLAPSED = 76;
+export const SIDEBAR_WIDTH = 260;
+export const SIDEBAR_WIDTH_COLLAPSED = 72;
 
-const sidebarBg = "#111821";
+const sidebarBg = "#101722";
 const sidebarFg = "#e8ebee";
 const sidebarBorder = "rgba(255,255,255,0.08)";
 const sidebarAccentBg = "rgba(255,255,255,0.06)";
@@ -202,7 +203,7 @@ function TenantMark({
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        borderRadius: collapsed ? 3 : 4,
+        borderRadius: collapsed ? 3 : 3.5,
         p: collapsed ? 0.5 : 0.75,
         color: "#fff",
         boxShadow: "0 12px 28px rgba(15,23,42,0.18)",
@@ -253,7 +254,7 @@ function SidebarIdentityCard({
         bgcolor: sidebarAccentBg,
         borderRadius: collapsed ? 3 : 4,
         p: collapsed ? 0.75 : 1.25,
-        boxShadow: "0 12px 28px rgba(2,6,23,0.16)",
+        boxShadow: "0 14px 34px rgba(2,6,23,0.2)",
         cursor: onClick ? "pointer" : "default",
         color: "inherit",
         font: "inherit",
@@ -312,6 +313,14 @@ function NavGroup({
       (!item.roles || (!!user && item.roles.includes(user.role))) &&
       roleAllowedForPath(item.url, user?.role),
   );
+  const containsActiveItem = visible.some((item) => isActive(item.url));
+  const startsExpanded = containsActiveItem || ["Overview", "Platform", "My Workspace", "My Department", "My Children", "Careers Guidance"].includes(label);
+  const [expanded, setExpanded] = useState(startsExpanded);
+
+  useEffect(() => {
+    if (containsActiveItem) setExpanded(true);
+  }, [containsActiveItem]);
+
   if (visible.length === 0) return null;
 
   return (
@@ -323,25 +332,46 @@ function NavGroup({
         !collapsed ? (
           <ListSubheader
             component="div"
+            disableSticky
             sx={{
               bgcolor: "transparent",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
               lineHeight: "26px",
-              pl: 1,
-              pr: 0.5,
+              px: 0,
             }}
           >
-            <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: alpha(sidebarFg, 0.4) }}>
-              {label}
-            </Typography>
-            <Typography sx={{ fontSize: 10, fontWeight: 600, color: alpha(sidebarFg, 0.25) }}>{visible.length}</Typography>
+            <Box
+              component="button"
+              type="button"
+              onClick={() => setExpanded((value) => !value)}
+              aria-expanded={expanded}
+              sx={{
+                display: "flex",
+                width: "100%",
+                alignItems: "center",
+                justifyContent: "space-between",
+                border: 0,
+                borderRadius: 2,
+                bgcolor: "transparent",
+                px: 1,
+                color: "inherit",
+                cursor: "pointer",
+                "&:hover": { bgcolor: sidebarAccentBg },
+              }}
+            >
+              <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: alpha(sidebarFg, 0.46) }}>
+                {label}
+              </Typography>
+              <ChevronDown
+                size={13}
+                color={alpha(sidebarFg, 0.42)}
+                style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 160ms ease" }}
+              />
+            </Box>
           </ListSubheader>
         ) : undefined
       }
     >
-      {visible.map((item) => {
+      {(collapsed || expanded) && visible.map((item) => {
         const activeItem = isActive(item.url);
         const accessLevel = can(item.module);
         const button = (
@@ -354,21 +384,21 @@ function NavGroup({
             }}
             sx={{
               position: "relative",
-              borderRadius: 3,
+              borderRadius: 2.5,
               mb: 0.375,
               py: 0.875,
               minHeight: 44,
               justifyContent: collapsed ? "center" : "flex-start",
               color: activeItem ? sidebarFg : alpha(sidebarFg, 0.72),
               overflow: "hidden",
-              transition: "background-color 160ms ease, color 160ms ease, transform 160ms ease",
-              "&:hover": { bgcolor: sidebarAccentBg, color: sidebarFg, transform: collapsed ? "none" : "translateX(2px)" },
+              transition: "background-color 160ms ease, color 160ms ease",
+              "&:hover": { bgcolor: sidebarAccentBg, color: sidebarFg },
               "&::before": {
                 content: '""',
                 position: "absolute",
                 left: 0,
-                top: "22%",
-                bottom: "22%",
+                top: "26%",
+                bottom: "26%",
                 width: 3,
                 borderRadius: "0 4px 4px 0",
                 bgcolor: accentColor,
@@ -461,7 +491,7 @@ export function WorkspaceSidebar() {
           </IconButton>
         </Box>
       )}
-      <Box sx={{ position: "relative", p: isCollapsed ? 1 : 1.5, display: "flex", flexDirection: "column", gap: 1.25 }}>
+      <Box sx={{ position: "relative", p: isCollapsed ? 1 : 1.5, pb: 1.25, display: "flex", flexDirection: "column", gap: 1.25 }}>
         {isSystemAdmin ? (
           <>
             <SidebarIdentityCard
@@ -846,7 +876,7 @@ export function WorkspaceSidebar() {
           border: "none",
           overflowX: "hidden",
           bgcolor: sidebarBg,
-          boxShadow: "4px 0 24px rgba(2,6,23,0.12)",
+          boxShadow: "6px 0 30px rgba(2,6,23,0.1)",
           transition: "width 200ms ease",
         },
       }}

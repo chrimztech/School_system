@@ -23,17 +23,17 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground",
+        "flex flex-col items-center justify-center gap-2 px-4 py-14 text-center text-muted-foreground sm:py-16",
         className,
       )}
     >
       {Icon && (
-        <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-muted/70">
-          <Icon className="h-5 w-5 opacity-60" />
+        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/10 bg-primary/[0.07] text-primary shadow-sm">
+          <Icon className="h-5 w-5" />
         </div>
       )}
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      {description && <p className="max-w-sm text-xs leading-5 opacity-75">{description}</p>}
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      {description && <p className="max-w-sm text-xs leading-5 text-muted-foreground">{description}</p>}
       {action && (
         <Button
           variant="outlined"

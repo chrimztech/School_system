@@ -446,6 +446,15 @@ export const api = {
     savePermissions:(schoolId: string, roleName: string, data: any[])       => unwrap<any[]>(apiClient.put(schoolPath(schoolId, `roles/${roleName}/permissions`), data)),
   },
 
+  // Super-admin overrides of a built-in system role's (teacher, hod, finance, ...) module access
+  // for one school — distinct from the custom-role permissions above (which apply to
+  // school-defined roles), these override the hardcoded ACCESS matrix baseline for real users.
+  systemRolePermissions: {
+    get: (schoolId: string, role: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `system-roles/${role}/permissions`))),
+    save: (schoolId: string, role: string, data: { module: string; access: string }[]) =>
+      unwrap<any[]>(apiClient.put(schoolPath(schoolId, `system-roles/${role}/permissions`), data)),
+  },
+
   // Subjects
   subjects: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "subjects"))),

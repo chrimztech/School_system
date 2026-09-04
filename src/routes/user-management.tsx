@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   CheckCircle2,
+  Copy,
   KeyRound,
   Loader2,
   MoreHorizontal,
@@ -26,6 +27,7 @@ import {
   TextField,
   Dialog,
   DialogContent,
+  DialogContentText,
   DialogActions,
   DialogTitle,
   Menu,
@@ -148,6 +150,7 @@ function UserManagementPage() {
 
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
+  const [schoolFilter, setSchoolFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<CreateForm>({
     name: "",
@@ -169,6 +172,10 @@ function UserManagementPage() {
   const [deleting, setDeleting] = useState(false);
   const [resetPassword, setResetPassword] = useState("");
   const [actionsAnchor, setActionsAnchor] = useState<{ element: HTMLElement; record: BackendAppUser } | null>(null);
+  // Shown once, right after creating a user with no password specified — the backend generates
+  // a random temporary password and returns it only in that response, never again, so this is
+  // the one chance to hand it to the admin.
+  const [generatedCredential, setGeneratedCredential] = useState<{ name: string; email: string; password: string } | null>(null);
 
   const schoolOptions = useMemo(
     () => tenants.map((tenant) => ({ id: tenant.id, name: tenant.name })),
@@ -229,6 +236,8 @@ function UserManagementPage() {
     return users.filter((record) => {
       const role = normaliseRole(record.role);
       if (roleFilter !== "all" && role !== roleFilter) return false;
+      if (schoolFilter === "platform" && record.schoolId) return false;
+      if (schoolFilter !== "all" && schoolFilter !== "platform" && record.schoolId !== schoolFilter) return false;
 
       if (!lowered) return true;
 
@@ -241,7 +250,7 @@ function UserManagementPage() {
         role.replaceAll("_", " "),
       ].some((value) => value.toLowerCase().includes(lowered));
     });
-  }, [query, roleFilter, schoolNameById, users]);
+  }, [query, roleFilter, schoolFilter, schoolNameById, users]);
 
   if (user?.role === "school_admin") {
     return <Navigate to="/access" replace />;
@@ -289,7 +298,7 @@ function UserManagementPage() {
     }
 
     try {
-      await createUserMutation.mutateAsync({
+      const created = await createUserMutation.mutateAsync({
         name: createForm.name.trim(),
         email: createForm.email.trim(),
         role: createForm.role,
@@ -299,6 +308,9 @@ function UserManagementPage() {
       });
       toast.success("User account created");
       setCreateOpen(false);
+      if (created.temporaryPassword) {
+        setGeneratedCredential({ name: createForm.name.trim(), email: createForm.email.trim(), password: created.temporaryPassword });
+      }
       setCreateForm({
         name: "",
         email: "",
@@ -394,6 +406,14 @@ function UserManagementPage() {
     }
   };
 
+  const copyGeneratedPassword = () => {
+    if (!generatedCredential) return;
+    navigator.clipboard?.writeText(generatedCredential.password).then(
+      () => toast.success("Password copied"),
+      () => toast.error("Couldn't copy — select and copy it manually"),
+    );
+  };
+
   const openSchoolAccess = (record: BackendAppUser) => {
     if (!record.schoolId) return;
     setActive(record.schoolId);
@@ -446,6 +466,22 @@ function UserManagementPage() {
             {ROLE_OPTIONS.map((role) => (
               <MenuItem key={role} value={role}>
                 {ROLE_META[role].label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            value={schoolFilter}
+            onChange={(event) => setSchoolFilter(event.target.value)}
+            size="small"
+            className="w-full md:w-56"
+            slotProps={{ select: { renderValue: (value) => value === "all" ? "All workspaces" : value === "platform" ? "Platform (no school)" : schoolNameById[value as string] ?? String(value) } }}
+          >
+            <MenuItem value="all">All workspaces</MenuItem>
+            <MenuItem value="platform">Platform (no school)</MenuItem>
+            {schoolOptions.map((school) => (
+              <MenuItem key={school.id} value={school.id}>
+                {school.name}
               </MenuItem>
             ))}
           </TextField>
@@ -678,7 +714,7 @@ function UserManagementPage() {
               label="Temporary password"
               value={createForm.password}
               onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
-              placeholder="Optional - defaults to password123"
+              placeholder="Leave blank to auto-generate one"
               fullWidth
               size="small"
             />
@@ -845,6 +881,31 @@ function UserManagementPage() {
             {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Delete account
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!generatedCredential} onClose={() => setGeneratedCredential(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Temporary password generated</DialogTitle>
+        <DialogContent>
+          <div className="space-y-3">
+            <DialogContentText>
+              No password was entered for <strong>{generatedCredential?.name}</strong>, so a random one was
+              generated. Share it with them now — it won't be shown again, and they'll be asked to set
+              their own password the first time they sign in.
+            </DialogContentText>
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <div>
+                <p className="text-xs text-muted-foreground">{generatedCredential?.email}</p>
+                <p className="font-mono text-lg font-semibold tracking-wide">{generatedCredential?.password}</p>
+              </div>
+              <Button size="small" variant="outlined" startIcon={<Copy size={14} />} onClick={copyGeneratedPassword}>
+                Copy
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setGeneratedCredential(null)}>Done</Button>
         </DialogActions>
       </Dialog>
     </div>

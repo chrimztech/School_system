@@ -65,9 +65,10 @@ export function NotificationBell() {
           )}
           {items.map((n) => (
             <button
+              type="button"
               key={n.id}
               onClick={() => markRead(n.id)}
-              className={cn("flex w-full items-start gap-3 border-b border-border/50 px-4 py-3 text-left transition hover:bg-muted/50", !n.read && "bg-accent/5")}
+              className={cn("group flex w-full items-start gap-3 border-b border-border/50 px-4 py-3 text-left transition hover:bg-muted/50", !n.read && "bg-accent/5")}
             >
               <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", severityDot[n.severity])} />
               <div className="min-w-0 flex-1">

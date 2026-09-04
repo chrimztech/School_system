@@ -3,28 +3,28 @@ import { createTheme, alpha, type Shadows } from "@mui/material/styles";
 // Hex equivalents of the brand OKLCH tokens previously defined in styles.css
 // (kept in sync manually — see src/styles.css :root block for the source values).
 const brand = {
-  background: "#f8fafd",
-  foreground: "#1a2028",
-  paper: "#fdfeff",
-  primary: "#2370bd",
-  primaryContrast: "#fcfcfc",
-  secondary: "#00c197",
-  secondaryContrast: "#001d12",
-  muted: "#f2f5f7",
-  mutedForeground: "#656c76",
-  destructive: "#ed403f",
-  success: "#40ae67",
-  warning: "#edb333",
-  border: "#dbdee2",
-  sidebar: "#111821",
-  sidebarForeground: "#e8ebee",
+  background: "#f4f7fb",
+  foreground: "#172033",
+  paper: "#ffffff",
+  primary: "#1f5fbf",
+  primaryContrast: "#ffffff",
+  secondary: "#078f72",
+  secondaryContrast: "#ffffff",
+  muted: "#edf2f7",
+  mutedForeground: "#647084",
+  destructive: "#dc3f45",
+  success: "#21875c",
+  warning: "#c78416",
+  border: "#dce3ec",
+  sidebar: "#101722",
+  sidebarForeground: "#edf2f7",
 };
 
 const fontStack =
-  '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  '"Inter", "Aptos", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
-const softShadow = "0 1px 2px rgb(15 23 42 / 0.05), 0 14px 38px rgb(15 23 42 / 0.06)";
-const mediumShadow = "0 10px 30px rgb(15 23 42 / 0.08), 0 2px 8px rgb(15 23 42 / 0.04)";
+const softShadow = "0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.055)";
+const mediumShadow = "0 18px 42px rgb(15 23 42 / 0.1), 0 3px 10px rgb(15 23 42 / 0.05)";
 const shadows = ["none", softShadow, mediumShadow, ...Array(22).fill(mediumShadow)] as Shadows;
 
 export function isValidHexColor(value: string | null | undefined): value is string {
@@ -69,7 +69,7 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
       divider: brand.border,
     },
     shape: {
-      borderRadius: 10,
+      borderRadius: 12,
     },
     typography: {
       fontFamily: fontStack,
@@ -86,14 +86,22 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: 10,
+            borderRadius: 9,
             minHeight: 40,
             paddingInline: 16,
             boxShadow: "none",
+            transition: "background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease",
           },
           contained: {
-            boxShadow: "0 1px 2px rgb(15 23 42 / 0.12), 0 6px 16px rgb(15 23 42 / 0.08)",
-            "&:hover": { boxShadow: "0 2px 4px rgb(15 23 42 / 0.12), 0 8px 20px rgb(15 23 42 / 0.1)" },
+            border: `1px solid ${alpha(primary, 0.18)}`,
+            boxShadow: `0 1px 2px rgb(15 23 42 / 0.12), 0 7px 18px ${alpha(primary, 0.18)}`,
+            "&:hover": { boxShadow: `0 2px 4px rgb(15 23 42 / 0.12), 0 10px 24px ${alpha(primary, 0.22)}`, transform: "translateY(-1px)" },
+            "&:active": { transform: "translateY(0)" },
+          },
+          outlined: {
+            borderColor: alpha(brand.foreground, 0.16),
+            backgroundColor: alpha(brand.paper, 0.7),
+            "&:hover": { borderColor: alpha(primary, 0.42), backgroundColor: alpha(primary, 0.035) },
           },
         },
       },
@@ -104,14 +112,19 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
       },
       MuiChip: {
         styleOverrides: {
-          root: { borderRadius: 999, fontWeight: 600 },
+          root: { borderRadius: 999, fontWeight: 650, letterSpacing: "-0.005em" },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: { borderRadius: 10, transition: "background-color 160ms ease, color 160ms ease" },
         },
       },
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            borderRadius: 10,
-            backgroundColor: alpha(brand.paper, 0.72),
+            borderRadius: 9,
+            backgroundColor: alpha(brand.paper, 0.82),
             transition: "background-color 160ms ease, box-shadow 160ms ease",
             "&:hover": { backgroundColor: brand.paper },
             "&.Mui-focused": { backgroundColor: brand.paper, boxShadow: `0 0 0 3px ${alpha(primary, 0.12)}` },
@@ -121,7 +134,7 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
       MuiDialog: {
         styleOverrides: {
           paper: {
-            borderRadius: 20,
+            borderRadius: 16,
             border: `1px solid ${alpha(brand.border, 0.9)}`,
             boxShadow: "0 24px 80px rgb(15 23 42 / 0.2)",
           },
@@ -141,18 +154,21 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
         styleOverrides: {
           head: {
             color: brand.mutedForeground,
-            fontSize: "0.72rem",
+            fontSize: "0.74rem",
             fontWeight: 700,
-            letterSpacing: "0.035em",
-            textTransform: "uppercase",
-            backgroundColor: alpha(brand.muted, 0.86),
+            letterSpacing: "0.012em",
+            backgroundColor: alpha(brand.muted, 0.78),
           },
-          body: { fontSize: "0.82rem" },
+          body: { color: brand.foreground, fontSize: "0.82rem" },
         },
       },
       MuiTableRow: {
         styleOverrides: {
-          root: { "&:last-child td": { borderBottom: 0 } },
+          root: {
+            transition: "background-color 140ms ease",
+            "&:hover": { backgroundColor: alpha(primary, 0.025) },
+            "&:last-child td": { borderBottom: 0 },
+          },
         },
       },
       MuiMenuItem: {
@@ -176,9 +192,59 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
           allowScrollButtonsMobile: true,
         },
         styleOverrides: {
-          scrollButtons: {
-            "&.Mui-disabled": { opacity: 0.3 },
+          root: {
+            minHeight: 44,
+            maxWidth: "100%",
+            border: `1px solid ${alpha(brand.border, 0.82)}`,
+            borderRadius: 12,
+            padding: 4,
+            backgroundColor: alpha(brand.muted, 0.7),
           },
+          indicator: { display: "none" },
+          scrollButtons: {
+            width: 30,
+            borderRadius: 8,
+            "&.Mui-disabled": { opacity: 0.2 },
+          },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: {
+            minWidth: 72,
+            minHeight: 34,
+            borderRadius: 8,
+            padding: "7px 14px",
+            color: brand.mutedForeground,
+            fontSize: "0.8rem",
+            fontWeight: 650,
+            textTransform: "none",
+            "&.Mui-selected": {
+              color: brand.foreground,
+              backgroundColor: brand.paper,
+              boxShadow: "0 1px 2px rgb(15 23 42 / 0.08), 0 3px 10px rgb(15 23 42 / 0.06)",
+            },
+          },
+        },
+      },
+      MuiPopover: {
+        styleOverrides: {
+          paper: {
+            marginTop: 8,
+            border: `1px solid ${alpha(brand.border, 0.9)}`,
+            borderRadius: 14,
+            boxShadow: mediumShadow,
+          },
+        },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: { paddingBlock: 6 },
+        },
+      },
+      MuiAlert: {
+        styleOverrides: {
+          root: { borderRadius: 12, border: `1px solid ${alpha(brand.border, 0.7)}` },
         },
       },
     },

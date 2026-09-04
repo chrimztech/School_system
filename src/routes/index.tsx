@@ -1098,37 +1098,41 @@ function StaffDashboard() {
   return (
     <div className="space-y-6">
       {isSystemAdmin && (
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                <p className="text-sm font-semibold">System admin mode</p>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                You are viewing the shared platform workspace across {tenants.length} connected
-                schools.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+        <>
+          <PageHeader
+            title="Platform overview"
+            description={`Monitor ${tenants.length} connected schools, service health and the work that needs attention.`}
+            actions={
+              <>
               <Button variant="outlined" component={Link} to="/sys-admin">Open system admin</Button>
-              <Button variant="text" color="inherit" component={Link} to="/platform-ops">Open platform ops</Button>
+                <Button variant="contained" component={Link} to="/platform-ops">Platform operations</Button>
+              </>
+            }
+          />
+          <div className="surface-card flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MessageSquare className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Messaging service</p>
+                <p className="text-xs text-muted-foreground">Shared platform SMS capacity</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/50 px-3 py-2">
+              {smsBalance === undefined ? (
+                <span className="text-sm text-muted-foreground">Checking balance…</span>
+              ) : smsBalance < 0 ? (
+                <span className="text-sm text-muted-foreground">Balance unavailable</span>
+              ) : (
+                <span className="text-sm font-semibold text-foreground">
+                  {smsBalance.toLocaleString()} credit{smsBalance === 1 ? "" : "s"}
+                  {smsBalance < 50 && <span className="ml-1.5 text-xs font-medium text-warning">Low balance</span>}
+                </span>
+              )}
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
-            <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-            {smsBalance === undefined ? (
-              <span className="text-sm text-muted-foreground">Checking SMS balance…</span>
-            ) : smsBalance < 0 ? (
-              <span className="text-sm text-muted-foreground">SMS balance unavailable — Zamtel BulkSMS unreachable or not configured</span>
-            ) : (
-              <span className="text-sm font-medium text-foreground">
-                SMS balance: {smsBalance.toLocaleString()} credit{smsBalance === 1 ? "" : "s"}
-                {smsBalance < 50 && <span className="ml-1.5 text-xs font-normal text-warning">— running low</span>}
-              </span>
-            )}
-          </div>
-        </div>
+        </>
       )}
 
       {isSystemAdmin && (
@@ -1394,12 +1398,12 @@ function StaffDashboard() {
       {!isSystemAdmin && (
         <>
           <PageHeader
-            title={`Welcome back, ${school.name}`}
-            description={`Term ${school.currentTerm}, ${school.currentYear} · ${school.type} school configuration`}
+            title={`Welcome back, ${user?.name?.split(" ")[0] ?? school.shortCode}`}
+            description={`${school.name} · Term ${school.currentTerm}, ${school.currentYear}`}
             actions={
               <>
                 {isSchoolLeadershipRole(user?.role) && (
-                  <Button component={Link} to="/students" startIcon={<Plus className="h-4 w-4" />}>
+                  <Button variant="contained" component={Link} to="/students" startIcon={<Plus className="h-4 w-4" />}>
                     Enrol student
                   </Button>
                 )}
@@ -1408,13 +1412,13 @@ function StaffDashboard() {
           />
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.95fr)]">
-            <section className="surface-card-strong rounded-[30px] p-6">
+            <section className="surface-card-strong rounded-2xl p-5 sm:p-6">
               <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                 <Building2 className="h-3.5 w-3.5" />
                 {school.type} school workspace
               </div>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
-                {school.shortCode} — Term {school.currentTerm} overview
+              <h2 className="mt-4 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                Term {school.currentTerm} at a glance
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {school.campuses.length} campus{school.campuses.length === 1 ? "" : "es"},{" "}
@@ -1427,35 +1431,26 @@ function StaffDashboard() {
                 <Chip size="small" label={school.category ?? "Day"} sx={badgeSx("outline")} />
                 <Chip size="small" label={school.province} sx={badgeSx("outline")} />
               </div>
-              <div className="mt-6 grid gap-4 border-t border-border/70 pt-4 sm:grid-cols-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Learners
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-foreground">
-                    {school.totalStudents.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Teaching team
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-foreground">
-                    {school.totalTeachers.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Campuses live
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-foreground">
-                    {school.campuses.length}
-                  </p>
-                </div>
+              <div className="mt-5 flex flex-wrap gap-2 border-t border-border/70 pt-4">
+                {can("students") !== false && (
+                  <Link to="/students" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:bg-primary/[0.04]">
+                    Student register <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                )}
+                {can("attendance") !== false && (
+                  <Link to="/attendance" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:bg-primary/[0.04]">
+                    Take attendance <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                )}
+                {can("report-card") !== false && (
+                  <Link to="/report-card" search={{ studentId: "" }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:bg-primary/[0.04]">
+                    Report cards <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                )}
               </div>
             </section>
 
-            <section className="surface-card rounded-[30px] p-5">
+            <section className="surface-card rounded-2xl p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">Operational rhythm</p>

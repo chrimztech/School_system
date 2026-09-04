@@ -259,6 +259,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return Boolean(window.localStorage.getItem(TOKEN_STORAGE_KEY) || window.localStorage.getItem(USER_STORAGE_KEY));
   });
 
+  // A super admin can grant or revoke a system role's module access per school, on top of the
+  // hardcoded ACCESS matrix below — this is what makes that grant/revoke actually take effect
+  // for the people signed in with that role, not just cosmetic in the permissions page. Never
+  // fetched for super_admin itself (never subject to an override) or before a school context
+  // exists (nothing to scope the override to yet).
+  const [roleOverrides, setRoleOverrides] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!user || user.role === "super_admin" || !active.id || !hasBackendSession()) {
+      setRoleOverrides({});
+      return;
+    }
+    let cancelled = false;
+    api.systemRolePermissions.get(active.id, user.role)
+      .then((rows) => {
+        if (cancelled) return;
+        const map: Record<string, string> = {};
+        (rows as any[]).forEach((r) => { map[r.module] = r.access; });
+        setRoleOverrides(map);
+      })
+      .catch(() => { if (!cancelled) setRoleOverrides({}); });
+    return () => { cancelled = true; };
+  }, [user?.role, active.id, user?.id]);
+
   useEffect(() => {
     const hydrateSession = async () => {
       if (typeof window === "undefined") {
@@ -443,7 +466,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       can: (module) => {
         if (!user) return false;
-        const roleAccess = ACCESS[user.role][module] ?? false;
+        const override = roleOverrides[module];
+        const roleAccess: Access = override === "full" ? true : override === "read" ? "read" : override === "none" ? false : (ACCESS[user.role][module] ?? false);
         if (roleAccess === false) return false;
         if (user.role === "super_admin") return roleAccess;
         return isModuleEnabled(module) ? roleAccess : false;

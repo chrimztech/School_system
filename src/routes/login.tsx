@@ -44,12 +44,11 @@ import { useFavicon } from "@/hooks/use-favicon";
 import { buildTheme } from "@/theme";
 
 // Default brand color for the unbranded/generic view (bare platform domain, or a school
-// that hasn't set a color yet). Scoped to this page only — the app-wide default in
-// theme.ts is a separate, larger change and deliberately left untouched here.
-const DEFAULT_BRAND = "#2447B8";
+// that hasn't set a color yet). School-specific branding still takes precedence.
+const DEFAULT_BRAND = "#1F5FBF";
 const TEXT_PRIMARY = "#172033";
 const TEXT_SECONDARY = "#667085";
-const PAGE_BG = "#F7F9FC";
+const PAGE_BG = "#F4F7FB";
 // Roughly matches "collapse to a single card below ~1000-1100px" — MUI's built-in `lg`
 // breakpoint (1200px) sits noticeably above that, so this page uses its own threshold
 // instead of the theme default.

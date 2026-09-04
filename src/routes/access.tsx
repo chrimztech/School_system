@@ -56,6 +56,15 @@ const ACCESS_OPTIONS = [
   { value: "none", label: "None" },
 ];
 
+// System roles start from the hardcoded baseline every non-super-admin sees below — "default"
+// removes any override for that cell rather than persisting a redundant "same as baseline" row.
+const SYSTEM_ACCESS_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "full", label: "Full" },
+  { value: "read", label: "Read" },
+  { value: "none", label: "None" },
+];
+
 function AccessPage() {
   const [tab, setTab] = useState("users");
   const { user, assignableRoles, loadingSession } = useAuth();
@@ -243,6 +252,78 @@ function AccessPage() {
       setSavingRole(null);
     },
   });
+
+  // ── System role permission overrides ────────────────────────────────────────
+  // A super admin can grant or revoke a built-in role's (Teacher, HOD, Finance Officer, ...)
+  // module access for this school, on top of the hardcoded baseline every other admin sees as
+  // read-only below. Stored separately from custom-role permissions (see api.ts) so a school's
+  // own custom role names can never collide with a system role's override.
+  const [sysPendingPerms, setSysPendingPerms] = useState<Record<string, Record<string, string>>>({});
+  const [sysLoadedRoles, setSysLoadedRoles] = useState<Set<string>>(new Set());
+  const [savingSysRole, setSavingSysRole] = useState<string | null>(null);
+  const overridableSystemRoles = (Object.keys(ROLE_META) as Role[]).filter((r) => r !== "super_admin");
+
+  useQuery({
+    queryKey: ["system-role-permissions-all", schoolId],
+    queryFn: async () => {
+      const results: Record<string, Record<string, string>> = {};
+      await Promise.all(
+        overridableSystemRoles.map(async (role) => {
+          if (sysLoadedRoles.has(role)) return;
+          try {
+            const perms = await api.systemRolePermissions.get(schoolId, role);
+            const map: Record<string, string> = {};
+            (perms as any[]).forEach((p: any) => { map[p.module] = p.access; });
+            results[role] = map;
+          } catch {
+            results[role] = {};
+          }
+        })
+      );
+      if (Object.keys(results).length > 0) {
+        setSysPendingPerms((prev) => ({ ...results, ...prev }));
+        setSysLoadedRoles((prev) => {
+          const next = new Set(prev);
+          Object.keys(results).forEach((n) => next.add(n));
+          return next;
+        });
+      }
+      return results;
+    },
+    enabled: Boolean(schoolId),
+  });
+
+  const saveSysPermsMut = useMutation({
+    mutationFn: ({ role, perms }: { role: string; perms: { module: string; access: string }[] }) =>
+      api.systemRolePermissions.save(schoolId, role, perms),
+    onSuccess: (_data: any, vars: any) => {
+      void qc.invalidateQueries({ queryKey: ["system-role-permissions-all", schoolId] });
+      toast.success(`Permissions saved for "${ROLE_META[vars.role as Role].label}"`);
+      setSavingSysRole(null);
+    },
+    onError: (_e: any, vars: any) => {
+      toast.error(`Failed to save permissions for "${ROLE_META[vars.role as Role].label}"`);
+      setSavingSysRole(null);
+    },
+  });
+
+  const handleSysPermChange = (role: string, module: string, value: string) => {
+    setSysPendingPerms((prev) => ({
+      ...prev,
+      [role]: { ...(prev[role] ?? {}), [module]: value },
+    }));
+  };
+
+  const handleSaveSysPerms = (role: string) => {
+    const rolePerms = sysPendingPerms[role] ?? {};
+    // "default" means no override for that module — omit it so the row is simply absent
+    // (and thus falls back to the hardcoded baseline) rather than persisting a redundant row.
+    const payload = modules
+      .filter((m) => (rolePerms[m] ?? "default") !== "default")
+      .map((m) => ({ module: m, access: rolePerms[m] }));
+    setSavingSysRole(role);
+    saveSysPermsMut.mutate({ role, perms: payload });
+  };
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const submitAddUser = async () => {
@@ -527,10 +608,14 @@ function AccessPage() {
                   <th className="p-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground sticky left-0 bg-muted/40 z-10">
                     Module
                   </th>
-                  {/* System role columns — read-only */}
+                  {/* System role columns — editable by super admin only; read-only (but still
+                      reflecting any override a super admin has set) for everyone else */}
                   {visibleSystemRoles.map((r) => (
                     <th key={r} className="p-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                       {ROLE_META[r].label}
+                      {isSystemAdmin && r !== "super_admin" && (
+                        <span className="mt-1 block text-[10px] font-normal normal-case text-primary">Editable</span>
+                      )}
                     </th>
                   ))}
                   {/* Custom role columns — editable */}
@@ -550,14 +635,41 @@ function AccessPage() {
                     <td className="p-3 font-medium capitalize sticky left-0 bg-card z-10 border-r border-border/40">
                       {m.replace(/-/g, " ")}
                     </td>
-                    {/* System roles — read-only badges */}
+                    {/* System roles — editable (super admin) or effective-value read-only (everyone else) */}
                     {visibleSystemRoles.map((r) => {
-                      const a = ACCESS[r][m];
+                      const baseline = ACCESS[r][m];
+                      const override = r === "super_admin" ? undefined : sysPendingPerms[r]?.[m];
+
+                      if (isSystemAdmin && r !== "super_admin") {
+                        return (
+                          <td key={r} className="p-2 text-center">
+                            <TextField
+                              select
+                              size="small"
+                              className="mx-auto w-24"
+                              value={override ?? "default"}
+                              onChange={(e) => handleSysPermChange(r, m, e.target.value)}
+                              sx={override && override !== "default" ? { "& .MuiOutlinedInput-notchedOutline": { borderColor: "primary.main" } } : undefined}
+                            >
+                              {SYSTEM_ACCESS_OPTIONS.map((opt) => (
+                                <MenuItem key={opt.value} value={opt.value} className="text-xs">
+                                  {opt.value === "default" ? `Default (${baseline === true ? "Full" : baseline === "read" ? "Read" : "None"})` : opt.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          </td>
+                        );
+                      }
+
+                      const effective: typeof baseline = override === "full" ? true : override === "read" ? "read" : override === "none" ? false : baseline;
                       return (
                         <td key={r} className="p-3 text-center">
-                          {a === true && <Chip size="small" icon={<Check size={12} />} label="Full" sx={badgeSx("default")} />}
-                          {a === "read" && <Chip size="small" label="Read" sx={badgeSx("secondary")} />}
-                          {a === false && <X className="mx-auto h-4 w-4 text-muted-foreground/40" />}
+                          {effective === true && <Chip size="small" icon={<Check size={12} />} label="Full" sx={badgeSx("default")} />}
+                          {effective === "read" && <Chip size="small" label="Read" sx={badgeSx("secondary")} />}
+                          {effective === false && <X className="mx-auto h-4 w-4 text-muted-foreground/40" />}
+                          {override && override !== "default" && (
+                            <span className="mt-0.5 block text-[9px] font-medium uppercase tracking-wide text-primary">Overridden</span>
+                          )}
                         </td>
                       );
                     })}
@@ -581,6 +693,28 @@ function AccessPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Save buttons per system role — only super admin can edit these, so only super
+              admin sees them */}
+          {isSystemAdmin && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {overridableSystemRoles.map((r) => (
+                <Button
+                  key={r}
+                  size="small"
+                  variant="outlined"
+                  color="secondary"
+                  disabled={savingSysRole === r || saveSysPermsMut.isPending}
+                  onClick={() => handleSaveSysPerms(r)}
+                  startIcon={savingSysRole === r
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Save size={14} />}
+                >
+                  Save "{ROLE_META[r].label}" overrides
+                </Button>
+              ))}
+            </div>
+          )}
 
           {/* Save buttons per custom role */}
           {customRoles.length > 0 && (

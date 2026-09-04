@@ -136,9 +136,12 @@ export function CommandPalette() {
       onClose={() => setOpen(false)}
       maxWidth="sm"
       fullWidth
-      slotProps={{ paper: { sx: { borderRadius: 4, position: "fixed", top: 96, m: 0 } } }}
+      slotProps={{ paper: { sx: { position: "fixed", top: { xs: 72, sm: 88 }, m: 0, overflow: "hidden" } } }}
     >
-      <Box sx={{ p: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+      <Box sx={{ p: 1.5, borderBottom: "1px solid", borderColor: "divider", bgcolor: "background.default" }}>
+        <Typography sx={{ px: 0.5, mb: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.13em", textTransform: "uppercase", color: "text.secondary" }}>
+          Jump to anywhere
+        </Typography>
         <TextField
           autoFocus
           fullWidth
@@ -157,7 +160,7 @@ export function CommandPalette() {
           }}
         />
       </Box>
-      <Box sx={{ maxHeight: 420, overflowY: "auto", py: 0.5 }}>
+      <Box sx={{ maxHeight: { xs: "calc(100vh - 220px)", sm: 420 }, overflowY: "auto", py: 0.75 }}>
         {!hasResults ? (
           <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 3, textAlign: "center" }}>
             No matches.
@@ -169,13 +172,13 @@ export function CommandPalette() {
                 key={group.heading}
                 dense
                 subheader={
-                  <ListSubheader component="div" sx={{ lineHeight: "32px", bgcolor: "background.paper" }}>
+                  <ListSubheader component="div" sx={{ lineHeight: "30px", bgcolor: "background.paper", color: "text.secondary", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>
                     {group.heading}
                   </ListSubheader>
                 }
               >
                 {group.items.map((item) => (
-                  <ListItemButton key={item.key} onClick={item.onSelect}>
+                  <ListItemButton key={item.key} onClick={item.onSelect} sx={{ mx: 1, mb: 0.25, minHeight: 44, borderRadius: 2 }}>
                     <ListItemIcon sx={{ minWidth: 36 }}>
                       <item.icon className="h-4 w-4" />
                     </ListItemIcon>
@@ -191,6 +194,10 @@ export function CommandPalette() {
             ),
           )
         )}
+      </Box>
+      <Box sx={{ display: { xs: "none", sm: "flex" }, alignItems: "center", justifyContent: "space-between", borderTop: "1px solid", borderColor: "divider", px: 2, py: 1.25, bgcolor: "background.default", color: "text.secondary" }}>
+        <Typography variant="caption">Type to filter pages and actions</Typography>
+        <Typography variant="caption"><kbd>Esc</kbd> to close</Typography>
       </Box>
     </Dialog>
   );

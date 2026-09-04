@@ -9,7 +9,7 @@ import {
   Link,
 } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
-import { Search, LogOut, UserCircle, Command as CommandIcon, Lock } from "lucide-react";
+import { Search, LogOut, UserCircle, Command as CommandIcon, Lock, ChevronDown, Bell, CircleHelp } from "lucide-react";
 import { ThemeProvider, CssBaseline, Menu, MenuItem, ListItemIcon, Divider, Box, Typography } from "@mui/material";
 
 import appCss from "../styles.css?url";
@@ -24,6 +24,55 @@ import { CommandPalette } from "@/components/command-palette";
 import { WorkspaceSidebar, WorkspaceSidebarProvider, SidebarToggleButton } from "@/components/workspace-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { RouteAccessBoundary } from "@/components/access-guard";
+import {
+  platformBusiness,
+  platformCore,
+  platformGov,
+  schoolAdmin,
+  schoolCampusOps,
+  schoolEnterprise,
+  schoolFinance,
+  schoolOverview,
+  schoolStudentLife,
+} from "@/lib/nav-items";
+
+const NAV_CATALOG = [
+  ...platformCore,
+  ...platformBusiness,
+  ...platformGov,
+  ...schoolOverview,
+  ...schoolStudentLife,
+  ...schoolCampusOps,
+  ...schoolFinance,
+  ...schoolEnterprise,
+  ...schoolAdmin,
+];
+
+const SPECIAL_ROUTE_LABELS: Record<string, string> = {
+  "/login": "Sign in",
+  "/change-password": "Secure your account",
+  "/profile": "My profile",
+  "/notifications": "Notifications",
+  "/onboarding": "School onboarding",
+  "/billing": "Billing & subscription",
+  "/payment-result": "Payment status",
+};
+
+function workspacePageLabel(path: string) {
+  if (/^\/students\/[^/]+$/.test(path)) return "Student profile";
+  if (/^\/teachers\/[^/]+$/.test(path)) return "Staff profile";
+  if (SPECIAL_ROUTE_LABELS[path]) return SPECIAL_ROUTE_LABELS[path];
+  if (path === "/") return "Dashboard";
+
+  const match = NAV_CATALOG
+    .filter((item) => item.url !== "/")
+    .sort((a, b) => b.url.length - a.url.length)
+    .find((item) => path === item.url || path.startsWith(`${item.url}/`));
+  if (match) return match.title;
+
+  const segment = path.split("/").filter(Boolean).at(-1) ?? "Dashboard";
+  return segment.replace(/-/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
+}
 
 function NotFoundComponent() {
   return (
@@ -109,13 +158,14 @@ function UserMenu() {
         aria-label="Open account menu"
         aria-haspopup="menu"
         aria-expanded={Boolean(anchorEl)}
-        className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/70 px-2.5 py-2 shadow-sm transition hover:border-primary/20 hover:bg-card"
+        className="flex h-11 items-center gap-2.5 rounded-xl border border-border/80 bg-card px-1.5 pr-2.5 shadow-sm transition hover:border-primary/25 hover:bg-card"
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm">{user.initials}</div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-primary text-[11px] font-bold text-primary-foreground shadow-sm">{user.initials}</div>
         <div className="hidden text-left sm:block">
           <p className="text-xs font-semibold leading-tight text-foreground">{user.name}</p>
-          <p className="text-[10px] leading-tight text-muted-foreground">{ROLE_META[user.role].label}</p>
+          <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{ROLE_META[user.role].label}</p>
         </div>
+        <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
       </button>
       <Menu
         anchorEl={anchorEl}
@@ -133,10 +183,10 @@ function UserMenu() {
           <ListItemIcon><UserCircle className="h-4 w-4" /></ListItemIcon>My profile
         </MenuItem>
         <MenuItem component={Link} to="/notifications" onClick={closeMenu}>
-          <ListItemIcon><UserCircle className="h-4 w-4" /></ListItemIcon>Notifications
+          <ListItemIcon><Bell className="h-4 w-4" /></ListItemIcon>Notifications
         </MenuItem>
         <MenuItem component={Link} to="/help" onClick={closeMenu}>
-          <ListItemIcon><UserCircle className="h-4 w-4" /></ListItemIcon>Help & support
+          <ListItemIcon><CircleHelp className="h-4 w-4" /></ListItemIcon>Help & support
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => { closeMenu(); signOut(); }}>
@@ -154,10 +204,10 @@ function GlobalSearchButton() {
   return (
     <button
       onClick={trigger}
-      className="relative hidden h-11 max-w-xl flex-1 items-center gap-3 rounded-2xl border border-border/70 bg-card/70 px-4 text-sm text-muted-foreground shadow-sm transition hover:border-primary/20 hover:bg-card md:flex"
+      className="topbar-search relative hidden h-11 max-w-xl flex-1 items-center gap-3 rounded-xl border border-border/80 bg-card px-4 text-sm text-muted-foreground shadow-sm transition hover:border-primary/25 hover:bg-card md:flex"
     >
       <Search className="h-4 w-4" />
-      <span>Search students, staff, pages…</span>
+      <span>Search people, records or pages…</span>
       <kbd className="ml-auto inline-flex items-center gap-0.5 rounded-full border border-border/80 bg-background/90 px-2 py-1 text-[10px] font-semibold shadow-sm">
         <CommandIcon className="h-3 w-3" />K
       </kbd>
@@ -287,6 +337,7 @@ function AppShell() {
   const { user, isSystemAdmin, loadingSession } = useAuth();
   const { active, isResolving: tenantResolving } = useTenant();
   const router = useRouter();
+  const currentPageLabel = workspacePageLabel(path);
 
   // Ensure SSR and first client render produce identical HTML.
   // Auth state reads from localStorage (client-only), so delay auth-dependent
@@ -398,58 +449,22 @@ function AppShell() {
       <div className="app-shell flex min-h-screen w-full bg-background">
         <WorkspaceSidebar />
         <div className="workspace-frame flex min-w-0 flex-1 flex-col overflow-hidden bg-background/90">
-          <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+          <header className="workspace-topbar sticky top-0 z-30 border-b border-border/80 bg-background/90 backdrop-blur-xl">
             {!isSystemAdmin && active.primaryColor && (
               <div
                 className="absolute top-0 left-0 right-0 h-[2px]"
                 style={{ background: `linear-gradient(90deg, transparent, ${active.primaryColor}, transparent)` }}
               />
             )}
-            <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
+            <div className="flex h-[68px] items-center gap-3 px-3.5 sm:px-5 lg:px-6">
               <SidebarToggleButton />
-              <div className="flex min-w-0 flex-1 items-center gap-2.5 lg:hidden">
-                <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-card p-1.5 shadow-sm"
-                  style={isSystemAdmin ? undefined : { backgroundColor: active.primaryColor }}
-                >
-                  {isSystemAdmin ? (
-                    <span className="text-[10px] font-bold text-foreground">SR</span>
-                  ) : active.logoUrl ? (
-                    <img src={active.logoUrl} alt="" className="h-full w-full object-contain" />
-                  ) : (
-                    <span className="text-[10px] font-bold text-white">{active.shortCode.slice(0, 2)}</span>
-                  )}
-                </div>
-                <div className="hidden min-w-0 min-[420px]:block">
-                  <p className="truncate text-xs font-semibold text-foreground">
-                    {isSystemAdmin ? "Platform workspace" : active.name}
-                  </p>
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {isSystemAdmin ? "Administration" : `Term ${active.currentTerm}`}
-                  </p>
-                </div>
-              </div>
-              <div className="hidden min-w-0 items-center gap-3 lg:flex">
-                <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-2 shadow-sm"
-                  style={isSystemAdmin ? undefined : { backgroundColor: active.primaryColor }}
-                >
-                  {isSystemAdmin ? (
-                    <span className="text-xs font-semibold text-foreground">SR</span>
-                  ) : active.logoUrl ? (
-                    <img src={active.logoUrl} alt={active.shortCode} className="h-full w-full object-contain" />
-                  ) : (
-                    <span className="text-xs font-semibold text-white">{active.shortCode.slice(0, 2)}</span>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {isSystemAdmin ? "Platform workspace" : active.name}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {isSystemAdmin ? "Cross-tenant administration" : `${active.district}, ${active.province}`}
-                  </p>
-                </div>
+              <div className="min-w-0 flex-1 md:max-w-[220px] lg:max-w-[260px]">
+                <p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                  {isSystemAdmin ? "Platform workspace" : `${active.shortCode} · Term ${active.currentTerm}`}
+                </p>
+                <p className="mt-0.5 truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
+                  {currentPageLabel}
+                </p>
               </div>
               <GlobalSearchButton />
               <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">

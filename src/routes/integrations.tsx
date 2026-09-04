@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plug, CheckCircle2, AlertCircle, ShieldAlert } from "lucide-react";
+import { Plug, CheckCircle2, AlertCircle, ShieldAlert, KeyRound, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
 import { LoadingState } from "@/components/loading-state";
-import { PageHeader } from "@/components/page-header";
-import { Box, Button, Chip, Switch, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
+import { PageHeader, StatCard } from "@/components/page-header";
+import { Box, Button, Chip, Switch, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -23,6 +23,13 @@ type Integration = {
   status?: "healthy" | "degraded";
   owner?: string;
   webhook?: string;
+  accountId?: string;
+  baseUrl?: string;
+  environment?: "sandbox" | "production";
+  hasApiKey?: boolean;
+  apiKeyMasked?: string | null;
+  hasApiSecret?: boolean;
+  apiSecretMasked?: string | null;
 };
 
 type MarketplaceItem = {
@@ -55,7 +62,10 @@ function IntegrationsPage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState("installed");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [config, setConfig] = useState({ owner: "", webhook: "" });
+  const [config, setConfig] = useState({
+    owner: "", webhook: "", accountId: "", baseUrl: "", environment: "sandbox",
+    apiKey: "", apiSecret: "",
+  });
 
   const { data: itemsRaw = [], isLoading } = useQuery({
     queryKey: ["integrations", schoolId],
@@ -95,6 +105,13 @@ function IntegrationsPage() {
     status: (item.status ?? undefined) as Integration["status"],
     owner: item.owner ?? "",
     webhook: item.webhook ?? "",
+    accountId: item.accountId ?? "",
+    baseUrl: item.baseUrl ?? "",
+    environment: (item.environment ?? "sandbox") as Integration["environment"],
+    hasApiKey: item.hasApiKey === true,
+    apiKeyMasked: item.apiKeyMasked ?? null,
+    hasApiSecret: item.hasApiSecret === true,
+    apiSecretMasked: item.apiSecretMasked ?? null,
   }));
 
   const selected = items.find((item) => item.code === selectedCode) ?? null;
@@ -124,6 +141,11 @@ function IntegrationsPage() {
     setConfig({
       owner: item.owner || "",
       webhook: item.webhook || `/integrations/${item.code}/events`,
+      accountId: item.accountId || "",
+      baseUrl: item.baseUrl || "",
+      environment: item.environment || "sandbox",
+      apiKey: "",
+      apiSecret: "",
     });
   };
 
@@ -135,6 +157,14 @@ function IntegrationsPage() {
         data: {
           owner: config.owner.trim() || null,
           webhook: config.webhook.trim() || null,
+          accountId: config.accountId.trim() || null,
+          baseUrl: config.baseUrl.trim() || null,
+          environment: config.environment || null,
+          // Left blank means "don't change" — the backend never overwrites a saved
+          // key/secret when the field is absent, so there's no way to accidentally wipe
+          // a credential just by reopening this dialog and saving other fields.
+          apiKey: config.apiKey.trim() || undefined,
+          apiSecret: config.apiSecret.trim() || undefined,
         },
       },
       {
@@ -192,6 +222,23 @@ function IntegrationsPage() {
         description="Connect payment, messaging, identity, and government services to extend the platform."
         actions={<Button onClick={() => setTab("marketplace")} startIcon={<Plug className="h-4 w-4" />}>Browse marketplace</Button>}
       />
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Connected" value={connected.length} accent="primary" icon={<Plug className="h-4 w-4" />} />
+        <StatCard
+          label="Healthy"
+          value={connected.filter((i) => i.status !== "degraded").length}
+          accent="success"
+          icon={<CheckCircle2 className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Needs attention"
+          value={connected.filter((i) => i.status === "degraded").length}
+          accent={connected.some((i) => i.status === "degraded") ? "warning" : "success"}
+          icon={<AlertCircle className="h-4 w-4" />}
+        />
+        <StatCard label="Available in marketplace" value={marketplace.length} accent="accent" icon={<Settings2 className="h-4 w-4" />} />
+      </div>
 
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab value="installed" label="Installed" />
@@ -286,33 +333,104 @@ function IntegrationsPage() {
                 </div>
                 <Chip size="small" label={item.status === "degraded" ? "Attention" : "Healthy"} sx={badgeSx(item.status === "degraded" ? "warning" : "secondary")} />
               </div>
-              <div className="mt-4 rounded-lg bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                Owner: {item.owner || "Not configured"}<br />
-                Webhook: {item.webhook || "Not configured"}
+              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-lg bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                <span>Owner: {item.owner || "Not configured"}</span>
+                <span>Environment: {item.environment ?? "sandbox"}</span>
+                <span className="truncate">Webhook: {item.webhook || "Not configured"}</span>
+                <span className="truncate">Base URL: {item.baseUrl || "Not configured"}</span>
+                <span>API key: {item.hasApiKey ? item.apiKeyMasked : "Not configured"}</span>
+                <span>API secret: {item.hasApiSecret ? item.apiSecretMasked : "Not configured"}</span>
               </div>
             </div>
           ))}
         </Box>
       )}
 
-      <Dialog open={selectedCode !== null} onClose={() => setSelectedCode(null)} maxWidth="xs" fullWidth>
+      <Dialog open={selectedCode !== null} onClose={() => setSelectedCode(null)} maxWidth="sm" fullWidth>
         <DialogTitle>Configure {selected?.name ?? "integration"}</DialogTitle>
         <DialogContent>
-          <div className="grid gap-3">
-            <TextField
-              label="Integration owner"
-              value={config.owner}
-              onChange={(event) => setConfig({ ...config, owner: event.target.value })}
-              fullWidth
-              size="small"
-            />
-            <TextField
-              label="Webhook endpoint"
-              value={config.webhook}
-              onChange={(event) => setConfig({ ...config, webhook: event.target.value })}
-              fullWidth
-              size="small"
-            />
+          <div className="space-y-5">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Connection details</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  label="Integration owner"
+                  value={config.owner}
+                  onChange={(event) => setConfig({ ...config, owner: event.target.value })}
+                  placeholder="e.g. IT Team"
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  select
+                  label="Environment"
+                  value={config.environment}
+                  onChange={(event) => setConfig({ ...config, environment: event.target.value })}
+                  fullWidth
+                  size="small"
+                >
+                  <MenuItem value="sandbox">Sandbox / test</MenuItem>
+                  <MenuItem value="production">Production / live</MenuItem>
+                </TextField>
+                <TextField
+                  label="Account / merchant ID"
+                  value={config.accountId}
+                  onChange={(event) => setConfig({ ...config, accountId: event.target.value })}
+                  placeholder="As shown on the provider's dashboard"
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  label="API base URL"
+                  value={config.baseUrl}
+                  onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })}
+                  placeholder="https://api.provider.com"
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  className="sm:col-span-2"
+                  label="Webhook endpoint"
+                  value={config.webhook}
+                  onChange={(event) => setConfig({ ...config, webhook: event.target.value })}
+                  fullWidth
+                  size="small"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Credentials</p>
+              </div>
+              <div className="grid gap-3">
+                <TextField
+                  type="password"
+                  label="API key"
+                  value={config.apiKey}
+                  onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
+                  placeholder={selected?.hasApiKey ? `Currently set (${selected.apiKeyMasked}) — leave blank to keep it` : "Not set — paste the key from the provider"}
+                  fullWidth
+                  size="small"
+                />
+                <TextField
+                  type="password"
+                  label="API secret / client secret"
+                  value={config.apiSecret}
+                  onChange={(event) => setConfig({ ...config, apiSecret: event.target.value })}
+                  placeholder={selected?.hasApiSecret ? `Currently set (${selected.apiSecretMasked}) — leave blank to keep it` : "Not set — paste the secret from the provider"}
+                  fullWidth
+                  size="small"
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Stored encrypted. Never shown again in full after saving — only the last 4 characters, so you can confirm which key is on file.
+              </p>
+            </div>
           </div>
         </DialogContent>
         <DialogActions>
