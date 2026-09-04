@@ -27,6 +27,8 @@ function InventoryPage() {
 
   const [lowOnly, setLowOnly] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [tab, setTab] = useState("stock");
   const [form, setForm] = useState({
     code: "",
@@ -56,11 +58,10 @@ function InventoryPage() {
   const reorderMutation = useMutation({
     mutationFn: (item: any) => api.inventory.recordMovement(schoolId, {
       itemId: item.id,
-      itemCode: item.code ?? item.itemCode,
       itemName: item.name,
       movementType: "REORDER",
       quantity: item.min ?? item.reorderLevel ?? 10,
-      notes: "Reorder request triggered from stock register",
+      reason: "Reorder request triggered from stock register",
     }),
     onSuccess: (_: any, item: any) => {
       toast.success(`Reorder request logged for ${item.name}`);
@@ -97,9 +98,30 @@ function InventoryPage() {
     onError: () => toast.error("Failed to add item"),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.inventory.update(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inventory", schoolId] });
+      toast.success("Item updated");
+      setEditingItemId(null);
+      setAddOpen(false);
+    },
+    onError: () => toast.error("Failed to update item"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.inventory.delete(schoolId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inventory", schoolId] });
+      toast.success("Item removed from stock register");
+      setDeleteTarget(null);
+    },
+    onError: () => { toast.error("Failed to remove item"); setDeleteTarget(null); },
+  });
+
   const addItem = () => {
     if (!form.code.trim() || !form.name.trim()) { toast.error("Code and name are required"); return; }
-    createMutation.mutate({
+    const data = {
       itemCode: form.code.trim().toUpperCase(),
       name: form.name.trim(),
       category: form.category,
@@ -117,7 +139,26 @@ function InventoryPage() {
       expiryDate: form.expiryDate || null,
       warrantyExpiry: form.warrantyExpiry || null,
       assetTag: form.assetTag.trim() || null,
+    };
+    if (editingItemId) {
+      updateMutation.mutate({ id: editingItemId, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const openEditItem = (item: any) => {
+    setEditingItemId(item.id);
+    setForm({
+      code: item.itemCode ?? item.code ?? "", name: item.name ?? "", category: item.category ?? CATEGORIES[0],
+      qty: String(item.quantityInStock ?? item.qty ?? item.quantity ?? ""), min: String(item.reorderLevel ?? item.min ?? "10"),
+      unit: item.unit ?? "pcs", location: item.location ?? LOCATIONS[0], cost: String(item.unitCost ?? item.cost ?? ""),
+      lastRestockedDate: item.lastRestockedDate ?? new Date().toISOString().slice(0, 10),
+      status: item.status ?? "IN_STOCK", supplierName: item.supplierName ?? "", barcode: item.barcode ?? "",
+      serialNumber: item.serialNumber ?? "", condition: item.condition ?? "Good",
+      expiryDate: item.expiryDate ?? "", warrantyExpiry: item.warrantyExpiry ?? "", assetTag: item.assetTag ?? "",
     });
+    setAddOpen(true);
   };
 
   const stockItems = (itemsData as any[]).map((item: any) => ({
@@ -155,9 +196,9 @@ function InventoryPage() {
                 "Last Restocked": i.lastRestockedDate ?? "",
               })), `stock-take-${new Date().toISOString().slice(0, 10)}`);
             }}>Stock take</Button>
-            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setAddOpen(true)}>Add item</Button>
+            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditingItemId(null); setForm({ code: "", name: "", category: CATEGORIES[0], qty: "", min: "10", unit: "pcs", location: LOCATIONS[0], cost: "", lastRestockedDate: new Date().toISOString().slice(0, 10), status: "IN_STOCK", supplierName: "", barcode: "", serialNumber: "", condition: "Good", expiryDate: "", warrantyExpiry: "", assetTag: "" }); setAddOpen(true); }}>Add item</Button>
             <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="md" fullWidth>
-              <DialogTitle>Add stock item</DialogTitle>
+              <DialogTitle>{editingItemId ? "Edit stock item" : "Add stock item"}</DialogTitle>
               <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
@@ -327,9 +368,9 @@ function InventoryPage() {
               </DialogContent>
               <DialogActions className="mt-2">
                 <Button variant="outlined" color="inherit" onClick={() => setAddOpen(false)}>Cancel</Button>
-                <Button onClick={addItem} disabled={createMutation.isPending}>
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Add item
+                <Button onClick={addItem} disabled={createMutation.isPending || updateMutation.isPending}>
+                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingItemId ? "Save changes" : "Add item"}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -393,6 +434,8 @@ function InventoryPage() {
                         <Button size="small" variant="text" color="inherit" disabled={reorderMutation.isPending} onClick={() => reorderMutation.mutate(i)}>
                           Reorder
                         </Button>
+                        <Button size="small" variant="text" color="inherit" onClick={() => openEditItem(i)}>Edit</Button>
+                        <Button size="small" variant="text" color="error" onClick={() => setDeleteTarget(i)}>Delete</Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -439,6 +482,21 @@ function InventoryPage() {
         </Box>
       )}
       </Box>
+
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove this item?</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-muted-foreground">
+            <strong>{deleteTarget?.name}</strong> will be removed from the stock register. This cannot be undone.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={deleteMutation.isPending} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button variant="contained" color="error" disabled={deleteMutation.isPending} onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>
+            {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
     </AccessGuard>
   );

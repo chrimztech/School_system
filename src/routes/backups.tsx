@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   HardDrive, Download, ShieldAlert, Loader2, RotateCcw, Trash2, CheckCircle2, XCircle, Clock, Upload,
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
+import { useNotifications } from "@/lib/notifications";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { downloadCsv, badgeSx } from "@/lib/utils";
@@ -22,6 +23,21 @@ export const Route = createFileRoute("/backups")({
 const ADMIN_ROLES = new Set(["super_admin", "school_admin", "principal", "deputy_head"]);
 
 type ExportItem = { id: string; scope: string; rows: number; when: string; dataset: string };
+
+const EXPORT_DATASETS = ["Student register", "Fee ledger", "Attendance archive", "Audit log"] as const;
+
+function exportsStorageKey(schoolId: string) {
+  return `srms-backup-exports:${schoolId}`;
+}
+
+function loadStoredExports(schoolId: string): ExportItem[] {
+  try {
+    const raw = localStorage.getItem(exportsStorageKey(schoolId));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
 
 function formatBytes(bytes: number) {
   if (!bytes) return "0 B";
@@ -44,13 +60,26 @@ function BackupsPage() {
   const { user } = useAuth();
   const { active } = useTenant();
   const schoolId = active.id;
+  const { push } = useNotifications();
   const qc = useQueryClient();
 
   const [tab, setTab] = useState("snapshots");
-  const [exports, setExports] = useState<ExportItem[]>([]);
+  const [exports, setExports] = useState<ExportItem[]>(() => loadStoredExports(schoolId));
   const [downloading, setDownloading] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [exportForm, setExportForm] = useState({ dataset: "Student register", format: "CSV", rows: "842" });
+  const [queuingExport, setQueuingExport] = useState(false);
+  const [exportForm, setExportForm] = useState({ dataset: "Student register", format: "CSV" });
+
+  // Per-browser convenience list of recent ad-hoc exports — not backend-tracked (each export is
+  // just a CSV built on demand from live data), so this is the honest scope: it survives a
+  // reload on this device, not a record other admins or other devices can see.
+  useEffect(() => {
+    try {
+      localStorage.setItem(exportsStorageKey(schoolId), JSON.stringify(exports));
+    } catch {
+      // best-effort — private browsing / storage-full shouldn't break the page
+    }
+  }, [exports, schoolId]);
   const [restoreTarget, setRestoreTarget] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -65,6 +94,30 @@ function BackupsPage() {
     refetchInterval: (query) =>
       (query.state.data as any[] | undefined)?.some((b) => b.status === "IN_PROGRESS") ? 3000 : false,
   });
+
+  // The 3s poll above already exists for the in-progress spinner — reuse it to notice when a
+  // backup finishes, rather than requiring the admin to keep this tab open and watch it happen.
+  const seenInProgressRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const b of backups as any[]) {
+      if (b.status === "IN_PROGRESS") {
+        seenInProgressRef.current.add(b.id);
+        continue;
+      }
+      if (!seenInProgressRef.current.has(b.id)) continue;
+      seenInProgressRef.current.delete(b.id);
+      if (b.status === "COMPLETED") {
+        push({
+          title: "Backup completed",
+          body: `${formatBytes(b.sizeBytes)} · ${b.tableCount} tables · ${Number(b.rowCount).toLocaleString()} rows`,
+          module: "Backups",
+          severity: "success",
+        });
+      } else if (b.status === "FAILED") {
+        push({ title: "Backup failed", body: b.errorMessage ?? "The backup did not complete successfully", module: "Backups", severity: "critical" });
+      }
+    }
+  }, [backups, push]);
 
   const createMut = useMutation({
     mutationFn: () => api.backup.create(schoolId),
@@ -131,19 +184,70 @@ function BackupsPage() {
     }
   };
 
-  const queueExport = () => {
-    const rows = Number(exportForm.rows);
-    if (!Number.isFinite(rows) || rows <= 0) {
-      toast.error("Rows must be a positive number");
-      return;
+  // Single source of truth for what a dataset actually contains, used both to show a real count
+  // when queuing an export and to build the CSV on download — keeping these on one code path
+  // means the count shown can never drift from what actually downloads.
+  const fetchDatasetRows = async (dataset: string): Promise<Record<string, unknown>[]> => {
+    if (dataset === "Student register") {
+      const data = await api.students.list(schoolId);
+      return (data as any[]).map((s) => ({
+        "ID": s.id, "First Name": s.firstName || "", "Last Name": s.lastName || "",
+        "Class": s.className || s.class || s.currentClass || "",
+        "Gender": s.gender || "", "Date of Birth": s.dateOfBirth || "",
+        "Guardian Name": s.guardianName || s.parentName || "",
+        "Guardian Phone": s.guardianPhone || s.parentPhone || "",
+        "Status": s.status || "active",
+      }));
     }
-    setExports((prev) => [
-      { id: `e${prev.length + 1}`, scope: `${exportForm.dataset} (${exportForm.format})`, rows, when: "Ready", dataset: exportForm.dataset },
-      ...prev,
-    ]);
-    toast.success(`${exportForm.dataset} export ready — click Download`);
-    setExportForm({ dataset: "Student register", format: "CSV", rows: "842" });
-    setExportOpen(false);
+    if (dataset === "Fee ledger") {
+      const data = await api.fees.payments(schoolId);
+      return (data as any[]).map((p) => ({
+        "ID": p.id, "Student": p.studentName || p.student || "",
+        "Amount": p.amount || 0, "Type": p.feeType || p.type || "",
+        "Date": p.paidDate || p.date || "", "Method": p.paymentMethod || p.method || "",
+        "Reference": p.reference || p.receiptNo || "", "Status": p.status || "",
+      }));
+    }
+    if (dataset === "Attendance archive") {
+      const data = await api.attendance.list(schoolId);
+      return (data as any[]).map((r) => ({
+        "Date": r.date || "", "Student": r.studentName || r.student || "",
+        "Class": r.className || r.class || "", "Status": r.status || "",
+        "Remarks": r.remarks || "",
+      }));
+    }
+    if (dataset === "Audit log") {
+      const data = await api.audit.list(schoolId);
+      return (data as any[]).map((a) => ({
+        "ID": a.id, "Action": a.action || a.title || "",
+        "User": a.actor || a.user || a.performedBy || "",
+        "Date": a.createdAt || a.date || "",
+        "Details": a.target || a.details || a.description || "",
+      }));
+    }
+    return [];
+  };
+
+  const queueExport = async () => {
+    setQueuingExport(true);
+    try {
+      const rows = await fetchDatasetRows(exportForm.dataset);
+      if (rows.length === 0) {
+        toast.info("No records found for this dataset");
+        return;
+      }
+      setExports((prev) => [
+        { id: `e${Date.now().toString(36)}`, scope: `${exportForm.dataset} (${exportForm.format})`, rows: rows.length, when: new Date().toLocaleString(), dataset: exportForm.dataset },
+        ...prev,
+      ]);
+      toast.success(`${exportForm.dataset} export ready — ${rows.length} records`);
+      setExportForm({ dataset: "Student register", format: "CSV" });
+      setExportOpen(false);
+    } catch {
+      toast.error("Could not prepare export — please try again");
+    } finally {
+      setQueuingExport(false);
+    }
   };
 
   const handleDownload = async (item: ExportItem) => {
@@ -151,43 +255,7 @@ function BackupsPage() {
     const date = new Date().toISOString().slice(0, 10);
     const fname = `${item.dataset.toLowerCase().replace(/\s+/g, "-")}-${date}`;
     try {
-      let rows: Record<string, unknown>[] = [];
-
-      if (item.dataset === "Student register") {
-        const data = await api.students.list(schoolId);
-        rows = (data as any[]).map((s) => ({
-          "ID": s.id, "First Name": s.firstName || "", "Last Name": s.lastName || "",
-          "Class": s.className || s.class || s.currentClass || "",
-          "Gender": s.gender || "", "Date of Birth": s.dateOfBirth || "",
-          "Guardian Name": s.guardianName || s.parentName || "",
-          "Guardian Phone": s.guardianPhone || s.parentPhone || "",
-          "Status": s.status || "active",
-        }));
-      } else if (item.dataset === "Fee ledger") {
-        const data = await api.fees.payments(schoolId);
-        rows = (data as any[]).map((p) => ({
-          "ID": p.id, "Student": p.studentName || p.student || "",
-          "Amount": p.amount || 0, "Type": p.feeType || p.type || "",
-          "Date": p.paidDate || p.date || "", "Method": p.paymentMethod || p.method || "",
-          "Reference": p.reference || p.receiptNo || "", "Status": p.status || "",
-        }));
-      } else if (item.dataset === "Attendance archive") {
-        const data = await api.attendance.list(schoolId);
-        rows = (data as any[]).map((r) => ({
-          "Date": r.date || "", "Student": r.studentName || r.student || "",
-          "Class": r.className || r.class || "", "Status": r.status || "",
-          "Remarks": r.remarks || "",
-        }));
-      } else if (item.dataset === "Audit log") {
-        const data = await api.audit.list(schoolId);
-        rows = (data as any[]).map((a) => ({
-          "ID": a.id, "Action": a.action || a.title || "",
-          "User": a.actor || a.user || a.performedBy || "",
-          "Date": a.createdAt || a.date || "",
-          "Details": a.target || a.details || a.description || "",
-        }));
-      }
-
+      const rows = await fetchDatasetRows(item.dataset);
       if (rows.length === 0) {
         toast.info("No records found for this dataset");
         return;
@@ -412,7 +480,7 @@ function BackupsPage() {
               fullWidth
               size="small"
             >
-              {["Student register", "Fee ledger", "Attendance archive", "Audit log"].map((dataset) => (
+              {EXPORT_DATASETS.map((dataset) => (
                 <MenuItem key={dataset} value={dataset}>{dataset}</MenuItem>
               ))}
             </TextField>
@@ -428,20 +496,19 @@ function BackupsPage() {
                 <MenuItem key={format} value={format}>{format}</MenuItem>
               ))}
             </TextField>
-            <TextField
-              label="Estimated rows"
-              type="number"
-              slotProps={{ htmlInput: { min: 1 } }}
-              value={exportForm.rows}
-              onChange={(event) => setExportForm({ ...exportForm, rows: event.target.value })}
-              fullWidth
-              size="small"
-            />
+            <p className="text-xs text-muted-foreground">Row count is read from live data when you queue the export — no need to estimate it.</p>
           </div>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" color="inherit" onClick={() => setExportOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={queueExport}>Queue export</Button>
+          <Button variant="outlined" color="inherit" disabled={queuingExport} onClick={() => setExportOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={queuingExport}
+            startIcon={queuingExport ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+            onClick={queueExport}
+          >
+            Queue export
+          </Button>
         </DialogActions>
       </Dialog>
 

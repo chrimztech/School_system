@@ -148,6 +148,16 @@ function SysAdminPage() {
   const [showFeatures, setShowFeatures] = useState(false);
   const [tab, setTab] = useState("schools");
 
+  const filtered = useMemo(() => {
+    const lq = q.toLowerCase();
+    return tenants.filter(
+      (t) => !lq || t.name.toLowerCase().includes(lq) ||
+        t.district.toLowerCase().includes(lq) ||
+        t.shortCode.toLowerCase().includes(lq) ||
+        t.campuses.some((campus) => campus.name.toLowerCase().includes(lq)),
+    );
+  }, [tenants, q]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
@@ -167,16 +177,6 @@ function SysAdminPage() {
     .filter((t) => t.subscription.status === "active")
     .reduce((s, t) => s + t.subscription.amount, 0);
   const pastDue = tenants.filter((t) => t.subscription.status === "past_due").length;
-
-  const filtered = useMemo(() => {
-    const lq = q.toLowerCase();
-    return tenants.filter(
-      (t) => !lq || t.name.toLowerCase().includes(lq) ||
-        t.district.toLowerCase().includes(lq) ||
-        t.shortCode.toLowerCase().includes(lq) ||
-        t.campuses.some((campus) => campus.name.toLowerCase().includes(lq)),
-    );
-  }, [tenants, q]);
 
   const openEdit = (id: string) => {
     const t = tenants.find((x) => x.id === id);

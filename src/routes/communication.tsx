@@ -1,5 +1,5 @@
 import { createFileRoute, useRouterState } from "@tanstack/react-router";
-import { Send, MessageSquare, Phone, Loader2, Plus, ChevronDown, ChevronUp, CheckCheck, X, Trash2 } from "lucide-react";
+import { Send, MessageSquare, Phone, Loader2, Plus, ChevronDown, ChevronUp, CheckCheck, X, Trash2, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, D
 import { badgeSx } from "@/lib/utils";
 import { useTenant, gradeFormLabels } from "@/lib/tenant";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
+import { useNotifications } from "@/lib/notifications";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/communication")({
@@ -64,6 +65,7 @@ function CommunicationPage() {
   // messages) can't also mass-broadcast to the whole school.
   const canCreateAnnouncements = isSchoolLeadershipRole(user?.role);
   const qc = useQueryClient();
+  const { push } = useNotifications();
 
   const hash = useRouterState({ select: (s) => s.location.hash });
   const [tab, setTab] = useState("messages");
@@ -90,6 +92,8 @@ function CommunicationPage() {
   const [annoOpen, setAnnoOpen] = useState(false);
   const [annoForm, setAnnoForm] = useState({ title: "", body: "", audience: "All" });
   const [annoChannels, setAnnoChannels] = useState<string[]>(["SMS"]);
+  const [annoPriority, setAnnoPriority] = useState("Normal");
+  const [editingAnnId, setEditingAnnId] = useState<string | null>(null);
 
   useEffect(() => {
     const next = hash === "#broadcast" || hash === "broadcast" ? "broadcast"
@@ -145,11 +149,24 @@ function CommunicationPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["announcements", schoolId] });
       toast.success("Announcement published");
+      push({ title: "Announcement published", body: annoForm.title, module: "Communication", severity: "info" });
       setAnnoForm({ title: "", body: "", audience: "All" });
       setAnnoChannels(["SMS"]);
+      setAnnoPriority("Normal");
       setAnnoOpen(false);
     },
     onError: () => toast.error("Failed to publish announcement"),
+  });
+
+  const updateAnnouncementMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.communication.updateAnnouncement(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["announcements", schoolId] });
+      toast.success("Announcement updated");
+      setEditingAnnId(null);
+      setAnnoOpen(false);
+    },
+    onError: () => toast.error("Failed to update announcement"),
   });
 
   const deleteAnnouncementMutation = useMutation({
@@ -165,11 +182,11 @@ function CommunicationPage() {
     mutationFn: (data: any) => api.communication.createAnnouncement(schoolId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["announcements", schoolId] });
-      toast.success(
-        broadcastScheduled
-          ? `Broadcast scheduled for ${new Date(broadcastScheduled).toLocaleString()} · ${broadcastChannels.join(", ")} → ${broadcastRecipients}`
-          : `Broadcast sent via ${broadcastChannels.join(", ")} to ${broadcastRecipients}`
-      );
+      const summary = broadcastScheduled
+        ? `Broadcast scheduled for ${new Date(broadcastScheduled).toLocaleString()} · ${broadcastChannels.join(", ")} → ${broadcastRecipients}`
+        : `Broadcast sent via ${broadcastChannels.join(", ")} to ${broadcastRecipients}`;
+      toast.success(summary);
+      push({ title: broadcastScheduled ? "Broadcast scheduled" : "Broadcast sent", body: summary, module: "Communication", severity: "info" });
       setBroadcastSubject("");
       setBroadcastBody("");
       setBroadcastScheduled("");
@@ -198,15 +215,40 @@ function CommunicationPage() {
   const createAnnouncement = () => {
     if (!annoForm.title.trim() || !annoForm.body.trim()) { toast.error("Title and message are required"); return; }
     if (annoChannels.length === 0) { toast.error("Select at least one channel"); return; }
+    if (editingAnnId) {
+      updateAnnouncementMutation.mutate({
+        id: editingAnnId,
+        data: {
+          title: annoForm.title.trim(),
+          body: annoForm.body.trim(),
+          audience: annoForm.audience,
+          channels: annoChannels.join(", "),
+          priority: annoPriority,
+        },
+      });
+      return;
+    }
     createAnnouncementMutation.mutate({
       title: annoForm.title.trim(),
       body: annoForm.body.trim(),
       audience: annoForm.audience,
       channels: annoChannels.join(", "),
+      priority: annoPriority,
       publishDate: new Date().toISOString().slice(0, 10),
       createdBy: user?.name ?? user?.email ?? "Staff",
       active: true,
     });
+  };
+
+  const openEditAnnouncement = (ann: any) => {
+    setEditingAnnId(ann.id);
+    setAnnoForm({ title: ann.title ?? "", body: ann.body ?? "", audience: ann.audience ?? "All" });
+    const channelList: string[] = typeof ann.channels === "string"
+      ? ann.channels.split(",").map((c: string) => c.trim()).filter(Boolean)
+      : ann.channels ?? ["SMS"];
+    setAnnoChannels(channelList);
+    setAnnoPriority(ann.priority ?? "Normal");
+    setAnnoOpen(true);
   };
 
   const toggleChannel = (channel: string) =>
@@ -364,9 +406,9 @@ function CommunicationPage() {
           <div className="flex justify-end">
             {canCreateAnnouncements && (
               <>
-                <Button variant="contained" size="small" startIcon={<Plus className="h-4 w-4" />} onClick={() => setAnnoOpen(true)}>New announcement</Button>
+                <Button variant="contained" size="small" startIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditingAnnId(null); setAnnoForm({ title: "", body: "", audience: "All" }); setAnnoChannels(["SMS"]); setAnnoPriority("Normal"); setAnnoOpen(true); }}>New announcement</Button>
                 <Dialog open={annoOpen} onClose={() => setAnnoOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Create announcement</DialogTitle>
+                <DialogTitle>{editingAnnId ? "Edit announcement" : "Create announcement"}</DialogTitle>
                 <DialogContent>
                   <div className="grid gap-3">
                     <TextField
@@ -387,6 +429,17 @@ function CommunicationPage() {
                       size="small"
                     >
                       {audiencesForType(active.type).map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                    </TextField>
+                    <TextField
+                      select
+                      label="Priority"
+                      value={annoPriority}
+                      onChange={(e) => setAnnoPriority(e.target.value)}
+                      helperText="Urgent/Emergency lead the SMS with the severity word and add an urgent-notice banner to the email"
+                      fullWidth
+                      size="small"
+                    >
+                      {["Normal", "Urgent", "Emergency"].map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                     </TextField>
                     <div>
                       <p className="text-xs font-medium uppercase text-muted-foreground">Channels</p>
@@ -426,9 +479,9 @@ function CommunicationPage() {
                 </DialogContent>
                 <DialogActions>
                   <Button variant="outlined" color="inherit" onClick={() => setAnnoOpen(false)}>Cancel</Button>
-                  <Button variant="contained" onClick={createAnnouncement} disabled={createAnnouncementMutation.isPending || annoChannels.length === 0}>
-                    {createAnnouncementMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Publish
+                  <Button variant="contained" onClick={createAnnouncement} disabled={createAnnouncementMutation.isPending || updateAnnouncementMutation.isPending || annoChannels.length === 0}>
+                    {(createAnnouncementMutation.isPending || updateAnnouncementMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {editingAnnId ? "Save changes" : "Publish"}
                   </Button>
                 </DialogActions>
                 </Dialog>
@@ -472,15 +525,25 @@ function CommunicationPage() {
                       </div>
                     </div>
                     {canCreateAnnouncements && (
-                      <IconButton
-                        size="small"
-                        aria-label="Delete announcement"
-                        sx={{ flexShrink: 0, color: "text.secondary", "&:hover": { color: "error.main" } }}
-                        onClick={() => deleteAnnouncementMutation.mutate(ann.id)}
-                        disabled={deleteAnnouncementMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </IconButton>
+                      <div className="flex flex-shrink-0 items-center gap-1">
+                        <IconButton
+                          size="small"
+                          aria-label="Edit announcement"
+                          sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
+                          onClick={() => openEditAnnouncement(ann)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          aria-label="Delete announcement"
+                          sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
+                          onClick={() => deleteAnnouncementMutation.mutate(ann.id)}
+                          disabled={deleteAnnouncementMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </IconButton>
+                      </div>
                     )}
                   </div>
                   {channelList.length > 0 && (

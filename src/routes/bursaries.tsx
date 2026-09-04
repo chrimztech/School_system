@@ -30,6 +30,7 @@ function BursariesPage() {
   const gradeOptions = gradeFormLabels(active.type);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingAwardId, setEditingAwardId] = useState<string | null>(null);
   const [tab, setTab] = useState("awards");
   const [form, setForm] = useState({
     student: "",
@@ -94,6 +95,24 @@ function BursariesPage() {
     },
     onError: () => toast.error("Failed to create award"),
   });
+  const updateAwardMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.bursaries.update(schoolId, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bursaries", schoolId] });
+      toast.success("Award updated");
+      setEditingAwardId(null);
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to update award"),
+  });
+  const createRenewalMutation = useMutation({
+    mutationFn: (data: any) => api.bursaries.createRenewal(schoolId, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bursary-renewals", schoolId] });
+      toast.success("Renewal review created");
+    },
+    onError: () => toast.error("Failed to create renewal review"),
+  });
   const updateApplicationMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ApplicationStatus }) =>
       api.bursaries.updateApplication(schoolId, id, { status }),
@@ -134,7 +153,7 @@ function BursariesPage() {
   const createAward = () => {
     const amount = Number(form.amount);
     if (!form.student.trim() || !Number.isFinite(amount) || amount <= 0) { toast.error("Student and a valid annual amount are required"); return; }
-    createAwardMutation.mutate({
+    const data = {
       student: form.student.trim(),
       grade: form.grade,
       sponsor: form.sponsor,
@@ -148,6 +167,31 @@ function BursariesPage() {
       sponsorshipAgreementRef: form.sponsorshipAgreementRef.trim() || null,
       disbursementSchedule: form.disbursementSchedule,
       performanceConditions: form.performanceConditions.trim() || null,
+    };
+    if (editingAwardId) {
+      updateAwardMutation.mutate({ id: editingAwardId, data });
+    } else {
+      createAwardMutation.mutate(data);
+    }
+  };
+
+  const openEditAward = (a: any) => {
+    setEditingAwardId(a.id);
+    setForm({
+      student: a.student ?? "", grade: a.grade ?? gradeOptions[0], sponsor: a.sponsor ?? "Board bursary fund",
+      coverage: a.coverage ?? "50% tuition", amount: String(a.amount ?? ""), status: a.status ?? "Active",
+      household: a.household ?? "", reason: a.applicationReason ?? a.reason ?? "",
+      startDate: a.startDate ?? new Date().toISOString().slice(0, 10), endDate: a.endDate ?? "",
+      sponsorshipAgreementRef: a.sponsorshipAgreementRef ?? "", disbursementSchedule: a.disbursementSchedule ?? "Per term",
+      performanceConditions: a.performanceConditions ?? "",
+    });
+    setOpen(true);
+  };
+
+  const createRenewalReview = (a: any) => {
+    createRenewalMutation.mutate({
+      student: a.student, sponsor: a.sponsor, status: "Due",
+      reviewDate: new Date().toISOString().slice(0, 10),
     });
   };
 
@@ -165,9 +209,9 @@ function BursariesPage() {
         actions={
           <>
             <Button component={Link} to="/fee-structure" variant="outlined">Fee rules</Button>
-            <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Create award</Button>
+            <Button startIcon={<Plus size={16} />} onClick={() => { setEditingAwardId(null); setOpen(true); }}>Create award</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle>Create bursary award</DialogTitle>
+                <DialogTitle>{editingAwardId ? "Edit bursary award" : "Create bursary award"}</DialogTitle>
                 <DialogContent>
                 <div className="grid gap-3">
                   <div>
@@ -311,7 +355,7 @@ function BursariesPage() {
                 </DialogContent>
                 <DialogActions>
                   <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={createAward} disabled={createAwardMutation.isPending}>Create award</Button>
+                  <Button onClick={createAward} disabled={createAwardMutation.isPending || updateAwardMutation.isPending}>{editingAwardId ? "Save changes" : "Create award"}</Button>
                 </DialogActions>
             </Dialog>
           </>
@@ -342,13 +386,14 @@ function BursariesPage() {
                 <TableCell>Coverage</TableCell>
                 <TableCell>Annual value</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {awardsLoading ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading awards...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading awards...</TableCell></TableRow>
               ) : awards.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No bursary awards found in the database.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No bursary awards found in the database.</TableCell></TableRow>
               ) : awards.map((a: any) => (
                 <TableRow key={a.id}>
                   <TableCell>
@@ -363,6 +408,12 @@ function BursariesPage() {
                   <TableCell>K {Number(a.amount).toLocaleString()}</TableCell>
                   <TableCell>
                     <Chip size="small" label={a.status} sx={badgeSx(a.status === "Active" ? "secondary" : a.status === "Pending renewal" ? "warning" : "outline")} />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button size="small" variant="text" color="inherit" onClick={() => openEditAward(a)}>Edit</Button>
+                    <Button size="small" variant="text" color="inherit" disabled={createRenewalMutation.isPending} onClick={() => createRenewalReview(a)}>
+                      Start renewal review
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

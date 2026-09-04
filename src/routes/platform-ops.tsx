@@ -91,17 +91,6 @@ function PlatformOpsPage() {
   const incidents = (workspace?.opsIncidents ?? []) as Incident[];
   const releases = (workspace?.releases ?? []) as Release[];
 
-  if (user?.role !== "super_admin") {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
-      </div>
-    );
-  }
-
   const stats = useMemo(() => {
     const healthyServices = services.filter((service) => service.status === "healthy").length;
     const blockedQueues = queues.filter((queue) => queue.status === "blocked").length;
@@ -117,6 +106,17 @@ function PlatformOpsPage() {
       uptime,
     };
   }, [incidents, queues, releases, services]);
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
+      </div>
+    );
+  }
 
   const runHealthSweep = () => {
     const nextServices = services.map((service) => ({

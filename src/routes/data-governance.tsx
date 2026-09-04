@@ -68,6 +68,13 @@ function DataGovernancePage() {
     [key: string]: unknown;
   };
 
+  const stats = useMemo(() => ({
+    openRequests: requests.filter((request) => request.status !== "Completed").length,
+    activeExports: exports.filter((job) => job.status !== "Ready").length,
+    archivedDomains: retention.filter((rule) => rule.archive).length,
+    legalHolds: retention.filter((rule) => rule.legalHold).length,
+  }), [exports, requests, retention]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -78,13 +85,6 @@ function DataGovernancePage() {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    openRequests: requests.filter((request) => request.status !== "Completed").length,
-    activeExports: exports.filter((job) => job.status !== "Ready").length,
-    archivedDomains: retention.filter((rule) => rule.archive).length,
-    legalHolds: retention.filter((rule) => rule.legalHold).length,
-  }), [exports, requests, retention]);
 
   const advanceRequest = (requestId: string) => {
     const request = requests.find((entry) => entry.id === requestId);

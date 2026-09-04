@@ -42,6 +42,12 @@ function PlatformAuditPage() {
   const saveWorkspace = useSavePlatformWorkspace();
   const events = (workspace?.platformAuditEvents ?? []) as AuditEvent[];
 
+  const filtered = useMemo(() => events.filter((event) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return [event.actor, event.tenant, event.area, event.action, event.id].some((value) => value.toLowerCase().includes(q));
+  }), [events, query]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -52,12 +58,6 @@ function PlatformAuditPage() {
       </div>
     );
   }
-
-  const filtered = useMemo(() => events.filter((event) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return [event.actor, event.tenant, event.area, event.action, event.id].some((value) => value.toLowerCase().includes(q));
-  }), [events, query]);
 
   const acknowledge = (id: string) => {
     const event = events.find((item) => item.id === id);

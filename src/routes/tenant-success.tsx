@@ -83,17 +83,6 @@ function TenantSuccessPage() {
   const overrides = (workspace?.tenantSuccessOverrides ?? {}) as Record<string, SuccessOverride>;
   const [tab, setTab] = useState("portfolio");
 
-  if (user?.role !== "super_admin") {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
-      </div>
-    );
-  }
-
   const portfolio = useMemo(() => tenants.map((tenant, index) => {
     const override = overrides[tenant.id] ?? {};
     const learnerLoad = tenant.totalStudents / tenant.subscription.learnerLimit;
@@ -142,6 +131,17 @@ function TenantSuccessPage() {
       PLAN_CATALOG[record.tenant.subscription.planId].name,
     ].some((value) => value.toLowerCase().includes(q));
   }), [overrides, query, tenants]);
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
+      </div>
+    );
+  }
 
   const atRisk = portfolio.filter((record) => record.risk === "High").length;
   const renewingSoon = portfolio.filter((record) => record.daysToRenewal <= 45).length;

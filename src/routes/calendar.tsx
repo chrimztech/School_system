@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
+import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
@@ -79,6 +79,7 @@ function CalendarPage() {
   const [month, setMonth] = useState(4);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(() => createForm(2026, 4));
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   const { data: events = [] } = useQuery({
     queryKey: ["calendar", active.id],
@@ -102,6 +103,16 @@ function CalendarPage() {
       setOpen(false);
     },
     onError: () => toast.error("Failed to add event"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.calendar.delete(active.id, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["calendar", active.id] });
+      toast.success("Event removed");
+      setDeleteTarget(null);
+    },
+    onError: () => { toast.error("Failed to remove event"); setDeleteTarget(null); },
   });
 
   const addEvent = () => {
@@ -377,6 +388,11 @@ function CalendarPage() {
                       {[timeLabel, venueLabel, audienceLabel].filter(Boolean).join(" - ")}
                     </div>
                   </div>
+                  {event.id && (
+                    <IconButton size="small" aria-label={`Delete ${event.title}`} sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }} onClick={() => setDeleteTarget(event)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </IconButton>
+                  )}
                 </li>
               );
             })}
@@ -384,6 +400,19 @@ function CalendarPage() {
           </ul>
         </div>
       </div>
+
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove this event?</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-muted-foreground">
+            <strong>"{deleteTarget?.title}"</strong> will be removed from the calendar. This cannot be undone.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={deleteMut.isPending} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button variant="contained" color="error" disabled={deleteMut.isPending} onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}>Delete</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

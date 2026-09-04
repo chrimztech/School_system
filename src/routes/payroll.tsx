@@ -10,6 +10,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
+import { useNotifications } from "@/lib/notifications";
 
 export const Route = createFileRoute("/payroll")({
   head: () => ({ meta: [{ title: "Payroll — SRMS" }] }),
@@ -54,6 +55,7 @@ function PayrollPage() {
   const { active } = useTenant();
   const schoolId = active.id;
   const qc = useQueryClient();
+  const { push } = useNotifications();
 
   const [tab, setTab] = useState("staff");
   const [openHire, setOpenHire] = useState(false);
@@ -78,13 +80,24 @@ function PayrollPage() {
 
   const createRunMutation = useMutation({
     mutationFn: (data: any) => api.payroll.createRun(schoolId, data),
-    onSuccess: (r: any) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["payroll-runs", schoolId] });
-      toast.success(`Payroll run ${r.id ?? ""} created — review and post to GL`);
+      toast.success("Payroll run created — click Process to compute payslips");
       setOpenRun(false);
       setTab("runs");
     },
     onError: () => toast.error("Failed to create payroll run"),
+  });
+
+  const processRunMutation = useMutation({
+    mutationFn: (runId: string) => api.payroll.processRun(schoolId, runId),
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ["payroll-runs", schoolId] });
+      const msg = `${r.staffCount ?? 0} staff processed · ${k(Number(r.totalNet ?? 0))} total net`;
+      toast.success(`Payroll run processed — ${msg}`);
+      push({ title: "Payroll run processed", body: msg, module: "Payroll", severity: "success" });
+    },
+    onError: () => toast.error("Failed to process payroll run"),
   });
 
   const addStaffMutation = useMutation({
@@ -145,33 +158,32 @@ function PayrollPage() {
   };
 
   const runPayroll = () => {
-    const period = new Date().toLocaleString("en", { month: "long", year: "numeric" });
-    createRunMutation.mutate({
-      period,
-      employees: activeStaff.length,
-      gross: monthly.gross,
-      net: monthly.net,
-      paye: monthly.paye,
-      napsa: monthly.napsa,
-      nhima: monthly.nhima,
-      status: "Draft",
-    });
+    const now = new Date();
+    createRunMutation.mutate({ month: now.getMonth() + 1, year: now.getFullYear() });
+  };
+
+  // StaffRecord.ContractType only has these three values on the backend — map the friendly
+  // dropdown label to the exact enum name Jackson needs, or creation 500s on an unrecognized
+  // string.
+  const CONTRACT_TYPE_TO_ENUM: Record<string, string> = {
+    "Permanent": "PERMANENT",
+    "Contract": "CONTRACT",
+    "Part-time": "PART_TIME",
   };
 
   const addStaff = (form: HTMLFormElement) => {
     const fd = new FormData(form);
     addStaffMutation.mutate({
       name: String(fd.get("name") || ""),
-      role: String(fd.get("role") || ""),
+      position: String(fd.get("role") || ""),
       department: String(fd.get("dept") || ""),
-      basicSalary: Number(fd.get("basic") || 0),
-      allowances: Number(fd.get("allow") || 0),
-      bank: String(fd.get("bank") || ""),
-      nrc: String(fd.get("nrc") || ""),
+      salary: Number(fd.get("basic") || 0),
+      bankName: String(fd.get("bank") || ""),
+      nationalId: String(fd.get("nrc") || ""),
       tpin: String(fd.get("tpin") || ""),
       gender: String(fd.get("gender") || "Male"),
-      contractType: String(fd.get("contractType") || "Permanent"),
-      dateJoined: String(fd.get("dateJoined") || ""),
+      contractType: CONTRACT_TYPE_TO_ENUM[String(fd.get("contractType") || "Permanent")] ?? "PERMANENT",
+      hireDate: String(fd.get("dateJoined") || ""),
       paymentMethod: String(fd.get("paymentMethod") || "Bank transfer"),
       accountNumber: String(fd.get("accountNumber") || ""),
       napsaEnrolled: String(fd.get("napsaEnrolled") || "yes") === "yes",
@@ -218,7 +230,7 @@ function PayrollPage() {
                       : deptNames.map((d: string) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                   </TextField>
                   <TextField select name="contractType" label="Contract type" defaultValue="Permanent" fullWidth size="small">
-                    {["Permanent", "Fixed-term", "Casual", "Temporary", "Volunteer"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                    {["Permanent", "Contract", "Part-time"].map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                   </TextField>
                   <TextField
                     name="dateJoined"
@@ -259,21 +271,23 @@ function PayrollPage() {
               <DialogTitle>Run payroll</DialogTitle>
               <DialogContent>
                 <p className="text-sm text-muted-foreground">
-                  This will calculate payslips for {activeStaff.length} active employees
-                  using current ZRA PAYE bands, NAPSA (5% capped at K{NAPSA_CAP.toLocaleString()}) and NHIMA (1%).
+                  This creates a draft run for {new Date().toLocaleString("en", { month: "long", year: "numeric" })} covering
+                  {" "}{activeStaff.length} active employees. Nothing is calculated yet — review the draft in the Runs tab, then click
+                  {" "}Process to compute payslips using current ZRA PAYE bands, NAPSA (5% capped at K{NAPSA_CAP.toLocaleString()}) and NHIMA (1%).
                 </p>
+                <p className="text-xs text-muted-foreground">Estimated at today's staff records — actual figures are computed at processing time.</p>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div><dt className="text-muted-foreground">Gross</dt><dd className="font-mono font-semibold">{k(monthly.gross)}</dd></div>
-                  <div><dt className="text-muted-foreground">Net pay</dt><dd className="font-mono font-semibold">{k(monthly.net)}</dd></div>
-                  <div><dt className="text-muted-foreground">PAYE</dt><dd className="font-mono">{k(monthly.paye)}</dd></div>
-                  <div><dt className="text-muted-foreground">NAPSA</dt><dd className="font-mono">{k(monthly.napsa)}</dd></div>
-                  <div><dt className="text-muted-foreground">NHIMA</dt><dd className="font-mono">{k(monthly.nhima)}</dd></div>
+                  <div><dt className="text-muted-foreground">Est. gross</dt><dd className="font-mono font-semibold">{k(monthly.gross)}</dd></div>
+                  <div><dt className="text-muted-foreground">Est. net pay</dt><dd className="font-mono font-semibold">{k(monthly.net)}</dd></div>
+                  <div><dt className="text-muted-foreground">Est. PAYE</dt><dd className="font-mono">{k(monthly.paye)}</dd></div>
+                  <div><dt className="text-muted-foreground">Est. NAPSA</dt><dd className="font-mono">{k(monthly.napsa)}</dd></div>
+                  <div><dt className="text-muted-foreground">Est. NHIMA</dt><dd className="font-mono">{k(monthly.nhima)}</dd></div>
                 </dl>
               </DialogContent>
               <DialogActions>
                 <Button onClick={runPayroll} disabled={createRunMutation.isPending}>
                   {createRunMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Generate payslips
+                  Create draft run
                 </Button>
               </DialogActions>
             </Dialog>
@@ -321,11 +335,11 @@ function PayrollPage() {
                         <TableCell className="font-medium">{s.name}</TableCell>
                         <TableCell>{s.role ?? s.position ?? s.jobTitle}</TableCell>
                         <TableCell>{s.dept ?? s.department}</TableCell>
-                        <TableCell className="font-mono text-xs">{s.nrc ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{s.bank ?? s.bankAccount ?? "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">{s.nrc ?? s.nationalId ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{s.bank ?? s.bankAccount ?? s.bankName ?? "—"}</TableCell>
                         <TableCell className="text-right font-mono">{k(basic)}</TableCell>
                         <TableCell className="text-right font-mono">{k(allow)}</TableCell>
-                        <TableCell><Chip size="small" label={s.status ?? "Active"} sx={badgeSx((s.status ?? "Active") === "Active" ? "secondary" : "outline")} /></TableCell>
+                        <TableCell><Chip size="small" label={s.status ?? "Active"} sx={badgeSx((s.status ?? "Active").toString().toLowerCase() === "active" ? "secondary" : "outline")} /></TableCell>
                       </TableRow>
                     );
                   })}
@@ -400,21 +414,41 @@ function PayrollPage() {
                 <TableHead><TableRow>
                   <TableCell>Run</TableCell><TableCell>Period</TableCell><TableCell>Staff</TableCell>
                   <TableCell className="text-right">Gross</TableCell><TableCell className="text-right">Net</TableCell>
-                  <TableCell className="text-right">Statutory</TableCell><TableCell>Status</TableCell><TableCell>Paid</TableCell>
+                  <TableCell className="text-right">Statutory</TableCell><TableCell>Status</TableCell><TableCell>Actions</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {runs.map((r: any) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                      <TableCell>{r.period}</TableCell>
-                      <TableCell>{r.employees ?? r.employeeCount}</TableCell>
-                      <TableCell className="text-right font-mono">{k(r.gross ?? r.grossAmount ?? 0)}</TableCell>
-                      <TableCell className="text-right font-mono">{k(r.net ?? r.netAmount ?? 0)}</TableCell>
-                      <TableCell className="text-right font-mono">{k((r.paye ?? 0) + (r.napsa ?? 0) + (r.nhima ?? 0))}</TableCell>
-                      <TableCell><Chip size="small" label={r.status} sx={badgeSx(r.status === "Posted" ? "secondary" : "outline")} /></TableCell>
-                      <TableCell className="text-muted-foreground">{(r.paid ?? r.paidDate ?? "—").slice(0, 10)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {runs.map((r: any) => {
+                    const period = r.month && r.year ? new Date(r.year, r.month - 1).toLocaleString("en", { month: "long", year: "numeric" }) : "—";
+                    const gross = Number(r.totalGross ?? 0);
+                    const net = Number(r.totalNet ?? 0);
+                    const isDraft = r.status === "DRAFT";
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                        <TableCell>{period}</TableCell>
+                        <TableCell>{r.staffCount ?? 0}</TableCell>
+                        <TableCell className="text-right font-mono">{k(gross)}</TableCell>
+                        <TableCell className="text-right font-mono">{k(net)}</TableCell>
+                        <TableCell className="text-right font-mono">{k(Math.max(0, gross - net))}</TableCell>
+                        <TableCell><Chip size="small" label={r.status} sx={badgeSx(r.status === "DRAFT" ? "outline" : "secondary")} /></TableCell>
+                        <TableCell>
+                          {isDraft ? (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={processRunMutation.isPending && processRunMutation.variables === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play size={12} />}
+                              disabled={processRunMutation.isPending}
+                              onClick={() => processRunMutation.mutate(r.id)}
+                            >
+                              Process
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {runs.length === 0 && (
                     <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">No payroll runs yet. Click "Run payroll" to create one.</TableCell></TableRow>
                   )}

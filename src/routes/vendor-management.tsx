@@ -17,11 +17,8 @@ export const Route = createFileRoute("/vendor-management")({
   component: VendorManagementPage,
 });
 
-function VendorManagementPage() {
-  const { active } = useTenant();
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
+function blankVendorForm() {
+  return {
     name: "",
     category: "IT & equipment",
     contractExpiry: "2026-12-31",
@@ -38,7 +35,15 @@ function VendorManagementPage() {
     paymentTerms: "30 days",
     serviceSpecializations: "",
     slaResponseTime: "",
-  });
+  };
+}
+
+function VendorManagementPage() {
+  const { active } = useTenant();
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
+  const [form, setForm] = useState(blankVendorForm());
 
   const { data: vendors = [], isLoading } = useQuery({
     queryKey: ["vendors", active.id],
@@ -51,31 +56,26 @@ function VendorManagementPage() {
       void qc.invalidateQueries({ queryKey: ["vendors", active.id] });
       toast.success(`${vars.name} added to vendor management`);
       setOpen(false);
-      setForm({
-        name: "",
-        category: "IT & equipment",
-        contractExpiry: "2026-12-31",
-        contractStartDate: new Date().toISOString().slice(0, 10),
-        status: "Active",
-        contactPerson: "",
-        phone: "",
-        email: "",
-        tpin: "",
-        registrationNumber: "",
-        vendorAddress: "",
-        bankName: "",
-        bankAccount: "",
-        paymentTerms: "30 days",
-        serviceSpecializations: "",
-        slaResponseTime: "",
-      });
+      setForm(blankVendorForm());
     },
     onError: () => toast.error("Failed to add vendor"),
   });
 
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.vendors.update(active.id, id, data),
+    onSuccess: (_, vars) => {
+      void qc.invalidateQueries({ queryKey: ["vendors", active.id] });
+      toast.success("Vendor updated");
+      setEditingVendorId(null);
+      setOpen(false);
+      setForm(blankVendorForm());
+    },
+    onError: () => toast.error("Failed to update vendor"),
+  });
+
   const addVendor = () => {
     if (!form.name.trim()) { toast.error("Vendor name is required"); return; }
-    createMut.mutate({
+    const data = {
       name: form.name.trim(),
       category: form.category,
       contractExpiry: form.contractExpiry,
@@ -92,7 +92,26 @@ function VendorManagementPage() {
       paymentTerms: form.paymentTerms,
       serviceSpecializations: form.serviceSpecializations.trim() || null,
       slaResponseTime: form.slaResponseTime.trim() || null,
+    };
+    if (editingVendorId) {
+      updateMut.mutate({ id: editingVendorId, data });
+    } else {
+      createMut.mutate(data);
+    }
+  };
+
+  const openEditVendor = (v: any) => {
+    setEditingVendorId(v.id);
+    setForm({
+      name: v.name ?? "", category: v.category ?? "IT & equipment",
+      contractExpiry: v.contractExpiry ?? "2026-12-31", contractStartDate: v.contractStartDate ?? new Date().toISOString().slice(0, 10),
+      status: v.status ?? "Active", contactPerson: v.contactPerson ?? "", phone: v.phone ?? "",
+      email: v.email ?? "", tpin: v.tpin ?? "", registrationNumber: v.registrationNumber ?? "",
+      vendorAddress: v.vendorAddress ?? "", bankName: v.bankName ?? "", bankAccount: v.bankAccount ?? "",
+      paymentTerms: v.paymentTerms ?? "30 days", serviceSpecializations: v.serviceSpecializations ?? "",
+      slaResponseTime: v.slaResponseTime ?? "",
     });
+    setOpen(true);
   };
 
   const activeCount = (vendors as any[]).filter((v: any) => v.status === "Active").length;
@@ -106,9 +125,9 @@ function VendorManagementPage() {
         description="Manage suppliers, contracts, service level compliance and procurement efficiency for enterprise operations."
         actions={
           <>
-          <Button variant="contained" onClick={() => setOpen(true)}>New vendor</Button>
+          <Button variant="contained" onClick={() => { setEditingVendorId(null); setForm(blankVendorForm()); setOpen(true); }}>New vendor</Button>
           <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
-            <DialogTitle>Add vendor</DialogTitle>
+            <DialogTitle>{editingVendorId ? "Edit vendor" : "Add vendor"}</DialogTitle>
             <DialogContent>
               <div className="grid grid-cols-2 gap-3">
                 <TextField label="Vendor name *" fullWidth size="small" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Northwind Supplies Ltd" slotProps={{ htmlInput: { maxLength: 120 } }} />
@@ -137,7 +156,7 @@ function VendorManagementPage() {
             </DialogContent>
             <DialogActions>
               <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button variant="contained" onClick={addVendor} disabled={createMut.isPending}>Add vendor</Button>
+              <Button variant="contained" onClick={addVendor} disabled={createMut.isPending || updateMut.isPending}>{editingVendorId ? "Save changes" : "Add vendor"}</Button>
             </DialogActions>
           </Dialog>
           </>
@@ -169,11 +188,12 @@ function VendorManagementPage() {
                 <TableCell>Contact</TableCell>
                 <TableCell>Expires</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
               ) : (vendors as any[]).map((v: any) => (
                 <TableRow key={v.id}>
                   <TableCell className="font-medium">{v.name}</TableCell>
@@ -191,6 +211,9 @@ function VendorManagementPage() {
                       label={v.status}
                       sx={badgeSx(v.status === "Active" ? "secondary" : v.status === "Review" ? "warning" : "destructive")}
                     />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button size="small" variant="text" color="inherit" onClick={() => openEditVendor(v)}>Edit</Button>
                   </TableCell>
                 </TableRow>
               ))}

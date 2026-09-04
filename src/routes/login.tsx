@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { keyframes } from "@emotion/react";
 import {
   GraduationCap,
@@ -140,6 +141,19 @@ function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
   const [schoolBranding, setSchoolBranding] = useState<SchoolBranding | null>(null);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
+
+  const { data: testimonials = [] } = useQuery({
+    queryKey: ["public-testimonials"],
+    queryFn: () => api.testimonials.public(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (testimonials.length < 2) return;
+    const id = setInterval(() => setTestimonialIndex((i) => (i + 1) % testimonials.length), 7000);
+    return () => clearInterval(id);
+  }, [testimonials.length]);
 
   useEffect(() => {
     const slug = detectSubdomainSlug() ?? consumePendingSlug();
@@ -445,6 +459,50 @@ function LoginPage() {
               </Box>
             ))}
           </Box>
+
+          {testimonials.length > 0 && (
+            <Box
+              sx={{
+                borderRadius: 3,
+                border: "1px solid rgba(255,255,255,0.1)",
+                bgcolor: "rgba(255,255,255,0.05)",
+                backdropFilter: "blur(4px)",
+                p: 2.25,
+                mt: 2,
+                ...reveal(0.3),
+              }}
+            >
+              <Typography sx={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.85)", fontStyle: "italic" }}>
+                "{testimonials[testimonialIndex]?.quote}"
+              </Typography>
+              <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mt: 1.5 }}>
+                <Box>
+                  <Typography sx={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>
+                    {testimonials[testimonialIndex]?.authorName}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+                    {[testimonials[testimonialIndex]?.authorRole, testimonials[testimonialIndex]?.schoolName].filter(Boolean).join(" · ")}
+                  </Typography>
+                </Box>
+                {testimonials.length > 1 && (
+                  <Stack direction="row" spacing={0.5}>
+                    {testimonials.map((_: unknown, i: number) => (
+                      <Box
+                        key={i}
+                        sx={{
+                          height: 4,
+                          width: i === testimonialIndex ? 14 : 4,
+                          borderRadius: 999,
+                          bgcolor: i === testimonialIndex ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.25)",
+                          transition: "width 300ms ease, background-color 300ms ease",
+                        }}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </Stack>
+            </Box>
+          )}
         </Box>
 
         {/* Footer */}

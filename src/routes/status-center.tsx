@@ -61,6 +61,12 @@ function StatusCenterPage() {
   const maintenance = (workspace?.maintenanceWindows ?? []) as MaintenanceWindow[];
   const statusPageEnabled = Boolean(workspace?.statusSettings?.statusPageEnabled ?? true);
 
+  const stats = useMemo(() => ({
+    openIncidents: incidents.filter((incident) => incident.state !== "Resolved").length,
+    publishedMaintenance: maintenance.filter((window) => window.published).length,
+    publicStatus: statusPageEnabled ? "Live" : "Hidden",
+  }), [incidents, maintenance, statusPageEnabled]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -71,12 +77,6 @@ function StatusCenterPage() {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    openIncidents: incidents.filter((incident) => incident.state !== "Resolved").length,
-    publishedMaintenance: maintenance.filter((window) => window.published).length,
-    publicStatus: statusPageEnabled ? "Live" : "Hidden",
-  }), [incidents, maintenance, statusPageEnabled]);
 
   const advanceIncident = (incidentId: string) => {
     const incident = incidents.find((entry) => entry.id === incidentId);

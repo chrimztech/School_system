@@ -48,6 +48,7 @@ import {
   TrendingUp,
   Truck,
   UserCog,
+  UserPlus,
   Users,
   Users2,
   UtensilsCrossed,
@@ -73,6 +74,7 @@ export type NavItem = {
 export const schoolOverview: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard", shortcut: "G D" },
   { title: "Students", url: "/students", icon: Users, module: "students", shortcut: "G S" },
+  { title: "Admissions", url: "/admissions", icon: UserPlus, module: "admissions" },
   { title: "Parents", url: "/parents", icon: Users2, module: "communication" },
   { title: "Teachers", url: "/teachers", icon: UserCog, module: "teachers" },
   { title: "Classes", url: "/classes", icon: School, module: "students" },

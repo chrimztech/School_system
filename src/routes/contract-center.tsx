@@ -58,6 +58,13 @@ function ContractCenterPage() {
     { id: `ctr-${tenant.id}-dpa`, tenantId: tenant.id, school: tenant.name, type: "DPA" as AgreementType, status: (index % 2 === 0 ? "Active" : "Awaiting signature") as ContractStatus, value: 0, expiresOn: tenant.subscription.renewalDate, owner: "Legal desk" },
   ])).slice(0, Math.max(6, tenants.length * 2))) as ContractRecord[];
 
+  const stats = useMemo(() => ({
+    active: contracts.filter((contract) => contract.status === "Active").length,
+    awaitingSignature: contracts.filter((contract) => contract.status === "Awaiting signature").length,
+    renewalDue: contracts.filter((contract) => contract.status === "Renewal due").length,
+    contractValue: contracts.reduce((sum, contract) => sum + contract.value, 0),
+  }), [contracts]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -68,13 +75,6 @@ function ContractCenterPage() {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    active: contracts.filter((contract) => contract.status === "Active").length,
-    awaitingSignature: contracts.filter((contract) => contract.status === "Awaiting signature").length,
-    renewalDue: contracts.filter((contract) => contract.status === "Renewal due").length,
-    contractValue: contracts.reduce((sum, contract) => sum + contract.value, 0),
-  }), [contracts]);
 
   const advanceContract = (contractId: string) => {
     const currentContract = contracts.find((item) => item.id === contractId);

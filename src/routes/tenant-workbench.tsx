@@ -38,6 +38,13 @@ function TenantWorkbenchPage() {
   const [tab, setTab] = useState("tenants");
   const [detailsId, setDetailsId] = useState<string | null>(null);
 
+  const stats = useMemo(() => ({
+    totalTenants: tenants.length,
+    trials: tenants.filter((tenant) => tenant.subscription.status === "trial").length,
+    pastDue: tenants.filter((tenant) => tenant.subscription.status === "past_due").length,
+    handoffs: handoffs.filter((item) => item.status !== "Ready").length,
+  }), [handoffs, tenants]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -48,13 +55,6 @@ function TenantWorkbenchPage() {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    totalTenants: tenants.length,
-    trials: tenants.filter((tenant) => tenant.subscription.status === "trial").length,
-    pastDue: tenants.filter((tenant) => tenant.subscription.status === "past_due").length,
-    handoffs: handoffs.filter((item) => item.status !== "Ready").length,
-  }), [handoffs, tenants]);
 
   const openWorkspace = (tenantId: string, destination: "/" | "/billing" | "/support-desk") => {
     const tenant = tenants.find((item) => item.id === tenantId);

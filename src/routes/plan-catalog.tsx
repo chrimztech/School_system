@@ -77,17 +77,6 @@ function PlanCatalogPage() {
   const [editForm, setEditForm] = useState<PlanDraft | null>(null);
   const [tab, setTab] = useState("plans");
 
-  if (user?.role !== "super_admin") {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
-      </div>
-    );
-  }
-
   const activeSchools = tenants.filter((tenant) => tenant.subscription.status === "active").length;
   const trialSchools = tenants.filter((tenant) => tenant.subscription.status === "trial").length;
   const avgRevenue = activeSchools > 0
@@ -99,6 +88,17 @@ function PlanCatalogPage() {
     ...plan,
     schools: tenants.filter((tenant) => tenant.subscription.planId === plan.id).length,
   })), [plans, tenants]);
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
+      </div>
+    );
+  }
 
   const openEditor = (planId: PlanId) => {
     const plan = plans.find((entry) => entry.id === planId);

@@ -91,10 +91,12 @@ function PtcPage() {
   const [tab, setTab] = useState("members");
   const [memberOpen, setMemberOpen] = useState(false);
   const [memberForm, setMemberForm] = useState(emptyMemberForm());
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [meetingForm, setMeetingForm] = useState(emptyMeetingForm(term, year));
   const [txOpen, setTxOpen] = useState(false);
   const [txForm, setTxForm] = useState(emptyTxForm());
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
 
   // Picker data — only fetched while the dialog is open and the matching seat type is selected.
   const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
@@ -194,6 +196,18 @@ function PtcPage() {
     onError: () => toast.error("Failed to remove member"),
   });
 
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.ptc.members.update(schoolId, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["ptc-members", schoolId] });
+      toast.success("Member updated");
+      setEditingMemberId(null);
+      setMemberForm(emptyMemberForm());
+      setMemberOpen(false);
+    },
+    onError: () => toast.error("Failed to update member"),
+  });
+
   const createMeetingMutation = useMutation({
     mutationFn: (data: any) => api.ptc.meetings.create(schoolId, data),
     onSuccess: () => {
@@ -225,14 +239,41 @@ function PtcPage() {
     onError: () => toast.error("Failed to record transaction"),
   });
 
+  const updateTxMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.ptc.transactions.update(schoolId, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["ptc-transactions", schoolId] });
+      toast.success("Transaction updated");
+      setEditingTxId(null);
+      setTxForm(emptyTxForm());
+      setTxOpen(false);
+    },
+    onError: () => toast.error("Failed to update transaction"),
+  });
+
   const addMember = () => {
     if (!memberForm.name.trim()) { toast.error("Member name is required"); return; }
-    createMemberMutation.mutate({
+    const data = {
       name: memberForm.name.trim(), position: memberForm.position, memberType: memberForm.memberType,
       studentName: memberForm.studentName.trim() || null, email: memberForm.email.trim() || null,
       phone: memberForm.phone.trim() || null, termStartDate: memberForm.termStartDate || null,
       termEndDate: memberForm.termEndDate || null,
+    };
+    if (editingMemberId) {
+      updateMemberMutation.mutate({ id: editingMemberId, data });
+    } else {
+      createMemberMutation.mutate(data);
+    }
+  };
+
+  const openEditMember = (m: any) => {
+    setEditingMemberId(m.id);
+    setMemberForm({
+      name: m.name ?? "", position: m.position ?? POSITIONS[4], memberType: m.memberType ?? MEMBER_TYPES[0],
+      studentName: m.studentName ?? "", email: m.email ?? "", phone: m.phone ?? "",
+      termStartDate: m.termStartDate ?? new Date().toISOString().slice(0, 10), termEndDate: m.termEndDate ?? "",
     });
+    setMemberOpen(true);
   };
 
   const addMeeting = () => {
@@ -246,10 +287,24 @@ function PtcPage() {
   const addTransaction = () => {
     const amount = Number(txForm.amount);
     if (!Number.isFinite(amount) || amount <= 0) { toast.error("Enter a valid amount"); return; }
-    createTxMutation.mutate({
+    const data = {
       date: txForm.date, type: txForm.type, category: txForm.category,
       description: txForm.description.trim() || null, amount, recordedBy: user?.name ?? null,
+    };
+    if (editingTxId) {
+      updateTxMutation.mutate({ id: editingTxId, data });
+    } else {
+      createTxMutation.mutate(data);
+    }
+  };
+
+  const openEditTransaction = (t: any) => {
+    setEditingTxId(t.id);
+    setTxForm({
+      date: t.date ?? new Date().toISOString().slice(0, 10), type: t.type ?? "INCOME",
+      category: t.category ?? TX_CATEGORIES[0], description: t.description ?? "", amount: String(t.amount ?? ""),
     });
+    setTxOpen(true);
   };
 
   const activeMembers = members.filter((m) => (m.status ?? "ACTIVE") !== "INACTIVE").length;
@@ -268,9 +323,9 @@ function PtcPage() {
           actions={
             canEditCommittee ? (
               <>
-                <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => setMemberOpen(true)}>Add member</Button>
+                <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => { setEditingMemberId(null); setMemberForm(emptyMemberForm()); setMemberOpen(true); }}>Add member</Button>
                 <Dialog open={memberOpen} onClose={() => setMemberOpen(false)} maxWidth="md" fullWidth>
-                  <DialogTitle>Add committee member</DialogTitle>
+                  <DialogTitle>{editingMemberId ? "Edit committee member" : "Add committee member"}</DialogTitle>
                   <DialogContent>
                     <div className="grid gap-3">
                       <TextField label="Name *" fullWidth size="small" value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} placeholder="Full name" slotProps={{ htmlInput: { maxLength: 100 } }} />
@@ -328,7 +383,7 @@ function PtcPage() {
                   </DialogContent>
                   <DialogActions>
                     <Button variant="outlined" color="inherit" onClick={() => setMemberOpen(false)}>Cancel</Button>
-                    <Button variant="contained" onClick={addMember} disabled={createMemberMutation.isPending}>Add member</Button>
+                    <Button variant="contained" onClick={addMember} disabled={createMemberMutation.isPending || updateMemberMutation.isPending}>{editingMemberId ? "Save changes" : "Add member"}</Button>
                   </DialogActions>
                 </Dialog>
 
@@ -401,6 +456,7 @@ function PtcPage() {
                     <TableCell><Chip size="small" label={m.status ?? "ACTIVE"} sx={badgeSx(m.status === "INACTIVE" ? "outline" : "secondary")} /></TableCell>
                     {canEditCommittee && (
                       <TableCell>
+                        <Button size="small" variant="text" color="inherit" onClick={() => openEditMember(m)}>Edit</Button>
                         <Button
                           size="small" variant="text" color="inherit"
                           onClick={() => { if (window.confirm(`Remove ${m.name} from the committee?`)) deleteMemberMutation.mutate(m.id); }}
@@ -457,9 +513,9 @@ function PtcPage() {
           <Box className="space-y-4">
               {canEditBudget && (
                 <div className="flex justify-end">
-                  <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setTxOpen(true)}>Record transaction</Button>
+                  <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => { setEditingTxId(null); setTxForm(emptyTxForm()); setTxOpen(true); }}>Record transaction</Button>
                   <Dialog open={txOpen} onClose={() => setTxOpen(false)} maxWidth="md" fullWidth>
-                    <DialogTitle>Record PTC transaction</DialogTitle>
+                    <DialogTitle>{editingTxId ? "Edit PTC transaction" : "Record PTC transaction"}</DialogTitle>
                     <DialogContent>
                       <div className="grid gap-3">
                         <div className="grid gap-3 sm:grid-cols-2">
@@ -480,7 +536,7 @@ function PtcPage() {
                     </DialogContent>
                     <DialogActions>
                       <Button variant="outlined" color="inherit" onClick={() => setTxOpen(false)}>Cancel</Button>
-                      <Button variant="contained" onClick={addTransaction} disabled={createTxMutation.isPending}>Record</Button>
+                      <Button variant="contained" onClick={addTransaction} disabled={createTxMutation.isPending || updateTxMutation.isPending}>{editingTxId ? "Save changes" : "Record"}</Button>
                     </DialogActions>
                   </Dialog>
                 </div>
@@ -495,13 +551,14 @@ function PtcPage() {
                       <TableCell>Description</TableCell>
                       <TableCell>Recorded by</TableCell>
                       <TableCell className="text-right">Amount</TableCell>
+                      {canEditBudget && <TableCell align="right">Actions</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {txLoading ? (
-                      <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading transactions…</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading transactions…</TableCell></TableRow>
                     ) : transactions.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No transactions recorded yet.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No transactions recorded yet.</TableCell></TableRow>
                     ) : transactions.map((t) => (
                       <TableRow key={t.id}>
                         <TableCell className="text-xs text-muted-foreground">{t.date}</TableCell>
@@ -511,6 +568,11 @@ function PtcPage() {
                         <TableCell className={`text-right font-medium tabular-nums ${t.type === "EXPENSE" ? "text-destructive" : "text-emerald-600"}`}>
                           {t.type === "EXPENSE" ? "-" : "+"}K {Number(t.amount ?? 0).toLocaleString()}
                         </TableCell>
+                        {canEditBudget && (
+                          <TableCell align="right">
+                            <Button size="small" variant="text" color="inherit" onClick={() => openEditTransaction(t)}>Edit</Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

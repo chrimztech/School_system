@@ -49,6 +49,7 @@ function DisciplinePage() {
   const classList = (classesData as any[]).map((c: any) => c.name || c.className || c.id).filter(Boolean);
 
   const [open, setOpen] = useState(false);
+  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [form, setForm] = useState({
     studentName: "", grade: "", offense: "", offenseCategory: OFFENSE_CATEGORIES[0],
     severity: "Medium" as typeof SEVERITIES[number], action: ACTIONS[0],
@@ -130,9 +131,20 @@ function DisciplinePage() {
     onError: () => toast.error("Failed to log incident"),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.discipline.update(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discipline", schoolId] });
+      toast.success("Case updated");
+      setEditingCaseId(null);
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to update case"),
+  });
+
   const logIncident = () => {
     if (!form.studentName.trim() || !form.offense.trim()) { toast.error("Student name and offence are required"); return; }
-    createMutation.mutate({
+    const data = {
       studentName: form.studentName.trim(),
       grade: form.grade,
       offense: form.offense.trim(),
@@ -149,7 +161,28 @@ function DisciplinePage() {
       status: form.status,
       repeatCount: Math.max(1, Number(form.repeatCount) || 1),
       notes: form.notes.trim() || null,
+    };
+    if (editingCaseId) {
+      updateMutation.mutate({ id: editingCaseId, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const openEditCase = (d: any) => {
+    setEditingCaseId(d.id);
+    setForm({
+      studentName: d.studentName ?? d.student ?? "", grade: d.grade ?? "",
+      offense: d.offense ?? "", offenseCategory: d.offenseCategory ?? OFFENSE_CATEGORIES[0],
+      severity: d.severity ?? "Medium", action: d.action ?? ACTIONS[0],
+      location: d.location ?? "", incidentDate: (d.date ?? d.incidentDate ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10),
+      incidentTime: d.incidentTime ?? "", witnessNames: d.witnessNames ?? "",
+      reportedBy: d.reportedBy ?? "", followUpDate: d.followUpDate ?? "",
+      notified: (d.notified ?? d.parentNotified) ? "yes" : "no",
+      status: d.status ?? "Open", repeatCount: String(d.repeats ?? d.repeatCount ?? 1),
+      notes: d.notes ?? "",
     });
+    setOpen(true);
   };
 
   const recs = records as any[];
@@ -167,9 +200,9 @@ function DisciplinePage() {
           <>
             <Button variant="outlined" component={Link} to="/student-welfare">Welfare cases</Button>
             {canLog && <>
-            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Log incident</Button>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => { setEditingCaseId(null); setOpen(true); }}>Log incident</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
-                <DialogTitle>Log disciplinary incident</DialogTitle>
+                <DialogTitle>{editingCaseId ? "Edit disciplinary case" : "Log disciplinary incident"}</DialogTitle>
                 <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
@@ -229,9 +262,9 @@ function DisciplinePage() {
                 </DialogContent>
                 <DialogActions>
                   <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button variant="contained" onClick={logIncident} disabled={createMutation.isPending}>
-                    {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Log incident
+                  <Button variant="contained" onClick={logIncident} disabled={createMutation.isPending || updateMutation.isPending}>
+                    {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {editingCaseId ? "Save changes" : "Log incident"}
                   </Button>
                 </DialogActions>
             </Dialog>
@@ -288,13 +321,16 @@ function DisciplinePage() {
                       : <Chip size="small" label="Pending" sx={badgeSx("destructive")} />}
                   </TableCell>
                   {canResolve && <TableCell className="text-right">
-                    {(d.status ?? "Open") === "Resolved" ? (
-                      <span className="flex items-center justify-end gap-1 text-xs text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success" />Resolved</span>
-                    ) : (
-                      <Button size="small" variant="text" color="inherit" disabled={resolveMutation.isPending} onClick={() => resolveMutation.mutate(d.id)}>
-                        {resolveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Resolve"}
-                      </Button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {canLog && <Button size="small" variant="text" color="inherit" onClick={() => openEditCase(d)}>Edit</Button>}
+                      {(d.status ?? "Open") === "Resolved" ? (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success" />Resolved</span>
+                      ) : (
+                        <Button size="small" variant="text" color="inherit" disabled={resolveMutation.isPending} onClick={() => resolveMutation.mutate(d.id)}>
+                          {resolveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Resolve"}
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>}
                 </TableRow>
               ))}

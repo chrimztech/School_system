@@ -64,6 +64,15 @@ function RevenueOpsPage() {
     nextAction: tenant.subscription.status === "past_due" ? "Call bursar" : tenant.subscription.status === "trial" ? "Convert before renewal" : "Review campus uplift",
   })).slice(0, Math.max(3, tenants.length))) as CollectionCase[];
 
+  const portfolio = useMemo(() => tenants.map((tenant) => {
+    const learnerPct = tenant.subscription.learnerLimit > 0 ? Math.round((tenant.totalStudents / tenant.subscription.learnerLimit) * 100) : 0;
+    const campusPct = tenant.subscription.campusLimit > 0 ? Math.round((tenant.campuses.length / tenant.subscription.campusLimit) * 100) : 0;
+    const risk = revenueRisk(tenant.subscription.status, learnerPct, campusPct);
+    const daysToRenewal = daysUntil(tenant.subscription.renewalDate);
+    const expansion = tenant.subscription.status === "active" && (campusPct > 80 || learnerPct > 90);
+    return { tenant, learnerPct, campusPct, risk, daysToRenewal, expansion };
+  }), [tenants]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -74,15 +83,6 @@ function RevenueOpsPage() {
       </div>
     );
   }
-
-  const portfolio = useMemo(() => tenants.map((tenant) => {
-    const learnerPct = tenant.subscription.learnerLimit > 0 ? Math.round((tenant.totalStudents / tenant.subscription.learnerLimit) * 100) : 0;
-    const campusPct = tenant.subscription.campusLimit > 0 ? Math.round((tenant.campuses.length / tenant.subscription.campusLimit) * 100) : 0;
-    const risk = revenueRisk(tenant.subscription.status, learnerPct, campusPct);
-    const daysToRenewal = daysUntil(tenant.subscription.renewalDate);
-    const expansion = tenant.subscription.status === "active" && (campusPct > 80 || learnerPct > 90);
-    return { tenant, learnerPct, campusPct, risk, daysToRenewal, expansion };
-  }), [tenants]);
 
   const mrr = portfolio.filter((record) => record.tenant.subscription.status === "active").reduce((sum, record) => sum + record.tenant.subscription.amount, 0);
   const arr = mrr * 12;

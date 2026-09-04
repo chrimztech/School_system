@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   ShieldAlert,
+  Trash2,
   UserCog,
   Users,
   XCircle,
@@ -140,7 +141,7 @@ function RoleBadge({ role }: { role: Role }) {
 }
 
 function UserManagementPage() {
-  const { user } = useAuth();
+  const { user, removeUser } = useAuth();
   const { tenants, setActive } = useTenant();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -164,6 +165,8 @@ function UserManagementPage() {
     active: true,
   });
   const [resetTarget, setResetTarget] = useState<BackendAppUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BackendAppUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [resetPassword, setResetPassword] = useState("");
   const [actionsAnchor, setActionsAnchor] = useState<{ element: HTMLElement; record: BackendAppUser } | null>(null);
 
@@ -219,25 +222,6 @@ function UserManagementPage() {
     },
   });
 
-  if (user?.role === "school_admin") {
-    return <Navigate to="/access" replace />;
-  }
-
-  if (user?.role !== "super_admin") {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">
-          This area is restricted to System Administrators.
-        </p>
-        <Button component={Link} to="/" variant="outlined">
-          Go to dashboard
-        </Button>
-      </div>
-    );
-  }
-
   const users = usersQuery.data ?? [];
 
   const filteredUsers = useMemo(() => {
@@ -258,6 +242,25 @@ function UserManagementPage() {
       ].some((value) => value.toLowerCase().includes(lowered));
     });
   }, [query, roleFilter, schoolNameById, users]);
+
+  if (user?.role === "school_admin") {
+    return <Navigate to="/access" replace />;
+  }
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">
+          This area is restricted to System Administrators.
+        </p>
+        <Button component={Link} to="/" variant="outlined">
+          Go to dashboard
+        </Button>
+      </div>
+    );
+  }
 
   const activeUsers = users.filter((record) => record.active !== false).length;
   const platformAdmins = users.filter((record) => normaliseRole(record.role) === "super_admin").length;
@@ -373,6 +376,21 @@ function UserManagementPage() {
       toast.success(record.active === false ? "User reactivated" : "User deactivated");
     } catch (error: any) {
       toast.error(error?.response?.data?.message ?? "Failed to update account status");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await removeUser(deleteTarget.id);
+      queryClient.invalidateQueries({ queryKey: ["platform-users"] });
+      toast.success(`${deleteTarget.name} deleted`);
+      setDeleteTarget(null);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message ?? "Failed to delete user");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -569,6 +587,19 @@ function UserManagementPage() {
                 </>
               )}
             </MenuItem>,
+            actionsAnchor.record.id !== user?.id ? (
+              <MenuItem
+                key="delete"
+                onClick={() => {
+                  setDeleteTarget(actionsAnchor.record);
+                  setActionsAnchor(null);
+                }}
+                sx={{ color: "error.main" }}
+              >
+                <ListItemIcon><Trash2 className="h-4 w-4" color="inherit" /></ListItemIcon>
+                Delete account
+              </MenuItem>
+            ) : null,
           ]
         ) : null}
       </Menu>
@@ -785,6 +816,34 @@ function UserManagementPage() {
           <Button variant="contained" onClick={handleResetPassword} disabled={updateUserMutation.isPending}>
             {updateUserMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Reset password
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteTarget)} onClose={() => (deleting ? null : setDeleteTarget(null))} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete this account?</DialogTitle>
+        <DialogContent>
+          {deleteTarget ? (
+            <div className="grid gap-3">
+              <div className="rounded-lg border border-border bg-muted/40 p-3">
+                <p className="font-medium">{deleteTarget.name}</p>
+                <p className="text-sm text-muted-foreground">{deleteTarget.email}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This permanently removes the account and its login access — unlike Deactivate, this cannot be undone.
+                Records that reference this person elsewhere (audit history, past actions) keep their name but no
+                longer link to a live account.
+              </p>
+            </div>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={deleting} onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </Button>
+          <Button variant="contained" color="error" onClick={confirmDelete} disabled={deleting}>
+            {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Delete account
           </Button>
         </DialogActions>
       </Dialog>

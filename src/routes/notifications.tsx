@@ -3,7 +3,7 @@ import { CheckCheck, Trash2 } from "lucide-react";
 import Chip from "@mui/material/Chip";
 import { Button } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
-import { useNotifications } from "@/lib/notifications";
+import { useNotifications, formatNotificationTime } from "@/lib/notifications";
 import { badgeSx, cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/notifications")({
@@ -46,7 +46,7 @@ function NotificationsPage() {
                 <p className="text-sm font-medium">{n.title}</p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Chip size="small" label={n.module} sx={{ ...badgeSx("outline"), fontSize: 10 }} />
-                  {n.time}
+                  {formatNotificationTime(n.time)}
                 </div>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>

@@ -104,6 +104,13 @@ function PlatformConfigPage() {
     }
   }, [workspace?.platformDefaults]);
 
+  const stats = useMemo(() => ({
+    enabledFlags: rollouts.filter((rollout) => rollout.state === "Enabled").length,
+    pilotFlags: rollouts.filter((rollout) => rollout.state === "Pilot").length,
+    digestsEnabled: [comms.releaseDigest, comms.incidentDigest].filter(Boolean).length,
+    hardenedPolicies: [security.mfaRequired, security.loginAlerts, security.ipAllowlist].filter(Boolean).length,
+  }), [comms.incidentDigest, comms.releaseDigest, rollouts, security.ipAllowlist, security.loginAlerts, security.mfaRequired]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -114,13 +121,6 @@ function PlatformConfigPage() {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    enabledFlags: rollouts.filter((rollout) => rollout.state === "Enabled").length,
-    pilotFlags: rollouts.filter((rollout) => rollout.state === "Pilot").length,
-    digestsEnabled: [comms.releaseDigest, comms.incidentDigest].filter(Boolean).length,
-    hardenedPolicies: [security.mfaRequired, security.loginAlerts, security.ipAllowlist].filter(Boolean).length,
-  }), [comms.incidentDigest, comms.releaseDigest, rollouts, security.ipAllowlist, security.loginAlerts, security.mfaRequired]);
 
   const cycleRollout = (rolloutId: string) => {
     const rollout = rollouts.find((item) => item.id === rolloutId);

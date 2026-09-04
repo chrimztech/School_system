@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck, MapPin, Users, FileSpreadsheet, Plus, Loader2, UserPlus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -246,18 +246,37 @@ const GCE_IMPORT_COLUMNS = [
   { key: "previousSchool", label: "Previous School", example: "Kabulonga Boys" },
 ];
 
-function GceAddDialog({ open, onOpenChange, schoolId, onDone }: { open: boolean; onOpenChange: (open: boolean) => void; schoolId: string; onDone: () => void }) {
-  const [form, setForm] = useState({ firstName: "", lastName: "", grade: "", examNumber: "", nrc: "", subjects: "", phone: "" });
+function blankGceForm() {
+  return { firstName: "", lastName: "", grade: "", examNumber: "", nrc: "", subjects: "", phone: "" };
+}
+
+function GceAddDialog({ open, onOpenChange, schoolId, onDone, candidate }: { open: boolean; onOpenChange: (open: boolean) => void; schoolId: string; onDone: () => void; candidate?: any | null }) {
+  const [form, setForm] = useState(blankGceForm());
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(candidate
+      ? { firstName: candidate.firstName ?? "", lastName: candidate.lastName ?? "", grade: candidate.grade ?? "", examNumber: candidate.examNumber ?? "", nrc: candidate.nrc ?? "", subjects: candidate.subjects ?? "", phone: candidate.phone ?? "" }
+      : blankGceForm());
+  }, [open, candidate]);
 
   const createMut = useMutation({
     mutationFn: () => api.gce.create(schoolId, form),
-    onSuccess: () => { toast.success("GCE candidate added"); onDone(); onOpenChange(false); setForm({ firstName: "", lastName: "", grade: "", examNumber: "", nrc: "", subjects: "", phone: "" }); },
+    onSuccess: () => { toast.success("GCE candidate added"); onDone(); onOpenChange(false); },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to add candidate"),
   });
 
+  const updateMut = useMutation({
+    mutationFn: () => api.gce.update(schoolId, candidate.id, form),
+    onSuccess: () => { toast.success("GCE candidate updated"); onDone(); onOpenChange(false); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to update candidate"),
+  });
+
+  const pending = createMut.isPending || updateMut.isPending;
+
   return (
     <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="sm" fullWidth>
-      <DialogTitle>Add GCE candidate</DialogTitle>
+      <DialogTitle>{candidate ? "Edit GCE candidate" : "Add GCE candidate"}</DialogTitle>
       <DialogContent>
         <div className="grid grid-cols-2 gap-3">
           <TextField label="First name *" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} fullWidth size="small" />
@@ -273,10 +292,10 @@ function GceAddDialog({ open, onOpenChange, schoolId, onDone }: { open: boolean;
         <Button variant="outlined" color="inherit" onClick={() => onOpenChange(false)}>Cancel</Button>
         <Button
           variant="contained"
-          disabled={!form.firstName.trim() || !form.lastName.trim() || !form.grade.trim() || createMut.isPending}
-          onClick={() => createMut.mutate()}
+          disabled={!form.firstName.trim() || !form.lastName.trim() || !form.grade.trim() || pending}
+          onClick={() => (candidate ? updateMut.mutate() : createMut.mutate())}
         >
-          {createMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Add candidate
+          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{candidate ? "Save changes" : "Add candidate"}
         </Button>
       </DialogActions>
     </Dialog>
@@ -287,6 +306,8 @@ function GceRoster({ schoolId }: { schoolId: string }) {
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   const { data: gceCandidates = [], isLoading } = useQuery({
     queryKey: ["gceCandidates", schoolId],
@@ -294,6 +315,12 @@ function GceRoster({ schoolId }: { schoolId: string }) {
   });
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: ["gceCandidates", schoolId] });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.gce.delete(schoolId, id),
+    onSuccess: () => { toast.success("Candidate removed"); invalidate(); setDeleteTarget(null); },
+    onError: () => { toast.error("Failed to remove candidate"); setDeleteTarget(null); },
+  });
 
   return (
     <div className="mb-6">
@@ -312,13 +339,13 @@ function GceRoster({ schoolId }: { schoolId: string }) {
         <Table>
           <TableHead><TableRow>
             <TableCell>Name</TableCell><TableCell>Exam number</TableCell><TableCell>Form</TableCell>
-            <TableCell>Subjects</TableCell><TableCell>Status</TableCell>
+            <TableCell>Subjects</TableCell><TableCell>Status</TableCell><TableCell align="right">Actions</TableCell>
           </TableRow></TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
             ) : (gceCandidates as any[]).length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No GCE candidates yet. Add one or import a CSV.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No GCE candidates yet. Add one or import a CSV.</TableCell></TableRow>
             ) : (gceCandidates as any[]).map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.firstName} {c.lastName}</TableCell>
@@ -326,6 +353,10 @@ function GceRoster({ schoolId }: { schoolId: string }) {
                 <TableCell>{c.grade}</TableCell>
                 <TableCell className="text-muted-foreground">{c.subjects || "—"}</TableCell>
                 <TableCell><Chip size="small" label={c.status} sx={{ ...badgeSx("secondary"), fontSize: 10 }} /></TableCell>
+                <TableCell align="right">
+                  <Button size="small" variant="text" color="inherit" onClick={() => setEditingCandidate(c)}>Edit</Button>
+                  <Button size="small" variant="text" color="error" onClick={() => setDeleteTarget(c)}>Delete</Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -334,6 +365,22 @@ function GceRoster({ schoolId }: { schoolId: string }) {
       </div>
 
       <GceAddDialog open={addOpen} onOpenChange={setAddOpen} schoolId={schoolId} onDone={invalidate} />
+      <GceAddDialog open={!!editingCandidate} onOpenChange={(o) => !o && setEditingCandidate(null)} schoolId={schoolId} onDone={invalidate} candidate={editingCandidate} />
+
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove this candidate?</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-muted-foreground">
+            <strong>{deleteTarget?.firstName} {deleteTarget?.lastName}</strong> will be removed from the GCE roster. This cannot be undone.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={deleteMut.isPending} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button variant="contained" color="error" disabled={deleteMut.isPending} onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}>
+            {deleteMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <ImportDialog
         open={importOpen}
@@ -469,6 +516,13 @@ function ExamsPage() {
     mutationFn: (id: string) => api.exams.update(active.id, id, { status: "CONFIRMED" }),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["exams", active.id] }); toast.success("Invigilator confirmed"); },
     onError: () => toast.error("Failed to confirm invigilator"),
+  });
+
+  const [deletePaperTarget, setDeletePaperTarget] = useState<any | null>(null);
+  const deletePaperMut = useMutation({
+    mutationFn: (id: string) => api.exams.delete(active.id, id),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["exams", active.id] }); toast.success("Exam paper deleted"); setDeletePaperTarget(null); },
+    onError: () => { toast.error("Failed to delete exam paper"); setDeletePaperTarget(null); },
   });
 
   const schedulePaper = () => {
@@ -675,6 +729,9 @@ function ExamsPage() {
                     <Button size="small" variant="text" color="inherit" startIcon={<UserPlus size={14} />} onClick={() => setCandidatesPaper(p)}>
                       Manage
                     </Button>
+                    <Button size="small" variant="text" color="error" startIcon={<Trash2 size={14} />} onClick={() => setDeletePaperTarget(p)}>
+                      Delete
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -683,6 +740,21 @@ function ExamsPage() {
           </TableContainer>
         </Box>
         )}
+
+        <Dialog open={!!deletePaperTarget} onClose={() => setDeletePaperTarget(null)} maxWidth="xs" fullWidth>
+          <DialogTitle>Delete this exam paper?</DialogTitle>
+          <DialogContent>
+            <p className="text-sm text-muted-foreground">
+              <strong>{deletePaperTarget?.code}</strong> ({deletePaperTarget?.subject}) will be removed, including its registered candidates. This cannot be undone.
+            </p>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="outlined" color="inherit" disabled={deletePaperMut.isPending} onClick={() => setDeletePaperTarget(null)}>Cancel</Button>
+            <Button variant="contained" color="error" disabled={deletePaperMut.isPending} onClick={() => deletePaperTarget && deletePaperMut.mutate(deletePaperTarget.id)}>
+              {deletePaperMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {tab === "seating" && (
         <Box className="rounded-xl border border-border bg-card p-5">

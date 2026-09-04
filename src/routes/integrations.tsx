@@ -52,16 +52,6 @@ function IntegrationsPage() {
   const { active } = useTenant();
   const schoolId = active.id;
 
-  if (user?.role !== "super_admin") {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">Integration settings are managed by System Administrators.</p>
-        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
-      </div>
-    );
-  }
   const qc = useQueryClient();
   const [tab, setTab] = useState("installed");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -83,6 +73,17 @@ function IntegrationsPage() {
       void qc.invalidateQueries({ queryKey: ["integrations", schoolId] });
     },
   });
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">Integration settings are managed by System Administrators.</p>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
+      </div>
+    );
+  }
 
   const items: Integration[] = (itemsRaw as any[]).map((item) => ({
     id: item.id,

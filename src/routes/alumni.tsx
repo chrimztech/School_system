@@ -43,6 +43,7 @@ function AlumniPage() {
   const qc = useQueryClient();
 
   const [open, setOpen] = useState(false);
+  const [editingAlumnusId, setEditingAlumnusId] = useState<string | null>(null);
   const [form, setForm] = useState(createInitialForm);
   const [tab, setTab] = useState("dir");
 
@@ -62,13 +63,25 @@ function AlumniPage() {
     onError: () => toast.error("Failed to register alumni"),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.alumni.update(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["alumni", schoolId] });
+      toast.success("Alumni record updated");
+      setEditingAlumnusId(null);
+      setForm(createInitialForm());
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to update alumni record"),
+  });
+
   const registerAlumni = () => {
     if (!form.firstName.trim() || !form.lastName.trim() || !form.currentPosition.trim()) {
       toast.error("First name, last name, and current position are required");
       return;
     }
 
-    createMutation.mutate({
+    const data = {
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
       admissionNumber: form.admissionNumber.trim() || null,
@@ -86,7 +99,26 @@ function AlumniPage() {
       engagementStatus: form.engagementStatus,
       updatedByUser: true,
       status: form.status,
+    };
+    if (editingAlumnusId) {
+      updateMutation.mutate({ id: editingAlumnusId, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const openEditAlumnus = (a: any) => {
+    setEditingAlumnusId(a.id);
+    setForm({
+      firstName: a.firstName ?? "", lastName: a.lastName ?? "",
+      admissionNumber: a.admissionNumber ?? "", graduationYear: a.graduationYear ?? a.year ?? new Date().getFullYear() - 1,
+      lastGrade: String(a.lastGrade ?? "12"), currentPosition: a.currentPosition ?? a.career ?? "",
+      currentEmployer: a.currentEmployer ?? a.employer ?? "", industrySector: a.industrySector ?? "",
+      highestQualification: a.highestQualification ?? "", qualificationsAchieved: a.qualificationsAchieved ?? "",
+      email: a.email ?? "", phone: a.phone ?? "", location: a.location ?? a.city ?? "",
+      linkedIn: a.linkedIn ?? "", engagementStatus: a.engagementStatus ?? "Active", status: a.status ?? "ACTIVE",
     });
+    setOpen(true);
   };
 
   const list = (alumniList as any[]).map((alumnus: any) => ({
@@ -107,9 +139,9 @@ function AlumniPage() {
             <Button variant="outlined" component={Link} to="/communication" hash="broadcast" startIcon={<Send className="h-4 w-4" />}>
               Send newsletter
             </Button>
-            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Register alumni</Button>
+            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditingAlumnusId(null); setForm(createInitialForm()); setOpen(true); }}>Register alumni</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="lg" fullWidth>
-              <DialogTitle>Register alumni</DialogTitle>
+              <DialogTitle>{editingAlumnusId ? "Edit alumni record" : "Register alumni"}</DialogTitle>
               <DialogContent>
                 <div className="grid gap-3">
                   <div className="grid grid-cols-2 gap-3">
@@ -156,9 +188,9 @@ function AlumniPage() {
               </DialogContent>
               <DialogActions>
                 <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={registerAlumni} disabled={createMutation.isPending}>
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Register
+                <Button onClick={registerAlumni} disabled={createMutation.isPending || updateMutation.isPending}>
+                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingAlumnusId ? "Save changes" : "Register"}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -206,6 +238,7 @@ function AlumniPage() {
                     <TableCell className="text-muted-foreground">{a.employer}</TableCell>
                     <TableCell>{a.location ?? a.city}</TableCell>
                     <TableCell className="text-right">
+                      <Button size="small" variant="text" color="inherit" onClick={() => openEditAlumnus(a)}>Edit</Button>
                       <Button
                         size="small"
                         variant="text"

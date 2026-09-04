@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { BookOpen, Star, TrendingUp, Users, Plus } from "lucide-react";
+import { BookOpen, Star, TrendingUp, Users, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
@@ -137,6 +137,15 @@ function StaffDevelopmentPage() {
       setPDPForm({ staff: "", goals: "3", nextReview: "", status: "Active", reviewType: "Line manager", goal1: "", goal2: "", goal3: "", developmentArea: "", supportRequired: "" });
     },
     onError: () => toast.error("Failed to create PDP"),
+  });
+  const updatePdpMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.staffDevelopment.updatePdp(active.id, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["staff-pdps", active.id] });
+      toast.success("PDP updated");
+      setSelectedPdp(null);
+    },
+    onError: () => toast.error("Failed to update PDP"),
   });
 
   const totalHours = (trainings as any[]).reduce((sum: number, t: any) => sum + (Number(t.hours) || 0), 0);
@@ -709,7 +718,17 @@ function StaffDevelopmentPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedPdp(null)}>Close</Button>
+          <Button color="inherit" onClick={() => setSelectedPdp(null)}>Close</Button>
+          {selectedPdp && selectedPdp.status !== "Completed" && (
+            <Button
+              variant="contained"
+              disabled={updatePdpMut.isPending}
+              onClick={() => updatePdpMut.mutate({ id: selectedPdp.id, data: { status: "Completed" } })}
+            >
+              {updatePdpMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Mark completed
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </div>

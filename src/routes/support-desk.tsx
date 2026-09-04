@@ -67,17 +67,6 @@ function SupportDeskPage() {
   const saveWorkspace = useSavePlatformWorkspace();
   const tickets = (workspace?.supportTickets ?? []) as DeskTicket[];
 
-  if (user?.role !== "super_admin") {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
-      </div>
-    );
-  }
-
   const filtered = useMemo(() => tickets.filter((ticket) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
@@ -89,6 +78,17 @@ function SupportDeskPage() {
       ticket.tenantName,
     ].some((value) => value.toLowerCase().includes(q));
   }), [query, tickets]);
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
+        <Button component={Link} to="/" variant="outlined">Go to dashboard</Button>
+      </div>
+    );
+  }
 
   const breached = filtered.filter((ticket) => ticket.status !== "Resolved" && ticket.ageHours > ticket.slaHours).length;
   const awaitingSchool = filtered.filter((ticket) => ticket.status === "Waiting on school").length;

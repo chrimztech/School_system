@@ -78,6 +78,13 @@ function PartnerManagementPage() {
   const partners = (workspace?.partners ?? []) as Partner[];
   const deals = (workspace?.partnerDeals ?? []) as Deal[];
 
+  const stats = useMemo(() => ({
+    activePartners: partners.filter((partner) => partner.status === "Active").length,
+    totalPipeline: partners.reduce((sum, partner) => sum + partner.pipelineValue, 0),
+    managedTenants: partners.reduce((sum, partner) => sum + partner.managedTenants, 0),
+    certifiedUsers: partners.reduce((sum, partner) => sum + partner.certifications, 0),
+  }), [partners]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -88,13 +95,6 @@ function PartnerManagementPage() {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    activePartners: partners.filter((partner) => partner.status === "Active").length,
-    totalPipeline: partners.reduce((sum, partner) => sum + partner.pipelineValue, 0),
-    managedTenants: partners.reduce((sum, partner) => sum + partner.managedTenants, 0),
-    certifiedUsers: partners.reduce((sum, partner) => sum + partner.certifications, 0),
-  }), [partners]);
 
   const updatePartnerStatus = (partnerId: string, status: PartnerStatus) => {
     const partner = partners.find((item) => item.id === partnerId);

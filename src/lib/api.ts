@@ -713,6 +713,7 @@ export const api = {
   // Admissions
   admissions: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "admissions"))),
+    get: (schoolId: string, id: string) => unwrap<any>(apiClient.get(schoolPath(schoolId, `admissions/${id}`))),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "admissions"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `admissions/${id}`), data)),
     accept: (schoolId: string, id: string) => unwrap<any>(apiClient.put(schoolPath(schoolId, `admissions/${id}/accept`), {})),

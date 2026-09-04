@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Phone, BookOpen, Wallet, CalendarCheck, ShieldAlert, Loader2, Mail, MapPin, Bus } from "lucide-react";
+import { ArrowLeft, Phone, BookOpen, Wallet, CalendarCheck, ShieldAlert, Loader2, Mail, MapPin, Bus, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button, Chip, Breadcrumbs, IconButton, Link as MuiLink, MenuItem, TextField, Typography, Dialog, DialogContent, DialogActions, DialogTitle, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { badgeSx, gradeChipSx } from "@/lib/utils";
 import { useTenant, formatGrade } from "@/lib/tenant";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api, isValidSchoolId } from "@/lib/api";
 
 export const Route = createFileRoute("/students/$studentId")({
@@ -18,6 +19,8 @@ function StudentProfilePage() {
   const { studentId } = Route.useParams();
   const { active } = useTenant();
   const schoolId = active.id;
+  const { user } = useAuth();
+  const canManage = isSchoolLeadershipRole(user?.role);
   // active.id is "" until TenantProvider's async school-list fetch resolves — firing these
   // with an empty schoolId threw "No valid school ID" from schoolPath() every time.
   const hasValidSchool = isValidSchoolId(schoolId);
@@ -27,6 +30,8 @@ function StudentProfilePage() {
 
   const [transportOpen, setTransportOpen] = useState(false);
   const [transportForm, setTransportForm] = useState({ routeId: "", pickupStop: "" });
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
 
   const { data: student, isLoading } = useQuery({
     queryKey: ["student", schoolId, studentId],
@@ -71,6 +76,17 @@ function StudentProfilePage() {
     queryKey: ["transport-vehicles", schoolId],
     queryFn: () => api.transport.vehicles(schoolId),
     enabled: hasValidSchool,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => api.students.update(schoolId, studentId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["student", schoolId, studentId] });
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      toast.success("Student record updated");
+      setEditOpen(false);
+    },
+    onError: () => toast.error("Failed to update student record"),
   });
 
   const enrolMutation = useMutation({
@@ -126,6 +142,48 @@ function StudentProfilePage() {
   const currentEnrolment = (enrolments as any[]).find((e: any) => e.studentId === studentId && e.status !== "INACTIVE");
   const currentRoute = currentEnrolment ? (routes as any[]).find((r: any) => r.id === currentEnrolment.routeId || r.routeName === currentEnrolment.routeName) : null;
   const currentVehicle = currentRoute ? (vehicles as any[]).find((v: any) => v.id === currentRoute.vehicleId) : null;
+
+  const isSecondary = ["SECONDARY", "COMBINED", "FULL"].includes(active.type);
+  const isPrimary = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(active.type);
+  const gradeOptions: { value: string; label: string }[] =
+    isSecondary && !isPrimary
+      ? [1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `Form ${n}` }))
+      : isPrimary && !isSecondary
+      ? [1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `Grade ${n}` }))
+      : [
+          ...[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `Grade ${n}` })),
+          ...[7, 8, 9, 10, 11, 12].map((n) => ({ value: String(n), label: `Form ${n - 6}` })),
+        ];
+
+  const openEditDialog = () => {
+    setEditForm({
+      firstName: s.firstName ?? "", middleName: s.middleName ?? "", lastName: s.lastName ?? "",
+      preferredName: s.preferredName ?? "", grade: String(s.grade ?? "1"), section: s.section ?? "",
+      dateOfBirth: s.dateOfBirth ?? "", gender: s.gender ?? "", nationality: s.nationality ?? "",
+      nationalId: s.nationalId ?? "", birthCertificateNo: s.birthCertificateNo ?? "",
+      studentPhone: s.studentPhone ?? "", studentEmail: s.studentEmail ?? "",
+      religion: s.religion ?? "", bloodGroup: s.bloodGroup ?? "",
+      medicalConditions: s.medicalConditions ?? "", allergies: s.allergies ?? "",
+      address: s.address ?? "", city: s.city ?? "",
+      guardian: s.guardian ?? s.guardianName ?? "", guardianRelationship: s.guardianRelationship ?? "",
+      guardianPhone: s.guardianPhone ?? "", guardianAltPhone: s.guardianAltPhone ?? "",
+      guardianEmail: s.guardianEmail ?? "", guardianOccupation: s.guardianOccupation ?? "",
+      guardianWorkplace: s.guardianWorkplace ?? "", guardianNationalId: s.guardianNationalId ?? "",
+      guardianAddress: s.guardianAddress ?? "",
+      emergencyContactName: s.emergencyContactName ?? "", emergencyContactRelationship: s.emergencyContactRelationship ?? "",
+      emergencyContactPhone: s.emergencyContactPhone ?? "",
+      boardingStatus: s.boardingStatus ?? "", needsTransport: !!s.needsTransport,
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = () => {
+    if (!editForm.firstName?.trim() || !editForm.lastName?.trim()) {
+      toast.error("First and last name are required");
+      return;
+    }
+    updateMutation.mutate({ ...editForm, grade: Number(editForm.grade) });
+  };
 
   const openTransportDialog = () => {
     setTransportForm({ routeId: currentRoute?.id ?? "", pickupStop: currentEnrolment?.pickupStop ?? "" });
@@ -195,6 +253,9 @@ function StudentProfilePage() {
             </div>
           </div>
           <div className="flex gap-2">
+            {canManage && (
+              <Button variant="outlined" size="small" startIcon={<Pencil className="h-4 w-4" />} onClick={openEditDialog}>Edit</Button>
+            )}
             <Button variant="outlined" size="small" component={Link as any} to="/report-card" search={{ studentId }} startIcon={<BookOpen className="h-4 w-4" />}>Report card</Button>
           </div>
         </div>
@@ -463,6 +524,99 @@ function StudentProfilePage() {
           <p className="text-sm text-muted-foreground">No payments recorded.</p>
         )}
       </div>
+
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit student record</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-4">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Learner profile</p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <TextField label="First name *" value={editForm.firstName ?? ""} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} size="small" fullWidth />
+                <TextField label="Middle name" value={editForm.middleName ?? ""} onChange={(e) => setEditForm({ ...editForm, middleName: e.target.value })} size="small" fullWidth />
+                <TextField label="Last name *" value={editForm.lastName ?? ""} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} size="small" fullWidth />
+                <TextField label="Preferred name" value={editForm.preferredName ?? ""} onChange={(e) => setEditForm({ ...editForm, preferredName: e.target.value })} size="small" fullWidth />
+                <TextField select label="Applying for" value={editForm.grade ?? "1"} onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })} size="small" fullWidth>
+                  {gradeOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+                </TextField>
+                <TextField label="Section" value={editForm.section ?? ""} onChange={(e) => setEditForm({ ...editForm, section: e.target.value })} size="small" fullWidth />
+                <TextField type="date" label="Date of birth" value={editForm.dateOfBirth ?? ""} onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} size="small" fullWidth />
+                <TextField select label="Gender" value={editForm.gender ?? ""} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })} size="small" fullWidth>
+                  <MenuItem value="Female">Female</MenuItem>
+                  <MenuItem value="Male">Male</MenuItem>
+                </TextField>
+                <TextField label="Nationality" value={editForm.nationality ?? ""} onChange={(e) => setEditForm({ ...editForm, nationality: e.target.value })} size="small" fullWidth />
+                <TextField label="National ID" value={editForm.nationalId ?? ""} onChange={(e) => setEditForm({ ...editForm, nationalId: e.target.value })} size="small" fullWidth />
+                <TextField label="Birth certificate no." value={editForm.birthCertificateNo ?? ""} onChange={(e) => setEditForm({ ...editForm, birthCertificateNo: e.target.value })} size="small" fullWidth />
+                <TextField select label="Boarding status" value={editForm.boardingStatus ?? ""} onChange={(e) => setEditForm({ ...editForm, boardingStatus: e.target.value })} size="small" fullWidth>
+                  <MenuItem value="">—</MenuItem>
+                  <MenuItem value="DAY">Day scholar</MenuItem>
+                  <MenuItem value="BOARDING">Boarding</MenuItem>
+                </TextField>
+                <TextField select label="School transport" value={editForm.needsTransport ? "yes" : "no"} onChange={(e) => setEditForm({ ...editForm, needsTransport: e.target.value === "yes" })} size="small" fullWidth>
+                  <MenuItem value="no">Not needed</MenuItem>
+                  <MenuItem value="yes">Needed</MenuItem>
+                </TextField>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Contact &amp; address</p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <TextField label="Student phone" value={editForm.studentPhone ?? ""} onChange={(e) => setEditForm({ ...editForm, studentPhone: e.target.value })} size="small" fullWidth />
+                <TextField label="Student email" type="email" value={editForm.studentEmail ?? ""} onChange={(e) => setEditForm({ ...editForm, studentEmail: e.target.value })} size="small" fullWidth />
+                <TextField label="Address" value={editForm.address ?? ""} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} size="small" fullWidth />
+                <TextField label="City / town" value={editForm.city ?? ""} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} size="small" fullWidth />
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Welfare &amp; health</p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <TextField label="Religion" value={editForm.religion ?? ""} onChange={(e) => setEditForm({ ...editForm, religion: e.target.value })} size="small" fullWidth />
+                <TextField label="Blood group" value={editForm.bloodGroup ?? ""} onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })} size="small" fullWidth />
+              </div>
+              <TextField label="Medical conditions" value={editForm.medicalConditions ?? ""} onChange={(e) => setEditForm({ ...editForm, medicalConditions: e.target.value })} multiline minRows={2} fullWidth size="small" sx={{ mt: 2 }} />
+              <TextField label="Allergies" value={editForm.allergies ?? ""} onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })} multiline minRows={2} fullWidth size="small" sx={{ mt: 2 }} />
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Parent / guardian</p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <TextField label="Full name" value={editForm.guardian ?? ""} onChange={(e) => setEditForm({ ...editForm, guardian: e.target.value })} size="small" fullWidth />
+                <TextField label="Relationship" value={editForm.guardianRelationship ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianRelationship: e.target.value })} size="small" fullWidth />
+                <TextField label="Phone" value={editForm.guardianPhone ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianPhone: e.target.value })} size="small" fullWidth />
+                <TextField label="Alternate phone" value={editForm.guardianAltPhone ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianAltPhone: e.target.value })} size="small" fullWidth />
+                <TextField label="Email" type="email" value={editForm.guardianEmail ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianEmail: e.target.value })} size="small" fullWidth />
+                <TextField label="National ID" value={editForm.guardianNationalId ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianNationalId: e.target.value })} size="small" fullWidth />
+                <TextField label="Occupation" value={editForm.guardianOccupation ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianOccupation: e.target.value })} size="small" fullWidth />
+                <TextField label="Workplace" value={editForm.guardianWorkplace ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianWorkplace: e.target.value })} size="small" fullWidth />
+                <TextField label="Guardian address" value={editForm.guardianAddress ?? ""} onChange={(e) => setEditForm({ ...editForm, guardianAddress: e.target.value })} size="small" fullWidth />
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Emergency contact</p>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <TextField label="Name" value={editForm.emergencyContactName ?? ""} onChange={(e) => setEditForm({ ...editForm, emergencyContactName: e.target.value })} size="small" fullWidth />
+                <TextField label="Relationship" value={editForm.emergencyContactRelationship ?? ""} onChange={(e) => setEditForm({ ...editForm, emergencyContactRelationship: e.target.value })} size="small" fullWidth />
+                <TextField label="Phone" value={editForm.emergencyContactPhone ?? ""} onChange={(e) => setEditForm({ ...editForm, emergencyContactPhone: e.target.value })} size="small" fullWidth />
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={updateMutation.isPending} onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={updateMutation.isPending}
+            startIcon={updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+            onClick={saveEdit}
+          >
+            Save changes
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={transportOpen} onClose={() => setTransportOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{currentEnrolment ? "Change route" : "Assign to route"}</DialogTitle>

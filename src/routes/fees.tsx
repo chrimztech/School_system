@@ -10,6 +10,7 @@ import { useTenant, formatGrade } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { useNotifications } from "@/lib/notifications";
 import { downloadCsv, badgeSx } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { PaymentDialog } from "@/components/payment-dialog";
@@ -101,6 +102,7 @@ function FeesPage() {
   const schoolId = active.id;
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { push } = useNotifications();
 
   const [open, setOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
@@ -284,6 +286,7 @@ function FeesPage() {
         ? `Account cleared — K ${Number(vars.amount).toLocaleString()} received from ${vars.studentName}`
         : `Payment of K ${Number(vars.amount).toLocaleString()} recorded · Remaining balance: K ${newBalance.toLocaleString()}`;
       toast.success(msg, { duration: 6000 });
+      push({ title: "Payment recorded", body: msg, module: "Fees", severity: "success" });
       setForm({
         studentId: "",
         studentName: "",

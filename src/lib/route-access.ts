@@ -36,6 +36,7 @@ export const ROUTE_ACCESS_BY_SEGMENT: Readonly<Record<string, RouteAccessRule>> 
   access: { module: "access" },
   accounting: { module: "accounting" },
   activities: { module: "activities" },
+  admissions: { module: "admissions" },
   alumni: { module: "alumni" },
   "approval-center": { module: "approval-center", allowedRoles: ["super_admin"] },
   assessments: { module: "assessments", allowedRoles: ACADEMIC_OPERATIONS_ROLES },

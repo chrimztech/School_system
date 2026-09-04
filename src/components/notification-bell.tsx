@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useNotifications } from "@/lib/notifications";
+import { useNotifications, formatNotificationTime } from "@/lib/notifications";
 import { Button, IconButton, Popover, Box } from "@mui/material";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +72,7 @@ export function NotificationBell() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-sm font-medium">{n.title}</p>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">{n.time}</span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{formatNotificationTime(n.time)}</span>
                 </div>
                 <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
               </div>

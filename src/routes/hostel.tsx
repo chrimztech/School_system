@@ -49,6 +49,7 @@ function HostelPage() {
   const qc = useQueryClient();
 
   const [roomOpen, setRoomOpen] = useState(false);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [allocOpen, setAllocOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [roomForm, setRoomForm] = useState(blankRoomForm());
@@ -122,6 +123,18 @@ function HostelPage() {
     onError: () => toast.error("Failed to create room"),
   });
 
+  const updateRoomMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.hostel.updateRoom(schoolId, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["hostel-rooms", schoolId] });
+      toast.success("Room updated");
+      setEditingRoomId(null);
+      setRoomForm(blankRoomForm());
+      setRoomOpen(false);
+    },
+    onError: () => toast.error("Failed to update room"),
+  });
+
   const deleteRoomMut = useMutation({
     mutationFn: (id: string) => api.hostel.deleteRoom(schoolId, id),
     onSuccess: () => {
@@ -187,7 +200,7 @@ function HostelPage() {
     if (!roomForm.hostelName.trim() || !roomForm.roomNumber.trim()) {
       toast.error("House name and room number are required"); return;
     }
-    createRoomMut.mutate({
+    const data = {
       hostelName: roomForm.hostelName.trim(),
       roomNumber: roomForm.roomNumber.trim(),
       roomType: roomForm.roomType,
@@ -195,7 +208,21 @@ function HostelPage() {
       gender: roomForm.gender,
       floor: roomForm.floor.trim() || null,
       status: "ACTIVE",
+    };
+    if (editingRoomId) {
+      updateRoomMut.mutate({ id: editingRoomId, data });
+    } else {
+      createRoomMut.mutate(data);
+    }
+  };
+
+  const openEditRoom = (r: any) => {
+    setEditingRoomId(r.id);
+    setRoomForm({
+      hostelName: r.house ?? "", roomNumber: r.room ?? "", roomType: r.roomType ?? "DORMITORY",
+      capacity: String(r.capacity ?? ""), gender: r.gender ?? "MIXED", floor: r.floor ?? "",
     });
+    setRoomOpen(true);
   };
 
   const submitAllocation = () => {
@@ -254,9 +281,9 @@ function HostelPage() {
             <Button variant="outlined" component={Link} to="/duty-roster">Duty roster</Button>
 
             {/* Add room */}
-            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => setRoomOpen(true)}>Add room</Button>
+            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => { setEditingRoomId(null); setRoomForm(blankRoomForm()); setRoomOpen(true); }}>Add room</Button>
             <Dialog open={roomOpen} onClose={() => setRoomOpen(false)} maxWidth="md" fullWidth>
-              <DialogTitle>Create hostel room</DialogTitle>
+              <DialogTitle>{editingRoomId ? "Edit hostel room" : "Create hostel room"}</DialogTitle>
               <DialogContent>
                 <div className="grid grid-cols-2 gap-3">
                   <TextField label="House / hostel name *" fullWidth size="small" value={roomForm.hostelName} onChange={(e) => setRoomForm({ ...roomForm, hostelName: e.target.value })} placeholder="e.g. Kafue House" slotProps={{ htmlInput: { maxLength: 80 } }} />
@@ -273,8 +300,9 @@ function HostelPage() {
               </DialogContent>
               <DialogActions className="mt-2">
                 <Button variant="outlined" color="inherit" onClick={() => setRoomOpen(false)}>Cancel</Button>
-                <Button variant="contained" onClick={submitRoom} disabled={createRoomMut.isPending}>
-                  {createRoomMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create room
+                <Button variant="contained" onClick={submitRoom} disabled={createRoomMut.isPending || updateRoomMut.isPending}>
+                  {(createRoomMut.isPending || updateRoomMut.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingRoomId ? "Save changes" : "Create room"}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -410,6 +438,7 @@ function HostelPage() {
                       <Chip size="small" label={`${r.occupied}/${r.capacity}`} sx={badgeSx(r.occupied >= r.capacity ? "outline" : "secondary")} />
                     </TableCell>
                     <TableCell className="text-right">
+                      <Button size="small" variant="text" color="inherit" onClick={() => openEditRoom(r)}>Edit</Button>
                       <IconButton size="small" aria-label={`Delete room ${r.room}`} className="text-destructive" onClick={() => { if (r.occupied > 0) { toast.error("Cannot delete — room has active boarders"); return; } deleteRoomMut.mutate(r.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </IconButton>

@@ -43,6 +43,7 @@ function TimetablePage() {
   const [klass, setKlass] = useState<string>("");
   const [teacher, setTeacher] = useState<string>("");
   const [newSlotOpen, setNewSlotOpen] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [form, setForm] = useState({ classId: "", className: "", day: "MONDAY", startTime: "07:30", endTime: "08:10", period: "1", subjectId: "", subjectName: "", teacherId: "", teacherName: "", room: "" });
 
   const { data: slots = [], isLoading, refetch } = useQuery({
@@ -109,19 +110,45 @@ function TimetablePage() {
 
   const addSlot = async () => {
     if (!form.className || !form.subjectName) { toast.error("Class and subject are required"); return; }
+    const data = {
+      classId: form.classId || form.className.toLowerCase().replace(/\s/g, "-"),
+      className: form.className, dayOfWeek: form.day,
+      startTime: form.startTime, endTime: form.endTime, period: Number(form.period),
+      subjectId: form.subjectId || undefined, subjectName: form.subjectName,
+      teacherId: form.teacherId || undefined, teacherName: form.teacherName,
+      room: form.room, academicYear: String(active.currentYear), term: active.currentTerm,
+    };
     try {
-      await api.timetable.create(active.id, {
-        classId: form.classId || form.className.toLowerCase().replace(/\s/g, "-"),
-        className: form.className, dayOfWeek: form.day,
-        startTime: form.startTime, endTime: form.endTime, period: Number(form.period),
-        subjectId: form.subjectId || undefined, subjectName: form.subjectName,
-        teacherId: form.teacherId || undefined, teacherName: form.teacherName,
-        room: form.room, academicYear: String(active.currentYear), term: active.currentTerm,
-      });
-      toast.success("Slot added");
+      if (editingSlotId) {
+        await api.timetable.update(active.id, editingSlotId, data);
+        toast.success("Slot updated");
+      } else {
+        await api.timetable.create(active.id, data);
+        toast.success("Slot added");
+      }
+      setEditingSlotId(null);
       setNewSlotOpen(false);
       void refetch();
-    } catch { toast.error("Failed to add slot"); }
+    } catch { toast.error(editingSlotId ? "Failed to update slot" : "Failed to add slot"); }
+  };
+
+  const openEditSlot = (slot: any) => {
+    setEditingSlotId(slot.id);
+    setForm({
+      classId: slot.classId ?? "", className: slot.className ?? "", day: slot.dayOfWeek ?? "MONDAY",
+      startTime: slot.startTime ?? "07:30", endTime: slot.endTime ?? "08:10", period: String(slot.period ?? "1"),
+      subjectId: slot.subjectId ?? "", subjectName: slot.subjectName ?? "",
+      teacherId: slot.teacherId ?? "", teacherName: slot.teacherName ?? "", room: slot.room ?? "",
+    });
+    setNewSlotOpen(true);
+  };
+
+  const deleteSlot = async (id: string) => {
+    try {
+      await api.timetable.delete(active.id, id);
+      toast.success("Slot removed");
+      void refetch();
+    } catch { toast.error("Failed to remove slot"); }
   };
 
   const exportCsv = () => {
@@ -172,10 +199,20 @@ function TimetablePage() {
                   const color = subjectColors[slot.subjectName] ?? "bg-muted text-foreground";
                   return (
                     <td key={day} className="p-3">
-                      <div className={`rounded-md px-2 py-2 ${color}`}>
+                      <div className={`group relative rounded-md px-2 py-2 ${color} ${canManage ? "cursor-pointer" : ""}`} onClick={() => canManage && openEditSlot(slot)}>
                         <div className="text-sm font-medium">{slot.subjectName}</div>
                         <div className="text-[10px] opacity-80">{slot.teacherName}</div>
                         {slot.room && <div className="text-[10px] opacity-60">{slot.room}</div>}
+                        {canManage && (
+                          <button
+                            type="button"
+                            aria-label="Remove slot"
+                            className="absolute right-1 top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-black/20 text-[10px] leading-none text-white hover:bg-black/40 group-hover:flex"
+                            onClick={(e) => { e.stopPropagation(); deleteSlot(slot.id); }}
+                          >
+                            ×
+                          </button>
+                        )}
                       </div>
                     </td>
                   );
@@ -202,9 +239,9 @@ function TimetablePage() {
             <Button variant="outlined" onClick={exportCsv} startIcon={<Download className="h-4 w-4" />}>Export CSV</Button>
             <Button variant="outlined" onClick={() => window.print()} startIcon={<Printer className="h-4 w-4" />}>Print</Button>
             {canManage && <>
-            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => setNewSlotOpen(true)}>Add slot</Button>
+            <Button startIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditingSlotId(null); setForm({ classId: "", className: "", day: "MONDAY", startTime: "07:30", endTime: "08:10", period: "1", subjectId: "", subjectName: "", teacherId: "", teacherName: "", room: "" }); setNewSlotOpen(true); }}>Add slot</Button>
             <Dialog open={newSlotOpen} onClose={() => setNewSlotOpen(false)} maxWidth="sm" fullWidth>
-              <DialogTitle>Add timetable slot</DialogTitle>
+              <DialogTitle>{editingSlotId ? "Edit timetable slot" : "Add timetable slot"}</DialogTitle>
               <DialogContent>
                 <div className="overflow-y-auto flex-1 pr-1">
                 <div className="grid gap-3">
@@ -330,7 +367,7 @@ function TimetablePage() {
               </DialogContent>
               <DialogActions>
                 <Button variant="outlined" color="inherit" onClick={() => setNewSlotOpen(false)}>Cancel</Button>
-                <Button onClick={addSlot}>Add slot</Button>
+                <Button onClick={addSlot}>{editingSlotId ? "Save changes" : "Add slot"}</Button>
               </DialogActions>
             </Dialog>
             </>}

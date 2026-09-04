@@ -36,6 +36,8 @@ function LibraryPage() {
 
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [deleteBookTarget, setDeleteBookTarget] = useState<any | null>(null);
   const [form, setForm] = useState({
     title: "",
     author: "",
@@ -130,6 +132,27 @@ function LibraryPage() {
     onError: () => toast.error("Failed to add book"),
   });
 
+  const updateBookMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.library.updateBook(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["library-books", schoolId] });
+      toast.success("Book updated");
+      setEditingBookId(null);
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to update book"),
+  });
+
+  const deleteBookMutation = useMutation({
+    mutationFn: (id: string) => api.library.deleteBook(schoolId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["library-books", schoolId] });
+      toast.success("Book removed from catalogue");
+      setDeleteBookTarget(null);
+    },
+    onError: () => { toast.error("Failed to remove book"); setDeleteBookTarget(null); },
+  });
+
   const returnMutation = useMutation({
     mutationFn: (id: string) => api.library.returnLoan(schoolId, id),
     onSuccess: () => {
@@ -153,10 +176,33 @@ function LibraryPage() {
     );
   }
 
+  const openAddBook = () => {
+    setEditingBookId(null);
+    setForm({
+      title: "", author: "", category: CATEGORIES[0], isbn: "", publisher: "", yearPublished: "",
+      edition: "", location: "", copies: "1", readingLevel: "", condition: "Good",
+      acquisitionCost: "", acquisitionDate: new Date().toISOString().slice(0, 10), damageNotes: "",
+    });
+    setOpen(true);
+  };
+
+  const openEditBook = (b: any) => {
+    setEditingBookId(b.id);
+    setForm({
+      title: b.title ?? "", author: b.author ?? "", category: b.category ?? CATEGORIES[0],
+      isbn: b.isbn ?? "", publisher: b.publisher ?? "", yearPublished: b.yearPublished ? String(b.yearPublished) : "",
+      edition: b.edition ?? "", location: b.location ?? "", copies: String(b.totalCopies ?? b.copies ?? 1),
+      readingLevel: b.readingLevel ?? "", condition: b.condition ?? "Good",
+      acquisitionCost: b.acquisitionCost ? String(b.acquisitionCost) : "",
+      acquisitionDate: b.acquisitionDate ?? new Date().toISOString().slice(0, 10),
+      damageNotes: b.damageNotes ?? "",
+    });
+    setOpen(true);
+  };
+
   const addBook = () => {
     if (!form.title.trim() || !form.author.trim()) { toast.error("Title and author are required"); return; }
-    const copies = Math.max(1, Number(form.copies) || 1);
-    addBookMutation.mutate({
+    const metadata = {
       title: form.title.trim(),
       author: form.author.trim(),
       category: form.category,
@@ -165,14 +211,20 @@ function LibraryPage() {
       yearPublished: form.yearPublished ? Number(form.yearPublished) : null,
       edition: form.edition.trim() || null,
       location: form.location.trim() || null,
-      totalCopies: copies,
-      availableCopies: copies,
       readingLevel: form.readingLevel.trim() || null,
       condition: form.condition,
       acquisitionCost: form.acquisitionCost ? Number(form.acquisitionCost) : null,
       acquisitionDate: form.acquisitionDate || null,
       damageNotes: form.damageNotes.trim() || null,
-    });
+    };
+    if (editingBookId) {
+      // Copy counts aren't editable here — changing totalCopies/availableCopies without knowing
+      // how many are currently on loan would silently corrupt circulation tracking.
+      updateBookMutation.mutate({ id: editingBookId, data: metadata });
+      return;
+    }
+    const copies = Math.max(1, Number(form.copies) || 1);
+    addBookMutation.mutate({ ...metadata, totalCopies: copies, availableCopies: copies });
   };
 
   const bookList = books as any[];
@@ -191,9 +243,9 @@ function LibraryPage() {
         description={`Catalogue and lending · ${active.shortCode}`}
         actions={canManage ? (
           <>
-            <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>Add title</Button>
+            <Button startIcon={<Plus size={16} />} onClick={openAddBook}>Add title</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-              <DialogTitle>Add new title</DialogTitle>
+              <DialogTitle>{editingBookId ? "Edit title" : "Add new title"}</DialogTitle>
               <DialogContent>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
@@ -269,6 +321,8 @@ function LibraryPage() {
                   value={form.copies}
                   onChange={(e) => setForm({ ...form, copies: e.target.value })}
                   slotProps={{ htmlInput: { min: 1 } }}
+                  disabled={!!editingBookId}
+                  helperText={editingBookId ? "Use Issue/Return to change how many are in circulation" : undefined}
                   fullWidth
                   size="small"
                 />
@@ -336,10 +390,10 @@ function LibraryPage() {
                 <Button variant="outlined" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button
                   onClick={addBook}
-                  disabled={addBookMutation.isPending}
-                  startIcon={addBookMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+                  disabled={addBookMutation.isPending || updateBookMutation.isPending}
+                  startIcon={(addBookMutation.isPending || updateBookMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
                 >
-                  Add title
+                  {editingBookId ? "Save changes" : "Add title"}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -403,15 +457,19 @@ function LibraryPage() {
                     <TableCell className="text-right"><span className={available === 0 ? "text-destructive" : ""}>{available}</span></TableCell>
                     <TableCell className="text-right">{b.borrowedCopies ?? b.borrowed ?? 0}</TableCell>
                     {canManage && <TableCell className="text-right">
-                      <Button
-                        size="small"
-                        variant="text"
-                        color="inherit"
-                        disabled={available === 0}
-                        onClick={() => { setIssueBook(b); setIssueBorrower(null); setIssueDueDate(defaultDueDate()); }}
-                      >
-                        Issue
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="inherit"
+                          disabled={available === 0}
+                          onClick={() => { setIssueBook(b); setIssueBorrower(null); setIssueDueDate(defaultDueDate()); }}
+                        >
+                          Issue
+                        </Button>
+                        <Button size="small" variant="text" color="inherit" onClick={() => openEditBook(b)}>Edit</Button>
+                        <Button size="small" variant="text" color="error" onClick={() => setDeleteBookTarget(b)}>Delete</Button>
+                      </div>
                     </TableCell>}
                   </TableRow>
                 );
@@ -515,6 +573,27 @@ function LibraryPage() {
             startIcon={issueLoanMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
           >
             Issue book
+          </Button>
+        </DialogActions>
+      </Dialog>}
+
+      {canManage && <Dialog open={!!deleteBookTarget} onClose={() => setDeleteBookTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Remove this title?</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-muted-foreground">
+            <strong>"{deleteBookTarget?.title}"</strong> will be removed from the catalogue. This cannot be undone.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" disabled={deleteBookMutation.isPending} onClick={() => setDeleteBookTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteBookMutation.isPending}
+            startIcon={deleteBookMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+            onClick={() => deleteBookTarget && deleteBookMutation.mutate(deleteBookTarget.id)}
+          >
+            Delete
           </Button>
         </DialogActions>
       </Dialog>}

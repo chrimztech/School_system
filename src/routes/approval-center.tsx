@@ -52,6 +52,16 @@ function ApprovalCenterPage() {
     partnerTierReview: true,
   };
 
+  const pending = items.filter((item) => item.status === "Pending" || item.status === "Escalated");
+  const completed = items.filter((item) => item.status === "Approved" || item.status === "Rejected");
+
+  const stats = useMemo(() => ({
+    pending: pending.length,
+    escalated: items.filter((item) => item.status === "Escalated").length,
+    completed: completed.length,
+    policies: Object.values(policies).filter(Boolean).length,
+  }), [completed.length, items, pending.length, policies]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -62,16 +72,6 @@ function ApprovalCenterPage() {
       </div>
     );
   }
-
-  const pending = items.filter((item) => item.status === "Pending" || item.status === "Escalated");
-  const completed = items.filter((item) => item.status === "Approved" || item.status === "Rejected");
-
-  const stats = useMemo(() => ({
-    pending: pending.length,
-    escalated: items.filter((item) => item.status === "Escalated").length,
-    completed: completed.length,
-    policies: Object.values(policies).filter(Boolean).length,
-  }), [completed.length, items, pending.length, policies]);
 
   const updateStatus = (id: string, status: ApprovalStatus) => {
     const item = items.find((entry) => entry.id === id);

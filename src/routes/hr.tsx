@@ -9,6 +9,7 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { Box, Button, Chip, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
+import { PersonCombobox } from "@/components/person-combobox";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
@@ -28,6 +29,11 @@ function HRPage() {
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [tab, setTab] = useState("staff");
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaveForm, setLeaveForm] = useState({
+    staffId: "", staffName: "", leaveType: "ANNUAL", startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date().toISOString().slice(0, 10), reason: "",
+  });
   const [form, setForm] = useState({
     name: "", role: "", dept: "", contract: "Permanent" as typeof CONTRACTS[number],
     status: "Active" as "Active" | "On leave", gender: "Male" as "Male" | "Female",
@@ -112,6 +118,33 @@ function HRPage() {
     onError: () => toast.error("Failed to reject leave"),
   });
 
+  const submitLeaveMutation = useMutation({
+    mutationFn: (data: any) => api.hr.submitLeave(schoolId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hr-leave", schoolId] });
+      toast.success("Leave request submitted");
+      setLeaveForm({ staffId: "", staffName: "", leaveType: "ANNUAL", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10), reason: "" });
+      setLeaveOpen(false);
+    },
+    onError: () => toast.error("Failed to submit leave request"),
+  });
+
+  const requestLeave = () => {
+    if (!leaveForm.staffId) { toast.error("Select a staff member"); return; }
+    const start = new Date(leaveForm.startDate);
+    const end = new Date(leaveForm.endDate);
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+    submitLeaveMutation.mutate({
+      staffId: leaveForm.staffId,
+      staffName: leaveForm.staffName,
+      leaveType: leaveForm.leaveType,
+      startDate: leaveForm.startDate,
+      endDate: leaveForm.endDate,
+      days,
+      reason: leaveForm.reason.trim() || null,
+    });
+  };
+
   const addStaff = () => {
     if (!form.name.trim() || !form.email.trim()) { toast.error("Name and email are required"); return; }
     const nameParts = form.name.trim().split(/\s+/);
@@ -134,6 +167,12 @@ function HRPage() {
       bankName: form.bankName.trim() || null,
       bankAccount: form.accountNumber.trim() || null,
       salary: 0,
+      contractType: form.contract,
+      contractEndDate: form.contractEndDate || null,
+      salaryBand: form.salaryBand.trim() || null,
+      tpin: form.tpin.trim() || null,
+      paymentMethod: form.paymentMethod,
+      napsaEnrolled: form.napsaEnrolled === "yes",
     });
   };
 
@@ -305,6 +344,7 @@ function HRPage() {
               <TableHead><TableRow>
                 <TableCell>Name</TableCell><TableCell>Role</TableCell><TableCell>Department</TableCell>
                 <TableCell>Joined</TableCell><TableCell>Contract</TableCell><TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow></TableHead>
               <TableBody>
                 {staff.map((s) => {
@@ -324,14 +364,16 @@ function HRPage() {
                       <TableCell>
                         <Chip size="small" label={statusLabel} sx={badgeSx(isActive ? "success" : "warning")} />
                       </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" variant="text" color="inherit" component={Link as any} to="/teachers/$staffId" params={{ staffId: s.id }}>
+                          Edit
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {staff.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No staff on record.</TableCell></TableRow>
-                )}
-                {staff.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No staff on record.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No staff on record.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -341,6 +383,10 @@ function HRPage() {
       )}
 
       {tab === "leave" && (
+        <Box>
+          <div className="mb-3 flex justify-end">
+            <Button variant="outlined" onClick={() => setLeaveOpen(true)}>Request leave</Button>
+          </div>
         <Box className="rounded-xl border border-border bg-card">
           {leaveLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
@@ -385,7 +431,40 @@ function HRPage() {
             </TableContainer>
           )}
         </Box>
+        </Box>
       )}
+
+      <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Request leave</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <div>
+              <p className="mb-1 text-sm font-medium">Staff member</p>
+              <PersonCombobox
+                options={staff.map((s: any) => ({ id: s.id, label: s.name, sublabel: s.role }))}
+                placeholder="Search staff…"
+                emptyText="No staff found."
+                onSelect={(o) => setLeaveForm({ ...leaveForm, staffId: o.id, staffName: o.label })}
+              />
+              {leaveForm.staffName && <p className="mt-1 text-xs text-muted-foreground">Selected: {leaveForm.staffName}</p>}
+            </div>
+            <TextField select label="Leave type" fullWidth size="small" value={leaveForm.leaveType} onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })}>
+              {["ANNUAL", "SICK", "MATERNITY", "PATERNITY", "STUDY", "EMERGENCY"].map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
+            <div className="grid grid-cols-2 gap-3">
+              <TextField type="date" label="From" fullWidth size="small" value={leaveForm.startDate} onChange={(e) => setLeaveForm({ ...leaveForm, startDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+              <TextField type="date" label="To" fullWidth size="small" value={leaveForm.endDate} onChange={(e) => setLeaveForm({ ...leaveForm, endDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+            </div>
+            <TextField label="Reason" fullWidth size="small" multiline minRows={2} value={leaveForm.reason} onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })} />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setLeaveOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={requestLeave} disabled={submitLeaveMutation.isPending}>
+            {submitLeaveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Submit
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {tab === "appraisal" && (
         <Box sx={{ mt: 1.5 }}>

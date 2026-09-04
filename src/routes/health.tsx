@@ -46,6 +46,7 @@ function HealthPage() {
   });
 
   const [recOpen, setRecOpen] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
     queryKey: ["health-picker-students", schoolId],
@@ -82,6 +83,29 @@ function HealthPage() {
     },
     onError: () => toast.error("Failed to save health record"),
   });
+
+  const updateRecordMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.health.updateRecord(schoolId, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["health-records", schoolId] });
+      toast.success("Health record updated");
+      setEditingRecordId(null);
+      setRecForm({ studentName: "", grade: "", bloodGroup: "", allergies: "", chronicConditions: "", emergencyContact: "", emergencyPhone: "", lastCheckupDate: "", vaccinationStatus: "", notes: "" });
+      setRecOpen(false);
+    },
+    onError: () => toast.error("Failed to update health record"),
+  });
+
+  const openEditRecord = (r: any) => {
+    setEditingRecordId(r.id);
+    setRecForm({
+      studentName: r.studentName ?? "", grade: r.grade ?? "", bloodGroup: r.bloodGroup ?? "",
+      allergies: r.allergies ?? "", chronicConditions: r.chronicConditions ?? "",
+      emergencyContact: r.emergencyContact ?? "", emergencyPhone: r.emergencyPhone ?? "",
+      lastCheckupDate: r.lastCheckupDate ?? "", vaccinationStatus: r.vaccinationStatus ?? "", notes: r.notes ?? "",
+    });
+    setRecOpen(true);
+  };
 
   const COMPLETE_STATUSES = ["complete", "completed", "up to date", "up-to-date", "fully vaccinated"];
   const records = recordsData as any[];
@@ -237,13 +261,13 @@ function HealthPage() {
             <Tab value="stock" label="Medicine stock" />
           </Tabs>
           <button
-            onClick={() => setRecOpen(true)}
+            onClick={() => { setEditingRecordId(null); setRecForm({ studentName: "", grade: "", bloodGroup: "", allergies: "", chronicConditions: "", emergencyContact: "", emergencyPhone: "", lastCheckupDate: "", vaccinationStatus: "", notes: "" }); setRecOpen(true); }}
             className="flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted"
           >
             <Plus className="h-3.5 w-3.5" />Add health record
           </button>
           <Dialog open={recOpen} onClose={() => setRecOpen(false)} maxWidth="md" fullWidth>
-              <DialogTitle>Add student health record</DialogTitle>
+              <DialogTitle>{editingRecordId ? "Edit student health record" : "Add student health record"}</DialogTitle>
               <DialogContent>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
@@ -281,7 +305,7 @@ function HealthPage() {
                 <Button variant="text" color="inherit" onClick={() => setRecOpen(false)}>Cancel</Button>
                 <Button onClick={() => {
                   if (!recForm.studentName.trim()) return toast.error("Student name required");
-                  createRecordMut.mutate({
+                  const data = {
                     studentName: recForm.studentName.trim(), grade: recForm.grade || "—",
                     bloodGroup: recForm.bloodGroup || null,
                     allergies: recForm.allergies.trim() || null,
@@ -291,9 +315,14 @@ function HealthPage() {
                     lastCheckupDate: recForm.lastCheckupDate || null,
                     vaccinationStatus: recForm.vaccinationStatus.trim() || null,
                     notes: recForm.notes.trim() || null,
-                  });
-                }} disabled={createRecordMut.isPending} startIcon={createRecordMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}>
-                  Save record
+                  };
+                  if (editingRecordId) {
+                    updateRecordMut.mutate({ id: editingRecordId, data });
+                  } else {
+                    createRecordMut.mutate(data);
+                  }
+                }} disabled={createRecordMut.isPending || updateRecordMut.isPending} startIcon={(createRecordMut.isPending || updateRecordMut.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}>
+                  {editingRecordId ? "Save changes" : "Save record"}
                 </Button>
               </DialogActions>
           </Dialog>
@@ -338,11 +367,11 @@ function HealthPage() {
           <Table>
             <TableHead><TableRow>
               <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell>
-              <TableCell>Vaccination status</TableCell><TableCell>Last checkup</TableCell><TableCell>Notes</TableCell>
+              <TableCell>Vaccination status</TableCell><TableCell>Last checkup</TableCell><TableCell>Notes</TableCell><TableCell align="right">Actions</TableCell>
             </TableRow></TableHead>
             <TableBody>
               {records.filter((r) => r.vaccinationStatus).length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No immunisation records on file. Use "Add health record" to add one.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No immunisation records on file. Use "Add health record" to add one.</TableCell></TableRow>
               ) : records.filter((r) => r.vaccinationStatus).map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.studentName}</TableCell>
@@ -356,6 +385,7 @@ function HealthPage() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.lastCheckupDate || "—"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.notes || "—"}</TableCell>
+                  <TableCell align="right"><Button size="small" variant="text" color="inherit" onClick={() => openEditRecord(r)}>Edit</Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -370,11 +400,11 @@ function HealthPage() {
           <Table>
             <TableHead><TableRow>
               <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell>
-              <TableCell>Allergies</TableCell><TableCell>Chronic conditions</TableCell><TableCell>Emergency contact</TableCell>
+              <TableCell>Allergies</TableCell><TableCell>Chronic conditions</TableCell><TableCell>Emergency contact</TableCell><TableCell align="right">Actions</TableCell>
             </TableRow></TableHead>
             <TableBody>
               {allergyRecords.length === 0 && records.filter((r) => r.chronicConditions).length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No allergy or condition records on file.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No allergy or condition records on file.</TableCell></TableRow>
               ) : records.filter((r) => (r.allergies || "").trim() || (r.chronicConditions || "").trim()).map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.studentName}</TableCell>
@@ -388,6 +418,7 @@ function HealthPage() {
                   <TableCell className="text-xs text-muted-foreground">
                     {r.emergencyContact ? `${r.emergencyContact}${r.emergencyPhone ? ` · ${r.emergencyPhone}` : ""}` : "—"}
                   </TableCell>
+                  <TableCell align="right"><Button size="small" variant="text" color="inherit" onClick={() => openEditRecord(r)}>Edit</Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>

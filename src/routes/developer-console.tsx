@@ -63,6 +63,13 @@ function DeveloperConsolePage() {
   const webhooks = (workspace?.developerWebhooks ?? []) as WebhookRecord[];
   const sandboxes = (workspace?.developerSandboxes ?? []) as SandboxRecord[];
 
+  const stats = useMemo(() => ({
+    activeKeys: keys.filter((item) => item.status === "Active").length,
+    retryingWebhooks: webhooks.filter((item) => item.status === "Retrying").length,
+    readySandboxes: sandboxes.filter((item) => item.status === "Ready").length,
+    totalFailures: webhooks.reduce((sum, item) => sum + item.failures, 0),
+  }), [keys, sandboxes, webhooks]);
+
   if (user?.role !== "super_admin") {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -73,13 +80,6 @@ function DeveloperConsolePage() {
       </div>
     );
   }
-
-  const stats = useMemo(() => ({
-    activeKeys: keys.filter((item) => item.status === "Active").length,
-    retryingWebhooks: webhooks.filter((item) => item.status === "Retrying").length,
-    readySandboxes: sandboxes.filter((item) => item.status === "Ready").length,
-    totalFailures: webhooks.reduce((sum, item) => sum + item.failures, 0),
-  }), [keys, sandboxes, webhooks]);
 
   const rotateKey = (id: string) => {
     const currentKey = keys.find((item) => item.id === id);

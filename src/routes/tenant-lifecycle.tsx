@@ -60,17 +60,6 @@ function TenantLifecyclePage() {
   const overrides = (workspace?.tenantLifecycleOverrides ?? {}) as Record<string, LifecycleOverride>;
   const [tab, setTab] = useState("pipeline");
 
-  if (user?.role !== "super_admin") {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access denied</p>
-        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
-        <Button variant="outlined" component={Link} to="/">Go to dashboard</Button>
-      </div>
-    );
-  }
-
   const lifecycle = useMemo(() => tenants.map((tenant, index) => {
     const override = overrides[tenant.id] ?? {};
     const stage = override.stage ?? inferStage(tenant.subscription.status, tenant.campuses.length);
@@ -95,6 +84,17 @@ function TenantLifecyclePage() {
     const owner = override.owner ?? implementationOwners[index % implementationOwners.length];
     return { tenant, stage, readiness, blocker, owner };
   }), [overrides, tenants]);
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access denied</p>
+        <p className="text-sm text-muted-foreground">This area is restricted to System Administrators.</p>
+        <Button variant="outlined" component={Link} to="/">Go to dashboard</Button>
+      </div>
+    );
+  }
 
   const stats = {
     activeRollouts: lifecycle.filter((record) => record.stage === "Implementation" || record.stage === "Go-live").length,
