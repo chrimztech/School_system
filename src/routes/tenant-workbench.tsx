@@ -1,15 +1,22 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Building2, LifeBuoy, ShieldAlert, Wrench } from "lucide-react";
+import { Building2, LifeBuoy, Plus, ShieldAlert, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 
 import { Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { SchoolDetailsDialog } from "@/components/school-details-dialog";
 import { useAuth } from "@/lib/auth";
-import { appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
+import { appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx } from "@/lib/utils";
@@ -37,6 +44,8 @@ function TenantWorkbenchPage() {
   const handoffs = (workspace?.tenantHandoffs ?? []) as HandoffRecord[];
   const [tab, setTab] = useState("tenants");
   const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [addHandoffOpen, setAddHandoffOpen] = useState(false);
+  const [handoffForm, setHandoffForm] = useState({ schoolId: "", owner: "Platform desk", reason: "" });
 
   const stats = useMemo(() => ({
     totalTenants: tenants.length,
@@ -80,8 +89,9 @@ function TenantWorkbenchPage() {
         area: "Access",
         action: `Switched into tenant workspace and opened ${destination}`,
       }),
+    }, {
+      onSuccess: () => toast.success("Tenant context switched"),
     });
-    toast.success("Tenant context switched");
     navigate({ to: destination });
   };
 
@@ -126,8 +136,36 @@ function TenantWorkbenchPage() {
         area: "Lifecycle",
         action: `Moved tenant handoff ${handoff.id} from ${handoff.status} to ${nextStatus}`,
       }),
+    }, {
+      onSuccess: () => toast.success("Handoff updated"),
     });
-    toast.success("Handoff updated");
+  };
+
+  const submitAddHandoff = () => {
+    const school = tenants.find((item) => item.id === handoffForm.schoolId);
+    if (!school || !handoffForm.owner.trim() || !handoffForm.reason.trim()) {
+      toast.error("School, owner, and reason are required");
+      return;
+    }
+    saveWorkspace.mutate({
+      tenantHandoffs: appendTenantHandoff(workspace, {
+        school: school.name,
+        owner: handoffForm.owner.trim(),
+        reason: handoffForm.reason.trim(),
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: school.name,
+        area: "Lifecycle",
+        action: `Opened tenant handoff: ${handoffForm.reason.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Handoff created");
+        setHandoffForm({ schoolId: "", owner: "Platform desk", reason: "" });
+        setAddHandoffOpen(false);
+      },
+    });
   };
 
   return (
@@ -158,13 +196,31 @@ function TenantWorkbenchPage() {
         <StatCard label="Open handoffs" value={stats.handoffs} accent="accent" icon={<LifeBuoy className="h-4 w-4" />} />
       </div>
 
-      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab value="tenants" label="Tenant Directory" />
-        <Tab value="handoffs" label="Handoffs" />
-        <Tab value="tools" label="Access Tools" />
-      </Tabs>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="tenants" label="Tenant Directory" />
+          <Tab value="handoffs" label="Handoffs" />
+          <Tab value="tools" label="Access Tools" />
+        </Tabs>
+        {tab === "handoffs" && (
+          <Button size="small" startIcon={<Plus size={16} />} onClick={() => setAddHandoffOpen(true)}>
+            New handoff
+          </Button>
+        )}
+      </div>
 
-      {tab === "tenants" && (
+      {tab === "tenants" && tenants.length === 0 && (
+        <div className="rounded-xl border border-border bg-card">
+          <EmptyState
+            icon={Building2}
+            title="No schools onboarded yet"
+            description="Onboard a school to start switching into its workspace, billing, or support context from here."
+            actionSlot={<Button variant="contained" component={Link} to="/onboarding">Start onboarding</Button>}
+          />
+        </div>
+      )}
+
+      {tab === "tenants" && tenants.length > 0 && (
         <div className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -206,7 +262,18 @@ function TenantWorkbenchPage() {
         </div>
       )}
 
-      {tab === "handoffs" && (
+      {tab === "handoffs" && handoffs.length === 0 && (
+        <div className="rounded-xl border border-border bg-card">
+          <EmptyState
+            icon={LifeBuoy}
+            title="No handoffs open"
+            description="Handoffs raised from lifecycle, tenant success, or this workbench appear here so you can track them through to close."
+            actionSlot={<Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setAddHandoffOpen(true)}>New handoff</Button>}
+          />
+        </div>
+      )}
+
+      {tab === "handoffs" && handoffs.length > 0 && (
         <div className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -272,6 +339,48 @@ function TenantWorkbenchPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={addHandoffOpen} onClose={() => setAddHandoffOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>New handoff</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              select
+              label="School *"
+              value={handoffForm.schoolId}
+              onChange={(e) => setHandoffForm({ ...handoffForm, schoolId: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              {tenants.map((tenant) => (
+                <MenuItem key={tenant.id} value={tenant.id}>{tenant.name}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Owner *"
+              value={handoffForm.owner}
+              onChange={(e) => setHandoffForm({ ...handoffForm, owner: e.target.value })}
+              fullWidth
+              size="small"
+              placeholder="e.g. Platform desk"
+            />
+            <TextField
+              label="Reason *"
+              value={handoffForm.reason}
+              onChange={(e) => setHandoffForm({ ...handoffForm, reason: e.target.value })}
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              placeholder="What needs to be handed off and why"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAddHandoffOpen(false)}>Cancel</Button>
+          <Button onClick={submitAddHandoff} disabled={saveWorkspace.isPending}>Create handoff</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

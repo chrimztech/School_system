@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BadgeCheck, Globe2, Handshake, ShieldAlert, TrendingUp, Users2 } from "lucide-react";
+import { BadgeCheck, Globe2, Handshake, Plus, ShieldAlert, TrendingUp, Users2 } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
@@ -15,10 +15,16 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import DialogTitle from "@mui/material/DialogTitle";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
-import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
+import { appendApprovalItem, appendPartner, appendPartnerDeal, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
+import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
 
@@ -47,6 +53,12 @@ type Deal = {
   owner: string;
 };
 
+const partnerTiers: PartnerTier[] = ["Referral", "Implementation", "Strategic"];
+const dealOwners = ["Partner desk", "Platform desk", "Implementation desk"];
+
+const emptyPartnerDraft = { name: "", region: "", tier: "Referral" as PartnerTier };
+const emptyDealDraft = { partnerId: "", schoolLead: "", value: 0, owner: dealOwners[0] };
+
 function tierTone(tier: PartnerTier): BadgeTone {
   if (tier === "Strategic") return "success";
   if (tier === "Implementation") return "default";
@@ -72,11 +84,16 @@ export const Route = createFileRoute("/partner-management")({
 
 function PartnerManagementPage() {
   const { user } = useAuth();
+  const { tenants } = useTenant();
   const [tab, setTab] = useState("partners");
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const partners = (workspace?.partners ?? []) as Partner[];
   const deals = (workspace?.partnerDeals ?? []) as Deal[];
+  const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
+  const [partnerDraft, setPartnerDraft] = useState(emptyPartnerDraft);
+  const [dealDialogOpen, setDealDialogOpen] = useState(false);
+  const [dealDraft, setDealDraft] = useState(emptyDealDraft);
 
   const stats = useMemo(() => ({
     activePartners: partners.filter((partner) => partner.status === "Active").length,
@@ -134,8 +151,7 @@ function PartnerManagementPage() {
         severity: status === "Paused" ? "Warning" : "Info",
         action: `Changed partner ${partner.name} from ${partner.status} to ${status}`,
       }),
-    });
-    toast.success("Partner status updated");
+    }, { onSuccess: () => toast.success("Partner status updated") });
   };
 
   const advanceDeal = (dealId: string) => {
@@ -188,16 +204,28 @@ function PartnerManagementPage() {
         area: "Operations",
         action: `Advanced partner deal ${deal.id} from ${deal.stage} to ${nextStage}`,
       }),
-    });
-    toast.success("Partner deal advanced");
+    }, { onSuccess: () => toast.success("Partner deal advanced") });
   };
 
-  const invitePartner = () => {
+  // Previously "Invite partner" only filed a support ticket + approval item recording the
+  // intent to invite someone — it never actually added a row to `workspace.partners`. That
+  // made the button a near no-op from the Partners table's point of view: no matter how
+  // many times it was clicked, the table (and therefore every other action on this page —
+  // status changes, deals, training) stayed permanently empty with nothing to act on. This
+  // now opens a real form and appends an actual partner record via `appendPartner`, while
+  // keeping the original ticket/approval trail for the human follow-up.
+  const createPartner = () => {
+    if (!partnerDraft.name.trim()) return;
     saveWorkspace.mutate({
+      partners: appendPartner(workspace, {
+        name: partnerDraft.name.trim(),
+        region: partnerDraft.region.trim() || "Unspecified",
+        tier: partnerDraft.tier,
+      }),
       supportTickets: appendSupportTicket(workspace, {
         tenantId: "partner-ops",
         tenantName: "Partner operations",
-        subject: "Prepare new partner enablement invite",
+        subject: `Complete enablement invite for ${partnerDraft.name.trim()}`,
         category: "Commercial",
         priority: "Medium",
         owner: "Platform desk",
@@ -207,16 +235,39 @@ function PartnerManagementPage() {
         type: "Partner",
         requester: user?.name ?? "System Administrator",
         school: "Platform",
-        summary: "Review diligence checklist for newly invited partner",
+        summary: `Review diligence checklist for newly invited partner ${partnerDraft.name.trim()}`,
       }),
       platformAuditEvents: appendPlatformAuditEvent(workspace, {
         actor: user?.name ?? "System Administrator",
         tenant: "Platform",
         area: "Operations",
-        action: "Queued partner enablement invite",
+        action: `Invited new partner ${partnerDraft.name.trim()}`,
       }),
-    });
-    toast.success("Partner enablement invite sent");
+    }, { onSuccess: () => toast.success("Partner invited") });
+    setPartnerDialogOpen(false);
+    setPartnerDraft(emptyPartnerDraft);
+  };
+
+  const createDeal = () => {
+    const partner = partners.find((item) => item.id === dealDraft.partnerId);
+    if (!partner || !dealDraft.schoolLead.trim()) return;
+    saveWorkspace.mutate({
+      partnerDeals: appendPartnerDeal(workspace, {
+        partnerId: partner.id,
+        partner: partner.name,
+        schoolLead: dealDraft.schoolLead.trim(),
+        value: dealDraft.value,
+        owner: dealDraft.owner,
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: dealDraft.schoolLead.trim(),
+        area: "Operations",
+        action: `Logged new partner deal via ${partner.name} for ${dealDraft.schoolLead.trim()}`,
+      }),
+    }, { onSuccess: () => toast.success("Partner deal logged") });
+    setDealDialogOpen(false);
+    setDealDraft(emptyDealDraft);
   };
 
   const scheduleTraining = (partner: Partner) => {
@@ -236,8 +287,7 @@ function PartnerManagementPage() {
         area: "Operations",
         action: `Scheduled enablement training for ${partner.name}`,
       }),
-    });
-    toast.success(`Training scheduled for ${partner.name}`);
+    }, { onSuccess: () => toast.success(`Training scheduled for ${partner.name}`) });
   };
 
   return (
@@ -248,12 +298,123 @@ function PartnerManagementPage() {
         actions={(
           <>
             <Button variant="outlined" component={Link} to="/contract-center">Open contract center</Button>
-            <Button onClick={invitePartner} startIcon={<Handshake className="h-4 w-4" />}>
-              Invite partner
+            <Button onClick={() => setPartnerDialogOpen(true)} startIcon={<Handshake className="h-4 w-4" />}>
+              New partner
             </Button>
           </>
         )}
       />
+
+      <Dialog open={partnerDialogOpen} onClose={() => setPartnerDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>New partner</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Partner name"
+              value={partnerDraft.name}
+              onChange={(event) => setPartnerDraft({ ...partnerDraft, name: event.target.value })}
+              fullWidth
+              size="small"
+              autoFocus
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Region"
+                value={partnerDraft.region}
+                onChange={(event) => setPartnerDraft({ ...partnerDraft, region: event.target.value })}
+                fullWidth
+                size="small"
+                placeholder="e.g. Lusaka, Copperbelt"
+              />
+              <TextField
+                select
+                label="Tier"
+                value={partnerDraft.tier}
+                onChange={(event) => setPartnerDraft({ ...partnerDraft, tier: event.target.value as PartnerTier })}
+                fullWidth
+                size="small"
+              >
+                {partnerTiers.map((tier) => (
+                  <MenuItem key={tier} value={tier}>{tier}</MenuItem>
+                ))}
+              </TextField>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setPartnerDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!partnerDraft.name.trim()} onClick={createPartner}>Invite partner</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={dealDialogOpen} onClose={() => setDealDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>New partner deal</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              select
+              label="Partner"
+              value={dealDraft.partnerId}
+              onChange={(event) => setDealDraft({ ...dealDraft, partnerId: event.target.value })}
+              fullWidth
+              size="small"
+              autoFocus
+            >
+              {partners.map((partner) => (
+                <MenuItem key={partner.id} value={partner.id}>{partner.name}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="School lead"
+              value={dealDraft.schoolLead}
+              onChange={(event) => setDealDraft({ ...dealDraft, schoolLead: event.target.value })}
+              fullWidth
+              size="small"
+              placeholder="e.g. an onboarded school name, or a prospective lead"
+              helperText={tenants.length === 0 ? "No onboarded schools yet — type a prospective lead name." : "Pick an onboarded school below, or type a prospective lead name."}
+            />
+            {tenants.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {tenants.map((tenant) => (
+                  <Chip
+                    key={tenant.id}
+                    size="small"
+                    label={tenant.name}
+                    variant={dealDraft.schoolLead === tenant.name ? "filled" : "outlined"}
+                    onClick={() => setDealDraft({ ...dealDraft, schoolLead: tenant.name })}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Deal value (K)"
+                type="number"
+                value={dealDraft.value}
+                onChange={(event) => setDealDraft({ ...dealDraft, value: Number(event.target.value) || 0 })}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                select
+                label="Owner"
+                value={dealDraft.owner}
+                onChange={(event) => setDealDraft({ ...dealDraft, owner: event.target.value })}
+                fullWidth
+                size="small"
+              >
+                {dealOwners.map((owner) => (
+                  <MenuItem key={owner} value={owner}>{owner}</MenuItem>
+                ))}
+              </TextField>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setDealDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!dealDraft.partnerId || !dealDraft.schoolLead.trim()} onClick={createDeal}>Log deal</Button>
+        </DialogActions>
+      </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active partners" value={stats.activePartners} accent="success" icon={<Handshake className="h-4 w-4" />} />
@@ -269,6 +430,16 @@ function PartnerManagementPage() {
       </Tabs>
 
       {tab === "partners" && (
+        partners.length === 0 ? (
+          <Box className="rounded-xl border border-border bg-card">
+            <EmptyState
+              icon={Handshake}
+              title="No partners yet"
+              description="Invite a reseller, implementation, or strategic partner to start tracking their portfolio here."
+              action={{ label: "New partner", onClick: () => setPartnerDialogOpen(true) }}
+            />
+          </Box>
+        ) : (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -319,49 +490,76 @@ function PartnerManagementPage() {
           </Table>
           </TableContainer>
         </Box>
+        )
       )}
 
       {tab === "pipeline" && (
-        <Box className="rounded-xl border border-border bg-card">
-          <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Opportunity</TableCell>
-                <TableCell>Partner</TableCell>
-                <TableCell>Stage</TableCell>
-                <TableCell>Owner</TableCell>
-                <TableCell>Value</TableCell>
-                <TableCell className="text-right">Advance</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {deals.map((deal) => (
-                <TableRow key={deal.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{deal.schoolLead}</p>
-                      <p className="text-xs text-muted-foreground">{deal.id}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>{deal.partner}</TableCell>
-                  <TableCell>{deal.stage}</TableCell>
-                  <TableCell>{deal.owner}</TableCell>
-                  <TableCell className="font-medium">K{deal.value.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">
-                    <Button size="small" variant="outlined" disabled={deal.stage === "Won"} onClick={() => advanceDeal(deal.id)}>
-                      {deal.stage === "Won" ? "Won" : "Advance"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </TableContainer>
+        <Box className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="small" variant="outlined" startIcon={<Plus size={14} />} disabled={partners.length === 0} onClick={() => setDealDialogOpen(true)}>
+              New deal
+            </Button>
+          </div>
+          <Box className="rounded-xl border border-border bg-card">
+            {deals.length === 0 ? (
+              <EmptyState
+                icon={TrendingUp}
+                title="No pipeline deals yet"
+                description={partners.length === 0 ? "Invite a partner first, then log their deals here." : "Log a partner-sourced deal to start tracking it through to close."}
+                action={partners.length > 0 ? { label: "New deal", onClick: () => setDealDialogOpen(true) } : undefined}
+              />
+            ) : (
+              <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Opportunity</TableCell>
+                    <TableCell>Partner</TableCell>
+                    <TableCell>Stage</TableCell>
+                    <TableCell>Owner</TableCell>
+                    <TableCell>Value</TableCell>
+                    <TableCell className="text-right">Advance</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {deals.map((deal) => (
+                    <TableRow key={deal.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{deal.schoolLead}</p>
+                          <p className="text-xs text-muted-foreground">{deal.id}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{deal.partner}</TableCell>
+                      <TableCell>{deal.stage}</TableCell>
+                      <TableCell>{deal.owner}</TableCell>
+                      <TableCell className="font-medium">K{deal.value.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="small" variant="outlined" disabled={deal.stage === "Won"} onClick={() => advanceDeal(deal.id)}>
+                          {deal.stage === "Won" ? "Won" : "Advance"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </TableContainer>
+            )}
+          </Box>
         </Box>
       )}
 
       {tab === "enablement" && (
+        partners.length === 0 ? (
+          <Box className="rounded-xl border border-border bg-card">
+            <EmptyState
+              icon={Globe2}
+              title="No partners to enable yet"
+              description="Once a partner is invited, schedule and track their certification training here."
+              action={{ label: "New partner", onClick: () => setPartnerDialogOpen(true) }}
+            />
+          </Box>
+        ) : (
         <Box className="grid gap-4 lg:grid-cols-3">
           {partners.map((partner) => (
             <div key={partner.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -393,6 +591,7 @@ function PartnerManagementPage() {
             </div>
           ))}
         </Box>
+        )
       )}
     </div>
   );

@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Trophy, Users, Star, CalendarDays, Plus, Loader2, Trash2 } from "lucide-react";
+import { Trophy, Users, Star, CalendarDays, Plus, Loader2, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
@@ -67,11 +68,30 @@ function ActivitiesPage() {
   const [clubOpen, setClubOpen] = useState(false);
   const [clubForm, setClubForm] = useState(createClubForm);
   const [tab, setTab] = useState("clubs");
+  const [enrolOpen, setEnrolOpen] = useState(false);
+  const [enrolClubId, setEnrolClubId] = useState("");
+  const [enrolStudent, setEnrolStudent] = useState<PersonOption | null>(null);
 
   const { data: clubsData = [], isLoading } = useQuery({
     queryKey: ["activities", schoolId],
     queryFn: () => api.activities.list(schoolId),
   });
+
+  const { data: enrolmentsData = [], isLoading: enrolmentsLoading } = useQuery({
+    queryKey: ["activities-enrolments", schoolId],
+    queryFn: () => api.activities.allEnrolments(schoolId),
+  });
+
+  const { data: studentsData = [], isLoading: studentsLoading } = useQuery({
+    queryKey: ["students", schoolId],
+    queryFn: () => api.students.list(schoolId),
+    enabled: enrolOpen,
+  });
+  const studentOptions: PersonOption[] = (studentsData as any[]).map((s: any) => ({
+    id: s.id,
+    label: s.name ?? `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim(),
+    sublabel: [s.grade ?? s.class ?? s.className, s.admissionNumber].filter(Boolean).join(" · "),
+  }));
 
   const { data: pickerUsers = [], isLoading: pickerUsersLoading } = useQuery({
     queryKey: ["activities-picker-users", schoolId],
@@ -112,6 +132,12 @@ function ActivitiesPage() {
     onError: () => toast.error("Failed to remove club"),
   });
 
+  const activeEnrolments = (enrolmentsData as any[]).filter((e: any) => e.status !== "WITHDRAWN");
+  const enrolmentCountByClub = new Map<string, number>();
+  for (const e of activeEnrolments) {
+    enrolmentCountByClub.set(e.activityId, (enrolmentCountByClub.get(e.activityId) ?? 0) + 1);
+  }
+
   const clubs = (clubsData as any[]).map((club: any) => {
     const meta = parseClubDescription(club.description);
     return {
@@ -122,13 +148,43 @@ function ActivitiesPage() {
       targetGroup: club.targetGroup ?? meta["target group"] ?? "",
       notes: club.description ?? meta.notes ?? "",
       status: club.status ?? "ACTIVE",
-      members: club.members ?? club.memberCount ?? club.maxParticipants ?? 0,
+      members: enrolmentCountByClub.get(club.id) ?? 0,
       maxParticipants: club.maxParticipants ?? 0,
     };
   });
 
   const activeClubs = clubs.filter((club) => String(club.status).toUpperCase() === "ACTIVE");
-  const totalMembers = activeClubs.reduce((sum: number, club: any) => sum + (club.members ?? 0), 0);
+  const totalMembers = activeEnrolments.length;
+
+  const enrolMutation = useMutation({
+    mutationFn: ({ activityId, data }: { activityId: string; data: any }) => api.activities.enrol(schoolId, activityId, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["activities-enrolments", schoolId] });
+      toast.success("Student enrolled");
+      setEnrolStudent(null);
+      setEnrolClubId("");
+      setEnrolOpen(false);
+    },
+    onError: () => toast.error("Failed to enrol student"),
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: (enrolmentId: string) => api.activities.withdraw(schoolId, enrolmentId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["activities-enrolments", schoolId] });
+      toast.success("Membership withdrawn");
+    },
+    onError: () => toast.error("Failed to withdraw membership"),
+  });
+
+  const submitEnrolment = () => {
+    if (!enrolClubId || !enrolStudent) { toast.error("Select a club and a student"); return; }
+    const club = clubs.find((c) => c.id === enrolClubId);
+    enrolMutation.mutate({
+      activityId: enrolClubId,
+      data: { activityName: club?.name, studentId: enrolStudent.id, studentName: enrolStudent.label, grade: enrolStudent.sublabel?.split(" · ")[0] ?? "" },
+    });
+  };
 
   const addClub = () => {
     if (!clubForm.name.trim() || !clubForm.leader.trim()) {
@@ -371,25 +427,97 @@ function ActivitiesPage() {
 
       {tab === "teams" && (
         <div className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">
-            Sports team rosters aren't tracked separately yet — manage sports as a club above for now.
-          </div>
+          <EmptyState
+            icon={Trophy}
+            title="Sports team rosters aren't tracked separately yet"
+            description="Manage sports as a club on the Clubs & societies tab for now — team rosters use the same membership tracking."
+          />
         </div>
       )}
 
       {tab === "membership" && (
         <div className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">
-            Individual membership records aren't tracked yet — club member counts are on the Clubs &amp; societies tab.
+          <div className="flex justify-end border-b border-border p-3">
+            <Button size="small" startIcon={<UserPlus size={14} />} onClick={() => setEnrolOpen(true)}>Enrol student</Button>
           </div>
+          {enrolmentsLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading memberships...</span>
+            </div>
+          ) : activeEnrolments.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No memberships recorded yet"
+              description="Enrol a student into a club or society to start tracking individual membership."
+              action={{ label: "Enrol student", onClick: () => setEnrolOpen(true) }}
+            />
+          ) : (
+            <TableContainer>
+            <Table>
+              <TableHead><TableRow>
+                <TableCell>Student</TableCell><TableCell>Club</TableCell><TableCell>Grade</TableCell>
+                <TableCell>Enrolled</TableCell><TableCell className="text-right">Action</TableCell>
+              </TableRow></TableHead>
+              <TableBody>
+                {activeEnrolments.map((e: any) => (
+                  <TableRow key={e.id}>
+                    <TableCell className="font-medium">{e.studentName}</TableCell>
+                    <TableCell>{e.activityName}</TableCell>
+                    <TableCell>{e.grade || "—"}</TableCell>
+                    <TableCell>{e.enrolmentDate}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="error"
+                        disabled={withdrawMutation.isPending}
+                        onClick={() => { if (window.confirm(`Withdraw ${e.studentName} from ${e.activityName}?`)) withdrawMutation.mutate(e.id); }}
+                      >
+                        Withdraw
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            </TableContainer>
+          )}
+
+          <Dialog open={enrolOpen} onClose={() => setEnrolOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Enrol student in a club</DialogTitle>
+            <DialogContent>
+              <div className="grid gap-3 pt-1">
+                <TextField select label="Club / society *" fullWidth size="small" value={enrolClubId} onChange={(e) => setEnrolClubId(e.target.value)}>
+                  {activeClubs.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </TextField>
+                <div>
+                  <p className="mb-1 text-sm font-medium">Student *</p>
+                  <PersonCombobox
+                    options={studentOptions}
+                    loading={studentsLoading}
+                    placeholder="Search students…"
+                    emptyText="No students found."
+                    onSelect={(option) => setEnrolStudent(option)}
+                  />
+                  {enrolStudent && <p className="mt-1 text-xs text-muted-foreground">Selected: {enrolStudent.label}</p>}
+                </div>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setEnrolOpen(false)}>Cancel</Button>
+              <Button onClick={submitEnrolment} disabled={enrolMutation.isPending}>Enrol</Button>
+            </DialogActions>
+          </Dialog>
         </div>
       )}
 
       {tab === "fixtures" && (
         <div className="rounded-xl border border-border bg-card">
-          <div className="py-12 text-center text-muted-foreground text-sm">
-            A fixtures calendar isn't tracked yet — use the school Calendar to schedule matches and events.
-          </div>
+          <EmptyState
+            icon={CalendarDays}
+            title="A fixtures calendar isn't tracked here yet"
+            description="Use the school Calendar to schedule matches, competitions, and events."
+          />
         </div>
       )}
     </div>

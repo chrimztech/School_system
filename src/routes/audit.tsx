@@ -1,15 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Search, Activity, AlertCircle, CheckCircle2, FileText, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Search, Activity, AlertCircle, CheckCircle2, Download, FileText, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
-import { Button, Chip, TextField, InputAdornment } from "@mui/material";
+import { Button, Chip, MenuItem, TextField, InputAdornment } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
-import { badgeSx } from "@/lib/utils";
+import { badgeSx, downloadCsv } from "@/lib/utils";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({ meta: [{ title: "Audit Log — SRMS" }] }),
@@ -24,6 +24,9 @@ function AuditPage() {
   const { isSystemAdmin } = useAuth();
   const { active } = useTenant();
   const [q, setQ] = useState("");
+  const [severity, setSeverity] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const { data: log = [], isLoading } = useQuery({
     queryKey: ["audit", active.id],
@@ -31,16 +34,33 @@ function AuditPage() {
   });
 
   const events = log as any[];
-  const filtered = events.filter((e) => `${e.actor} ${e.action} ${e.target}`.toLowerCase().includes(q.toLowerCase()));
+  const filtered = useMemo(() => events.filter((e) => {
+    if (!`${e.actor} ${e.action} ${e.target}`.toLowerCase().includes(q.toLowerCase())) return false;
+    if (severity !== "all" && e.severity !== severity) return false;
+    const ts = e.createdAt ?? e.ts;
+    if (fromDate && ts && ts.slice(0, 10) < fromDate) return false;
+    if (toDate && ts && ts.slice(0, 10) > toDate) return false;
+    return true;
+  }), [events, q, severity, fromDate, toDate]);
+
+  const exportCsv = () => {
+    downloadCsv(filtered.map((e) => ({
+      Timestamp: e.createdAt ? new Date(e.createdAt).toLocaleString() : e.ts,
+      Actor: e.actor, Role: e.role, Action: e.action, Target: e.target, Severity: e.severity,
+    })), `audit-log-${active.slug ?? active.id}-${new Date().toISOString().slice(0, 10)}`);
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Audit Log"
         description="Every meaningful action is recorded for 7 years (MoE requirement)"
-        actions={isSystemAdmin ? (
-          <Button variant="outlined" component={Link} to="/platform-audit">Open platform audit</Button>
-        ) : undefined}
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<Download className="h-4 w-4" />} disabled={filtered.length === 0} onClick={exportCsv}>Export CSV</Button>
+            {isSystemAdmin && <Button variant="outlined" component={Link} to="/platform-audit">Open platform audit</Button>}
+          </>
+        }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -51,17 +71,24 @@ function AuditPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b border-border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
           <h2 className="text-sm font-semibold">Activity stream</h2>
-          <div className="max-w-xs flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <TextField
               size="small"
-              fullWidth
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search actor or action"
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
             />
+            <TextField select size="small" label="Severity" value={severity} onChange={(e) => setSeverity(e.target.value)} sx={{ minWidth: 120 }}>
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="info">Info</MenuItem>
+              <MenuItem value="warning">Warning</MenuItem>
+              <MenuItem value="success">Success</MenuItem>
+            </TextField>
+            <TextField type="date" size="small" label="From" value={fromDate} onChange={(e) => setFromDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+            <TextField type="date" size="small" label="To" value={toDate} onChange={(e) => setToDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
           </div>
         </div>
         {isLoading ? (

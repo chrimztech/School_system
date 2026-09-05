@@ -113,7 +113,7 @@ export const schoolCampusOps: NavItem[] = [
   { title: "Health & Clinic", url: "/health", icon: HeartPulse, module: "health" },
   { title: "Hostel & Boarding", url: "/hostel", icon: BedDouble, module: "hostel" },
   { title: "Inventory", url: "/inventory", icon: Package, module: "inventory" },
-  { title: "Canteen", url: "/canteen", icon: UtensilsCrossed, module: "canteen" },
+  { title: "Dining Hall", url: "/canteen", icon: UtensilsCrossed, module: "canteen" },
   { title: "Facilities", url: "/facilities", icon: Wrench, module: "facilities" },
   { title: "Visitor Log", url: "/visitor-log", icon: ContactRound, module: "visitor-log" },
   { title: "Lost & Found", url: "/lost-found", icon: PackageSearch, module: "lost-found" },

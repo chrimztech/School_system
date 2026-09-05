@@ -17,6 +17,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
@@ -112,7 +113,8 @@ function TenantLifecyclePage() {
         stage === "Implementation" ? "Go-live" :
           stage === "Go-live" ? "Live" :
             stage === "Recovery" ? "Go-live" :
-              stage;
+              stage === "Suspended" ? "Recovery" :
+                stage;
     saveWorkspace.mutate({
       tenantLifecycleOverrides: {
         ...overrides,
@@ -155,8 +157,9 @@ function TenantLifecyclePage() {
         area: "Lifecycle",
         action: `Advanced tenant lifecycle from ${stage} to ${next}`,
       }),
+    }, {
+      onSuccess: () => toast.success("Lifecycle stage advanced"),
     });
-    toast.success("Lifecycle stage advanced");
   };
 
   const setOwner = (tenantId: string, owner: string) => {
@@ -177,8 +180,9 @@ function TenantLifecyclePage() {
         area: "Lifecycle",
         action: `Reassigned lifecycle owner to ${owner}`,
       }),
+    }, {
+      onSuccess: () => toast.success("Lifecycle owner updated"),
     });
-    toast.success("Lifecycle owner updated");
   };
 
   const queueRecovery = (tenantId: string) => {
@@ -224,8 +228,9 @@ function TenantLifecyclePage() {
         severity: "Warning",
         action: "Moved tenant into recovery workflow",
       }),
+    }, {
+      onSuccess: () => toast.warning("Recovery workflow started"),
     });
-    toast.warning("Recovery workflow started");
   };
 
   return (
@@ -252,6 +257,19 @@ function TenantLifecyclePage() {
         <StatCard label="Suspended accounts" value={stats.suspendedAccounts} accent="accent" icon={<Wrench className="h-4 w-4" />} />
       </div>
 
+      {lifecycle.length === 0 && (
+        <div className="rounded-xl border border-border bg-card">
+          <EmptyState
+            icon={Building2}
+            title="No schools onboarded yet"
+            description="Onboard a school to start tracking it through implementation, go-live, and renewal."
+            actionSlot={<Button variant="contained" component={Link} to="/onboarding">Start onboarding</Button>}
+          />
+        </div>
+      )}
+
+      {lifecycle.length > 0 && (
+        <>
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab value="pipeline" label="Pipeline" />
         <Tab value="launch" label="Launch readiness" />
@@ -396,6 +414,8 @@ function TenantLifecyclePage() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

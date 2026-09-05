@@ -488,6 +488,18 @@ function HostelPage() {
                       >
                         Mark {b.statusLabel === "In" ? "Out" : "In"}
                       </Button>
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="error"
+                        disabled={vacateMut.isPending}
+                        onClick={() => {
+                          if (!window.confirm(`Vacate ${b.name} from ${b.room}? This frees the bed for a new allocation.`)) return;
+                          vacateMut.mutate(b.id);
+                        }}
+                      >
+                        Vacate
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

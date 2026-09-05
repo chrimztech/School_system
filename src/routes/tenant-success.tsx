@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button, Chip, LinearProgress, MenuItem, TextField, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { FEATURE_ORDER, PLAN_CATALOG, useTenant } from "@/lib/tenant";
@@ -169,8 +170,9 @@ function TenantSuccessPage() {
         area: "Lifecycle",
         action: `Reassigned tenant success owner to ${owner}`,
       }),
+    }, {
+      onSuccess: () => toast.success("Portfolio owner updated"),
     });
-    toast.success("Portfolio owner updated");
   };
 
   const scheduleReview = (tenantId: string) => {
@@ -208,8 +210,9 @@ function TenantSuccessPage() {
         area: "Lifecycle",
         action: "Scheduled portfolio health review",
       }),
+    }, {
+      onSuccess: () => toast.success("Success review scheduled"),
     });
-    toast.success("Success review scheduled");
   };
 
   const extendTrial = (tenantId: string) => {
@@ -265,8 +268,9 @@ function TenantSuccessPage() {
         area: "Billing",
         action: `Extended trial renewal date to ${extendedRenewal}`,
       }),
+    }, {
+      onSuccess: () => toast.success(`Trial extended to ${extendedRenewal}`),
     });
-    toast.success(`Trial extended to ${extendedRenewal}`);
   };
 
   const escalateAccount = (tenantId: string) => {
@@ -309,8 +313,9 @@ function TenantSuccessPage() {
         severity: "Warning",
         action: "Flagged account for executive follow-up",
       }),
+    }, {
+      onSuccess: () => toast.warning("Account flagged for executive follow-up"),
     });
-    toast.warning("Account flagged for executive follow-up");
   };
 
   return (
@@ -343,6 +348,21 @@ function TenantSuccessPage() {
         />
       </div>
 
+      {portfolio.length === 0 && (
+        <div className="rounded-xl border border-border bg-card">
+          <EmptyState
+            icon={HeartHandshake}
+            title={query.trim() ? "No schools match your search" : "No schools onboarded yet"}
+            description={query.trim()
+              ? "Try a different school, district, owner, or plan name."
+              : "Once a school is onboarded, it appears here for health, renewal, and adoption tracking."}
+            actionSlot={!query.trim() ? <Button variant="contained" component={Link} to="/onboarding">Start onboarding</Button> : undefined}
+          />
+        </div>
+      )}
+
+      {portfolio.length > 0 && (
+        <>
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab value="portfolio" label="Portfolio" />
         <Tab value="renewals" label="Renewals" />
@@ -509,6 +529,8 @@ function TenantSuccessPage() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">

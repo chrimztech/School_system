@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   Activity, AlertTriangle, ArrowRightLeft, CheckCircle2, Clock3, HardDrive,
-  Rocket, Server, ShieldAlert,
+  Plus, Rocket, Server, ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
@@ -17,10 +17,19 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
-import { appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
+import {
+  appendOpsIncident, appendPlatformAuditEvent, appendQueue, appendRelease, appendService, appendSupportTicket,
+} from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
 
@@ -91,12 +100,21 @@ function PlatformOpsPage() {
   const incidents = (workspace?.opsIncidents ?? []) as Incident[];
   const releases = (workspace?.releases ?? []) as Release[];
 
+  const [addServiceOpen, setAddServiceOpen] = useState(false);
+  const [serviceForm, setServiceForm] = useState({ name: "", owner: "", region: "", dependency: "" });
+  const [addQueueOpen, setAddQueueOpen] = useState(false);
+  const [queueForm, setQueueForm] = useState({ name: "", owner: "", backlog: "", lagMinutes: "" });
+  const [addIncidentOpen, setAddIncidentOpen] = useState(false);
+  const [incidentForm, setIncidentForm] = useState({ title: "", severity: "Medium" as Incident["severity"], tenant: "", commander: "" });
+  const [addReleaseOpen, setAddReleaseOpen] = useState(false);
+  const [releaseForm, setReleaseForm] = useState({ title: "", environment: "Staging" as Release["environment"], owner: "", window: "" });
+
   const stats = useMemo(() => {
     const healthyServices = services.filter((service) => service.status === "healthy").length;
     const blockedQueues = queues.filter((queue) => queue.status === "blocked").length;
     const openIncidents = incidents.filter((incident) => incident.status !== "Mitigated").length;
     const pendingReleases = releases.filter((release) => release.status === "Awaiting approval" || release.status === "In validation").length;
-    const uptime = services.reduce((sum, service) => sum + service.uptime, 0) / services.length;
+    const uptime = services.length === 0 ? null : services.reduce((sum, service) => sum + service.uptime, 0) / services.length;
 
     return {
       healthyServices,
@@ -119,6 +137,10 @@ function PlatformOpsPage() {
   }
 
   const runHealthSweep = () => {
+    if (services.length === 0 && queues.length === 0) {
+      toast.info("Nothing to sweep yet — add a service or queue first.");
+      return;
+    }
     const nextServices = services.map((service) => ({
       ...service,
       status: service.status === "maintenance" ? service.status : "healthy",
@@ -154,8 +176,9 @@ function PlatformOpsPage() {
         area: "Operations",
         action: `Completed platform health sweep across ${services.length} services and ${queues.length} queues`,
       }),
+    }, {
+      onSuccess: () => toast.success(`Health sweep completed across ${services.length} service${services.length === 1 ? "" : "s"} and ${queues.length} queue${queues.length === 1 ? "" : "s"}`),
     });
-    toast.success("Platform health sweep completed");
   };
 
   const toggleMaintenance = (serviceId: string) => {
@@ -293,6 +316,103 @@ function PlatformOpsPage() {
     toast.success("Release approved for deployment");
   };
 
+  const submitAddService = () => {
+    if (!serviceForm.name.trim() || !serviceForm.owner.trim()) { toast.error("Name and owner are required"); return; }
+    saveWorkspace.mutate({
+      services: appendService(workspace, {
+        name: serviceForm.name.trim(),
+        owner: serviceForm.owner.trim(),
+        region: serviceForm.region.trim() || "Not set",
+        dependency: serviceForm.dependency.trim() || "None",
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Operations",
+        action: `Added service ${serviceForm.name.trim()} to platform monitoring`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success(`${serviceForm.name} added`);
+        setServiceForm({ name: "", owner: "", region: "", dependency: "" });
+        setAddServiceOpen(false);
+      },
+    });
+  };
+
+  const submitAddQueue = () => {
+    if (!queueForm.name.trim() || !queueForm.owner.trim()) { toast.error("Name and owner are required"); return; }
+    saveWorkspace.mutate({
+      queues: appendQueue(workspace, {
+        name: queueForm.name.trim(),
+        owner: queueForm.owner.trim(),
+        backlog: Number(queueForm.backlog) || 0,
+        lagMinutes: Number(queueForm.lagMinutes) || 0,
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Operations",
+        action: `Added queue ${queueForm.name.trim()} to platform monitoring`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success(`${queueForm.name} added`);
+        setQueueForm({ name: "", owner: "", backlog: "", lagMinutes: "" });
+        setAddQueueOpen(false);
+      },
+    });
+  };
+
+  const submitAddIncident = () => {
+    if (!incidentForm.title.trim() || !incidentForm.commander.trim()) { toast.error("Title and commander are required"); return; }
+    saveWorkspace.mutate({
+      opsIncidents: appendOpsIncident(workspace, {
+        title: incidentForm.title.trim(),
+        severity: incidentForm.severity,
+        tenant: incidentForm.tenant.trim() || "Platform",
+        commander: incidentForm.commander.trim(),
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: incidentForm.tenant.trim() || "Platform",
+        area: "Operations",
+        severity: incidentForm.severity === "High" ? "Critical" : incidentForm.severity === "Medium" ? "Warning" : "Info",
+        action: `Logged incident: ${incidentForm.title.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Incident logged");
+        setIncidentForm({ title: "", severity: "Medium", tenant: "", commander: "" });
+        setAddIncidentOpen(false);
+      },
+    });
+  };
+
+  const submitAddRelease = () => {
+    if (!releaseForm.title.trim() || !releaseForm.owner.trim()) { toast.error("Title and owner are required"); return; }
+    saveWorkspace.mutate({
+      releases: appendRelease(workspace, {
+        title: releaseForm.title.trim(),
+        environment: releaseForm.environment,
+        owner: releaseForm.owner.trim(),
+        window: releaseForm.window.trim() || "Not scheduled",
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Operations",
+        action: `Added release ${releaseForm.title.trim()} for ${releaseForm.environment.toLowerCase()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success(`${releaseForm.title} added`);
+        setReleaseForm({ title: "", environment: "Staging", owner: "", window: "" });
+        setAddReleaseOpen(false);
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -310,20 +430,31 @@ function PlatformOpsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Healthy services" value={`${stats.healthyServices}/${services.length}`} accent="success" icon={<Server className="h-4 w-4" />} />
-        <StatCard label="Average uptime" value={`${stats.uptime.toFixed(2)}%`} accent="primary" icon={<CheckCircle2 className="h-4 w-4" />} />
+        <StatCard label="Average uptime" value={stats.uptime === null ? "—" : `${stats.uptime.toFixed(2)}%`} accent="primary" icon={<CheckCircle2 className="h-4 w-4" />} />
         <StatCard label="Blocked queues" value={stats.blockedQueues} accent="warning" icon={<ArrowRightLeft className="h-4 w-4" />} />
         <StatCard label="Open incidents" value={stats.openIncidents} accent="destructive" icon={<AlertTriangle className="h-4 w-4" />} />
         <StatCard label="Pending releases" value={stats.pendingReleases} accent="accent" icon={<Rocket className="h-4 w-4" />} />
       </div>
 
-      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab value="services" label="Services" />
-        <Tab value="queues" label="Queues" />
-        <Tab value="incidents" label="Incidents" />
-        <Tab value="releases" label="Releases" />
-      </Tabs>
+      <div className="flex items-center justify-between">
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="services" label="Services" />
+          <Tab value="queues" label="Queues" />
+          <Tab value="incidents" label="Incidents" />
+          <Tab value="releases" label="Releases" />
+        </Tabs>
+        {tab === "services" && <Button size="small" startIcon={<Plus size={16} />} onClick={() => setAddServiceOpen(true)}>Add service</Button>}
+        {tab === "queues" && <Button size="small" startIcon={<Plus size={16} />} onClick={() => setAddQueueOpen(true)}>Add queue</Button>}
+        {tab === "incidents" && <Button size="small" startIcon={<Plus size={16} />} onClick={() => setAddIncidentOpen(true)}>Log incident</Button>}
+        {tab === "releases" && <Button size="small" startIcon={<Plus size={16} />} onClick={() => setAddReleaseOpen(true)}>Add release</Button>}
+      </div>
 
       {tab === "services" && (
+        services.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card">
+            <EmptyState icon={Server} title="No services tracked yet" description="Add the platform's core services to monitor uptime and run health sweeps." />
+          </div>
+        ) : (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -373,9 +504,15 @@ function PlatformOpsPage() {
           </Table>
           </TableContainer>
         </Box>
+        )
       )}
 
       {tab === "queues" && (
+        queues.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card">
+            <EmptyState icon={ArrowRightLeft} title="No queues tracked yet" description="Add a workload queue to monitor backlog and lag, and to run recovery actions." />
+          </div>
+        ) : (
         <Box className="grid gap-4 lg:grid-cols-2">
           {queues.map((queue) => (
             <div key={queue.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -403,9 +540,15 @@ function PlatformOpsPage() {
             </div>
           ))}
         </Box>
+        )
       )}
 
       {tab === "incidents" && (
+        incidents.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card">
+            <EmptyState icon={AlertTriangle} title="No incidents logged" description="Log an incident to track its response status and tenant impact." />
+          </div>
+        ) : (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -451,9 +594,15 @@ function PlatformOpsPage() {
           </Table>
           </TableContainer>
         </Box>
+        )
       )}
 
       {tab === "releases" && (
+        releases.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card">
+            <EmptyState icon={Rocket} title="No releases scheduled" description="Add a release to track its approval status and deployment window." />
+          </div>
+        ) : (
         <Box className="grid gap-4 lg:grid-cols-3">
           {releases.map((release) => (
             <div key={release.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -490,6 +639,7 @@ function PlatformOpsPage() {
             </div>
           ))}
         </Box>
+        )
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -520,6 +670,78 @@ function PlatformOpsPage() {
           <Button sx={{ mt: 2, width: "100%" }} component={Link} to="/support-desk">Go to support desk</Button>
         </div>
       </div>
+
+      <Dialog open={addServiceOpen} onClose={() => setAddServiceOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Add service</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField label="Service name *" value={serviceForm.name} onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })} fullWidth size="small" placeholder="e.g. Notifications API" />
+            <TextField label="Owner *" value={serviceForm.owner} onChange={(e) => setServiceForm({ ...serviceForm, owner: e.target.value })} fullWidth size="small" placeholder="e.g. Platform team" />
+            <TextField label="Region" value={serviceForm.region} onChange={(e) => setServiceForm({ ...serviceForm, region: e.target.value })} fullWidth size="small" placeholder="e.g. af-south-1" />
+            <TextField label="Dependency" value={serviceForm.dependency} onChange={(e) => setServiceForm({ ...serviceForm, dependency: e.target.value })} fullWidth size="small" placeholder="e.g. Postgres primary" />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAddServiceOpen(false)}>Cancel</Button>
+          <Button onClick={submitAddService} disabled={saveWorkspace.isPending}>Add service</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={addQueueOpen} onClose={() => setAddQueueOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Add queue</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField label="Queue name *" value={queueForm.name} onChange={(e) => setQueueForm({ ...queueForm, name: e.target.value })} fullWidth size="small" placeholder="e.g. Report card generation" />
+            <TextField label="Owner *" value={queueForm.owner} onChange={(e) => setQueueForm({ ...queueForm, owner: e.target.value })} fullWidth size="small" placeholder="e.g. Academic services" />
+            <TextField type="number" label="Current backlog" value={queueForm.backlog} onChange={(e) => setQueueForm({ ...queueForm, backlog: e.target.value })} fullWidth size="small" slotProps={{ htmlInput: { min: 0 } }} />
+            <TextField type="number" label="Lag (minutes)" value={queueForm.lagMinutes} onChange={(e) => setQueueForm({ ...queueForm, lagMinutes: e.target.value })} fullWidth size="small" slotProps={{ htmlInput: { min: 0 } }} />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAddQueueOpen(false)}>Cancel</Button>
+          <Button onClick={submitAddQueue} disabled={saveWorkspace.isPending}>Add queue</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={addIncidentOpen} onClose={() => setAddIncidentOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Log incident</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField label="Title *" value={incidentForm.title} onChange={(e) => setIncidentForm({ ...incidentForm, title: e.target.value })} fullWidth size="small" placeholder="e.g. Elevated API latency" />
+            <TextField select label="Severity" value={incidentForm.severity} onChange={(e) => setIncidentForm({ ...incidentForm, severity: e.target.value as Incident["severity"] })} fullWidth size="small">
+              <MenuItem value="Low">Low</MenuItem>
+              <MenuItem value="Medium">Medium</MenuItem>
+              <MenuItem value="High">High</MenuItem>
+            </TextField>
+            <TextField label="Tenant impact" value={incidentForm.tenant} onChange={(e) => setIncidentForm({ ...incidentForm, tenant: e.target.value })} fullWidth size="small" placeholder="e.g. All schools, or a specific tenant" />
+            <TextField label="Commander *" value={incidentForm.commander} onChange={(e) => setIncidentForm({ ...incidentForm, commander: e.target.value })} fullWidth size="small" placeholder="Who's leading the response" />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAddIncidentOpen(false)}>Cancel</Button>
+          <Button onClick={submitAddIncident} disabled={saveWorkspace.isPending}>Log incident</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={addReleaseOpen} onClose={() => setAddReleaseOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Add release</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField label="Title *" value={releaseForm.title} onChange={(e) => setReleaseForm({ ...releaseForm, title: e.target.value })} fullWidth size="small" placeholder="e.g. Q3 report card engine" />
+            <TextField select label="Environment" value={releaseForm.environment} onChange={(e) => setReleaseForm({ ...releaseForm, environment: e.target.value as Release["environment"] })} fullWidth size="small">
+              <MenuItem value="Sandbox">Sandbox</MenuItem>
+              <MenuItem value="Staging">Staging</MenuItem>
+              <MenuItem value="Production">Production</MenuItem>
+            </TextField>
+            <TextField label="Owner *" value={releaseForm.owner} onChange={(e) => setReleaseForm({ ...releaseForm, owner: e.target.value })} fullWidth size="small" />
+            <TextField label="Change window" value={releaseForm.window} onChange={(e) => setReleaseForm({ ...releaseForm, window: e.target.value })} fullWidth size="small" placeholder="e.g. Sat 02:00-04:00 CAT" />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAddReleaseOpen(false)}>Cancel</Button>
+          <Button onClick={submitAddRelease} disabled={saveWorkspace.isPending}>Add release</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BadgeCheck, CheckCircle2, FileSignature, Printer, ShieldAlert, ShieldCheck, Wallet, X } from "lucide-react";
+import { BadgeCheck, CheckCircle2, FileSignature, Plus, Printer, ShieldAlert, ShieldCheck, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { Box, Button, Chip, Divider, Dialog, DialogContent, DialogTitle, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import { Box, Button, Chip, Divider, Dialog, DialogContent, DialogActions, DialogTitle, MenuItem, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
-import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
+import { appendApprovalItem, appendContract, appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
@@ -27,6 +28,9 @@ type ContractRecord = {
 };
 
 const contractOwners = ["Legal desk", "Revenue ops", "Platform admin"];
+const agreementTypes: AgreementType[] = ["MSA", "Order Form", "DPA", "SOW"];
+
+const emptyContractDraft = { tenantId: "", type: "Order Form" as AgreementType, value: 0, expiresOn: "", owner: contractOwners[0] };
 
 function statusTone(status: ContractStatus) {
   if (status === "Active") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
@@ -53,10 +57,22 @@ function ContractCenterPage() {
   const [packDialogOpen, setPackDialogOpen] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [tab, setTab] = useState("agreements");
-  const contracts = (workspace?.contracts ?? tenants.flatMap((tenant, index) => ([
-    { id: `ctr-${tenant.id}-msa`, tenantId: tenant.id, school: tenant.name, type: "MSA" as AgreementType, status: "Active" as ContractStatus, value: tenant.subscription.amount * 12, expiresOn: tenant.subscription.renewalDate, owner: contractOwners[index % contractOwners.length] },
-    { id: `ctr-${tenant.id}-dpa`, tenantId: tenant.id, school: tenant.name, type: "DPA" as AgreementType, status: (index % 2 === 0 ? "Active" : "Awaiting signature") as ContractStatus, value: 0, expiresOn: tenant.subscription.renewalDate, owner: "Legal desk" },
-  ])).slice(0, Math.max(6, tenants.length * 2))) as ContractRecord[];
+  const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [contractDraft, setContractDraft] = useState(emptyContractDraft);
+
+  // Same class of bug as revenue-ops' revenueCases: the synthesized default (one MSA + one
+  // DPA per tenant) only kicked in via `??` when workspace.contracts was `undefined`, not
+  // when it was an explicit `[]` (which is what a wipe/reset leaves it as). Comparing
+  // `.length` instead makes the synthesis resilient to that, and a manual "New agreement"
+  // action is added below for one-off Order Forms/SOWs that the auto-generated MSA+DPA
+  // pair doesn't cover.
+  const synthesizedContracts = useMemo(() => (
+    tenants.flatMap((tenant, index) => ([
+      { id: `ctr-${tenant.id}-msa`, tenantId: tenant.id, school: tenant.name, type: "MSA" as AgreementType, status: "Active" as ContractStatus, value: tenant.subscription.amount * 12, expiresOn: tenant.subscription.renewalDate, owner: contractOwners[index % contractOwners.length] },
+      { id: `ctr-${tenant.id}-dpa`, tenantId: tenant.id, school: tenant.name, type: "DPA" as AgreementType, status: (index % 2 === 0 ? "Active" : "Awaiting signature") as ContractStatus, value: 0, expiresOn: tenant.subscription.renewalDate, owner: "Legal desk" },
+    ])).slice(0, Math.max(6, tenants.length * 2))
+  ), [tenants]);
+  const contracts = (workspace?.contracts?.length ? workspace.contracts : synthesizedContracts) as ContractRecord[];
 
   const stats = useMemo(() => ({
     active: contracts.filter((contract) => contract.status === "Active").length,
@@ -150,8 +166,30 @@ function ContractCenterPage() {
         severity: nextStatus === "Renewal due" ? "Warning" : "Info",
         action: `Moved contract ${currentContract.id} from ${currentContract.status} to ${nextStatus}`,
       }),
-    });
-    toast.success("Contract status updated");
+    }, { onSuccess: () => toast.success("Contract status updated") });
+  };
+
+  const createContract = () => {
+    const tenant = tenants.find((item) => item.id === contractDraft.tenantId);
+    if (!tenant) return;
+    saveWorkspace.mutate({
+      contracts: appendContract(workspace, {
+        tenantId: tenant.id,
+        school: tenant.name,
+        type: contractDraft.type,
+        value: contractDraft.value,
+        expiresOn: contractDraft.expiresOn.trim() || tenant.subscription.renewalDate,
+        owner: contractDraft.owner,
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: tenant.name,
+        area: "Billing",
+        action: `Drafted a new ${contractDraft.type} for ${tenant.name}`,
+      }),
+    }, { onSuccess: () => toast.success("Agreement drafted") });
+    setContractDialogOpen(false);
+    setContractDraft(emptyContractDraft);
   };
 
   const generateContractPack = () => {
@@ -183,9 +221,16 @@ function ContractCenterPage() {
         area: "Operations",
         action: "Generated cross-tenant contract pack",
       }),
+    }, {
+      // Previously this dialog opened unconditionally right after calling .mutate(), so a
+      // failed save still showed "Contract pack generated ... Submitted to Legal desk for
+      // review" — a false confirmation on top of the premature-toast pattern seen
+      // elsewhere. Now it only opens once the save actually succeeds.
+      onSuccess: () => {
+        setGeneratedAt(now);
+        setPackDialogOpen(true);
+      },
     });
-    setGeneratedAt(now);
-    setPackDialogOpen(true);
   };
 
   return (
@@ -199,12 +244,84 @@ function ContractCenterPage() {
             <Button component={Link} to="/revenue-ops" variant="outlined">
               Open revenue ops
             </Button>
+            <Button variant="outlined" startIcon={<Plus size={16} />} disabled={tenants.length === 0} onClick={() => setContractDialogOpen(true)}>
+              New agreement
+            </Button>
             <Button onClick={generateContractPack} startIcon={<FileSignature size={16} />}>
               Generate contract pack
             </Button>
           </>
         )}
       />
+
+      <Dialog open={contractDialogOpen} onClose={() => setContractDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>New agreement</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              select
+              label="School"
+              value={contractDraft.tenantId}
+              onChange={(event) => setContractDraft({ ...contractDraft, tenantId: event.target.value })}
+              fullWidth
+              size="small"
+              autoFocus
+            >
+              {tenants.map((tenant) => (
+                <MenuItem key={tenant.id} value={tenant.id}>{tenant.name}</MenuItem>
+              ))}
+            </TextField>
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                select
+                label="Agreement type"
+                value={contractDraft.type}
+                onChange={(event) => setContractDraft({ ...contractDraft, type: event.target.value as AgreementType })}
+                fullWidth
+                size="small"
+              >
+                {agreementTypes.map((type) => (
+                  <MenuItem key={type} value={type}>{type}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Annual value (K)"
+                type="number"
+                value={contractDraft.value}
+                onChange={(event) => setContractDraft({ ...contractDraft, value: Number(event.target.value) || 0 })}
+                fullWidth
+                size="small"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Expiry"
+                value={contractDraft.expiresOn}
+                onChange={(event) => setContractDraft({ ...contractDraft, expiresOn: event.target.value })}
+                fullWidth
+                size="small"
+                placeholder="e.g. 01 Jun 2027"
+              />
+              <TextField
+                select
+                label="Owner"
+                value={contractDraft.owner}
+                onChange={(event) => setContractDraft({ ...contractDraft, owner: event.target.value })}
+                fullWidth
+                size="small"
+              >
+                {contractOwners.map((owner) => (
+                  <MenuItem key={owner} value={owner}>{owner}</MenuItem>
+                ))}
+              </TextField>
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setContractDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!contractDraft.tenantId} onClick={createContract}>Create draft</Button>
+        </DialogActions>
+      </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active agreements" value={stats.active} accent="success" icon={<ShieldCheck className="h-4 w-4" />} />
@@ -221,6 +338,16 @@ function ContractCenterPage() {
       </Tabs>
 
       {tab === "agreements" && (
+        contracts.length === 0 ? (
+          <Box className="rounded-xl border border-border bg-card">
+            <EmptyState
+              icon={FileSignature}
+              title="No agreements yet"
+              description="Agreements are created automatically as schools onboard, or you can draft one manually."
+              action={{ label: "New agreement", onClick: () => setContractDialogOpen(true) }}
+            />
+          </Box>
+        ) : (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -255,6 +382,7 @@ function ContractCenterPage() {
           </Table>
           </TableContainer>
         </Box>
+        )
       )}
 
       {tab === "renewals" && (

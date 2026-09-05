@@ -49,6 +49,13 @@ const PLATFORM_ONLY_MODULES = new Set([
 ]);
 const modules = MODULE_MATRIX.filter((m) => !PLATFORM_ONLY_MODULES.has(m));
 
+// A handful of module keys don't read well as a plain "replace dashes, capitalize" — most
+// notably "canteen", which is the sidebar's "Dining Hall" everywhere else in the app now.
+const MODULE_LABEL_OVERRIDES: Record<string, string> = { canteen: "Dining Hall", ptc: "PTC Committee", hr: "HR" };
+function moduleLabel(m: string): string {
+  return MODULE_LABEL_OVERRIDES[m] ?? m.replace(/-/g, " ");
+}
+
 // Access level options for custom role permission cells
 const ACCESS_OPTIONS = [
   { value: "full", label: "Full" },
@@ -67,6 +74,7 @@ const SYSTEM_ACCESS_OPTIONS = [
 
 function AccessPage() {
   const [tab, setTab] = useState("users");
+  const [userSearch, setUserSearch] = useState("");
   const { user, assignableRoles, loadingSession } = useAuth();
   const { active } = useTenant();
   const schoolId = user?.tenantId ?? active.id;
@@ -166,6 +174,10 @@ function AccessPage() {
   const [savingRole, setSavingRole] = useState<string | null>(null);
   // Track which role's permissions have been loaded into pendingPerms
   const [loadedRoles, setLoadedRoles] = useState<Set<string>>(new Set());
+  // Track which roles have unsaved edits, so a "Save" affordance only appears where it's
+  // actually needed instead of one button per role permanently sitting below the table.
+  const [dirtyRoles, setDirtyRoles] = useState<Set<string>>(new Set());
+  const [dirtySysRoles, setDirtySysRoles] = useState<Set<string>>(new Set());
 
   // ── Fetch custom roles ─────────────────────────────────────────────────────
   const { data: rawCustomRoles = [], isLoading: rolesLoading } = useQuery({
@@ -246,6 +258,7 @@ function AccessPage() {
       void qc.invalidateQueries({ queryKey: ["custom-role-permissions-all", schoolId] });
       toast.success(`Permissions saved for "${vars.roleName}"`);
       setSavingRole(null);
+      setDirtyRoles((prev) => { const next = new Set(prev); next.delete(vars.roleName); return next; });
     },
     onError: (_e: any, vars: any) => {
       toast.error(`Failed to save permissions for "${vars.roleName}"`);
@@ -300,6 +313,7 @@ function AccessPage() {
       void qc.invalidateQueries({ queryKey: ["system-role-permissions-all", schoolId] });
       toast.success(`Permissions saved for "${ROLE_META[vars.role as Role].label}"`);
       setSavingSysRole(null);
+      setDirtySysRoles((prev) => { const next = new Set(prev); next.delete(vars.role); return next; });
     },
     onError: (_e: any, vars: any) => {
       toast.error(`Failed to save permissions for "${ROLE_META[vars.role as Role].label}"`);
@@ -312,6 +326,7 @@ function AccessPage() {
       ...prev,
       [role]: { ...(prev[role] ?? {}), [module]: value },
     }));
+    setDirtySysRoles((prev) => new Set(prev).add(role));
   };
 
   const handleSaveSysPerms = (role: string) => {
@@ -359,6 +374,7 @@ function AccessPage() {
   };
 
   const handleRemoveUser = async (userId: string, userName: string) => {
+    if (!window.confirm(`Remove ${userName}'s login? They will no longer be able to sign in.`)) return;
     try {
       await api.users.deleteForSchool(schoolId, userId);
       toast.success(`${userName} removed`);
@@ -398,6 +414,7 @@ function AccessPage() {
       ...prev,
       [roleName]: { ...(prev[roleName] ?? {}), [module]: value },
     }));
+    setDirtyRoles((prev) => new Set(prev).add(roleName));
   };
 
   const handleSavePerms = (roleName: string) => {
@@ -445,6 +462,12 @@ function AccessPage() {
   const visibleSystemRoles = (Object.keys(ROLE_META) as Role[]).filter(
     (r) => isSystemAdmin || r !== "super_admin"
   );
+
+  const filteredUsers = users.filter((u) => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return true;
+    return [u.name, u.email, u.role].some((v) => (v ?? "").toLowerCase().includes(q));
+  });
 
   const counts = visibleSystemRoles.map((r) => ({
     role: r,
@@ -503,6 +526,14 @@ function AccessPage() {
       {tab === "users" && (
         <Box>
           <p className="mb-3 text-sm text-muted-foreground">Change a user's role using the <strong>Role</strong> dropdown on each row. Use <strong>Add user</strong> above to invite new staff.</p>
+          <TextField
+            size="small"
+            className="mb-3 max-w-xs"
+            fullWidth
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            placeholder="Search by name, email, or role"
+          />
           <div className="rounded-xl border border-border bg-card shadow-sm">
             {usersLoading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
@@ -520,7 +551,7 @@ function AccessPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
                     <TableRow key={u.id} className={!u.hasLogin ? "opacity-70" : ""}>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -583,10 +614,12 @@ function AccessPage() {
                       </TableCell>
                     </TableRow>
                 ))}
-                {users.length === 0 && (
+                {filteredUsers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                      No users found. Use <strong>Add user</strong> to invite staff.
+                      {users.length === 0
+                        ? <>No users found. Use <strong>Add user</strong> to invite staff.</>
+                        : "No users match your search."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -609,21 +642,53 @@ function AccessPage() {
                     Module
                   </th>
                   {/* System role columns — editable by super admin only; read-only (but still
-                      reflecting any override a super admin has set) for everyone else */}
+                      reflecting any override a super admin has set) for everyone else. Each
+                      editable column carries its own Save button, shown only once that column
+                      has an unsaved edit, rather than a permanent wall of buttons below the
+                      table for every role regardless of whether it changed. */}
                   {visibleSystemRoles.map((r) => (
                     <th key={r} className="p-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
-                      {ROLE_META[r].label}
-                      {isSystemAdmin && r !== "super_admin" && (
-                        <span className="mt-1 block text-[10px] font-normal normal-case text-primary">Editable</span>
-                      )}
+                      <div className="flex flex-col items-center gap-1">
+                        <span>{ROLE_META[r].label}</span>
+                        {isSystemAdmin && r !== "super_admin" && (
+                          dirtySysRoles.has(r) ? (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="secondary"
+                              sx={{ minWidth: 0, height: 22, px: 1, fontSize: 10, textTransform: "none" }}
+                              disabled={savingSysRole === r || saveSysPermsMut.isPending}
+                              onClick={() => handleSaveSysPerms(r)}
+                              startIcon={savingSysRole === r ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save size={11} />}
+                            >
+                              Save
+                            </Button>
+                          ) : (
+                            <span className="text-[10px] font-normal normal-case text-muted-foreground/70">Editable</span>
+                          )
+                        )}
+                      </div>
                     </th>
                   ))}
-                  {/* Custom role columns — editable */}
+                  {/* Custom role columns — editable, same per-column Save-when-dirty pattern */}
                   {customRoles.map((cr: any) => (
                     <th key={cr.id} className="p-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap min-w-[130px]">
                       <div className="flex flex-col items-center gap-1">
                         <span className="rounded bg-violet-500/15 px-2 py-0.5 text-violet-700 dark:text-violet-300">{cr.name}</span>
-                        <span className="text-[10px] font-normal text-muted-foreground">Custom</span>
+                        {dirtyRoles.has(cr.name) ? (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            sx={{ minWidth: 0, height: 22, px: 1, fontSize: 10, textTransform: "none" }}
+                            disabled={savingRole === cr.name || savePermsMut.isPending}
+                            onClick={() => handleSavePerms(cr.name)}
+                            startIcon={savingRole === cr.name ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save size={11} />}
+                          >
+                            Save
+                          </Button>
+                        ) : (
+                          <span className="text-[10px] font-normal text-muted-foreground/70">Custom</span>
+                        )}
                       </div>
                     </th>
                   ))}
@@ -633,7 +698,7 @@ function AccessPage() {
                 {modules.map((m) => (
                   <tr key={m} className="border-b border-border last:border-0">
                     <td className="p-3 font-medium capitalize sticky left-0 bg-card z-10 border-r border-border/40">
-                      {m.replace(/-/g, " ")}
+                      {moduleLabel(m)}
                     </td>
                     {/* System roles — editable (super admin) or effective-value read-only (everyone else) */}
                     {visibleSystemRoles.map((r) => {
@@ -694,45 +759,15 @@ function AccessPage() {
             </table>
           </div>
 
-          {/* Save buttons per system role — only super admin can edit these, so only super
-              admin sees them */}
-          {isSystemAdmin && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {overridableSystemRoles.map((r) => (
-                <Button
-                  key={r}
-                  size="small"
-                  variant="outlined"
-                  color="secondary"
-                  disabled={savingSysRole === r || saveSysPermsMut.isPending}
-                  onClick={() => handleSaveSysPerms(r)}
-                  startIcon={savingSysRole === r
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <Save size={14} />}
-                >
-                  Save "{ROLE_META[r].label}" overrides
-                </Button>
-              ))}
-            </div>
-          )}
-
-          {/* Save buttons per custom role */}
-          {customRoles.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {customRoles.map((cr: any) => (
-                <Button
-                  key={cr.id}
-                  size="small"
-                  variant="outlined"
-                  disabled={savingRole === cr.name || savePermsMut.isPending}
-                  onClick={() => handleSavePerms(cr.name)}
-                  startIcon={savingRole === cr.name
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <Save size={14} />}
-                >
-                  Save "{cr.name}" permissions
-                </Button>
-              ))}
+          {/* Each editable column now carries its own Save button once it has an unsaved
+              edit (see the table header above). This bar is just a discoverability aid for
+              wide tables, since a changed column's Save button can scroll out of view. */}
+          {(dirtySysRoles.size > 0 || dirtyRoles.size > 0) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Unsaved changes:</span>
+              {[...dirtySysRoles].map((r) => <Chip key={`sys-${r}`} size="small" label={ROLE_META[r as Role].label} sx={badgeSx("secondary")} />)}
+              {[...dirtyRoles].map((name) => <Chip key={`custom-${name}`} size="small" label={name} sx={badgeSx("secondary")} />)}
+              <span className="ml-auto">Use the Save button in that column's header.</span>
             </div>
           )}
 
@@ -777,7 +812,7 @@ function AccessPage() {
                       <Chip
                         key={m}
                         size="small"
-                        label={m.replace(/-/g, " ")}
+                        label={moduleLabel(m)}
                         sx={{ ...badgeSx("outline"), textTransform: "capitalize" }}
                       />
                     ))}

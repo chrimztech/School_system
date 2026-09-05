@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AlertTriangle, Clock3, Megaphone, ShieldAlert, Wrench } from "lucide-react";
+import { AlertTriangle, Clock3, Megaphone, Plus, ShieldAlert, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Switch from "@mui/material/Switch";
@@ -14,10 +14,17 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
-import { appendPlatformAuditEvent, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
+import { appendMaintenanceWindow, appendPlatformAuditEvent, appendStatusIncident, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
 
@@ -55,6 +62,10 @@ export const Route = createFileRoute("/status-center")({
 function StatusCenterPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState("incidents");
+  const [newIncidentOpen, setNewIncidentOpen] = useState(false);
+  const [newIncidentForm, setNewIncidentForm] = useState({ title: "", level: "Minor" as IncidentLevel, audience: "All schools" });
+  const [newWindowOpen, setNewWindowOpen] = useState(false);
+  const [newWindowForm, setNewWindowForm] = useState({ title: "", window: "", audience: "All schools" });
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const incidents = (workspace?.statusIncidents ?? []) as StatusIncident[];
@@ -114,8 +125,60 @@ function StatusCenterPage() {
         severity: incident.level === "Critical" ? "Critical" : incident.level === "Major" ? "Warning" : "Info",
         action: `Moved incident ${incident.id} from ${incident.state} to ${nextState}`,
       }),
+    }, { onSuccess: () => toast.success("Status incident updated") });
+  };
+
+  const addIncident = () => {
+    if (!newIncidentForm.title.trim()) {
+      toast.error("Enter an incident title");
+      return;
+    }
+    saveWorkspace.mutate({
+      statusIncidents: appendStatusIncident(workspace, {
+        title: newIncidentForm.title.trim(),
+        level: newIncidentForm.level,
+        audience: newIncidentForm.audience,
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Support",
+        severity: newIncidentForm.level === "Critical" ? "Critical" : newIncidentForm.level === "Major" ? "Warning" : "Info",
+        action: `Opened ${newIncidentForm.level.toLowerCase()} incident: ${newIncidentForm.title.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Incident opened");
+        setNewIncidentOpen(false);
+        setNewIncidentForm({ title: "", level: "Minor", audience: "All schools" });
+      },
     });
-    toast.success("Status incident updated");
+  };
+
+  const addMaintenanceWindow = () => {
+    if (!newWindowForm.title.trim() || !newWindowForm.window.trim()) {
+      toast.error("Enter a title and a time window");
+      return;
+    }
+    saveWorkspace.mutate({
+      maintenanceWindows: appendMaintenanceWindow(workspace, {
+        title: newWindowForm.title.trim(),
+        window: newWindowForm.window.trim(),
+        audience: newWindowForm.audience,
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Support",
+        action: `Drafted maintenance notice: ${newWindowForm.title.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Maintenance notice drafted");
+        setNewWindowOpen(false);
+        setNewWindowForm({ title: "", window: "", audience: "All schools" });
+      },
+    });
   };
 
   const toggleMaintenance = (windowId: string) => {
@@ -146,8 +209,7 @@ function StatusCenterPage() {
         area: "Support",
         action: `${window.published ? "Unpublished" : "Published"} maintenance notice ${window.id}`,
       }),
-    });
-    toast.success("Maintenance notice updated");
+    }, { onSuccess: () => toast.success("Maintenance notice updated") });
   };
 
   const broadcastUpdate = () => {
@@ -168,8 +230,7 @@ function StatusCenterPage() {
         area: "Support",
         action: "Broadcast platform status update to tenant audience",
       }),
-    });
-    toast.success("Status update broadcast queued");
+    }, { onSuccess: () => toast.success("Status update broadcast queued") });
   };
 
   const toggleStatusPage = (value: boolean) => {
@@ -203,8 +264,7 @@ function StatusCenterPage() {
         area: "Support",
         action: `Loaded audience segment ${label} for platform communications`,
       }),
-    });
-    toast.success(`Audience segment ${label} loaded`);
+    }, { onSuccess: () => toast.success(`Audience segment ${label} loaded`) });
   };
 
   return (
@@ -215,6 +275,9 @@ function StatusCenterPage() {
         actions={(
           <>
             <Button variant="outlined" component={Link} to="/platform-ops">Open platform ops</Button>
+            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => setNewIncidentOpen(true)}>
+              New incident
+            </Button>
             <Button variant="contained" startIcon={<Megaphone size={16} />} onClick={broadcastUpdate}>
               Broadcast update
             </Button>
@@ -233,7 +296,10 @@ function StatusCenterPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="font-semibold">Public status visibility</p>
-            <p className="mt-1 text-sm text-muted-foreground">Toggle whether schools can view the shared platform status experience.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Records whether the public status page should be visible. No public status page is wired up to read this flag
+              yet, so toggling it only updates this record — it does not yet hide or show anything for schools.
+            </p>
           </div>
           <Switch
             checked={statusPageEnabled}
@@ -247,6 +313,14 @@ function StatusCenterPage() {
         <Tab value="maintenance" label="Maintenance" />
         <Tab value="audiences" label="Audience targeting" />
       </Tabs>
+
+      {tab === "maintenance" && (
+        <Box className="mb-3 flex justify-end">
+          <Button size="small" variant="outlined" startIcon={<Plus size={16} />} onClick={() => setNewWindowOpen(true)}>
+            Draft maintenance notice
+          </Button>
+        </Box>
+      )}
 
       {tab === "incidents" && (
         <Box className="rounded-xl border border-border bg-card">
@@ -263,6 +337,18 @@ function StatusCenterPage() {
               </TableRow>
             </TableHead>
             <TableBody>
+              {incidents.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="border-0 p-0">
+                    <EmptyState
+                      icon={AlertTriangle}
+                      title="No status incidents"
+                      description="Open an incident to start communicating an outage or degradation to schools."
+                      action={{ label: "Open incident", onClick: () => setNewIncidentOpen(true) }}
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {incidents.map((incident) => (
                 <TableRow key={incident.id}>
                   <TableCell>
@@ -290,6 +376,16 @@ function StatusCenterPage() {
 
       {tab === "maintenance" && (
         <Box className="grid gap-4 lg:grid-cols-2">
+          {maintenance.length === 0 && (
+            <Box sx={{ gridColumn: "1 / -1" }}>
+              <EmptyState
+                icon={Wrench}
+                title="No maintenance windows"
+                description="Draft a maintenance notice so schools know what to expect ahead of planned downtime."
+                action={{ label: "Draft notice", onClick: () => setNewWindowOpen(true) }}
+              />
+            </Box>
+          )}
           {maintenance.map((window) => (
             <div key={window.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -332,6 +428,90 @@ function StatusCenterPage() {
           ))}
         </Box>
       )}
+
+      <Dialog open={newIncidentOpen} onClose={() => setNewIncidentOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Open status incident</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Title"
+              placeholder="e.g. Elevated login latency"
+              value={newIncidentForm.title}
+              onChange={(e) => setNewIncidentForm({ ...newIncidentForm, title: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              select
+              label="Severity"
+              value={newIncidentForm.level}
+              onChange={(e) => setNewIncidentForm({ ...newIncidentForm, level: e.target.value as IncidentLevel })}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="Minor">Minor</MenuItem>
+              <MenuItem value="Major">Major</MenuItem>
+              <MenuItem value="Critical">Critical</MenuItem>
+            </TextField>
+            <TextField
+              select
+              label="Audience"
+              value={newIncidentForm.audience}
+              onChange={(e) => setNewIncidentForm({ ...newIncidentForm, audience: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="All schools">All schools</MenuItem>
+              <MenuItem value="District tenants">District tenants</MenuItem>
+              <MenuItem value="Finance admins">Finance admins</MenuItem>
+            </TextField>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setNewIncidentOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={addIncident} disabled={saveWorkspace.isPending}>Open incident</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={newWindowOpen} onClose={() => setNewWindowOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Draft maintenance notice</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Title"
+              placeholder="e.g. Database maintenance"
+              value={newWindowForm.title}
+              onChange={(e) => setNewWindowForm({ ...newWindowForm, title: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Time window"
+              placeholder="e.g. 12 Sep, 22:00-23:00 CAT"
+              value={newWindowForm.window}
+              onChange={(e) => setNewWindowForm({ ...newWindowForm, window: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              select
+              label="Audience"
+              value={newWindowForm.audience}
+              onChange={(e) => setNewWindowForm({ ...newWindowForm, audience: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="All schools">All schools</MenuItem>
+              <MenuItem value="District tenants">District tenants</MenuItem>
+              <MenuItem value="Finance admins">Finance admins</MenuItem>
+            </TextField>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setNewWindowOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={addMaintenanceWindow} disabled={saveWorkspace.isPending}>Save draft</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
 import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
@@ -155,8 +156,9 @@ function ApprovalCenterPage() {
         severity: status === "Rejected" || status === "Escalated" ? "Warning" : "Info",
         action: `${status} approval ${item.id} for ${item.type.toLowerCase()} request`,
       }),
+    }, {
+      onSuccess: () => toast.success(`Approval ${status.toLowerCase()}`),
     });
-    toast.success(`Approval ${status.toLowerCase()}`);
   };
 
   const updatePolicy = (key: keyof typeof policies, value: boolean) => {
@@ -209,6 +211,11 @@ function ApprovalCenterPage() {
       </Tabs>
 
       {tab === "queue" && (
+        pending.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card">
+            <EmptyState icon={CheckCircle2} title="Nothing pending" description="Approval requests from other platform pages (discounts, deletions, partner onboarding, contract redlines) will show up here." />
+          </div>
+        ) : (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -256,6 +263,7 @@ function ApprovalCenterPage() {
           </Table>
           </TableContainer>
         </Box>
+        )
       )}
 
       {tab === "policies" && (
@@ -279,7 +287,11 @@ function ApprovalCenterPage() {
         </Box>
       )}
 
-      {tab === "completed" && (
+      {tab === "completed" && completed.length === 0 && (
+        <EmptyState icon={CheckCircle2} title="No completed approvals yet" description="Approved and rejected requests will show up here once the queue has been worked through." />
+      )}
+
+      {tab === "completed" && completed.length > 0 && (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>

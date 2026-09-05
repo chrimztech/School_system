@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { CreditCard, Layers, Rocket, ShieldAlert, Sparkles, Wallet } from "lucide-react";
+import { CreditCard, Layers, Plus, Rocket, ShieldAlert, Sparkles, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
@@ -21,9 +21,10 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
-import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
-import { type PlanId, type SupportLevel, useTenant } from "@/lib/tenant";
+import { appendAddOn, appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendPromotion, appendSupportTicket } from "@/lib/platform-workspace-actions";
+import { PLAN_CATALOG, type PlanId, type SupportLevel, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx } from "@/lib/utils";
 
@@ -60,6 +61,41 @@ type Promotion = {
   status: "Active" | "Paused";
 };
 
+const emptyAddOnDraft = { name: "", category: "", monthlyPrice: 0, description: "", plans: "" };
+const emptyPromotionDraft = { name: "", audience: "", incentive: "", expiry: "" };
+
+// The four real plan tiers (core/growth/advanced/enterprise) are hardcoded in
+// `PLAN_CATALOG` (src/lib/tenant.tsx) — that's what actually gates a school's features,
+// campus/learner limits, and the price `changePlan()`/`createTenantSubscription()` bill
+// them at. `workspace.plans` here is a *separate*, freeform JSON blob with no link back
+// to PLAN_CATALOG: nothing enforces the id/name/price a super-admin edits on this page to
+// match reality, and saving a draft here does not change what a school is actually
+// charged or which features unlock for them. When workspace.plans is empty (as it is on
+// a fresh/wiped workspace) we seed the four cards below directly from PLAN_CATALOG so this
+// page at least *starts* truthful; editing and saving a draft persists it into
+// workspace.plans same as before, but that persisted copy still won't feed back into
+// PLAN_CATALOG or actual billing without a further reconciliation pass (a real code change
+// to tenant.tsx, or wiring PLAN_CATALOG to read from this same workspace blob) that is out
+// of scope for this pass. Flagging this clearly per the audit brief.
+function defaultPlanDraftsFromCatalog(): PlanDraft[] {
+  return (Object.keys(PLAN_CATALOG) as PlanId[]).map((id) => {
+    const def = PLAN_CATALOG[id];
+    return {
+      id,
+      name: def.name,
+      badge: def.badge,
+      description: def.description,
+      monthlyPrice: def.monthlyPrice,
+      annualPrice: def.annualPrice,
+      campusLimit: def.campusLimit,
+      learnerLimit: def.learnerLimit,
+      smsQuota: def.smsQuota,
+      supportLevel: def.supportLevel,
+      status: "Active" as const,
+    };
+  });
+}
+
 export const Route = createFileRoute("/plan-catalog")({
   head: () => ({ meta: [{ title: "Plan Catalog - SRMS" }] }),
   component: PlanCatalogPage,
@@ -70,12 +106,17 @@ function PlanCatalogPage() {
   const { tenants } = useTenant();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
-  const plans = (workspace?.plans ?? []) as PlanDraft[];
+  const storedPlans = (workspace?.plans ?? []) as PlanDraft[];
+  const plans = storedPlans.length > 0 ? storedPlans : defaultPlanDraftsFromCatalog();
   const addOns = (workspace?.addOns ?? []) as AddOn[];
   const promotions = (workspace?.promotions ?? []) as Promotion[];
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId | null>(null);
   const [editForm, setEditForm] = useState<PlanDraft | null>(null);
   const [tab, setTab] = useState("plans");
+  const [addOnDialogOpen, setAddOnDialogOpen] = useState(false);
+  const [addOnDraft, setAddOnDraft] = useState(emptyAddOnDraft);
+  const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
+  const [promotionDraft, setPromotionDraft] = useState(emptyPromotionDraft);
 
   const activeSchools = tenants.filter((tenant) => tenant.subscription.status === "active").length;
   const trialSchools = tenants.filter((tenant) => tenant.subscription.status === "trial").length;
@@ -133,10 +174,9 @@ function PlanCatalogPage() {
         area: "Billing",
         action: `Updated plan draft ${editForm.name} pricing and capacity settings`,
       }),
-    });
+    }, { onSuccess: () => toast.success("Plan draft updated") });
     setSelectedPlanId(null);
     setEditForm(null);
-    toast.success("Plan draft updated");
   };
 
   const toggleAddOn = (addOnId: string) => {
@@ -172,8 +212,28 @@ function PlanCatalogPage() {
         area: "Billing",
         action: `${addOn.active ? "Paused" : "Activated"} add-on ${addOn.name}`,
       }),
-    });
-    toast.success("Add-on availability updated");
+    }, { onSuccess: () => toast.success("Add-on availability updated") });
+  };
+
+  const createAddOn = () => {
+    if (!addOnDraft.name.trim()) return;
+    saveWorkspace.mutate({
+      addOns: appendAddOn(workspace, {
+        name: addOnDraft.name.trim(),
+        category: addOnDraft.category.trim() || "General",
+        monthlyPrice: addOnDraft.monthlyPrice,
+        description: addOnDraft.description.trim(),
+        plans: addOnDraft.plans.trim() || "All plans",
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Billing",
+        action: `Created add-on ${addOnDraft.name.trim()}`,
+      }),
+    }, { onSuccess: () => toast.success("Add-on created") });
+    setAddOnDialogOpen(false);
+    setAddOnDraft(emptyAddOnDraft);
   };
 
   const togglePromotion = (promotionId: string) => {
@@ -211,8 +271,27 @@ function PlanCatalogPage() {
         area: "Billing",
         action: `${promotion.status === "Active" ? "Paused" : "Activated"} promotion ${promotion.name}`,
       }),
-    });
-    toast.success("Promotion status updated");
+    }, { onSuccess: () => toast.success("Promotion status updated") });
+  };
+
+  const createPromotion = () => {
+    if (!promotionDraft.name.trim()) return;
+    saveWorkspace.mutate({
+      promotions: appendPromotion(workspace, {
+        name: promotionDraft.name.trim(),
+        audience: promotionDraft.audience.trim() || "All schools",
+        incentive: promotionDraft.incentive.trim(),
+        expiry: promotionDraft.expiry.trim(),
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Billing",
+        action: `Created promotion ${promotionDraft.name.trim()}`,
+      }),
+    }, { onSuccess: () => toast.success("Promotion created") });
+    setPromotionDialogOpen(false);
+    setPromotionDraft(emptyPromotionDraft);
   };
 
   const publishCatalog = () => {
@@ -243,8 +322,7 @@ function PlanCatalogPage() {
         area: "Operations",
         action: "Published pricing and plan catalog draft",
       }),
-    });
-    toast.success("Pricing and catalog draft published to commercial workspace");
+    }, { onSuccess: () => toast.success("Pricing and catalog draft published to commercial workspace") });
   };
 
   const pushPromotionToSales = (promotion: Promotion) => {
@@ -274,8 +352,7 @@ function PlanCatalogPage() {
         area: "Operations",
         action: `Pushed promotion ${promotion.name} to sales workflow`,
       }),
-    });
-    toast.success("Promotion attached to onboarding workflow");
+    }, { onSuccess: () => toast.success("Promotion attached to onboarding workflow") });
   };
 
   return (
@@ -373,6 +450,105 @@ function PlanCatalogPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog open={addOnDialogOpen} onClose={() => setAddOnDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>New add-on</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Add-on name"
+              value={addOnDraft.name}
+              onChange={(event) => setAddOnDraft({ ...addOnDraft, name: event.target.value })}
+              fullWidth
+              size="small"
+              autoFocus
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Category"
+                value={addOnDraft.category}
+                onChange={(event) => setAddOnDraft({ ...addOnDraft, category: event.target.value })}
+                fullWidth
+                size="small"
+                placeholder="e.g. Brand, Analytics"
+              />
+              <TextField
+                label="Monthly price"
+                type="number"
+                value={addOnDraft.monthlyPrice}
+                onChange={(event) => setAddOnDraft({ ...addOnDraft, monthlyPrice: Number(event.target.value) || 0 })}
+                fullWidth
+                size="small"
+              />
+            </div>
+            <TextField
+              label="Eligible plans"
+              value={addOnDraft.plans}
+              onChange={(event) => setAddOnDraft({ ...addOnDraft, plans: event.target.value })}
+              fullWidth
+              size="small"
+              placeholder="e.g. Growth, Advanced, Enterprise"
+            />
+            <TextField
+              label="Description"
+              value={addOnDraft.description}
+              onChange={(event) => setAddOnDraft({ ...addOnDraft, description: event.target.value })}
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAddOnDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!addOnDraft.name.trim()} onClick={createAddOn}>Create add-on</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={promotionDialogOpen} onClose={() => setPromotionDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>New promotion</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Promotion name"
+              value={promotionDraft.name}
+              onChange={(event) => setPromotionDraft({ ...promotionDraft, name: event.target.value })}
+              fullWidth
+              size="small"
+              autoFocus
+            />
+            <TextField
+              label="Audience"
+              value={promotionDraft.audience}
+              onChange={(event) => setPromotionDraft({ ...promotionDraft, audience: event.target.value })}
+              fullWidth
+              size="small"
+              placeholder="e.g. New signups, Past-due schools"
+            />
+            <TextField
+              label="Incentive"
+              value={promotionDraft.incentive}
+              onChange={(event) => setPromotionDraft({ ...promotionDraft, incentive: event.target.value })}
+              fullWidth
+              size="small"
+              placeholder="e.g. 2 months free on annual plans"
+            />
+            <TextField
+              label="Expiry"
+              value={promotionDraft.expiry}
+              onChange={(event) => setPromotionDraft({ ...promotionDraft, expiry: event.target.value })}
+              fullWidth
+              size="small"
+              placeholder="e.g. 31 Dec 2026"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setPromotionDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!promotionDraft.name.trim()} onClick={createPromotion}>Create promotion</Button>
+        </DialogActions>
+      </Dialog>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active plans" value={plans.filter((plan) => plan.status === "Active").length} accent="primary" icon={<Layers className="h-4 w-4" />} />
         <StatCard label="Schools on trial pricing" value={trialSchools} accent="warning" icon={<Sparkles className="h-4 w-4" />} />
@@ -416,86 +592,120 @@ function PlanCatalogPage() {
       )}
 
       {tab === "addons" && (
-        <Box className="rounded-xl border border-border bg-card">
-          <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Add-on</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Eligible plans</TableCell>
-                <TableCell>Monthly price</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell className="text-right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {addOns.map((addOn) => (
-                <TableRow key={addOn.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{addOn.name}</p>
-                      <p className="text-xs text-muted-foreground">{addOn.description}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>{addOn.category}</TableCell>
-                  <TableCell>{addOn.plans}</TableCell>
-                  <TableCell>K{addOn.monthlyPrice.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={addOn.active ? "Active" : "Paused"}
-                      sx={badgeSx(addOn.active ? "success" : "secondary")}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button size="small" variant="outlined" onClick={() => toggleAddOn(addOn.id)}>
-                      {addOn.active ? "Pause" : "Activate"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </TableContainer>
+        <Box className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="small" variant="outlined" startIcon={<Plus size={14} />} onClick={() => setAddOnDialogOpen(true)}>
+              New add-on
+            </Button>
+          </div>
+          <Box className="rounded-xl border border-border bg-card">
+            {addOns.length === 0 ? (
+              <EmptyState
+                icon={Sparkles}
+                title="No add-ons yet"
+                description="Add-ons let you sell optional capabilities on top of a plan. Create the first one to get started."
+                action={{ label: "New add-on", onClick: () => setAddOnDialogOpen(true) }}
+              />
+            ) : (
+              <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Add-on</TableCell>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Eligible plans</TableCell>
+                    <TableCell>Monthly price</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell className="text-right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {addOns.map((addOn) => (
+                    <TableRow key={addOn.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{addOn.name}</p>
+                          <p className="text-xs text-muted-foreground">{addOn.description}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{addOn.category}</TableCell>
+                      <TableCell>{addOn.plans}</TableCell>
+                      <TableCell>K{addOn.monthlyPrice.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={addOn.active ? "Active" : "Paused"}
+                          sx={badgeSx(addOn.active ? "success" : "secondary")}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="small" variant="outlined" onClick={() => toggleAddOn(addOn.id)}>
+                          {addOn.active ? "Pause" : "Activate"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </TableContainer>
+            )}
+          </Box>
         </Box>
       )}
 
       {tab === "promotions" && (
-        <Box className="grid gap-4 lg:grid-cols-3">
-          {promotions.map((promotion) => (
-            <div key={promotion.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{promotion.name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{promotion.audience}</p>
+        <Box className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="small" variant="outlined" startIcon={<Plus size={14} />} onClick={() => setPromotionDialogOpen(true)}>
+              New promotion
+            </Button>
+          </div>
+          {promotions.length === 0 ? (
+            <Box className="rounded-xl border border-border bg-card">
+              <EmptyState
+                icon={Rocket}
+                title="No promotions yet"
+                description="Promotions drive trial conversion and win-back campaigns. Create the first one to get started."
+                action={{ label: "New promotion", onClick: () => setPromotionDialogOpen(true) }}
+              />
+            </Box>
+          ) : (
+            <Box className="grid gap-4 lg:grid-cols-3">
+              {promotions.map((promotion) => (
+                <div key={promotion.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{promotion.name}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{promotion.audience}</p>
+                    </div>
+                    <Chip
+                      size="small"
+                      label={promotion.status}
+                      sx={badgeSx(promotion.status === "Active" ? "success" : "secondary")}
+                    />
+                  </div>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Offer</span>
+                      <span>{promotion.incentive}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Expiry</span>
+                      <span>{promotion.expiry}</span>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex gap-2">
+                    <Button variant="outlined" size="small" sx={{ flex: 1 }} onClick={() => togglePromotion(promotion.id)}>
+                      {promotion.status === "Active" ? "Pause" : "Activate"}
+                    </Button>
+                    <Button variant="contained" size="small" sx={{ flex: 1 }} onClick={() => pushPromotionToSales(promotion)}>
+                      Push to sales
+                    </Button>
+                  </div>
                 </div>
-                <Chip
-                  size="small"
-                  label={promotion.status}
-                  sx={badgeSx(promotion.status === "Active" ? "success" : "secondary")}
-                />
-              </div>
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Offer</span>
-                  <span>{promotion.incentive}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Expiry</span>
-                  <span>{promotion.expiry}</span>
-                </div>
-              </div>
-              <div className="mt-5 flex gap-2">
-                <Button variant="outlined" size="small" sx={{ flex: 1 }} onClick={() => togglePromotion(promotion.id)}>
-                  {promotion.status === "Active" ? "Pause" : "Activate"}
-                </Button>
-                <Button variant="contained" size="small" sx={{ flex: 1 }} onClick={() => pushPromotionToSales(promotion)}>
-                  Push to sales
-                </Button>
-              </div>
-            </div>
-          ))}
+              ))}
+            </Box>
+          )}
         </Box>
       )}
     </div>

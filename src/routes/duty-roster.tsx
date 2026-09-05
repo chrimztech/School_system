@@ -35,18 +35,28 @@ const TYPE_COLOR: Record<string, string> = {
   Prep: "bg-rose-500/10 text-rose-700", Evening: "bg-slate-500/10 text-slate-700",
 };
 
-const today: Day = "Wednesday";
+function currentDayName(): Day {
+  const name = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  return (DAYS as string[]).includes(name) ? (name as Day) : "Monday";
+}
+const today: Day = currentDayName();
+
+function blankDutyForm() {
+  return {
+    day: "Monday" as Day, type: "Gate" as DutyType, staff: "", location: LOCATIONS[0],
+    backupStaff: "", effectiveDate: new Date().toISOString().slice(0, 10),
+    rotationCycle: "Weekly", notes: "", approvalStatus: "Approved",
+  };
+}
 
 function DutyRosterPage() {
   const { active } = useTenant();
   const qc = useQueryClient();
   const [assignOpen, setAssignOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [staffDialog, setStaffDialog] = useState<string | null>(null);
   const [tab, setTab] = useState("weekly");
-  const [form, setForm] = useState<{ day: Day; type: DutyType; staff: string; location: string; backupStaff: string; effectiveDate: string; rotationCycle: string; notes: string; approvalStatus: string }>({
-    day: "Monday", type: "Gate", staff: "", location: LOCATIONS[0],
-    backupStaff: "", effectiveDate: new Date().toISOString().slice(0, 10),
-    rotationCycle: "Weekly", notes: "", approvalStatus: "Approved",
-  });
+  const [form, setForm] = useState<{ day: Day; type: DutyType; staff: string; location: string; backupStaff: string; effectiveDate: string; rotationCycle: string; notes: string; approvalStatus: string }>(blankDutyForm);
 
   const { data: duties = [], isLoading } = useQuery({
     queryKey: ["duty-roster", active.id],
@@ -59,8 +69,21 @@ function DutyRosterPage() {
       void qc.invalidateQueries({ queryKey: ["duty-roster", active.id] });
       toast.success(`${form.type} duty assigned to ${form.staff} on ${form.day}`);
       setAssignOpen(false);
+      setForm(blankDutyForm());
     },
     onError: () => toast.error("Failed to assign duty"),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.dutyRoster.update(active.id, id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["duty-roster", active.id] });
+      toast.success(`Duty updated for ${form.staff}`);
+      setAssignOpen(false);
+      setEditingId(null);
+      setForm(blankDutyForm());
+    },
+    onError: () => toast.error("Failed to update duty"),
   });
 
   const deleteMut = useMutation({
@@ -69,12 +92,25 @@ function DutyRosterPage() {
     onError: () => toast.error("Failed to remove duty"),
   });
 
+  const openEdit = (d: { id: string; day: Day; type: DutyType; staff: string; location: string }) => {
+    const raw = (duties as any[]).find((entry: any) => entry.id === d.id);
+    setEditingId(d.id);
+    setForm({
+      day: d.day, type: d.type, staff: d.staff, location: d.location,
+      backupStaff: raw?.backupStaff ?? "", effectiveDate: raw?.effectiveDate ?? new Date().toISOString().slice(0, 10),
+      rotationCycle: raw?.rotationCycle ?? "Weekly", notes: raw?.notes ?? "", approvalStatus: raw?.approvalStatus ?? "Approved",
+    });
+    setAssignOpen(true);
+  };
+
   const assignDuty = () => {
-    const conflict = (duties as any[]).find((d: any) => (d.dayOfWeek || d.day) === form.day && (d.role || d.type) === form.type && (d.staffName || d.staff) === form.staff);
+    const conflict = (duties as any[]).find((d: any) => d.id !== editingId && (d.dayOfWeek || d.day) === form.day && (d.role || d.type) === form.type && (d.staffName || d.staff) === form.staff);
     if (conflict) { toast.error(`${form.staff} already has ${form.type} duty on ${form.day}`); return; }
     const slot = SLOT_TIMES[form.type];
     const [startTime, endTime] = slot.split(" – ");
-    createMut.mutate({ staffName: form.staff, role: form.type, dayOfWeek: form.day, location: form.location, startTime, endTime, week: 1, term: active.currentTerm, backupStaff: form.backupStaff || null, effectiveDate: form.effectiveDate, rotationCycle: form.rotationCycle, notes: form.notes.trim() || null, approvalStatus: form.approvalStatus });
+    const payload = { staffName: form.staff, role: form.type, dayOfWeek: form.day, location: form.location, startTime, endTime, week: 1, term: active.currentTerm, backupStaff: form.backupStaff || null, effectiveDate: form.effectiveDate, rotationCycle: form.rotationCycle, notes: form.notes.trim() || null, approvalStatus: form.approvalStatus };
+    if (editingId) updateMut.mutate({ id: editingId, data: payload });
+    else createMut.mutate(payload);
   };
 
   // Normalize duty records from backend
@@ -99,9 +135,9 @@ function DutyRosterPage() {
         description="Weekly staff duty assignments — gate, assembly, break supervision, prep and evening."
         actions={
           <>
-            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setAssignOpen(true)}>Assign duty</Button>
-            <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="md" fullWidth>
-              <DialogTitle>Assign duty</DialogTitle>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => { setEditingId(null); setForm(blankDutyForm()); setAssignOpen(true); }}>Assign duty</Button>
+            <Dialog open={assignOpen} onClose={() => { setAssignOpen(false); setEditingId(null); }} maxWidth="md" fullWidth>
+              <DialogTitle>{editingId ? "Edit duty assignment" : "Assign duty"}</DialogTitle>
               <DialogContent>
               <div className="grid grid-cols-2 gap-3">
                 <TextField select label="Day" value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value as Day })} fullWidth size="small">
@@ -164,8 +200,8 @@ function DutyRosterPage() {
               </div>
               </DialogContent>
               <DialogActions>
-                <Button variant="outlined" color="inherit" onClick={() => setAssignOpen(false)}>Cancel</Button>
-                <Button variant="contained" onClick={assignDuty} disabled={createMut.isPending}>Assign</Button>
+                <Button variant="outlined" color="inherit" onClick={() => { setAssignOpen(false); setEditingId(null); }}>Cancel</Button>
+                <Button variant="contained" onClick={assignDuty} disabled={createMut.isPending || updateMut.isPending}>{editingId ? "Save changes" : "Assign"}</Button>
               </DialogActions>
             </Dialog>
           </>
@@ -298,7 +334,7 @@ function DutyRosterPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="small" variant="text" color="inherit" onClick={() => toast.info(`${staff}: ${staffDuties.length} duties this week`)}>Details</Button>
+                      <Button size="small" variant="text" color="inherit" onClick={() => setStaffDialog(staff)}>View schedule</Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -348,7 +384,7 @@ function DutyRosterPage() {
         <Table>
           <TableHead><TableRow>
             <TableCell>Day</TableCell><TableCell>Duty</TableCell><TableCell>Time</TableCell>
-            <TableCell>Staff</TableCell><TableCell>Location</TableCell><TableCell className="text-right">Remove</TableCell>
+            <TableCell>Staff</TableCell><TableCell>Location</TableCell><TableCell className="text-right">Actions</TableCell>
           </TableRow></TableHead>
           <TableBody>
             {DAYS.flatMap((day) => normalizedDuties.filter((d) => d.day === day)).map((d) => (
@@ -361,6 +397,7 @@ function DutyRosterPage() {
                 <TableCell className="font-medium">{d.staff}</TableCell>
                 <TableCell>{d.location}</TableCell>
                 <TableCell className="text-right">
+                  <Button size="small" variant="text" color="inherit" onClick={() => openEdit(d)}>Edit</Button>
                   <Button size="small" variant="text" color="inherit" onClick={() => deleteMut.mutate({ id: d.id, staff: d.staff })}>Remove</Button>
                 </TableCell>
               </TableRow>
@@ -369,6 +406,39 @@ function DutyRosterPage() {
         </Table>
         </TableContainer>
       </div>
+
+      <Dialog open={!!staffDialog} onClose={() => setStaffDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{staffDialog}'s duty schedule</DialogTitle>
+        <DialogContent>
+          <TableContainer>
+            <Table size="small">
+              <TableHead><TableRow>
+                <TableCell>Day</TableCell><TableCell>Duty</TableCell><TableCell>Time</TableCell>
+                <TableCell>Location</TableCell><TableCell className="text-right">Actions</TableCell>
+              </TableRow></TableHead>
+              <TableBody>
+                {normalizedDuties.filter((d) => d.staff === staffDialog).map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell>{d.day}</TableCell>
+                    <TableCell>
+                      <span className={`rounded px-2 py-0.5 text-xs font-medium ${TYPE_COLOR[d.type] ?? "bg-muted text-foreground"}`}>{d.type}</span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{d.slot}</TableCell>
+                    <TableCell>{d.location}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="small" variant="text" color="inherit" onClick={() => { setStaffDialog(null); openEdit(d); }}>Edit</Button>
+                      <Button size="small" variant="text" color="inherit" onClick={() => deleteMut.mutate({ id: d.id, staff: d.staff })}>Remove</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStaffDialog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </div>
     </AccessGuard>
   );

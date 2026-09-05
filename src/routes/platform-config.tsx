@@ -1,12 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { BellRing, Layers3, ShieldAlert, ShieldCheck, Sparkles, Workflow } from "lucide-react";
+import { BellRing, Layers3, Plus, ShieldAlert, ShieldCheck, Sparkles, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Switch from "@mui/material/Switch";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
@@ -17,10 +22,12 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
-import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
+import { appendApprovalItem, appendPlatformAuditEvent, appendRollout, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
+import { PLAN_CATALOG } from "@/lib/tenant";
 import { badgeSx } from "@/lib/utils";
 
 type RolloutState = "Enabled" | "Pilot" | "Disabled";
@@ -44,6 +51,8 @@ function PlatformConfigPage() {
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const [rollouts, setRollouts] = useState<Rollout[]>([]);
+  const [addRolloutOpen, setAddRolloutOpen] = useState(false);
+  const [rolloutForm, setRolloutForm] = useState({ name: "", audience: "", owner: "" });
   const [security, setSecurity] = useState({
     mfaRequired: false,
     loginAlerts: false,
@@ -159,8 +168,30 @@ function PlatformConfigPage() {
         severity: nextState === "Disabled" ? "Warning" : "Info",
         action: `Moved rollout ${rollout.name} from ${rollout.state} to ${nextState}`,
       }),
+    }, { onSuccess: () => toast.success("Rollout state updated") });
+  };
+
+  const submitAddRollout = () => {
+    if (!rolloutForm.name.trim() || !rolloutForm.owner.trim()) { toast.error("Name and owner are required"); return; }
+    saveWorkspace.mutate({
+      rollouts: appendRollout(workspace, {
+        name: rolloutForm.name.trim(),
+        audience: rolloutForm.audience.trim() || "All schools",
+        owner: rolloutForm.owner.trim(),
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Operations",
+        action: `Added feature flag ${rolloutForm.name.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success(`${rolloutForm.name} added`);
+        setRolloutForm({ name: "", audience: "", owner: "" });
+        setAddRolloutOpen(false);
+      },
     });
-    toast.success("Rollout state updated");
   };
 
   const publishBanner = () => {
@@ -182,8 +213,7 @@ function PlatformConfigPage() {
         area: "Operations",
         action: "Published platform banner and maintenance communications",
       }),
-    });
-    toast.success("Platform status banner published");
+    }, { onSuccess: () => toast.success("Platform status banner published") });
   };
 
   const saveSecurity = () => {
@@ -213,8 +243,7 @@ function PlatformConfigPage() {
         severity: security.ipAllowlist ? "Info" : "Warning",
         action: "Saved global admin security baseline settings",
       }),
-    });
-    toast.success("Global security policy saved");
+    }, { onSuccess: () => toast.success("Global security policy saved") });
   };
 
   const saveDefaults = () => {
@@ -236,8 +265,7 @@ function PlatformConfigPage() {
         area: "Operations",
         action: "Saved platform default commercial and workflow settings",
       }),
-    });
-    toast.success("Platform defaults saved");
+    }, { onSuccess: () => toast.success("Platform defaults saved") });
   };
 
   return (
@@ -262,14 +290,22 @@ function PlatformConfigPage() {
         <StatCard label="Active digests" value={stats.digestsEnabled} accent="accent" icon={<BellRing className="h-4 w-4" />} />
       </div>
 
-      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab value="rollouts" label="Feature Rollouts" />
-        <Tab value="security" label="Identity & Security" />
-        <Tab value="communications" label="Communications" />
-        <Tab value="defaults" label="Platform Defaults" />
-      </Tabs>
+      <div className="flex items-center justify-between">
+        <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab value="rollouts" label="Feature Rollouts" />
+          <Tab value="security" label="Identity & Security" />
+          <Tab value="communications" label="Communications" />
+          <Tab value="defaults" label="Platform Defaults" />
+        </Tabs>
+        {tab === "rollouts" && <Button size="small" startIcon={<Plus size={16} />} onClick={() => setAddRolloutOpen(true)}>Add rollout</Button>}
+      </div>
 
       {tab === "rollouts" && (
+        rollouts.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card">
+            <EmptyState icon={Workflow} title="No feature flags yet" description="Add a rollout to stage a new capability to a pilot audience before enabling it globally." />
+          </div>
+        ) : (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -321,6 +357,7 @@ function PlatformConfigPage() {
           </Table>
           </TableContainer>
         </Box>
+        )
       )}
 
       {tab === "security" && (
@@ -429,12 +466,18 @@ function PlatformConfigPage() {
             <p className="font-semibold">Commercial and workflow defaults</p>
             <div className="mt-4 grid gap-4">
               <TextField
+                select
                 label="Default plan for new trials"
                 value={defaults.defaultPlan}
                 onChange={(event) => setDefaults((current) => ({ ...current, defaultPlan: event.target.value }))}
                 fullWidth
                 size="small"
-              />
+                helperText="Sourced from the real plan catalog — never a free-typed value that could drift from an actual plan"
+              >
+                {Object.values(PLAN_CATALOG).map((plan) => (
+                  <MenuItem key={plan.id} value={plan.id}>{plan.name}</MenuItem>
+                ))}
+              </TextField>
               <TextField
                 label="Approval model"
                 value={defaults.approvalMode}
@@ -476,6 +519,21 @@ function PlatformConfigPage() {
           </div>
         </Box>
       )}
+
+      <Dialog open={addRolloutOpen} onClose={() => setAddRolloutOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Add feature rollout</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField label="Capability name *" value={rolloutForm.name} onChange={(e) => setRolloutForm({ ...rolloutForm, name: e.target.value })} fullWidth size="small" placeholder="e.g. New report card layout" />
+            <TextField label="Audience" value={rolloutForm.audience} onChange={(e) => setRolloutForm({ ...rolloutForm, audience: e.target.value })} fullWidth size="small" placeholder="e.g. All schools, or Enterprise plan only" />
+            <TextField label="Owner *" value={rolloutForm.owner} onChange={(e) => setRolloutForm({ ...rolloutForm, owner: e.target.value })} fullWidth size="small" />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setAddRolloutOpen(false)}>Cancel</Button>
+          <Button onClick={submitAddRollout} disabled={saveWorkspace.isPending}>Add rollout</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

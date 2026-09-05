@@ -97,8 +97,7 @@ function PlatformAuditPage() {
           reviewed: true,
         },
       ),
-    });
-    toast.success("Audit event acknowledged");
+    }, { onSuccess: () => toast.success("Audit event acknowledged") });
   };
 
   const exportEvidence = () => {
@@ -134,9 +133,12 @@ function PlatformAuditPage() {
         area: "Operations",
         action: "Queued platform audit evidence export",
       }),
+    }, {
+      onSuccess: () => {
+        downloadCsv(events.map((event) => ({ ID: event.id, Time: event.ts, Actor: event.actor, Tenant: event.tenant, Area: event.area, Action: event.action, Severity: event.severity, Reviewed: event.reviewed ? "Yes" : "No" })), "platform-audit-export");
+        toast.success("Audit export queued");
+      },
     });
-    downloadCsv(events.map((event) => ({ ID: event.id, Time: event.ts, Actor: event.actor, Tenant: event.tenant, Area: event.area, Action: event.action, Severity: event.severity, Reviewed: event.reviewed ? "Yes" : "No" })), "platform-audit-export");
-    toast.success("Audit export queued");
   };
 
   return (
@@ -245,7 +247,7 @@ function PlatformAuditPage() {
                 <div className="flex items-center justify-between"><span className="text-muted-foreground">Time</span><span>{event.ts}</span></div>
               </div>
               <div className="mt-4 flex gap-2">
-                <Button size="small" variant="outlined" onClick={() => acknowledge(event.id)}>Mark reviewed</Button>
+                <Button size="small" variant="outlined" disabled={event.reviewed} onClick={() => acknowledge(event.id)}>{event.reviewed ? "Reviewed" : "Mark reviewed"}</Button>
                 <Button size="small" component={Link} to="/security">Open security</Button>
               </div>
             </div>
@@ -266,7 +268,7 @@ function PlatformAuditPage() {
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{event.actor} · {event.ts}</p>
               <div className="mt-4 flex gap-2">
-                <Button size="small" variant="outlined" onClick={() => acknowledge(event.id)}>Review</Button>
+                <Button size="small" variant="outlined" disabled={event.reviewed} onClick={() => acknowledge(event.id)}>{event.reviewed ? "Reviewed" : "Review"}</Button>
                 <Button size="small" component={Link} to={event.area === "Billing" ? "/billing" : event.area === "Lifecycle" ? "/tenant-lifecycle" : "/support-desk"}>Open workflow</Button>
               </div>
             </div>

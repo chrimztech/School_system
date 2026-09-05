@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { GraduationCap, Languages, CalendarCheck2, Award, BookOpen, AlertTriangle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { GraduationCap, Languages, CalendarCheck2, Award, BookOpen, AlertTriangle, BookMarked } from "lucide-react";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -12,12 +14,15 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
+import { AccessGuard } from "@/components/access-guard";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import {
   PHASES, PATHWAYS, CHANGES_2025,
   PRIMARY_GRADING, SECONDARY_GRADING, ALEVEL_GRADING, ECE_GRADING,
 } from "@/lib/curriculum";
 import { useTenant } from "@/lib/tenant";
+import { api } from "@/lib/api";
 import { badgeSx } from "@/lib/utils";
 
 export const Route = createFileRoute("/curriculum")({
@@ -25,15 +30,30 @@ export const Route = createFileRoute("/curriculum")({
   component: CurriculumPage,
 });
 
+const SUBJECT_PHASE_LABEL: Record<string, string> = { primary: "Primary", olevel: "O-Level", alevel: "A-Level" };
+
 function CurriculumPage() {
   const [tab, setTab] = useState("phases");
   const { active } = useTenant();
 
+  const { data: subjectsData = [], isLoading: subjectsLoading } = useQuery({
+    queryKey: ["subjects", active.id],
+    queryFn: () => api.subjects.list(active.id),
+  });
+  const subjects = subjectsData as any[];
+  const subjectsByPhase = Object.keys(SUBJECT_PHASE_LABEL).map((phaseId) => ({
+    phaseId,
+    label: SUBJECT_PHASE_LABEL[phaseId],
+    subjects: subjects.filter((s) => s.phase === phaseId),
+  }));
+
   return (
+    <AccessGuard module="assessments">
     <div className="space-y-6">
       <PageHeader
         title="Curriculum Framework"
         description={`Zambia 2025 Education Curriculum Framework (MoE / ECZ) — ${active.name}`}
+        actions={<Button component={Link} to="/subjects" variant="outlined" startIcon={<BookMarked className="h-4 w-4" />}>Manage subjects</Button>}
       />
 
       {/* 2025 banner */}
@@ -48,6 +68,7 @@ function CurriculumPage() {
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2 }}>
         <Tab value="phases" label="Phases & Grades" />
         <Tab value="pathways" label="Pathways" />
+        <Tab value="subjects" label="Subjects by phase" />
         <Tab value="grading" label="Grading Scales" />
         <Tab value="exams" label="ECZ Examinations" />
         <Tab value="changes" label="2025 Changes" />
@@ -112,6 +133,46 @@ function CurriculumPage() {
               </div>
             ))}
           </div>
+        </Box>
+      )}
+
+      {/* ── Subjects by phase (real school data) ─────────────────── */}
+      {tab === "subjects" && (
+        <Box sx={{ mt: 1.5 }}>
+          <p className="mb-4 text-sm text-muted-foreground">
+            The subjects this school actually offers, taken from the live subject register. Use <strong>Manage subjects</strong> to add, edit, or retire subjects.
+          </p>
+          {subjectsLoading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading subjects…</p>
+          ) : subjects.length === 0 ? (
+            <EmptyState
+              icon={BookMarked}
+              title="No subjects configured yet"
+              description="Add subjects to each phase so they can be timetabled, assessed, and reported on."
+              actionSlot={<Button component={Link} to="/subjects" variant="outlined">Manage subjects</Button>}
+            />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              {subjectsByPhase.map(({ phaseId, label, subjects: phaseSubjects }) => (
+                <div key={phaseId} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">{label}</h3>
+                    <Chip size="small" label={`${phaseSubjects.length} subject${phaseSubjects.length === 1 ? "" : "s"}`} sx={badgeSx("secondary")} />
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    {phaseSubjects.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No subjects configured for this phase.</p>
+                    ) : phaseSubjects.map((s: any) => (
+                      <div key={s.id} className="flex items-center justify-between rounded-md border border-border/70 bg-muted/30 px-2.5 py-1.5 text-xs">
+                        <span>{s.name}{s.compulsory === false ? " (elective)" : ""}</span>
+                        <span className="text-muted-foreground">{s.periodsPerWeek ? `${s.periodsPerWeek}/wk` : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Box>
       )}
 
@@ -248,6 +309,7 @@ function CurriculumPage() {
       )}
       </Box>
     </div>
+    </AccessGuard>
   );
 }
 

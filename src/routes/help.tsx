@@ -47,6 +47,16 @@ function HelpPage() {
   const [reviewQuote, setReviewQuote] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
+  const submitTicketMutation = useMutation({
+    mutationFn: (data: any) => api.supportRequests.submit(data),
+    onSuccess: () => {
+      toast.success("Ticket submitted — our support team will follow up by email.");
+      setSubject("");
+      setMessage("");
+    },
+    onError: () => toast.error("Could not submit your ticket — please try again or call/email support directly"),
+  });
+
   const submitReviewMutation = useMutation({
     mutationFn: (data: any) => api.testimonials.submit(data),
     onSuccess: () => {
@@ -159,16 +169,21 @@ function HelpPage() {
               toast.error("Please fill in both fields");
               return;
             }
-            toast.success(`Ticket submitted - reference #SRMS-${Date.now().toString().slice(-5)}`);
-            setSubject("");
-            setMessage("");
+            submitTicketMutation.mutate({
+              tenantName: isSystemAdmin ? "Platform" : active.name,
+              subject: subject.trim(),
+              category: isParent ? "Parent support" : "General",
+              message: message.trim(),
+              reporterName: user?.name ?? "SRMS user",
+              reporterEmail: user?.email ?? null,
+            });
           }}
           className="space-y-3"
         >
           <TextField placeholder="Subject" value={subject} onChange={(event) => setSubject(event.target.value)} slotProps={{ htmlInput: { maxLength: 120 } }} fullWidth size="small" />
           <TextField placeholder="Describe the issue..." multiline minRows={5} value={message} onChange={(event) => setMessage(event.target.value)} slotProps={{ htmlInput: { maxLength: 1000 } }} fullWidth size="small" />
           <div className="flex justify-end">
-            <Button type="submit" startIcon={<Send size={16} />}>Submit ticket</Button>
+            <Button type="submit" disabled={submitTicketMutation.isPending} startIcon={<Send size={16} />}>Submit ticket</Button>
           </div>
         </form>
       </section>

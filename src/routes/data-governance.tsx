@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AlertTriangle, Download, HardDrive, RefreshCw, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, Download, HardDrive, Plus, RefreshCw, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Box, Chip, Switch, Button, Tab, Tabs, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import { Box, Chip, Switch, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Tab, Tabs, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
-import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
+import { appendApprovalItem, appendDataRequest, appendExportJob, appendPlatformAuditEvent, appendRetentionRule, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, downloadCsv } from "@/lib/utils";
@@ -48,6 +49,10 @@ export const Route = createFileRoute("/data-governance")({
 function DataGovernancePage() {
   const [tab, setTab] = useState("requests");
   const [residencyRegionDraft, setResidencyRegionDraft] = useState<string | null>(null);
+  const [newRequestOpen, setNewRequestOpen] = useState(false);
+  const [newRequestForm, setNewRequestForm] = useState({ tenantId: "", subject: "", type: "Access" as RequestType, dueDate: "" });
+  const [newRuleOpen, setNewRuleOpen] = useState(false);
+  const [newRuleForm, setNewRuleForm] = useState({ domain: "", days: "365" });
   const { user } = useAuth();
   const { tenants } = useTenant();
   const { data: workspace } = usePlatformWorkspace();
@@ -55,12 +60,13 @@ function DataGovernancePage() {
   const requests = (workspace?.dataRequests ?? []) as DataRequest[];
   const exports = (workspace?.exportJobs ?? []) as ExportJob[];
   const retention = (workspace?.retentionRules ?? []) as RetentionRule[];
-  const residency = (workspace?.residencySettings ?? {
+  const residency = {
     regionLock: false,
     deleteAfterExport: false,
     maskedSandbox: false,
     residencyRegion: "",
-  }) as {
+    ...(workspace?.residencySettings ?? {}),
+  } as {
     regionLock: boolean;
     deleteAfterExport: boolean;
     maskedSandbox: boolean;
@@ -143,8 +149,7 @@ function DataGovernancePage() {
         severity: request.type === "Deletion" ? "Warning" : "Info",
         action: `Moved ${request.type.toLowerCase()} request ${request.id} from ${request.status} to ${nextStatus}`,
       }),
-    });
-    toast.success("Data request advanced");
+    }, { onSuccess: () => toast.success("Data request advanced") });
   };
 
   const queueExport = () => {
@@ -170,9 +175,15 @@ function DataGovernancePage() {
         article: "General knowledge base",
         slaHours: 24,
       }),
+    }, {
+      onSuccess: (data) => {
+        // Use the server's fresh copy, not the pre-mutation `exports` snapshot, so the
+        // just-queued job is actually included in the download.
+        const freshJobs = ((data?.exportJobs ?? exports) as ExportJob[]);
+        downloadCsv(freshJobs.map((job) => ({ ID: job.id, School: job.school, Scope: job.scope, Status: job.status, "Requested By": job.requestedBy })), "governance-export-jobs");
+        toast.success("Export job queued");
+      },
     });
-    downloadCsv(exports.map((job) => ({ ID: job.id, School: job.school, Scope: job.scope, Status: job.status, "Requested By": job.requestedBy })), "governance-export-jobs");
-    toast.success("Export job queued");
   };
 
   const updateRule = (ruleId: string, patch: Partial<RetentionRule>) => {
@@ -190,8 +201,61 @@ function DataGovernancePage() {
         area: "Operations",
         action: "Saved governance retention and residency policy settings",
       }),
+    }, { onSuccess: () => toast.success("Governance policies saved") });
+  };
+
+  const addDataRequest = () => {
+    const tenant = tenants.find((entry) => entry.id === newRequestForm.tenantId) ?? tenants[0];
+    if (!tenant || !newRequestForm.subject.trim()) {
+      toast.error("Choose a school and enter a data subject");
+      return;
+    }
+    saveWorkspace.mutate({
+      dataRequests: appendDataRequest(workspace, {
+        tenantId: tenant.id,
+        school: tenant.name,
+        subject: newRequestForm.subject.trim(),
+        type: newRequestForm.type,
+        dueDate: newRequestForm.dueDate || undefined,
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: tenant.name,
+        area: "Operations",
+        action: `Logged ${newRequestForm.type.toLowerCase()} request for ${newRequestForm.subject.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Data request logged");
+        setNewRequestOpen(false);
+        setNewRequestForm({ tenantId: "", subject: "", type: "Access", dueDate: "" });
+      },
     });
-    toast.success("Governance policies saved");
+  };
+
+  const addRetentionRule = () => {
+    if (!newRuleForm.domain.trim()) {
+      toast.error("Enter a data domain");
+      return;
+    }
+    saveWorkspace.mutate({
+      retentionRules: appendRetentionRule(workspace, {
+        domain: newRuleForm.domain.trim(),
+        days: newRuleForm.days.trim() || "365",
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Operations",
+        action: `Added retention rule for ${newRuleForm.domain.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Retention rule added");
+        setNewRuleOpen(false);
+        setNewRuleForm({ domain: "", days: "365" });
+      },
+    });
   };
 
   const runExportSweep = () => {
@@ -219,9 +283,12 @@ function DataGovernancePage() {
         area: "Operations",
         action: `Ran export sweep (${queuedToRunning} queued to running, ${runningToReady} running to ready)`,
       }),
+    }, {
+      onSuccess: () => {
+        downloadCsv(nextExports.map((job) => ({ ID: job.id, School: job.school, Scope: job.scope, Status: job.status, "Requested By": job.requestedBy })), "governance-export-sweep");
+        toast.success("Export sweep executed");
+      },
     });
-    downloadCsv(nextExports.map((job) => ({ ID: job.id, School: job.school, Scope: job.scope, Status: job.status, "Requested By": job.requestedBy })), "governance-export-sweep");
-    toast.success("Export sweep executed");
   };
 
   const reviewDeletionQueue = () => {
@@ -238,8 +305,7 @@ function DataGovernancePage() {
         area: "Operations",
         action: "Queued deletion safeguard review in approval center",
       }),
-    });
-    toast.warning("Deletion approval queue reviewed");
+    }, { onSuccess: () => toast.warning("Deletion approval queue reviewed") });
   };
 
   return (
@@ -251,6 +317,9 @@ function DataGovernancePage() {
           <>
             <Button variant="outlined" component={Link} to="/compliance">
               Open compliance
+            </Button>
+            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => setNewRequestOpen(true)}>
+              New request
             </Button>
             <Button variant="contained" startIcon={<Download size={16} />} onClick={queueExport}>
               Queue export
@@ -288,6 +357,18 @@ function DataGovernancePage() {
               </TableRow>
             </TableHead>
             <TableBody>
+              {requests.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="border-0 p-0">
+                    <EmptyState
+                      icon={ShieldCheck}
+                      title="No privacy requests"
+                      description="Access, rectification, and deletion requests submitted by data subjects will appear here."
+                      action={{ label: "Log a request", onClick: () => setNewRequestOpen(true) }}
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
               {requests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell>
@@ -322,7 +403,20 @@ function DataGovernancePage() {
       {tab === "retention" && (
         <Box className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <p className="font-semibold">Retention schedule</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-semibold">Retention schedule</p>
+              <Button size="small" variant="outlined" startIcon={<Plus size={14} />} onClick={() => setNewRuleOpen(true)}>
+                New rule
+              </Button>
+            </div>
+            {retention.length === 0 && (
+              <EmptyState
+                icon={HardDrive}
+                title="No retention rules configured"
+                description="Add a rule to define how long each data domain is kept, archived, or held for legal review."
+                action={{ label: "Add retention rule", onClick: () => setNewRuleOpen(true) }}
+              />
+            )}
             <div className="mt-4 space-y-4">
               {retention.map((rule) => (
                 <div key={rule.id} className="rounded-lg border border-border p-4">
@@ -377,6 +471,14 @@ function DataGovernancePage() {
                 Run sweep
               </Button>
             </div>
+            {exports.length === 0 && (
+              <EmptyState
+                icon={Download}
+                title="No export jobs"
+                description="Queued compliance and subject-access exports will show up here."
+                action={{ label: "Queue export", onClick: queueExport }}
+              />
+            )}
             <div className="mt-4 space-y-3">
               {exports.map((job) => (
                 <div key={job.id} className="rounded-lg border border-border p-4">
@@ -466,6 +568,86 @@ function DataGovernancePage() {
         </Box>
       )}
       </Box>
+
+      <Dialog open={newRequestOpen} onClose={() => setNewRequestOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Log data request</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              select
+              label="School"
+              value={newRequestForm.tenantId}
+              onChange={(e) => setNewRequestForm({ ...newRequestForm, tenantId: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              {tenants.map((tenant) => (
+                <MenuItem key={tenant.id} value={tenant.id}>{tenant.name}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Data subject"
+              placeholder="e.g. parent or student name"
+              value={newRequestForm.subject}
+              onChange={(e) => setNewRequestForm({ ...newRequestForm, subject: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              select
+              label="Request type"
+              value={newRequestForm.type}
+              onChange={(e) => setNewRequestForm({ ...newRequestForm, type: e.target.value as RequestType })}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="Access">Access</MenuItem>
+              <MenuItem value="Rectification">Rectification</MenuItem>
+              <MenuItem value="Deletion">Deletion</MenuItem>
+            </TextField>
+            <TextField
+              type="date"
+              label="Due date"
+              value={newRequestForm.dueDate}
+              onChange={(e) => setNewRequestForm({ ...newRequestForm, dueDate: e.target.value })}
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setNewRequestOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={addDataRequest} disabled={saveWorkspace.isPending}>Log request</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={newRuleOpen} onClose={() => setNewRuleOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Add retention rule</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Data domain"
+              placeholder="e.g. Attendance records"
+              value={newRuleForm.domain}
+              onChange={(e) => setNewRuleForm({ ...newRuleForm, domain: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Retention window (days)"
+              value={newRuleForm.days}
+              onChange={(e) => setNewRuleForm({ ...newRuleForm, days: e.target.value })}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setNewRuleOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={addRetentionRule} disabled={saveWorkspace.isPending}>Add rule</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

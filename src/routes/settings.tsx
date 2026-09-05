@@ -250,6 +250,13 @@ function SettingsPage() {
     setCampuses(school.campuses);
     setName(school.name);
     setMotto(school.motto);
+    // These three were added after the rest of this resync effect was written, so a school
+    // fetched asynchronously (initial load) or a tenant switch (super admin viewing another
+    // school) left them stuck on whatever was in state at mount -- stale values that could
+    // then get silently re-saved onto the wrong school. Keep them in sync with the rest.
+    setSmsSenderId(school.smsSenderId ?? "");
+    setCommunicationsEmail(school.communicationsEmail ?? "");
+    setWhatsappNumber(school.whatsappNumber ?? "");
     setTerm(String(school.currentTerm));
     setYear(String(school.currentYear));
     setDefaultCurrency(school.currency ?? "ZMW");

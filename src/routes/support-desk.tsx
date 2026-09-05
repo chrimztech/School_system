@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BookText, LifeBuoy, ShieldAlert, Siren, Ticket, TriangleAlert } from "lucide-react";
+import { BookText, LifeBuoy, Plus, ShieldAlert, Siren, Ticket, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
@@ -9,6 +9,11 @@ import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Stack from "@mui/material/Stack";
 import TableContainer from "@mui/material/TableContainer";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -16,11 +21,15 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useAuth } from "@/lib/auth";
-import { appendPlatformAuditEvent } from "@/lib/platform-workspace-actions";
+import { useTenant } from "@/lib/tenant";
+import { appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+
+const categories = ["Billing", "Onboarding", "Technical", "Renewal", "Compliance", "General"];
 
 type TicketPriority = "Low" | "Medium" | "High" | "Critical";
 type TicketStatus = "New" | "Investigating" | "Waiting on school" | "Escalated" | "Resolved";
@@ -59,10 +68,20 @@ export const Route = createFileRoute("/support-desk")({
   component: SupportDeskPage,
 });
 
+const emptyTicketForm = {
+  tenantId: "",
+  subject: "",
+  category: categories[0],
+  priority: "Medium" as TicketPriority,
+};
+
 function SupportDeskPage() {
   const { user } = useAuth();
+  const { tenants } = useTenant();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState("queue");
+  const [newTicketOpen, setNewTicketOpen] = useState(false);
+  const [ticketForm, setTicketForm] = useState(emptyTicketForm);
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
   const tickets = (workspace?.supportTickets ?? []) as DeskTicket[];
@@ -109,8 +128,7 @@ function SupportDeskPage() {
         area: "Support",
         action: `Reassigned ticket ${ticket.id} to ${owner}`,
       }),
-    });
-    toast.success("Ticket owner updated");
+    }, { onSuccess: () => toast.success("Ticket owner updated") });
   };
 
   const updatePriority = (ticketId: string, priority: TicketPriority) => {
@@ -128,8 +146,7 @@ function SupportDeskPage() {
         severity: priority === "Critical" ? "Critical" : priority === "High" ? "Warning" : "Info",
         action: `Changed ticket ${ticket.id} priority from ${ticket.priority} to ${priority}`,
       }),
-    });
-    toast.success("Ticket priority updated");
+    }, { onSuccess: () => toast.success("Ticket priority updated") });
   };
 
   const attachArticle = (ticketId: string, article: string) => {
@@ -146,8 +163,7 @@ function SupportDeskPage() {
         area: "Support",
         action: `Linked knowledge article "${article}" to ticket ${ticket.id}`,
       }),
-    });
-    toast.success("Knowledge article linked");
+    }, { onSuccess: () => toast.success("Knowledge article linked") });
   };
 
   const advanceTicket = (ticketId: string) => {
@@ -173,8 +189,39 @@ function SupportDeskPage() {
         severity: nextStatus === "Resolved" ? "Info" : "Warning",
         action: `Moved ticket ${ticket.id} from ${ticket.status} to ${nextStatus}`,
       }),
+    }, { onSuccess: () => toast.success("Ticket status updated") });
+  };
+
+  const submitNewTicket = () => {
+    const tenant = tenants.find((entry) => entry.id === ticketForm.tenantId);
+    if (!tenant || !ticketForm.subject.trim()) {
+      toast.error("Choose a school and enter a subject");
+      return;
+    }
+    const nextTickets = appendSupportTicket(workspace, {
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      subject: ticketForm.subject.trim(),
+      category: ticketForm.category,
+      priority: ticketForm.priority,
+      owner: "Unassigned",
+      article: knowledgeRoutes[0].label,
     });
-    toast.success("Ticket status updated");
+    saveWorkspace.mutate({
+      supportTickets: nextTickets,
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: tenant.name,
+        area: "Support",
+        action: `Opened ticket "${ticketForm.subject.trim()}"`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Ticket created");
+        setNewTicketOpen(false);
+        setTicketForm(emptyTicketForm);
+      },
+    });
   };
 
   const runSlaSweep = () => {
@@ -198,8 +245,9 @@ function SupportDeskPage() {
           ? `Ran SLA sweep and escalated ${escalatedCount} overdue support ticket${escalatedCount === 1 ? "" : "s"}`
           : "Ran SLA sweep with no overdue escalations",
       }),
+    }, {
+      onSuccess: () => toast.warning(escalatedCount > 0 ? "SLA sweep escalated overdue tickets" : "SLA sweep completed with no new escalations"),
     });
-    toast.warning(escalatedCount > 0 ? "SLA sweep escalated overdue tickets" : "SLA sweep completed with no new escalations");
   };
 
   return (
@@ -210,6 +258,9 @@ function SupportDeskPage() {
         actions={(
           <>
             <Button variant="outlined" component={Link} to="/knowledge-base">Open knowledge base</Button>
+            <Button variant="outlined" onClick={() => setNewTicketOpen(true)} startIcon={<Plus className="h-4 w-4" />}>
+              New ticket
+            </Button>
             <Button onClick={runSlaSweep} startIcon={<LifeBuoy className="h-4 w-4" />}>
               Run SLA sweep
             </Button>
@@ -234,7 +285,16 @@ function SupportDeskPage() {
         <Tab value="knowledge" label="Knowledge links" />
       </Tabs>
 
-      {tab === "queue" && (
+      {tab === "queue" && filtered.length === 0 && (
+        <EmptyState
+          icon={Ticket}
+          title="No support tickets"
+          description="Tickets raised from tenant workflows land here, or open one manually with New ticket."
+          action={{ label: "New ticket", onClick: () => setNewTicketOpen(true) }}
+        />
+      )}
+
+      {tab === "queue" && filtered.length > 0 && (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -377,6 +437,57 @@ function SupportDeskPage() {
           </div>
         </Box>
       )}
+
+      <Dialog open={newTicketOpen} onClose={() => setNewTicketOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>New support ticket</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="School"
+              fullWidth
+              value={ticketForm.tenantId}
+              onChange={(event) => setTicketForm((prev) => ({ ...prev, tenantId: event.target.value }))}
+            >
+              {tenants.map((tenant) => (
+                <MenuItem key={tenant.id} value={tenant.id}>{tenant.name}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Subject"
+              fullWidth
+              value={ticketForm.subject}
+              onChange={(event) => setTicketForm((prev) => ({ ...prev, subject: event.target.value }))}
+            />
+            <TextField
+              select
+              label="Category"
+              fullWidth
+              value={ticketForm.category}
+              onChange={(event) => setTicketForm((prev) => ({ ...prev, category: event.target.value }))}
+            >
+              {categories.map((category) => (
+                <MenuItem key={category} value={category}>{category}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Priority"
+              fullWidth
+              value={ticketForm.priority}
+              onChange={(event) => setTicketForm((prev) => ({ ...prev, priority: event.target.value as TicketPriority }))}
+            >
+              {(["Low", "Medium", "High", "Critical"] as TicketPriority[]).map((priority) => (
+                <MenuItem key={priority} value={priority}>{priority}</MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewTicketOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={submitNewTicket}>Create ticket</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

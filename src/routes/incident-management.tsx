@@ -81,7 +81,10 @@ function IncidentManagementPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => api.incidents.update(active.id, id, { status }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["incidents", active.id] }); },
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["incidents", active.id] });
+      toast.success(`Incident status updated to ${variables.status}`);
+    },
     onError: () => toast.error("Failed to update status"),
   });
 
@@ -238,7 +241,7 @@ function IncidentManagementPage() {
                       size="small"
                       className="w-32"
                       value={incident.status}
-                      onChange={(e) => { updateMut.mutate({ id: incident.id, status: e.target.value }); toast.success(`Incident status updated to ${e.target.value}`); }}
+                      onChange={(e) => updateMut.mutate({ id: incident.id, status: e.target.value })}
                     >
                       {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                     </TextField>

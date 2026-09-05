@@ -1,18 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ShoppingBag, AlertTriangle, TrendingUp, Plus, Loader2, CheckCircle2, XCircle, Users } from "lucide-react";
+import { ShoppingBag, AlertTriangle, TrendingUp, Plus, Loader2, CheckCircle2, XCircle, Users, Printer, CalendarDays, IdCard } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Chip, Button, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, Box, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { useTenant } from "@/lib/tenant";
+import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 
+const MEAL_PERIODS = ["Breakfast", "Lunch", "Supper", "Snack"] as const;
+
 export const Route = createFileRoute("/canteen")({
-  head: () => ({ meta: [{ title: "Canteen - SRMS" }] }),
+  head: () => ({ meta: [{ title: "Dining Hall - SRMS" }] }),
   component: CanteenPage,
 });
 
@@ -95,8 +100,18 @@ function parseOrderItems(items: string | null | undefined) {
   };
 }
 
+function createDailyMenuForm() {
+  return {
+    menuDate: new Date().toISOString().slice(0, 10),
+    mealPeriod: MEAL_PERIODS[0] as (typeof MEAL_PERIODS)[number],
+    items: "",
+    notes: "",
+  };
+}
+
 function CanteenPage() {
   const { active } = useTenant();
+  const { user } = useAuth();
   const schoolId = active.id;
   const qc = useQueryClient();
 
@@ -108,6 +123,10 @@ function CanteenPage() {
   const [accessSearch, setAccessSearch] = useState("");
   const [saleForm, setSaleForm] = useState(createSaleForm);
   const [menuForm, setMenuForm] = useState(createMenuForm);
+  const [dailyMenuDate, setDailyMenuDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dailyMenuOpen, setDailyMenuOpen] = useState(false);
+  const [dailyMenuForm, setDailyMenuForm] = useState(createDailyMenuForm);
+  const [passStudent, setPassStudent] = useState<any>(null);
 
   // ── Data loading ──────────────────────────────────────────────
   const { data: menuData = [], isLoading: menuLoading } = useQuery({
@@ -133,6 +152,11 @@ function CanteenPage() {
   const { data: structuresData = [] } = useQuery({
     queryKey: ["fee-structures", schoolId],
     queryFn: () => api.fees.structures(schoolId),
+  });
+
+  const { data: dailyMenuData = [], isLoading: dailyMenuLoading } = useQuery({
+    queryKey: ["canteen-daily-menu", schoolId, dailyMenuDate],
+    queryFn: () => api.canteen.dailyMenu(schoolId, dailyMenuDate),
   });
 
   // ── Normalised data ───────────────────────────────────────────
@@ -195,8 +219,9 @@ function CanteenPage() {
       );
       const termFee = Number(structure?.amount ?? structure?.termFee ?? structure?.totalFee ?? 0);
       const paid = paidByStudent.get(s.id) ?? 0;
-      const hasAccess = paid > 0; // any payment recorded = dining access granted
-      return { ...s, grade, termFee, paid, hasAccess, balance: Math.max(0, termFee - paid) };
+      const balance = Math.max(0, termFee - paid);
+      const hasAccess = termFee <= 0 ? true : balance <= 0; // fees fully cleared = dining access granted
+      return { ...s, grade, termFee, paid, hasAccess, balance };
     });
   }, [studentsData, structuresData, paidByStudent]);
 
@@ -250,6 +275,26 @@ function CanteenPage() {
       setMenuOpen(false);
     },
     onError: () => toast.error("Failed to add menu item"),
+  });
+
+  const saveDailyMenuMutation = useMutation({
+    mutationFn: (data: any) => api.canteen.saveDailyMenu(schoolId, data),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["canteen-daily-menu", schoolId] });
+      toast.success(`${variables.mealPeriod} menu saved for ${variables.menuDate}`);
+      setDailyMenuForm(createDailyMenuForm());
+      setDailyMenuOpen(false);
+    },
+    onError: () => toast.error("Failed to save the menu"),
+  });
+
+  const deleteDailyMenuMutation = useMutation({
+    mutationFn: (id: string) => api.canteen.deleteDailyMenu(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["canteen-daily-menu", schoolId] });
+      toast.success("Menu entry removed");
+    },
+    onError: () => toast.error("Failed to remove the menu entry"),
   });
 
   const restockMutation = useMutation({
@@ -316,11 +361,28 @@ function CanteenPage() {
     });
   };
 
+  const saveDailyMenu = () => {
+    if (!dailyMenuForm.items.trim()) {
+      toast.error("Enter what's being served"); return;
+    }
+    saveDailyMenuMutation.mutate({
+      menuDate: dailyMenuForm.menuDate,
+      mealPeriod: dailyMenuForm.mealPeriod,
+      items: dailyMenuForm.items.trim(),
+      notes: dailyMenuForm.notes.trim() || null,
+      enteredBy: user?.name ?? "Dining hall staff",
+    });
+  };
+
+  const dailyMenu = (dailyMenuData as any[]).slice().sort(
+    (a, b) => MEAL_PERIODS.indexOf(a.mealPeriod) - MEAL_PERIODS.indexOf(b.mealPeriod),
+  );
+
   // ── Render ────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Canteen & Dining Hall"
+        title="Dining Hall"
         description="Standard meals are included in school fees — pupils with cleared fees have automatic dining access. Use extra sales for snacks and supplements purchased separately."
         actions={
           <>
@@ -419,6 +481,7 @@ function CanteenPage() {
       <Box>
         <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
           <Tab value="access" label="Dining access" />
+          <Tab value="daily-menu" label="Daily menu" />
           <Tab value="sales" label="Extra sales" />
           <Tab value="menu" label="Menu & stock" />
         </Tabs>
@@ -451,10 +514,11 @@ function CanteenPage() {
                 <TableCell>Amount paid</TableCell>
                 <TableCell>Balance</TableCell>
                 <TableCell>Dining access</TableCell>
+                <TableCell className="text-right">Pass</TableCell>
               </TableRow></TableHead>
               <TableBody>
                 {filteredAccess.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     {accessSearch ? "No pupils match your search." : "No pupils enrolled yet."}
                   </TableCell></TableRow>
                 ) : filteredAccess.map((s: any) => {
@@ -495,6 +559,17 @@ function CanteenPage() {
                           />
                         )}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="small"
+                          variant="text"
+                          startIcon={<IdCard size={14} />}
+                          disabled={!s.hasAccess}
+                          onClick={() => setPassStudent({ ...s, name })}
+                        >
+                          Print pass
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -502,6 +577,124 @@ function CanteenPage() {
             </Table>
             </TableContainer>
           )}
+        </Box>
+        )}
+
+        {/* DAILY MENU */}
+        {tab === "daily-menu" && (
+        <Box className="rounded-xl border border-border bg-card">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border p-3">
+            <TextField
+              type="date"
+              size="small"
+              label="Date"
+              value={dailyMenuDate}
+              onChange={(e) => setDailyMenuDate(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <div className="ml-auto flex gap-2">
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Printer size={14} />}
+                disabled={dailyMenu.length === 0}
+                onClick={() => window.print()}
+              >
+                Print / Save as PDF
+              </Button>
+              <Button size="small" variant="contained" startIcon={<Plus size={14} />} onClick={() => { setDailyMenuForm({ ...createDailyMenuForm(), menuDate: dailyMenuDate }); setDailyMenuOpen(true); }}>
+                Enter menu
+              </Button>
+            </div>
+          </div>
+
+          {dailyMenuLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" /><span>Loading menu…</span>
+            </div>
+          ) : dailyMenu.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title="No menu entered for this day"
+              description="Appointed dining hall staff can enter what's being served at each meal time so students, parents, and staff know what to expect."
+              action={{ label: "Enter menu", onClick: () => { setDailyMenuForm({ ...createDailyMenuForm(), menuDate: dailyMenuDate }); setDailyMenuOpen(true); } }}
+            />
+          ) : (
+            <div className="print-area p-4">
+              <div className="print:block hidden">
+                <SchoolDocumentHeader title="Dining Hall Menu" subtitle={new Date(dailyMenuDate).toDateString()} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {dailyMenu.map((entry: any) => (
+                  <div key={entry.id} className="rounded-xl border border-border p-4 print:break-inside-avoid">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{entry.mealPeriod}</p>
+                        <p className="mt-1 whitespace-pre-line font-medium">{entry.items}</p>
+                        {entry.notes && <p className="mt-1 text-xs text-muted-foreground">{entry.notes}</p>}
+                        {entry.enteredBy && <p className="mt-2 text-xs text-muted-foreground print:hidden">Entered by {entry.enteredBy}</p>}
+                      </div>
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="text"
+                        className="print:hidden"
+                        onClick={() => deleteDailyMenuMutation.mutate(entry.id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Dialog open={dailyMenuOpen} onClose={() => setDailyMenuOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Enter dining hall menu</DialogTitle>
+            <DialogContent>
+              <div className="grid gap-3 pt-1">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <TextField
+                    type="date"
+                    label="Date"
+                    fullWidth
+                    size="small"
+                    value={dailyMenuForm.menuDate}
+                    onChange={(e) => setDailyMenuForm({ ...dailyMenuForm, menuDate: e.target.value })}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                  <TextField select label="Meal time" fullWidth size="small" value={dailyMenuForm.mealPeriod} onChange={(e) => setDailyMenuForm({ ...dailyMenuForm, mealPeriod: e.target.value as (typeof MEAL_PERIODS)[number] })}>
+                    {MEAL_PERIODS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                  </TextField>
+                </div>
+                <TextField
+                  label="What's being served *"
+                  fullWidth
+                  size="small"
+                  multiline
+                  minRows={3}
+                  value={dailyMenuForm.items}
+                  onChange={(e) => setDailyMenuForm({ ...dailyMenuForm, items: e.target.value })}
+                  placeholder={"Nshima with beans and rape\nFresh fruit"}
+                />
+                <TextField
+                  label="Notes"
+                  fullWidth
+                  size="small"
+                  value={dailyMenuForm.notes}
+                  onChange={(e) => setDailyMenuForm({ ...dailyMenuForm, notes: e.target.value })}
+                  placeholder="Allergen notes, serving time, venue"
+                />
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" color="inherit" onClick={() => setDailyMenuOpen(false)}>Cancel</Button>
+              <Button variant="contained" onClick={saveDailyMenu} disabled={saveDailyMenuMutation.isPending}>
+                {saveDailyMenuMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save menu
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
         )}
 
@@ -726,6 +919,46 @@ function CanteenPage() {
           {lowStockCount} menu item{lowStockCount !== 1 ? "s are" : " is"} below reorder level and may need restocking.
         </div>
       )}
+
+      <Dialog open={!!passStudent} onClose={() => setPassStudent(null)} maxWidth="xs" fullWidth>
+        <DialogTitle className="print:hidden">Dining hall pass</DialogTitle>
+        <DialogContent>
+          {passStudent && (
+            <div className="print-area overflow-hidden rounded-xl border border-border text-sm print:rounded-none print:border-0">
+              <SchoolDocumentHeader title="Dining Hall Pass" subtitle={active.name} />
+              <div className="space-y-3 p-5">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Pupil</p>
+                  <p className="text-lg font-bold">{passStudent.name}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Grade / Class</p>
+                    <p className="font-medium">{passStudent.grade || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Admission no.</p>
+                    <p className="font-medium">{passStudent.admissionNumber || "—"}</p>
+                  </div>
+                </div>
+                <div className="rounded-lg bg-green-50 px-3 py-2 text-green-800">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span className="font-medium">Fees cleared — valid for standard meals</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Present this pass at the dining hall counter. Issued {new Date().toDateString()}. Valid while fees remain cleared for the current term.
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions className="print:hidden">
+          <Button variant="outlined" color="inherit" onClick={() => setPassStudent(null)}>Close</Button>
+          <Button variant="contained" startIcon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print / Save as PDF</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BookOpen, LifeBuoy, Search } from "lucide-react";
+import { BookOpen, Lock, LifeBuoy, Search } from "lucide-react";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import InputAdornment from "@mui/material/InputAdornment";
 import TextField from "@mui/material/TextField";
 
 import { PageHeader } from "@/components/page-header";
+import { useAuth } from "@/lib/auth";
+import { routeAccessForPath, roleAllowedForPath } from "@/lib/route-access";
 import { badgeSx } from "@/lib/utils";
 
 type Article = {
@@ -109,16 +111,24 @@ export const Route = createFileRoute("/knowledge-base")({
   component: KnowledgeBasePage,
 });
 
+function articleAccessible(route: string, user: ReturnType<typeof useAuth>["user"], can: ReturnType<typeof useAuth>["can"]) {
+  if (!roleAllowedForPath(route, user?.role)) return false;
+  const rule = routeAccessForPath(route);
+  if (!rule.module) return true;
+  return !!can(rule.module);
+}
+
 function KnowledgeBasePage() {
+  const { user, can } = useAuth();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return articles;
-    return articles.filter((article) =>
+    const base = !q ? articles : articles.filter((article) =>
       [article.title, article.category, article.audience, article.summary].some((value) => value.toLowerCase().includes(q)),
     );
-  }, [query]);
+    return base.map((article) => ({ ...article, accessible: articleAccessible(article.route, user, can) }));
+  }, [query, user, can]);
 
   return (
     <div className="space-y-6">
@@ -156,9 +166,13 @@ function KnowledgeBasePage() {
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <Chip size="small" label={article.category} sx={badgeSx("secondary")} />
-                  <Button size="small" variant="outlined" component={Link} to={article.route}>
-                    Open workflow
-                  </Button>
+                  {article.accessible ? (
+                    <Button size="small" variant="outlined" component={Link} to={article.route}>
+                      Open workflow
+                    </Button>
+                  ) : (
+                    <Chip size="small" icon={<Lock size={12} />} label="Requires additional access" sx={badgeSx("outline")} />
+                  )}
                 </div>
               </div>
             ))}
@@ -177,18 +191,16 @@ function KnowledgeBasePage() {
               Quick collections
             </div>
             <div className="mt-4 space-y-3">
-              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/onboarding">
-                New school launch pack
-              </Button>
-              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/reporting">
-                Reporting and BI guides
-              </Button>
-              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/security">
-                Security operations handbook
-              </Button>
-              <Button fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to="/risk-register">
-                Governance review toolkit
-              </Button>
+              {[
+                { to: "/onboarding", label: "New school launch pack" },
+                { to: "/reporting", label: "Reporting and BI guides" },
+                { to: "/security", label: "Security operations handbook" },
+                { to: "/risk-register", label: "Governance review toolkit" },
+              ].filter((item) => articleAccessible(item.to, user, can)).map((item) => (
+                <Button key={item.to} fullWidth sx={{ justifyContent: "flex-start" }} variant="outlined" component={Link} to={item.to}>
+                  {item.label}
+                </Button>
+              ))}
             </div>
           </div>
 

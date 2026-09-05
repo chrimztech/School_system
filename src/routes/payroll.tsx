@@ -69,8 +69,8 @@ function PayrollPage() {
   const deptNames = (rawDepts as any[]).map((d: any) => d.name);
 
   const { data: staffData = [], isLoading: staffLoading } = useQuery({
-    queryKey: ["hr-staff", schoolId],
-    queryFn: () => api.hr.staff(schoolId),
+    queryKey: ["payroll-staff", schoolId],
+    queryFn: () => api.payroll.staff(schoolId),
   });
 
   const { data: runsData = [], isLoading: runsLoading } = useQuery({
@@ -103,7 +103,7 @@ function PayrollPage() {
   const addStaffMutation = useMutation({
     mutationFn: (data: any) => api.hr.createStaff(schoolId, data),
     onSuccess: (s: any) => {
-      qc.invalidateQueries({ queryKey: ["hr-staff", schoolId] });
+      qc.invalidateQueries({ queryKey: ["payroll-staff", schoolId] });
       toast.success(`${s.name ?? ""} added to payroll`);
       setOpenHire(false);
     },
@@ -113,7 +113,11 @@ function PayrollPage() {
   const staff = staffData as any[];
   const runs = runsData as any[];
 
-  const activeStaff = staff.filter((s: any) => (s.status ?? "Active").toLowerCase() !== "on leave" && (s.status ?? "Active").toLowerCase() !== "inactive");
+  const normalizeStatus = (status: any) => String(status ?? "Active").toLowerCase().replace(/_/g, " ");
+  const activeStaff = staff.filter((s: any) => {
+    const status = normalizeStatus(s.status);
+    return status !== "on leave" && status !== "inactive" && status !== "terminated" && status !== "suspended";
+  });
 
   const monthly = useMemo(() => {
     const slips = activeStaff.map((s: any) => {
@@ -205,8 +209,11 @@ function PayrollPage() {
             </Button>
             <Button variant="outlined" startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpenHire(true)}>Add employee</Button>
             <Dialog open={openHire} onClose={() => setOpenHire(false)} maxWidth="md" fullWidth>
-              <DialogTitle>Add employee to payroll</DialogTitle>
+              <DialogTitle>Add non-teaching employee to payroll</DialogTitle>
               <DialogContent>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  For teaching staff, add them on the <Link to="/teachers" className="underline">Teachers</Link> page instead — they appear here automatically.
+                </p>
                 <form onSubmit={(e) => { e.preventDefault(); addStaff(e.currentTarget); }} className="grid grid-cols-2 gap-3">
                   <TextField name="name" label="Full name *" required placeholder="Mwansa Tembo" fullWidth size="small" />
                   <TextField name="nrc" label="NRC number" placeholder="000000/00/1" fullWidth size="small" />
@@ -339,7 +346,7 @@ function PayrollPage() {
                         <TableCell className="text-xs">{s.bank ?? s.bankAccount ?? s.bankName ?? "—"}</TableCell>
                         <TableCell className="text-right font-mono">{k(basic)}</TableCell>
                         <TableCell className="text-right font-mono">{k(allow)}</TableCell>
-                        <TableCell><Chip size="small" label={s.status ?? "Active"} sx={badgeSx((s.status ?? "Active").toString().toLowerCase() === "active" ? "secondary" : "outline")} /></TableCell>
+                        <TableCell><Chip size="small" label={s.status ?? "Active"} sx={badgeSx(normalizeStatus(s.status) === "active" ? "secondary" : "outline")} /></TableCell>
                       </TableRow>
                     );
                   })}

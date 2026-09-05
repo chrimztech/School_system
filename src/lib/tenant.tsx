@@ -222,7 +222,7 @@ export const FEATURE_META: Record<FeatureKey, FeatureMeta> = {
   reporting: { label: "Executive reporting", description: "Board, MoE, and management reporting packs.", availableFrom: "advanced", category: "Enterprise" },
   analytics: { label: "Enterprise analytics", description: "Cross-functional KPIs and budget intelligence.", availableFrom: "advanced", category: "Enterprise" },
   districtManagement: { label: "District management", description: "Multi-school oversight, benchmarking, and roll-ups.", availableFrom: "enterprise", category: "Enterprise" },
-  canteen: { label: "Canteen", description: "Sales, balances, and stock for tuck shop operations.", availableFrom: "growth", category: "Operations" },
+  canteen: { label: "Dining Hall", description: "Sales, balances, menus, and stock for the dining hall.", availableFrom: "growth", category: "Operations" },
   strategicPlan: { label: "Strategic plan", description: "Goals, action items, and progress governance.", availableFrom: "advanced", category: "Enterprise" },
   lostFound: { label: "Lost & found", description: "Item registry, claims, and disposal workflow.", availableFrom: "growth", category: "Operations" },
   multiCurrency: { label: "Multi-currency", description: "Accept USD alongside ZMW in billing workflows.", availableFrom: "growth", category: "Finance" },

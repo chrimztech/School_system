@@ -28,6 +28,14 @@ export type AnalysisResponse = {
   passMarkUsed: number;
   distribution: Record<string, number>;
   bySubject: SubjectBreakdown[];
+  highest: number | null;
+  lowest: number | null;
+  median: number | null;
+  caAverage: number | null;
+  midtermAverage: number | null;
+  examAverage: number | null;
+  topPerformers: { studentId: string; studentName: string; average: number }[];
+  bottomPerformers: { studentId: string; studentName: string; average: number }[];
 };
 
 export type BackendAppUser = {
@@ -341,6 +349,10 @@ export const api = {
   },
 
   // Testimonials (login page + platform admin management)
+  supportRequests: {
+    submit: (data: any) => unwrap<void>(apiClient.post("/api/support-requests", data)),
+  },
+
   testimonials: {
     public: () => unwrap<any[]>(apiClient.get("/api/public/testimonials")),
     submit: (data: any) => unwrap<any>(apiClient.post("/api/testimonials", data)),
@@ -692,6 +704,9 @@ export const api = {
     updateMenuItem: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `canteen/menu/${id}`), data)),
     orders: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "canteen/orders"))),
     createOrder: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "canteen/orders"), data)),
+    dailyMenu: (schoolId: string, date?: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "canteen/daily-menu"), { params: date ? { date } : undefined })),
+    saveDailyMenu: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "canteen/daily-menu"), data)),
+    deleteDailyMenu: (schoolId: string, id: string) => unwrap<void>(apiClient.delete(schoolPath(schoolId, `canteen/daily-menu/${id}`))),
   },
 
   // Activities
@@ -701,6 +716,9 @@ export const api = {
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `activities/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `activities/${id}`)),
     enrolments: (schoolId: string, id: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `activities/${id}/enrolments`))),
+    enrol: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, `activities/${id}/enrolments`), data)),
+    allEnrolments: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "activities/enrolments"))),
+    withdraw: (schoolId: string, enrolmentId: string) => unwrap<void>(apiClient.delete(schoolPath(schoolId, `activities/enrolments/${enrolmentId}`))),
   },
 
   // Alumni
@@ -745,6 +763,7 @@ export const api = {
 
   // Payroll
   payroll: {
+    staff: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "payroll/staff"))),
     runs: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "payroll/runs"))),
     createRun: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "payroll/runs"), data)),
     payslips: (schoolId: string, runId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `payroll/runs/${runId}/payslips`))),
@@ -797,6 +816,10 @@ export const api = {
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "facilities"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `facilities/${id}`), data)),
     close: (schoolId: string, id: string) => apiClient.patch(schoolPath(schoolId, `facilities/${id}/close`), {}),
+    assets: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "facilities/assets"))),
+    createAsset: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "facilities/assets"), data)),
+    updateAsset: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `facilities/assets/${id}`), data)),
+    deleteAsset: (schoolId: string, id: string) => unwrap<void>(apiClient.delete(schoolPath(schoolId, `facilities/assets/${id}`))),
   },
 
   // Bursaries
@@ -823,6 +846,7 @@ export const api = {
   dutyRoster: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "duty-roster"))),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "duty-roster"), data)),
+    update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `duty-roster/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `duty-roster/${id}`)),
   },
 

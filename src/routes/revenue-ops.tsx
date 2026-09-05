@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AlertTriangle, CreditCard, Download, RefreshCw, ShieldAlert, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, CreditCard, Download, Plus, RefreshCw, ShieldAlert, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button, Chip, LinearProgress, Box, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import { Button, Chip, LinearProgress, Box, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogContent, DialogActions, DialogTitle, MenuItem, TextField } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
-import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
+import { appendExportJob, appendPlatformAuditEvent, appendRevenueCase, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, downloadCsv, type BadgeTone } from "@/lib/utils";
@@ -24,6 +25,8 @@ type CollectionCase = {
 };
 
 const collectionOwners = ["Finance ops", "Portfolio desk", "Revenue ops"];
+
+const emptyCaseDraft = { tenantId: "", amount: 0, owner: collectionOwners[0], nextAction: "" };
 
 function revenueRisk(status: string, learnerPct: number, campusPct: number): "Low" | "Medium" | "High" {
   if (status === "past_due" || status === "suspended") return "High";
@@ -54,15 +57,28 @@ function RevenueOpsPage() {
   const { tenants } = useTenant();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
-  const cases = (workspace?.revenueCases ?? tenants.map((tenant, index) => ({
-    id: `REV-${index + 101}`,
-    tenantId: tenant.id,
-    school: tenant.name,
-    amount: Math.round(tenant.subscription.amount * (tenant.subscription.status === "past_due" ? 1.4 : 1)),
-    owner: collectionOwners[index % collectionOwners.length],
-    status: (tenant.subscription.status === "past_due" ? "In progress" : tenant.subscription.status === "trial" ? "Scheduled" : "Promised") as CollectionStatus,
-    nextAction: tenant.subscription.status === "past_due" ? "Call bursar" : tenant.subscription.status === "trial" ? "Convert before renewal" : "Review campus uplift",
-  })).slice(0, Math.max(3, tenants.length))) as CollectionCase[];
+  const [caseDialogOpen, setCaseDialogOpen] = useState(false);
+  const [caseDraft, setCaseDraft] = useState(emptyCaseDraft);
+
+  // `workspace.revenueCases` synthesizes one case per tenant the first time this page
+  // loads with no saved data. Previously this only kicked in when the field was
+  // `undefined` (`??`) — if a cleanup ever explicitly wrote `revenueCases: []` (as
+  // happened to platform-ops' services/queues), the `??` would not fall through and the
+  // tab would silently go empty with no synthesis and, until now, no way to add a case
+  // by hand either. Treating an empty array the same as "no data yet" here, and adding a
+  // manual "New case" action below, fixes both.
+  const synthesizedCases = useMemo(() => (
+    tenants.map((tenant, index) => ({
+      id: `REV-${index + 101}`,
+      tenantId: tenant.id,
+      school: tenant.name,
+      amount: Math.round(tenant.subscription.amount * (tenant.subscription.status === "past_due" ? 1.4 : 1)),
+      owner: collectionOwners[index % collectionOwners.length],
+      status: (tenant.subscription.status === "past_due" ? "In progress" : tenant.subscription.status === "trial" ? "Scheduled" : "Promised") as CollectionStatus,
+      nextAction: tenant.subscription.status === "past_due" ? "Call bursar" : tenant.subscription.status === "trial" ? "Convert before renewal" : "Review campus uplift",
+    })).slice(0, Math.max(3, tenants.length))
+  ), [tenants]);
+  const cases = (workspace?.revenueCases?.length ? workspace.revenueCases : synthesizedCases) as CollectionCase[];
 
   const portfolio = useMemo(() => tenants.map((tenant) => {
     const learnerPct = tenant.subscription.learnerLimit > 0 ? Math.round((tenant.totalStudents / tenant.subscription.learnerLimit) * 100) : 0;
@@ -151,8 +167,29 @@ function RevenueOpsPage() {
         severity: nextStatus === "Resolved" ? "Info" : "Warning",
         action: `Moved revenue case ${currentCase.id} from ${currentCase.status} to ${nextStatus}`,
       }),
-    });
-    toast.success("Revenue case updated");
+    }, { onSuccess: () => toast.success("Revenue case updated") });
+  };
+
+  const createCase = () => {
+    const tenant = tenants.find((item) => item.id === caseDraft.tenantId);
+    if (!tenant) return;
+    saveWorkspace.mutate({
+      revenueCases: appendRevenueCase(workspace, {
+        tenantId: tenant.id,
+        school: tenant.name,
+        amount: caseDraft.amount,
+        owner: caseDraft.owner,
+        nextAction: caseDraft.nextAction.trim() || "Review account",
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: tenant.name,
+        area: "Billing",
+        action: `Opened a new revenue case for ${tenant.name}`,
+      }),
+    }, { onSuccess: () => toast.success("Revenue case created") });
+    setCaseDialogOpen(false);
+    setCaseDraft(emptyCaseDraft);
   };
 
   const runDunning = () => {
@@ -183,8 +220,7 @@ function RevenueOpsPage() {
           ? `Triggered dunning run for ${affected} scheduled collection case${affected === 1 ? "" : "s"}`
           : "Triggered dunning run with no scheduled collection cases",
       }),
-    });
-    toast.success("Dunning run triggered");
+    }, { onSuccess: () => toast.success("Dunning run triggered") });
   };
 
   const exportForecast = () => {
@@ -200,9 +236,8 @@ function RevenueOpsPage() {
         area: "Billing",
         action: "Queued revenue forecast export",
       }),
-    });
+    }, { onSuccess: () => toast.success("Forecast export queued") });
     downloadCsv(portfolio.map((record) => ({ School: record.tenant.name, Plan: PLAN_CATALOG[record.tenant.subscription.planId].name, Status: record.tenant.subscription.status, MRR: record.tenant.subscription.amount, "Learner %": record.learnerPct, "Campus %": record.campusPct, "Renewal Date": record.tenant.subscription.renewalDate, "Days to Renewal": record.daysToRenewal, Risk: record.risk })), "revenue-forecast");
-    toast.success("Forecast export queued");
   };
 
   return (
@@ -220,6 +255,61 @@ function RevenueOpsPage() {
         )}
       />
 
+      <Dialog open={caseDialogOpen} onClose={() => setCaseDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>New collection case</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              select
+              label="School"
+              value={caseDraft.tenantId}
+              onChange={(event) => setCaseDraft({ ...caseDraft, tenantId: event.target.value })}
+              fullWidth
+              size="small"
+              autoFocus
+            >
+              {tenants.map((tenant) => (
+                <MenuItem key={tenant.id} value={tenant.id}>{tenant.name}</MenuItem>
+              ))}
+            </TextField>
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Amount owed (K)"
+                type="number"
+                value={caseDraft.amount}
+                onChange={(event) => setCaseDraft({ ...caseDraft, amount: Number(event.target.value) || 0 })}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                select
+                label="Owner"
+                value={caseDraft.owner}
+                onChange={(event) => setCaseDraft({ ...caseDraft, owner: event.target.value })}
+                fullWidth
+                size="small"
+              >
+                {collectionOwners.map((owner) => (
+                  <MenuItem key={owner} value={owner}>{owner}</MenuItem>
+                ))}
+              </TextField>
+            </div>
+            <TextField
+              label="Next action"
+              value={caseDraft.nextAction}
+              onChange={(event) => setCaseDraft({ ...caseDraft, nextAction: event.target.value })}
+              fullWidth
+              size="small"
+              placeholder="e.g. Call bursar"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setCaseDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!caseDraft.tenantId} onClick={createCase}>Create case</Button>
+        </DialogActions>
+      </Dialog>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Monthly recurring revenue" value={`K${mrr.toLocaleString()}`} accent="primary" icon={<Wallet className="h-4 w-4" />} />
         <StatCard label="Annual recurring revenue" value={`K${arr.toLocaleString()}`} accent="success" icon={<TrendingUp className="h-4 w-4" />} />
@@ -234,6 +324,16 @@ function RevenueOpsPage() {
       </Tabs>
 
       {tab === "portfolio" && (
+        portfolio.length === 0 ? (
+          <Box className="rounded-xl border border-border bg-card">
+            <EmptyState
+              icon={Wallet}
+              title="No subscribed schools yet"
+              description="Portfolio risk and renewal tracking will appear here once schools are onboarded."
+              actionSlot={<Button component={Link} to="/tenant-lifecycle" variant="outlined" size="small">Open tenant lifecycle</Button>}
+            />
+          </Box>
+        ) : (
         <Box className="rounded-xl border border-border bg-card">
           <TableContainer>
           <Table>
@@ -294,6 +394,7 @@ function RevenueOpsPage() {
           </Table>
           </TableContainer>
         </Box>
+        )
       )}
 
       {tab === "forecast" && (
@@ -343,48 +444,64 @@ function RevenueOpsPage() {
       )}
 
       {tab === "collections" && (
-        <Box className="rounded-xl border border-border bg-card">
-          <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Case</TableCell>
-                <TableCell>Owner</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Next action</TableCell>
-                <TableCell className="text-right">Update</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {cases.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{item.school}</p>
-                      <p className="text-xs text-muted-foreground">{item.id}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>{item.owner}</TableCell>
-                  <TableCell className="font-medium">K{item.amount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={item.status}
-                      sx={badgeSx(item.status === "Resolved" ? "success" : item.status === "Promised" ? "default" : "warning")}
-                    />
-                  </TableCell>
-                  <TableCell>{item.nextAction}</TableCell>
-                  <TableCell className="text-right">
-                    <Button size="small" variant="outlined" disabled={item.status === "Resolved"} onClick={() => advanceCase(item.id)}>
-                      {item.status === "Scheduled" ? "Start" : item.status === "In progress" ? "Promise" : item.status === "Promised" ? "Resolve" : "Closed"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </TableContainer>
+        <Box className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="small" variant="outlined" startIcon={<Plus size={14} />} disabled={tenants.length === 0} onClick={() => setCaseDialogOpen(true)}>
+              New case
+            </Button>
+          </div>
+          <Box className="rounded-xl border border-border bg-card">
+            {cases.length === 0 ? (
+              <EmptyState
+                icon={Wallet}
+                title="No collection cases"
+                description="Cases open automatically for at-risk schools, or you can start one manually."
+                action={{ label: "New case", onClick: () => setCaseDialogOpen(true) }}
+              />
+            ) : (
+              <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Case</TableCell>
+                    <TableCell>Owner</TableCell>
+                    <TableCell>Amount</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Next action</TableCell>
+                    <TableCell className="text-right">Update</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {cases.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{item.school}</p>
+                          <p className="text-xs text-muted-foreground">{item.id}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{item.owner}</TableCell>
+                      <TableCell className="font-medium">K{item.amount.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={item.status}
+                          sx={badgeSx(item.status === "Resolved" ? "success" : item.status === "Promised" ? "default" : "warning")}
+                        />
+                      </TableCell>
+                      <TableCell>{item.nextAction}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="small" variant="outlined" disabled={item.status === "Resolved"} onClick={() => advanceCase(item.id)}>
+                          {item.status === "Scheduled" ? "Start" : item.status === "In progress" ? "Promise" : item.status === "Promised" ? "Resolve" : "Closed"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </TableContainer>
+            )}
+          </Box>
         </Box>
       )}
     </div>

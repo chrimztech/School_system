@@ -62,7 +62,11 @@ function FeeStructurePage() {
   });
   const updateFeeMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => api.fees.updateStructure(schoolId, id, data),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["fee-structures", schoolId] }),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["fee-structures", schoolId] });
+      toast.success(`Fee ${variables.data.active ? "activated" : "deactivated"}`);
+    },
+    onError: () => toast.error("Failed to update fee status"),
   });
   const editFeeMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => api.fees.updateStructure(schoolId, id, data),
@@ -124,7 +128,11 @@ function FeeStructurePage() {
   });
   const updateDiscountMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => api.fees.updateDiscount(schoolId, id, data),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["fee-discounts", schoolId] }),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ["fee-discounts", schoolId] });
+      toast.success(variables.data.active ? "Discount activated" : "Discount deactivated");
+    },
+    onError: () => toast.error("Failed to update discount"),
   });
   const createBillingRuleMutation = useMutation({
     mutationFn: (data: any) => api.fees.createBillingRule(schoolId, data),
@@ -316,14 +324,12 @@ function FeeStructurePage() {
     if (!fee) return;
     const nextActive = fee.status !== "Active";
     updateFeeMutation.mutate({ id, data: { active: nextActive } });
-    toast.success(`Fee ${nextActive ? "activated" : "deactivated"}`);
   };
 
   const toggleDiscount = (id: string) => {
     const discount = discounts.find((item) => item.id === id);
     if (!discount) return;
     updateDiscountMutation.mutate({ id, data: { active: !discount.active } });
-    toast.success(`${discount.name} ${discount.active ? "deactivated" : "activated"}`);
   };
 
   const openBillingDialog = (rule?: BillingRule) => {

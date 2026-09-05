@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Activity, KeyRound, Plug, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
+import { Activity, Copy, KeyRound, Plug, Plus, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
@@ -13,10 +13,17 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/auth";
-import { appendPlatformAuditEvent, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
+import { appendDeveloperApiKey, appendDeveloperWebhook, appendPlatformAuditEvent, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx } from "@/lib/utils";
 
@@ -30,7 +37,25 @@ type ApiKeyRecord = {
   scope: string;
   lastUsed: string;
   status: KeyStatus;
+  /** Masked display hint only (e.g. "sk_live_****ab12"). The raw secret is never
+   *  stored here -- see the create-key flow below for why. */
+  secretHint?: string;
 };
+
+function generateApiSecret() {
+  const bytes = new Uint8Array(24);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `sk_live_${hex}`;
+}
+
+function maskSecret(secret: string) {
+  return `sk_live_${"•".repeat(8)}${secret.slice(-4)}`;
+}
 
 type WebhookRecord = {
   id: string;
@@ -56,6 +81,11 @@ export const Route = createFileRoute("/developer-console")({
 
 function DeveloperConsolePage() {
   const [tab, setTab] = useState("keys");
+  const [newKeyOpen, setNewKeyOpen] = useState(false);
+  const [newKeyForm, setNewKeyForm] = useState({ client: "", scope: "" });
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+  const [newWebhookOpen, setNewWebhookOpen] = useState(false);
+  const [newWebhookForm, setNewWebhookForm] = useState({ endpoint: "", owner: "" });
   const { user } = useAuth();
   const { data: workspace } = usePlatformWorkspace();
   const saveWorkspace = useSavePlatformWorkspace();
@@ -119,8 +149,62 @@ function DeveloperConsolePage() {
         severity: nextStatus === "Paused" ? "Warning" : "Info",
         action: `Changed API key ${currentKey.id} from ${currentKey.status} to ${nextStatus}`,
       }),
+    }, { onSuccess: () => toast.success("API key state updated") });
+  };
+
+  const createApiKey = () => {
+    if (!newKeyForm.client.trim() || !newKeyForm.scope.trim()) {
+      toast.error("Enter a client name and a scope");
+      return;
+    }
+    // The raw secret lives only in this closure and in the one-time reveal dialog below --
+    // it is never included in the saveWorkspace.mutate() payload, so it never round-trips
+    // through the shared platform-workspace blob in plaintext. Only the masked hint persists.
+    const rawSecret = generateApiSecret();
+    saveWorkspace.mutate({
+      developerApiKeys: appendDeveloperApiKey(workspace, {
+        client: newKeyForm.client.trim(),
+        scope: newKeyForm.scope.trim(),
+        secretHint: maskSecret(rawSecret),
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Access",
+        action: `Issued new API key for ${newKeyForm.client.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        setNewKeyOpen(false);
+        setNewKeyForm({ client: "", scope: "" });
+        setRevealedSecret(rawSecret);
+      },
     });
-    toast.success("API key state updated");
+  };
+
+  const createWebhook = () => {
+    if (!newWebhookForm.endpoint.trim() || !newWebhookForm.owner.trim()) {
+      toast.error("Enter an endpoint URL and an owner");
+      return;
+    }
+    saveWorkspace.mutate({
+      developerWebhooks: appendDeveloperWebhook(workspace, {
+        endpoint: newWebhookForm.endpoint.trim(),
+        owner: newWebhookForm.owner.trim(),
+      }),
+      platformAuditEvents: appendPlatformAuditEvent(workspace, {
+        actor: user?.name ?? "System Administrator",
+        tenant: "Platform",
+        area: "Operations",
+        action: `Registered new webhook endpoint for ${newWebhookForm.owner.trim()}`,
+      }),
+    }, {
+      onSuccess: () => {
+        toast.success("Webhook registered");
+        setNewWebhookOpen(false);
+        setNewWebhookForm({ endpoint: "", owner: "" });
+      },
+    });
   };
 
   const updateWebhook = (id: string) => {
@@ -162,8 +246,7 @@ function DeveloperConsolePage() {
         severity: currentWebhook.status === "Retrying" ? "Warning" : "Info",
         action: `Changed webhook ${currentWebhook.id} from ${currentWebhook.status} to ${nextStatus}`,
       }),
-    });
-    toast.success("Webhook state updated");
+    }, { onSuccess: () => toast.success("Webhook state updated") });
   };
 
   const provisionSandbox = () => {
@@ -189,8 +272,7 @@ function DeveloperConsolePage() {
         area: "Operations",
         action: "Provisioned new partner sandbox workspace",
       }),
-    });
-    toast.success("Sandbox provisioning started");
+    }, { onSuccess: () => toast.success("Sandbox provisioning started") });
   };
 
   const refreshCredentials = (sandboxId: string) => {
@@ -207,8 +289,9 @@ function DeveloperConsolePage() {
         area: "Operations",
         action: `Refreshed sandbox credentials for ${sandboxes.find((item) => item.id === sandboxId)?.name ?? "sandbox"}`,
       }),
+    }, {
+      onSuccess: () => toast.success(`Credentials refreshed for ${sandboxes.find((item) => item.id === sandboxId)?.name ?? "sandbox"}`),
     });
-    toast.success(`Credentials refreshed for ${sandboxes.find((item) => item.id === sandboxId)?.name ?? "sandbox"}`);
   };
 
   return (
@@ -242,6 +325,21 @@ function DeveloperConsolePage() {
 
       {tab === "keys" && (
         <Box className="rounded-xl border border-border bg-card">
+          <Box className="flex items-center justify-between gap-3 p-3">
+            <p className="text-sm text-muted-foreground">Issued keys show a masked hint only -- the full secret is shown once at creation.</p>
+            <Button size="small" variant="outlined" startIcon={<Plus size={16} />} onClick={() => setNewKeyOpen(true)}>
+              New API key
+            </Button>
+          </Box>
+          {keys.length === 0 && (
+            <EmptyState
+              icon={KeyRound}
+              title="No API keys issued"
+              description="Issue a key to let a partner or integration authenticate against the platform API."
+              action={{ label: "New API key", onClick: () => setNewKeyOpen(true) }}
+            />
+          )}
+          {keys.length > 0 && (
           <TableContainer>
           <Table>
             <TableHead>
@@ -259,7 +357,7 @@ function DeveloperConsolePage() {
                   <TableCell>
                     <div>
                       <p className="font-medium">{item.client}</p>
-                      <p className="text-xs text-muted-foreground">{item.id}</p>
+                      <p className="text-xs text-muted-foreground">{item.secretHint ?? item.id}</p>
                     </div>
                   </TableCell>
                   <TableCell>{item.scope}</TableCell>
@@ -281,11 +379,26 @@ function DeveloperConsolePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          )}
         </Box>
       )}
 
       {tab === "webhooks" && (
         <Box className="rounded-xl border border-border bg-card">
+          <Box className="flex justify-end p-3">
+            <Button size="small" variant="outlined" startIcon={<Plus size={16} />} onClick={() => setNewWebhookOpen(true)}>
+              New webhook
+            </Button>
+          </Box>
+          {webhooks.length === 0 && (
+            <EmptyState
+              icon={Plug}
+              title="No webhooks registered"
+              description="Register an endpoint to receive platform event notifications."
+              action={{ label: "New webhook", onClick: () => setNewWebhookOpen(true) }}
+            />
+          )}
+          {webhooks.length > 0 && (
           <TableContainer>
           <Table>
             <TableHead>
@@ -325,6 +438,7 @@ function DeveloperConsolePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          )}
         </Box>
       )}
 
@@ -356,6 +470,94 @@ function DeveloperConsolePage() {
         </Box>
       )}
       </Box>
+
+      <Dialog open={newKeyOpen} onClose={() => setNewKeyOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Issue API key</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Client / integration name"
+              placeholder="e.g. Zamtel BulkSMS bridge"
+              value={newKeyForm.client}
+              onChange={(e) => setNewKeyForm({ ...newKeyForm, client: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Scope"
+              placeholder="e.g. read:students, write:attendance"
+              value={newKeyForm.scope}
+              onChange={(e) => setNewKeyForm({ ...newKeyForm, scope: e.target.value })}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setNewKeyOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={createApiKey} disabled={saveWorkspace.isPending}>Issue key</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!revealedSecret} onClose={() => setRevealedSecret(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>API key issued</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-muted-foreground">
+            Copy this key now -- for security it is shown only this once. Afterwards the console only ever
+            shows a masked hint, never the full secret.
+          </p>
+          <Box
+            sx={{ mt: 2, p: 1.5, borderRadius: 1, bgcolor: "action.hover", fontFamily: "monospace", fontSize: 13, wordBreak: "break-all" }}
+          >
+            {revealedSecret}
+          </Box>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Copy size={14} />}
+            sx={{ mt: 1.5 }}
+            onClick={() => {
+              if (revealedSecret) {
+                void navigator.clipboard?.writeText(revealedSecret);
+                toast.success("Copied to clipboard");
+              }
+            }}
+          >
+            Copy key
+          </Button>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setRevealedSecret(null)}>Done -- I've saved it</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={newWebhookOpen} onClose={() => setNewWebhookOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Register webhook</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Endpoint URL"
+              placeholder="https://partner.example.com/webhooks/srms"
+              value={newWebhookForm.endpoint}
+              onChange={(e) => setNewWebhookForm({ ...newWebhookForm, endpoint: e.target.value })}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Owner"
+              placeholder="e.g. Partner integrations team"
+              value={newWebhookForm.owner}
+              onChange={(e) => setNewWebhookForm({ ...newWebhookForm, owner: e.target.value })}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setNewWebhookOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={createWebhook} disabled={saveWorkspace.isPending}>Register</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

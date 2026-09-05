@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { BarChart3, GraduationCap, Layers, Percent, Users } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpWideNarrow, BarChart3, GraduationCap, Layers, Percent, TrendingDown, TrendingUp, Users } from "lucide-react";
 import { MenuItem, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -220,6 +220,17 @@ function ResultsAnalysisPage() {
               />
             </div>
 
+            {hasData && (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <StatCard label="Highest" value={data?.highest != null ? `${Math.round(data.highest)}%` : "—"} icon={<ArrowUpWideNarrow className="h-5 w-5" />} accent="success" />
+                <StatCard label="Median" value={data?.median != null ? `${Math.round(data.median)}%` : "—"} icon={<Layers className="h-5 w-5" />} />
+                <StatCard label="Lowest" value={data?.lowest != null ? `${Math.round(data.lowest)}%` : "—"} icon={<ArrowDownWideNarrow className="h-5 w-5" />} accent="destructive" />
+                <StatCard label="CA average" value={data?.caAverage != null ? `${Math.round(data.caAverage)}%` : "—"} hint="Continuous assessment" />
+                <StatCard label="Midterm average" value={data?.midtermAverage != null ? `${Math.round(data.midtermAverage)}%` : "—"} />
+                <StatCard label="Exam average" value={data?.examAverage != null ? `${Math.round(data.examAverage)}%` : "—"} />
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
                 <h2 className="mb-4 text-sm font-semibold">{levelWord.charAt(0).toUpperCase()}{levelWord.slice(1)} distribution</h2>
@@ -334,6 +345,60 @@ function ResultsAnalysisPage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+              </div>
+            )}
+
+            {hasData && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-border bg-card shadow-sm">
+                  <div className="flex items-center gap-2 border-b border-border p-5">
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                    <h2 className="text-sm font-semibold">Top performers</h2>
+                  </div>
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Student</TableCell>
+                          <TableCell className="text-right">Average</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(data?.topPerformers ?? []).map((s: any) => (
+                          <TableRow key={s.studentId}>
+                            <TableCell className="font-medium">{s.studentName}</TableCell>
+                            <TableCell className="text-right tabular-nums">{Math.round(s.average)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card shadow-sm">
+                  <div className="flex items-center gap-2 border-b border-border p-5">
+                    <TrendingDown className="h-4 w-4 text-destructive" />
+                    <h2 className="text-sm font-semibold">Needs support</h2>
+                  </div>
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Student</TableCell>
+                          <TableCell className="text-right">Average</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(data?.bottomPerformers ?? []).map((s: any) => (
+                          <TableRow key={s.studentId}>
+                            <TableCell className="font-medium">{s.studentName}</TableCell>
+                            <TableCell className="text-right tabular-nums">{Math.round(s.average)}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </div>
               </div>
             )}
           </>
