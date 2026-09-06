@@ -13,12 +13,14 @@ import {
   FileText,
   Loader2,
   LockKeyhole,
+  Pencil,
   Plus,
   Search,
   Send,
   Scale,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Upload,
   Users,
   X,
@@ -32,10 +34,12 @@ import {
   Button,
   Chip,
   Checkbox,
+  IconButton,
   InputAdornment,
   LinearProgress,
   MenuItem,
   TextField,
+  Tooltip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -1328,6 +1332,57 @@ function AssessmentsPage() {
     onError: () => toast.error("Failed to create assessment"),
   });
 
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", maxScore: "40", weight: "10", term: "1" });
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.assessments.update(schoolId, id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assessments", schoolId] });
+      toast.success("Assessment updated");
+      setEditTarget(null);
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? "Failed to update assessment"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.assessments.delete(schoolId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assessments", schoolId] });
+      toast.success("Assessment deleted");
+      setDeleteTarget(null);
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? "Failed to delete assessment"),
+  });
+
+  const openEdit = (assessment: any) => {
+    setEditTarget(assessment);
+    setEditForm({
+      title: assessment.title ?? "",
+      maxScore: String(assessment.maxScore ?? "40"),
+      weight: String(assessment.weight ?? "10"),
+      term: assessment.term ?? "1",
+    });
+  };
+
+  const saveEdit = () => {
+    if (!editTarget) return;
+    if (!editForm.title.trim()) {
+      toast.error("Assessment title is required");
+      return;
+    }
+    updateMutation.mutate({
+      id: editTarget.id,
+      data: {
+        title: editForm.title.trim(),
+        maxScore: Number(editForm.maxScore) || editTarget.maxScore,
+        weight: Number(editForm.weight) || editTarget.weight,
+        term: editForm.term,
+      },
+    });
+  };
+
   const addAssessment = () => {
     if (!form.title.trim()) {
       toast.error("Assessment title is required");
@@ -2059,7 +2114,21 @@ function AssessmentsPage() {
                       <TableCell>
                         <WorkflowBadge status={a.workflowStatus} />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right whitespace-nowrap">
+                        {canManage && (a.workflowStatus === "DRAFT" || a.workflowStatus === "REJECTED") && (
+                          <>
+                            <Tooltip title="Edit assessment">
+                              <IconButton size="small" onClick={(event) => { event.stopPropagation(); openEdit(a); }}>
+                                <Pencil size={14} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete assessment">
+                              <IconButton size="small" onClick={(event) => { event.stopPropagation(); setDeleteTarget(a); }}>
+                                <Trash2 size={14} />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                         <Button
                           variant="text"
                           color="primary"
@@ -2141,6 +2210,73 @@ function AssessmentsPage() {
           canManage={canManage}
         />
       )}
+
+      <Dialog open={!!editTarget} onClose={() => setEditTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Edit assessment</DialogTitle>
+        <DialogContent>
+          <div className="grid gap-3 pt-1">
+            <TextField
+              label="Title"
+              value={editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              slotProps={{ htmlInput: { maxLength: 120 } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              select
+              label="Term"
+              value={editForm.term}
+              onChange={(e) => setEditForm({ ...editForm, term: e.target.value })}
+              fullWidth
+              size="small"
+            >
+              {TERM_OPTIONS.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+            </TextField>
+            <TextField
+              label="Max score"
+              type="number"
+              value={editForm.maxScore}
+              onChange={(e) => setEditForm({ ...editForm, maxScore: e.target.value })}
+              slotProps={{ htmlInput: { min: 1, max: 200 } }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Weight (%)"
+              type="number"
+              value={editForm.weight}
+              onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+              slotProps={{ htmlInput: { min: 0, max: 100 } }}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setEditTarget(null)}>Cancel</Button>
+          <Button variant="contained" onClick={saveEdit} disabled={updateMutation.isPending}>
+            {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete assessment?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This permanently deletes "{deleteTarget?.title}" and any scores already entered for it. This can't be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)} disabled={deleteMutation.isPending}>
+            {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AccessGuard>
   );
 }
