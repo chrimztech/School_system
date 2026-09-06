@@ -1159,6 +1159,11 @@ function SettingsPage() {
                   size="small"
                 />
               </div>
+              {academicTerms.length > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Auto-advances daily once today's date falls inside a term below — edit here only to override it.
+                </p>
+              )}
             </div>
             </AccordionDetails>
           </Accordion>
