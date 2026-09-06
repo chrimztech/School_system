@@ -13,7 +13,7 @@ import { Search, LogOut, UserCircle, Command as CommandIcon, Lock, ChevronDown, 
 import { ThemeProvider, CssBaseline, Menu, MenuItem, ListItemIcon, Divider, Box, Typography } from "@mui/material";
 
 import appCss from "../styles.css?url";
-import { theme, buildTheme, contrastFor, isValidHexColor } from "@/theme";
+import { theme, buildTheme, contrastFor, isValidHexColor, fontStack } from "@/theme";
 import { TenantProvider, useTenant, type Tenant } from "@/lib/tenant";
 import { AuthProvider, useAuth, ROLE_META } from "@/lib/auth";
 import { authRedirectFor } from "@/lib/auth-navigation";
@@ -125,7 +125,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "SRMS — School Records Management System" },
       { name: "description", content: "Configurable school management for Zambian institutions: enrolment, attendance, assessments, fees, and parental communication." },
     ],
-    links: [{ rel: "stylesheet", href: appCss }, { rel: "icon", href: "/favicon.svg" }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.svg" },
+      // Every school's own choice of heading font (Settings/Onboarding "Heading font")
+      // is applied via the --font-heading CSS variable in AppShell below, but a CSS
+      // font-family value does nothing if the font file was never loaded — preload all
+      // the picker's options up front so whichever one a tenant has chosen is ready
+      // immediately, rather than silently falling back to the platform default.
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap",
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -267,7 +281,14 @@ type BrandColors = {
   primaryColor?: string | null;
   secondaryColor?: string | null;
   accentColor?: string | null;
+  fontFamily?: string | null;
 };
+
+// The exact set offered by the "Heading font" picker in Onboarding/Settings — kept in sync
+// with HEADING_FONT_OPTIONS there. Validating against this list (rather than accepting any
+// string) means a stored value can't inject an arbitrary custom-property value, and it's the
+// same list the <link> tags in this file's head() preload from Google Fonts.
+const HEADING_FONTS = ["Inter", "Poppins", "Merriweather", "Playfair Display", "Source Sans 3"] as const;
 
 function buildShellStyle(brand: BrandColors): React.CSSProperties | undefined {
   const primaryColor = brand.primaryColor;
@@ -293,6 +314,9 @@ function buildShellStyle(brand: BrandColors): React.CSSProperties | undefined {
   if (accentColor) {
     style["--accent"] = accentColor;
     style["--accent-foreground"] = contrastFor(accentColor);
+  }
+  if (brand.fontFamily && (HEADING_FONTS as readonly string[]).includes(brand.fontFamily)) {
+    style["--font-heading"] = `"${brand.fontFamily}", ${fontStack}`;
   }
 
   // Dashboard/report charts (index.tsx, results-analysis.tsx, etc.) plot against
@@ -330,6 +354,7 @@ const SHELL_STYLE_PROPS = [
   "--chart-3",
   "--chart-4",
   "--chart-5",
+  "--font-heading",
 ] as const;
 
 function AppShell() {
@@ -353,7 +378,7 @@ function AppShell() {
     const root = document.documentElement;
     const style = isSystemAdmin
       ? undefined
-      : buildShellStyle({ primaryColor: active.primaryColor, secondaryColor: active.secondaryColor, accentColor: active.accentColor });
+      : buildShellStyle({ primaryColor: active.primaryColor, secondaryColor: active.secondaryColor, accentColor: active.accentColor, fontFamily: active.fontFamily });
     if (style) {
       for (const [key, value] of Object.entries(style)) {
         root.style.setProperty(key, value as string);
@@ -364,7 +389,7 @@ function AppShell() {
     return () => {
       for (const key of SHELL_STYLE_PROPS) root.style.removeProperty(key);
     };
-  }, [isSystemAdmin, active.primaryColor, active.secondaryColor, active.accentColor]);
+  }, [isSystemAdmin, active.primaryColor, active.secondaryColor, active.accentColor, active.fontFamily]);
 
   // Apply school favicon to the browser tab — never a specific school's while in the
   // system-admin/platform workspace view, same as the brand color right above: `active`
@@ -378,9 +403,16 @@ function AppShell() {
   const muiTheme = useMemo(
     () =>
       buildTheme(
-        isSystemAdmin ? undefined : { primaryColor: active.primaryColor, secondaryColor: active.secondaryColor },
+        isSystemAdmin
+          ? undefined
+          : {
+              primaryColor: active.primaryColor,
+              secondaryColor: active.secondaryColor,
+              accentColor: active.accentColor,
+              headingFontFamily: active.fontFamily,
+            },
       ),
-    [isSystemAdmin, active.primaryColor, active.secondaryColor],
+    [isSystemAdmin, active.primaryColor, active.secondaryColor, active.accentColor, active.fontFamily],
   );
 
   // Redirects live here (in AppShell, which persists across the transition) rather than in a

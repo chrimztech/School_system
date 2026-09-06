@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
-import { ArrowLeft, Mail, Phone, BookOpen, CalendarCheck, Users, Loader2, Pencil } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { ArrowLeft, Mail, Phone, BookOpen, CalendarCheck, Users, Loader2, Pencil, Upload, Image as ImageIcon } from "lucide-react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -31,8 +31,18 @@ function emptyEditForm() {
     firstName: "", lastName: "", subject: "", department: "", qualification: QUALIFICATIONS[0],
     gender: GENDERS[0], email: "", phone: "", nationalId: "", dateJoined: "", salary: "",
     status: "active", professionalLicenseNo: "", teachingExperienceYears: "",
-    bankName: "", bankAccount: "", address: "",
+    bankName: "", bankAccount: "", address: "", signatureUrl: "",
   };
+}
+
+function readAsDataUrl(file: File, setter: (value: string) => void) {
+  if (file.size > 10_000_000) {
+    toast.error("File too large. Max 10MB.");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => setter(reader.result as string);
+  reader.readAsDataURL(file);
 }
 
 function EditTeacherDialog({
@@ -46,6 +56,7 @@ function EditTeacherDialog({
   isPending: boolean;
 }) {
   const [form, setForm] = useState(emptyEditForm);
+  const signatureInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open || !teacher) return;
@@ -67,6 +78,7 @@ function EditTeacherDialog({
       bankName: teacher.bankName ?? "",
       bankAccount: teacher.bankAccount ?? "",
       address: teacher.address ?? "",
+      signatureUrl: teacher.signatureUrl ?? "",
     });
   }, [open, teacher]);
 
@@ -90,6 +102,7 @@ function EditTeacherDialog({
       bankName: form.bankName.trim() || null,
       bankAccount: form.bankAccount.trim() || null,
       address: form.address.trim() || null,
+      signatureUrl: form.signatureUrl,
     });
   };
 
@@ -183,6 +196,44 @@ function EditTeacherDialog({
             <TextField label="Bank account no." value={form.bankAccount} onChange={(e) => setForm({ ...form, bankAccount: e.target.value })} slotProps={{ htmlInput: { maxLength: 40 } }} fullWidth size="small" />
             <div className="col-span-2">
               <TextField label="Residential address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} fullWidth size="small" />
+            </div>
+            <div className="col-span-2">
+              <p className="text-sm font-medium">Signature</p>
+              <p className="text-xs text-muted-foreground">Used on report cards when this teacher is the class teacher. PNG with a transparent background works best, max 10MB.</p>
+              <div className="mt-2 flex items-center gap-4">
+                <div className="flex h-16 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                  {form.signatureUrl ? (
+                    <img
+                      src={form.signatureUrl}
+                      alt="Signature preview"
+                      className="h-full w-full object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={signatureInput}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) readAsDataUrl(f, (value) => setForm((prev) => ({ ...prev, signatureUrl: value })));
+                    }}
+                  />
+                  <Button type="button" variant="outlined" size="small" onClick={() => signatureInput.current?.click()} startIcon={<Upload className="h-4 w-4" />}>
+                    Upload signature
+                  </Button>
+                  {form.signatureUrl && (
+                    <Button type="button" variant="text" color="inherit" size="small" onClick={() => setForm((prev) => ({ ...prev, signatureUrl: "" }))}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

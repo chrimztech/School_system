@@ -467,7 +467,12 @@ function ContractCenterPage() {
         </div>
       </DialogTitle>
       <DialogContent className="max-h-[85vh] overflow-y-auto space-y-4">
-        <Divider />
+      <div className="print-area space-y-4">
+        <div className="hidden print:block">
+          <p className="text-lg font-bold">Contract Pack</p>
+          <p className="text-sm text-muted-foreground">Generated {generatedAt} · Submitted to Legal desk for review</p>
+        </div>
+        <Divider className="print:hidden" />
 
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3">
@@ -527,9 +532,11 @@ function ContractCenterPage() {
           </div>
         </div>
 
-        <Divider />
+      </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <Divider className="print:hidden" />
+
+        <div className="flex items-center justify-between gap-3 print:hidden">
           <p className="text-xs text-muted-foreground">An approval request and support ticket have been created for Legal desk review.</p>
           <div className="flex gap-2 shrink-0">
             <Button variant="outlined" size="small" startIcon={<X size={14} />} onClick={() => { setPackDialogOpen(false); toast.info("Pack saved to export jobs"); }}>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button, Chip, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab } from "@mui/material";
 import { PageHeader } from "@/components/page-header";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { useTenant } from "@/lib/tenant";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -385,8 +386,8 @@ function TimetablePage() {
           </Tabs>
 
           {tab === "class" && (
-          <Box className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <Box className="print-area space-y-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 print:hidden">
               <TextField select value={selectedClass} onChange={(e) => setKlass(e.target.value)} size="small" sx={{ width: { xs: "100%", sm: 224 } }}>
                 <MenuItem value="" disabled>Select class</MenuItem>
                 {classes.map((c: string) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
@@ -394,17 +395,23 @@ function TimetablePage() {
               <Chip size="small" label={`Term ${active.currentTerm}`} sx={badgeSx("outline")} />
               <Chip size="small" label={`${classPeriods.length} periods`} sx={badgeSx("secondary")} />
             </div>
+            <div className="hidden print:block">
+              <SchoolDocumentHeader title="Class Timetable" subtitle={`${selectedClass || "All classes"} · Term ${active.currentTerm}`} />
+            </div>
             {timetableTable(allPeriods, classGrid, () => "No timetable data for this class. Add slots above.")}
           </Box>
           )}
 
           {tab === "teacher" && (
-          <Box className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
+          <Box className="print-area space-y-4">
+            <div className="flex flex-wrap items-center gap-3 print:hidden">
               <TextField select value={selectedTeacher} onChange={(e) => setTeacher(e.target.value)} size="small" sx={{ width: { xs: "100%", sm: 256 } }}>
                 <MenuItem value="" disabled>Select teacher</MenuItem>
                 {teachers.map((t: string) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </TextField>
+            </div>
+            <div className="hidden print:block">
+              <SchoolDocumentHeader title="Teacher Timetable" subtitle={`${selectedTeacher || "All teachers"} · Term ${active.currentTerm}`} />
             </div>
             {timetableTable(allPeriods, teacherGrid, () => "No timetable data for this teacher.")}
           </Box>

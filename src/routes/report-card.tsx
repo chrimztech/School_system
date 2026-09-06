@@ -31,7 +31,7 @@ import {
   TableRow,
   TableCell,
 } from "@mui/material";
-import { gradingBandForPercentage, useTenant } from "@/lib/tenant";
+import { formatGrade, gradingBandForPercentage, useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
@@ -113,6 +113,19 @@ const TEACHER_COMMENT_ROLES = new Set([
   "super_admin",
 ]);
 
+function SignatureBox({ label, imageUrl }: { label: string; imageUrl?: string | null }) {
+  return (
+    <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">
+      <div className="mb-1 flex h-12 items-end justify-center">
+        {imageUrl ? (
+          <img src={imageUrl} alt={label} className="max-h-12 max-w-full object-contain" />
+        ) : null}
+      </div>
+      {label}
+    </div>
+  );
+}
+
 function CommentSection({
   teacherComment,
   headComment,
@@ -120,6 +133,9 @@ function CommentSection({
   onSave,
   canEditHead,
   canEditTeacher,
+  classTeacherSignatureUrl,
+  headTeacherSignatureUrl,
+  schoolStampUrl,
 }: {
   teacherComment: string;
   headComment: string;
@@ -127,6 +143,9 @@ function CommentSection({
   onSave: (tc: string, hc: string) => void;
   canEditHead: boolean;
   canEditTeacher: boolean;
+  classTeacherSignatureUrl?: string | null;
+  headTeacherSignatureUrl?: string | null;
+  schoolStampUrl?: string | null;
 }) {
   const [tc, setTc] = useState(teacherComment);
   const [hc, setHc] = useState(headComment);
@@ -260,15 +279,9 @@ function CommentSection({
       </div>
 
       <div className="grid grid-cols-2 gap-4 pt-4 sm:grid-cols-3">
-        <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">
-          Class teacher signature
-        </div>
-        <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">
-          Head teacher signature
-        </div>
-        <div className="border-t border-border pt-2 text-center text-xs text-muted-foreground">
-          School stamp
-        </div>
+        <SignatureBox label="Class teacher signature" imageUrl={classTeacherSignatureUrl} />
+        <SignatureBox label="Head teacher signature" imageUrl={headTeacherSignatureUrl} />
+        <SignatureBox label="School stamp" imageUrl={schoolStampUrl} />
       </div>
     </div>
   );
@@ -321,6 +334,18 @@ function ReportCardPage() {
     enabled: !!active.id && !!selectedId,
   });
 
+  const { data: classes = [] } = useQuery({
+    queryKey: ["classes", active.id],
+    queryFn: () => api.classes.list(active.id),
+    enabled: !!active.id,
+  });
+
+  const { data: allTeachers = [] } = useQuery({
+    queryKey: ["teachers", active.id],
+    queryFn: () => api.teachers.list(active.id),
+    enabled: !!active.id,
+  });
+
   const commentMut = useMutation({
     mutationFn: (data: { teacherComment: string; headComment: string }) =>
       api.reportComments.upsert(active.id, selectedId, term, year, data),
@@ -344,8 +369,16 @@ function ReportCardPage() {
     ? `${backendStudent.firstName} ${backendStudent.lastName}`
     : "";
   const admissionNo = backendStudent?.admissionNumber || backendStudent?.admissionNo || "—";
-  const grade = backendStudent?.className || backendStudent?.grade || "—";
-  const classTeacher = backendStudent?.classTeacher || active.headTeacher || "—";
+  const classLabel = active.type === "SECONDARY" ? "Form" : active.type === "PRIMARY" || active.type === "NURSERY" ? "Grade" : "Class";
+  const matchingClass = (classes as any[]).find(
+    (c: any) => c.grade === backendStudent?.grade && (c.section ?? "") === (backendStudent?.section ?? ""),
+  );
+  const grade = backendStudent?.className
+    || matchingClass?.name
+    || (backendStudent?.grade ? `${formatGrade(backendStudent.grade, active.type)}${backendStudent?.section ? backendStudent.section : ""}` : "—");
+  const classTeacherName = matchingClass?.classTeacherName || backendStudent?.classTeacher || active.headTeacher || "—";
+  const classTeacherRecord = (allTeachers as any[]).find((t: any) => t.id === matchingClass?.classTeacherId);
+  const classTeacherSignature = classTeacherRecord?.signatureUrl;
 
   const termGrades = useMemo(
     () => (termGradeHistory as any[]).filter((g) => g.term === selectedTerm),
@@ -536,12 +569,12 @@ function ReportCardPage() {
               <p className="mt-0.5 font-medium">{admissionNo}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-muted-foreground">Class</p>
+              <p className="text-xs uppercase text-muted-foreground">{classLabel}</p>
               <p className="mt-0.5 font-medium">{grade}</p>
             </div>
             <div>
               <p className="text-xs uppercase text-muted-foreground">Class teacher</p>
-              <p className="mt-0.5 font-medium">{classTeacher}</p>
+              <p className="mt-0.5 font-medium">{classTeacherName}</p>
             </div>
           </div>
 
@@ -553,7 +586,7 @@ function ReportCardPage() {
                 <TableCell>Subject</TableCell>
                 <TableCell className="text-right">CA %</TableCell>
                 <TableCell className="text-right">Midterm %</TableCell>
-                <TableCell className="text-right">Exam %</TableCell>
+                <TableCell className="text-right">End of Term %</TableCell>
                 <TableCell className="text-right">Weighted total</TableCell>
                 <TableCell className="text-right">Class avg</TableCell>
                 <TableCell>Grade</TableCell>
@@ -672,6 +705,9 @@ function ReportCardPage() {
               }
               canEditHead={canEditHead}
               canEditTeacher={canEditTeacher}
+              classTeacherSignatureUrl={classTeacherSignature}
+              headTeacherSignatureUrl={active.headTeacherSignatureUrl}
+              schoolStampUrl={active.schoolStampUrl}
             />
           )}
         </div>

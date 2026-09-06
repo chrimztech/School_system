@@ -130,6 +130,8 @@ export type Tenant = {
   primaryColor: string;
   logoUrl?: string;
   faviconUrl?: string;
+  headTeacherSignatureUrl?: string;
+  schoolStampUrl?: string;
   registrationNo?: string;
   tpinNo?: string;
   moeCode?: string;
@@ -626,6 +628,8 @@ function toSchoolDto(tenant: Tenant): BackendSchoolDto {
     fontFamily: tenant.fontFamily,
     logoUrl: tenant.logoUrl,
     faviconUrl: tenant.faviconUrl,
+    headTeacherSignatureUrl: tenant.headTeacherSignatureUrl,
+    schoolStampUrl: tenant.schoolStampUrl,
     reportFooter: tenant.reportFooter,
     smsSenderId: tenant.smsSenderId,
     communicationsEmail: tenant.communicationsEmail,
@@ -790,6 +794,8 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
       fontFamily: school.fontFamily ?? undefined,
       logoUrl: school.logoUrl ?? undefined,
       faviconUrl: school.faviconUrl ?? undefined,
+      headTeacherSignatureUrl: school.headTeacherSignatureUrl ?? undefined,
+      schoolStampUrl: school.schoolStampUrl ?? undefined,
       reportFooter: school.reportFooter ?? undefined,
       smsSenderId: school.smsSenderId ?? undefined,
       communicationsEmail: school.communicationsEmail ?? undefined,
@@ -865,6 +871,8 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
     fontFamily: school.fontFamily ?? existing?.fontFamily,
     logoUrl: school.logoUrl ?? existing?.logoUrl,
     faviconUrl: school.faviconUrl ?? existing?.faviconUrl,
+    headTeacherSignatureUrl: school.headTeacherSignatureUrl ?? existing?.headTeacherSignatureUrl,
+    schoolStampUrl: school.schoolStampUrl ?? existing?.schoolStampUrl,
     reportFooter: school.reportFooter ?? existing?.reportFooter,
     smsSenderId: school.smsSenderId ?? existing?.smsSenderId,
     communicationsEmail: school.communicationsEmail ?? existing?.communicationsEmail,

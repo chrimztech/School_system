@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button, Chip, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
@@ -149,7 +150,16 @@ function HealthPage() {
             <Button component={Link} to="/student-welfare" variant="outlined">
               Welfare cases
             </Button>
-            <Button variant="outlined" startIcon={<Download size={16} />} onClick={() => window.print()}>
+            <Button
+              variant="outlined"
+              startIcon={<Download size={16} />}
+              onClick={() => {
+                // The printable register is only the "Visits" tab's content — switch to it
+                // first (if the user is viewing another tab) so there's something to print.
+                setTab("visits");
+                requestAnimationFrame(() => window.print());
+              }}
+            >
               Print register
             </Button>
             <Button startIcon={<Plus size={16} />} onClick={() => setOpen(true)}>New visit</Button>
@@ -329,7 +339,10 @@ function HealthPage() {
         </div>
 
         {tab === "visits" && (
-        <Box className="rounded-xl border border-border bg-card">
+        <Box className="print-area rounded-xl border border-border bg-card print:rounded-none print:border-0 print:shadow-none">
+          <div className="hidden print:block">
+            <SchoolDocumentHeader title="Clinic Visit Register" subtitle={`${visits.length} visit${visits.length === 1 ? "" : "s"} on record`} />
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /><span>Loading visits…</span>

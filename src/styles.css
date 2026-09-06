@@ -159,6 +159,16 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* The school's chosen "Heading font" (Settings/Onboarding) is set as --font-heading on
+     <html> by AppShell. Most page titles (e.g. PageHeader's <h1>) are plain Tailwind
+     elements, not MUI Typography, so this is the only place that reaches them — MUI's own
+     Typography h1-h6 get the same font separately via theme.ts's buildTheme(). Falls back
+     to the ordinary body font when no tenant override is set (var()'s second argument),
+     so a school that hasn't picked a heading font sees no change at all. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading, inherit);
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--primary) 18%, white);
     color: var(--color-foreground);
@@ -495,18 +505,73 @@
 }
 
 @media print {
+  /* The permanent sidebar drawer, the sticky topbar, the command palette, and the toast
+     layer are true layout siblings/ancestors of every printable page's ".print-area" —
+     removing them outright (display:none, zero footprint) is what actually eliminates the
+     extra blank pages, not just hiding their contents. A previous version of this block
+     only used visibility:hidden + min-height/height resets, which keeps an invisible
+     element's box in flow: the sidebar's real nav content (dozens of items) still has real
+     intrinsic height even at height:auto, so the page still had to paginate through that
+     invisible vertical space before reaching the visible print area. */
+  .MuiDrawer-root,
+  .workspace-topbar,
+  .app-shell::before,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  /* Tailwind's "print:hidden" utility and MUI's own base component styles (e.g.
+     ".MuiTableCell-root { display: table-cell }") both have single-class specificity, so
+     whichever one MUI's runtime-injected Emotion stylesheet places later in the cascade
+     wins — in practice that's often MUI, silently defeating "print:hidden" on MUI
+     components (TableCell, Button, etc.) without any visible sign of the conflict. Force it
+     with an attribute-selector rule that's guaranteed to load after everything else and
+     carries !important, rather than trusting utility-class source order. */
+  [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  /* ".app-shell" is a flex ROW (sidebar beside content) and is position:relative — with the
+     sidebar gone this no longer needs to be a row, and position:relative previously made it
+     the containing block for ".print-area"'s old position:absolute, which forced the print
+     area's height to whatever tiny auto-height the (now content-less) app shell resolved to
+     instead of its own natural content height. Reducing every ancestor between <body> and
+     ".print-area" to plain, unpositioned, unconstrained block boxes lets the print area lay
+     out — and paginate across as many physical pages as it actually needs — on its own. */
+  .app-shell,
+  .workspace-frame,
+  .workspace-frame > main,
+  .workspace-frame > main > div {
+    all: unset !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* A few printable previews (e.g. Contract Center's "Generate contract pack") live inside a
+     MUI Dialog instead of directly on the page. A Dialog renders through a portal straight to
+     <body>, so it was never touched by the ".app-shell" reset above — and MUI's own dialog
+     chrome is a fixed-position, flex-centered, height-and-overflow-capped stack (the exact
+     same shape of problem as the app shell), which silently clips a multi-page document down
+     to whatever fits in one on-screen dialog instead of letting it paginate. Un-wrap any such
+     ancestor the same way, wherever a ".print-area" is nested inside one. */
+  .MuiModal-root:has(.print-area),
+  .MuiDialog-container:has(.print-area),
+  .MuiPaper-root:has(.print-area),
+  .MuiDialogContent-root:has(.print-area) {
+    all: unset !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
   body * {
     visibility: hidden;
-    /* The app shell and its ancestors use Tailwind's min-h-screen (min-height: 100vh).
-       visibility:hidden keeps an element's layout box (unlike display:none), so that
-       min-height still reserves a full viewport of vertical space even while invisible —
-       the browser then paginates extra blank pages after the print area to cover it. */
-    min-height: 0 !important;
-    height: auto !important;
   }
 
   html, body {
     height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    background-image: none !important;
   }
 
   .print-area,
@@ -515,10 +580,9 @@
   }
 
   .print-area {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: auto !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
   }

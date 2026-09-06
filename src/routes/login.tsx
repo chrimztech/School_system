@@ -99,6 +99,8 @@ type SchoolBranding = {
   faviconUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  accentColor?: string | null;
+  fontFamily?: string | null;
   motto?: string | null;
   district?: string | null;
   province?: string | null;
@@ -216,6 +218,7 @@ function LoginPage() {
 
   const brandPrimary = schoolBranding?.primaryColor ?? DEFAULT_BRAND;
   const brandAccent = schoolBranding?.secondaryColor ?? "#00c197";
+  const brandHighlight = schoolBranding?.accentColor ?? brandAccent;
 
   // Recolor MUI's theme to the resolved school's brand ahead of sign-in, so buttons,
   // inputs, and focus rings match the same colors as the gradients/logo above — not
@@ -225,8 +228,10 @@ function LoginPage() {
       buildTheme({
         primaryColor: schoolBranding?.primaryColor ?? DEFAULT_BRAND,
         secondaryColor: schoolBranding?.secondaryColor,
+        accentColor: schoolBranding?.accentColor,
+        headingFontFamily: schoolBranding?.fontFamily,
       }),
-    [schoolBranding?.primaryColor, schoolBranding?.secondaryColor],
+    [schoolBranding?.primaryColor, schoolBranding?.secondaryColor, schoolBranding?.accentColor, schoolBranding?.fontFamily],
   );
 
   const fieldRadiusSx: SxProps<Theme> = {
@@ -407,7 +412,7 @@ function LoginPage() {
           {schoolBranding ? (
             <Box sx={{ mb: 3, ...reveal(0.1) }}>
               <Typography
-                sx={{ fontSize: 44, fontWeight: 600, lineHeight: 1.12, letterSpacing: "-0.02em", color: "#fff", mb: schoolBranding.motto ? 1.5 : 0 }}
+                sx={{ fontSize: 44, fontWeight: 600, lineHeight: 1.12, letterSpacing: "-0.02em", color: "#fff", mb: schoolBranding.motto ? 1.5 : 0, fontFamily: muiTheme.typography.h1.fontFamily }}
               >
                 {schoolBranding.name}
               </Typography>
@@ -578,7 +583,7 @@ function LoginPage() {
                   justifyContent: "center",
                   borderRadius: 4,
                   color: "#fff",
-                  background: `linear-gradient(135deg, ${brandPrimary}, ${brandAccent})`,
+                  background: `linear-gradient(135deg, ${brandPrimary}, ${brandHighlight}, ${brandAccent})`,
                   boxShadow: `0 14px 32px -6px ${alpha(brandPrimary, 0.55)}`,
                   transition: "background 700ms ease, box-shadow 700ms ease",
                 }}

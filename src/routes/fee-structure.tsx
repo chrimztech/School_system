@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { useTenant, gradeFormLabels, gradeLabelToNumber } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
@@ -407,8 +408,11 @@ function FeeStructurePage() {
 
       {/* TARIFF */}
       {tab === "tariff" && (
-        <Box className="rounded-xl border border-border bg-card">
-          <div className="flex justify-end border-b border-border p-3">
+        <Box className="print-area rounded-xl border border-border bg-card print:rounded-none print:border-0 print:shadow-none">
+          <div className="hidden print:block">
+            <SchoolDocumentHeader title="Fee Tariff Schedule" subtitle={`${fees.length} fee item${fees.length === 1 ? "" : "s"}`} />
+          </div>
+          <div className="flex justify-end border-b border-border p-3 print:hidden">
             <Button size="small" startIcon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setFeeForm(emptyFeeForm()); setEditingFeeId(null); setFeeOpen(true); }}>Add fee</Button>
             <Dialog open={feeOpen} onClose={() => { setFeeOpen(false); setEditingFeeId(null); }} maxWidth="lg" fullWidth>
               <DialogTitle>{editingFeeId ? "Edit fee item" : "Add fee item"}</DialogTitle>
@@ -566,7 +570,7 @@ function FeeStructurePage() {
           <Table>
             <TableHead><TableRow>
               <TableCell>Category</TableCell><TableCell>Grade / Form</TableCell><TableCell>Applies to</TableCell><TableCell>Amount</TableCell>
-              <TableCell>Frequency</TableCell><TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
+              <TableCell>Frequency</TableCell><TableCell>Status</TableCell><TableCell className="text-right print:hidden">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
               {fees.map((f) => (
@@ -587,7 +591,7 @@ function FeeStructurePage() {
                   <TableCell>
                     <Chip size="small" label={f.status} sx={badgeSx(f.status === "Active" ? "default" : "outline")} />
                   </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
+                  <TableCell className="text-right whitespace-nowrap print:hidden">
                     <Button size="small" variant="text" onClick={() => openFeeEdit(f.id)}>Edit</Button>
                     <Button size="small" variant="text" color="inherit" onClick={() => toggleFeeStatus(f.id)}>
                       {f.status === "Active" ? "Deactivate" : "Activate"}

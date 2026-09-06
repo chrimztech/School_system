@@ -153,11 +153,16 @@ function SettingsPage() {
   const [primaryColor, setPrimaryColor] = useState(school.primaryColor ?? "#1e40af");
   const [secondaryColor, setSecondaryColor] = useState(school.secondaryColor ?? "#134e4a");
   const [accentColor, setAccentColor] = useState(school.accentColor ?? "#7c3aed");
+  const [fontFamily, setFontFamily] = useState(school.fontFamily ?? "Inter");
   const [logoUrl, setLogoUrl] = useState(school.logoUrl ?? "");
   const [faviconUrl, setFaviconUrl] = useState(school.faviconUrl ?? "");
+  const [headTeacherSignatureUrl, setHeadTeacherSignatureUrl] = useState(school.headTeacherSignatureUrl ?? "");
+  const [schoolStampUrl, setSchoolStampUrl] = useState(school.schoolStampUrl ?? "");
   const [slug, setSlug] = useState(school.slug ?? "");
   const logoInput = useRef<HTMLInputElement>(null);
   const faviconInput = useRef<HTMLInputElement>(null);
+  const headTeacherSignatureInput = useRef<HTMLInputElement>(null);
+  const schoolStampInput = useRef<HTMLInputElement>(null);
 
   // ── Academic term calendar (when each term starts/ends) ────────────────
   const qc = useQueryClient();
@@ -235,8 +240,8 @@ function SettingsPage() {
   const todayIso = new Date().toISOString().slice(0, 10);
 
   const readAsDataUrl = (file: File, setter: (value: string) => void) => {
-    if (file.size > 2_000_000) {
-      toast.error("File too large. Max 2MB.");
+    if (file.size > 10_000_000) {
+      toast.error("File too large. Max 10MB.");
       return;
     }
     const reader = new FileReader();
@@ -267,8 +272,11 @@ function SettingsPage() {
     setPrimaryColor(school.primaryColor ?? "#1e40af");
     setSecondaryColor(school.secondaryColor ?? "#134e4a");
     setAccentColor(school.accentColor ?? "#7c3aed");
+    setFontFamily(school.fontFamily ?? "Inter");
     setLogoUrl(school.logoUrl ?? "");
     setFaviconUrl(school.faviconUrl ?? "");
+    setHeadTeacherSignatureUrl(school.headTeacherSignatureUrl ?? "");
+    setSchoolStampUrl(school.schoolStampUrl ?? "");
     setSlug(school.slug ?? "");
   }, [school]);
 
@@ -378,8 +386,11 @@ function SettingsPage() {
         primaryColor,
         secondaryColor,
         accentColor,
+        fontFamily,
         logoUrl: logoUrl.trim() || undefined,
         faviconUrl: faviconUrl.trim() || undefined,
+        headTeacherSignatureUrl: headTeacherSignatureUrl.trim() || undefined,
+        schoolStampUrl: schoolStampUrl.trim() || undefined,
         slug: slug.trim()
           ? slug
               .trim()
@@ -1357,8 +1368,23 @@ function SettingsPage() {
                 </div>
               </div>
               <div>
+                <p className="mb-1 text-sm font-medium">Heading font</p>
+                <TextField
+                  select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  fullWidth
+                  size="small"
+                >
+                  {["Inter", "Poppins", "Merriweather", "Playfair Display", "Source Sans 3"].map((o) => (
+                    <MenuItem key={o} value={o} style={{ fontFamily: o }}>{o}</MenuItem>
+                  ))}
+                </TextField>
+                <p className="mt-2 text-lg font-semibold" style={{ fontFamily }}>{name || "School name"}</p>
+              </div>
+              <div>
                 <p className="text-sm font-medium">School logo</p>
-                <p className="text-xs text-muted-foreground">PNG or SVG, square, max 2MB.</p>
+                <p className="text-xs text-muted-foreground">PNG or SVG, square, max 10MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                     {logoUrl ? (
@@ -1410,7 +1436,7 @@ function SettingsPage() {
               </div>
               <div>
                 <p className="text-sm font-medium">Favicon</p>
-                <p className="text-xs text-muted-foreground">32×32 ICO/PNG, max 2MB.</p>
+                <p className="text-xs text-muted-foreground">32×32 ICO/PNG, max 10MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                     {faviconUrl ? (
@@ -1453,6 +1479,110 @@ function SettingsPage() {
                         color="inherit"
                         size="small"
                         onClick={() => setFaviconUrl("")}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Head teacher signature</p>
+                <p className="text-xs text-muted-foreground">Appears on report cards. PNG with a transparent background works best, max 10MB.</p>
+                <div className="mt-2 flex items-center gap-4">
+                  <div className="flex h-16 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                    {headTeacherSignatureUrl ? (
+                      <img
+                        src={headTeacherSignatureUrl}
+                        alt="Head teacher signature preview"
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={headTeacherSignatureInput}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) readAsDataUrl(f, setHeadTeacherSignatureUrl);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      onClick={() => headTeacherSignatureInput.current?.click()}
+                      startIcon={<Upload className="h-4 w-4" />}
+                    >
+                      Upload signature
+                    </Button>
+                    {headTeacherSignatureUrl && (
+                      <Button
+                        type="button"
+                        variant="text"
+                        color="inherit"
+                        size="small"
+                        onClick={() => setHeadTeacherSignatureUrl("")}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium">School stamp</p>
+                <p className="text-xs text-muted-foreground">Appears on report cards. PNG with a transparent background works best, max 10MB.</p>
+                <div className="mt-2 flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                    {schoolStampUrl ? (
+                      <img
+                        src={schoolStampUrl}
+                        alt="School stamp preview"
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={schoolStampInput}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) readAsDataUrl(f, setSchoolStampUrl);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      onClick={() => schoolStampInput.current?.click()}
+                      startIcon={<Upload className="h-4 w-4" />}
+                    >
+                      Upload stamp
+                    </Button>
+                    {schoolStampUrl && (
+                      <Button
+                        type="button"
+                        variant="text"
+                        color="inherit"
+                        size="small"
+                        onClick={() => setSchoolStampUrl("")}
                       >
                         Remove
                       </Button>

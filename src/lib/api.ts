@@ -108,6 +108,8 @@ export type BackendSchool = {
   fontFamily?: string | null;
   logoUrl?: string | null;
   faviconUrl?: string | null;
+  headTeacherSignatureUrl?: string | null;
+  schoolStampUrl?: string | null;
   reportFooter?: string | null;
   registrationNo?: string | null;
   tpinNo?: string | null;
@@ -185,6 +187,8 @@ export type BackendSchoolDto = {
   fontFamily?: string;
   logoUrl?: string;
   faviconUrl?: string;
+  headTeacherSignatureUrl?: string;
+  schoolStampUrl?: string;
   reportFooter?: string;
   registrationNo?: string;
   tpinNo?: string;
@@ -324,7 +328,7 @@ export const api = {
   // Public (no auth required)
   public: {
     schoolBySlug: (slug: string) =>
-      unwrap<{ id: string; name: string; shortCode: string; slug: string; primaryColor?: string | null; secondaryColor?: string | null; logoUrl?: string | null; faviconUrl?: string | null; district?: string | null; province?: string | null; type?: string | null; motto?: string | null }>(
+      unwrap<{ id: string; name: string; shortCode: string; slug: string; primaryColor?: string | null; secondaryColor?: string | null; accentColor?: string | null; fontFamily?: string | null; logoUrl?: string | null; faviconUrl?: string | null; district?: string | null; province?: string | null; type?: string | null; motto?: string | null }>(
         apiClient.get(`/api/public/schools/by-slug/${encodeURIComponent(slug)}`)
       ),
   },

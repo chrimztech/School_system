@@ -317,8 +317,8 @@ function OnboardingPage() {
   };
 
   const readAsDataUrl = (file: File, key: "logoUrl" | "faviconUrl") => {
-    if (file.size > 2_000_000) {
-      toast.error("File too large. Max 2MB.");
+    if (file.size > 10_000_000) {
+      toast.error("File too large. Max 10MB.");
       return;
     }
     const reader = new FileReader();
@@ -1179,7 +1179,7 @@ function OnboardingPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-sm font-medium">School logo</p>
-                <p className="text-xs text-muted-foreground">PNG or SVG, square, max 2MB.</p>
+                <p className="text-xs text-muted-foreground">PNG or SVG, square, max 10MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                     {form.logoUrl ? (
@@ -1224,7 +1224,7 @@ function OnboardingPage() {
               </div>
               <div>
                 <p className="text-sm font-medium">Favicon</p>
-                <p className="text-xs text-muted-foreground">32×32 ICO/PNG, max 2MB.</p>
+                <p className="text-xs text-muted-foreground">32×32 ICO/PNG, max 10MB.</p>
                 <div className="mt-2 flex items-center gap-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                     {form.faviconUrl ? (

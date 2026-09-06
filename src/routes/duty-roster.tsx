@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Chip, Button, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
@@ -375,8 +376,11 @@ function DutyRosterPage() {
       )}
 
       {/* Full week list */}
-      <div className="rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border p-3">
+      <div className="print-area rounded-xl border border-border bg-card print:rounded-none print:border-0 print:shadow-none">
+        <div className="hidden print:block">
+          <SchoolDocumentHeader title="Duty Roster" subtitle={`Week of ${form.effectiveDate} · Term ${active.currentTerm}`} />
+        </div>
+        <div className="flex items-center justify-between border-b border-border p-3 print:hidden">
           <p className="text-sm font-medium">All assignments this week</p>
           <Button size="small" variant="outlined" onClick={() => { window.print(); toast.success("Roster exported"); }}>Export PDF</Button>
         </div>
@@ -384,7 +388,7 @@ function DutyRosterPage() {
         <Table>
           <TableHead><TableRow>
             <TableCell>Day</TableCell><TableCell>Duty</TableCell><TableCell>Time</TableCell>
-            <TableCell>Staff</TableCell><TableCell>Location</TableCell><TableCell className="text-right">Actions</TableCell>
+            <TableCell>Staff</TableCell><TableCell>Location</TableCell><TableCell className="text-right print:hidden">Actions</TableCell>
           </TableRow></TableHead>
           <TableBody>
             {DAYS.flatMap((day) => normalizedDuties.filter((d) => d.day === day)).map((d) => (
@@ -396,7 +400,7 @@ function DutyRosterPage() {
                 <TableCell className="text-muted-foreground">{d.slot}</TableCell>
                 <TableCell className="font-medium">{d.staff}</TableCell>
                 <TableCell>{d.location}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right print:hidden">
                   <Button size="small" variant="text" color="inherit" onClick={() => openEdit(d)}>Edit</Button>
                   <Button size="small" variant="text" color="inherit" onClick={() => deleteMut.mutate({ id: d.id, staff: d.staff })}>Remove</Button>
                 </TableCell>

@@ -10,6 +10,8 @@ const brand = {
   primaryContrast: "#ffffff",
   secondary: "#078f72",
   secondaryContrast: "#ffffff",
+  accent: "#22c58b",
+  accentContrast: "#08301f",
   muted: "#edf2f7",
   mutedForeground: "#647084",
   destructive: "#dc3f45",
@@ -20,7 +22,7 @@ const brand = {
   sidebarForeground: "#edf2f7",
 };
 
-const fontStack =
+export const fontStack =
   '"Inter", "Aptos", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 const softShadow = "0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.055)";
@@ -44,7 +46,13 @@ export function contrastFor(hex: string): string {
 export type ThemeBrandOverrides = {
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  accentColor?: string | null;
+  /** Must match one of the options in the "Heading font" picker (Settings/Onboarding) —
+   * anything else is ignored rather than passed through as a raw font-family value. */
+  headingFontFamily?: string | null;
 };
+
+const HEADING_FONT_OPTIONS = ["Inter", "Poppins", "Merriweather", "Playfair Display", "Source Sans 3"];
 
 /**
  * Builds the MUI theme, optionally recolored with a school's brand palette. The base
@@ -55,12 +63,21 @@ export type ThemeBrandOverrides = {
 export function buildTheme(overrides?: ThemeBrandOverrides) {
   const primary = isValidHexColor(overrides?.primaryColor) ? overrides.primaryColor : brand.primary;
   const secondary = isValidHexColor(overrides?.secondaryColor) ? overrides.secondaryColor : brand.secondary;
+  const accent = isValidHexColor(overrides?.accentColor) ? overrides.accentColor : brand.accent;
+  const headingFont = overrides?.headingFontFamily && HEADING_FONT_OPTIONS.includes(overrides.headingFontFamily)
+    ? `"${overrides.headingFontFamily}", ${fontStack}`
+    : undefined;
 
   return createTheme({
     palette: {
       mode: "light",
       primary: { main: primary, contrastText: contrastFor(primary) },
       secondary: { main: secondary, contrastText: contrastFor(secondary) },
+      // MUI has no native "accent" palette slot — "info" is otherwise unused in this app
+      // (no page calls color="info"), so it's the natural place for a school's accent
+      // color to live for any MUI-native component that wants it (color="info" buttons/
+      // chips/icons), matching the Tailwind side's --accent custom property.
+      info: { main: accent, contrastText: contrastFor(accent) },
       error: { main: brand.destructive },
       success: { main: brand.success },
       warning: { main: brand.warning },
@@ -73,12 +90,12 @@ export function buildTheme(overrides?: ThemeBrandOverrides) {
     },
     typography: {
       fontFamily: fontStack,
-      h1: { fontWeight: 650, letterSpacing: "-0.035em" },
-      h2: { fontWeight: 650, letterSpacing: "-0.03em" },
-      h3: { fontWeight: 650, letterSpacing: "-0.025em" },
-      h4: { fontWeight: 650, letterSpacing: "-0.02em" },
-      h5: { fontWeight: 650, letterSpacing: "-0.015em" },
-      h6: { fontWeight: 650, letterSpacing: "-0.01em" },
+      h1: { fontWeight: 650, letterSpacing: "-0.035em", fontFamily: headingFont },
+      h2: { fontWeight: 650, letterSpacing: "-0.03em", fontFamily: headingFont },
+      h3: { fontWeight: 650, letterSpacing: "-0.025em", fontFamily: headingFont },
+      h4: { fontWeight: 650, letterSpacing: "-0.02em", fontFamily: headingFont },
+      h5: { fontWeight: 650, letterSpacing: "-0.015em", fontFamily: headingFont },
+      h6: { fontWeight: 650, letterSpacing: "-0.01em", fontFamily: headingFont },
       button: { textTransform: "none", fontWeight: 650, letterSpacing: "-0.005em" },
     },
     shadows,

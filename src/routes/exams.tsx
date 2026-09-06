@@ -5,6 +5,7 @@ import { ClipboardCheck, MapPin, Users, FileSpreadsheet, Plus, Loader2, UserPlus
 import { toast } from "sonner";
 
 import { PageHeader, StatCard } from "@/components/page-header";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { Button, Chip, Checkbox, IconButton, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Box, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 import { useTenant, gradeFormLabels } from "@/lib/tenant";
@@ -44,7 +45,7 @@ function SeatingPlanTab({ papers, schoolId }: { papers: any[]; schoolId: string 
   const order = seatOrder && seatOrder.length === count ? seatOrder : Array.from({ length: count }, (_, i) => i);
 
   return (
-    <>
+    <div className="print-area">
       <div className="mb-3 flex flex-wrap items-center gap-3 print:hidden">
         <TextField
           select
@@ -58,7 +59,8 @@ function SeatingPlanTab({ papers, schoolId }: { papers: any[]; schoolId: string 
         <span className="text-sm text-muted-foreground">{paper.room} · {count} registered candidates · {cols} cols × {Math.ceil(count / cols)} rows</span>
       </div>
       <div className="mb-3 hidden print:block">
-        <h2 className="text-base font-semibold">{paper.subject} — {paper.grade} — {paper.room}</h2>
+        <SchoolDocumentHeader title="Examination Seating Plan" subtitle={`${paper.subject} — ${paper.grade} · ${paper.examDate}`} />
+        <h2 className="mt-3 text-base font-semibold">{paper.subject} — {paper.grade} — {paper.room}</h2>
         <p className="text-sm text-muted-foreground">{paper.examDate} · {count} candidates</p>
       </div>
       {count > 0 ? (
@@ -96,7 +98,7 @@ function SeatingPlanTab({ papers, schoolId }: { papers: any[]; schoolId: string 
           Print seating plan
         </Button>
       </div>
-    </>
+    </div>
   );
 }
 

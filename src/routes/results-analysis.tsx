@@ -227,7 +227,7 @@ function ResultsAnalysisPage() {
                 <StatCard label="Lowest" value={data?.lowest != null ? `${Math.round(data.lowest)}%` : "—"} icon={<ArrowDownWideNarrow className="h-5 w-5" />} accent="destructive" />
                 <StatCard label="CA average" value={data?.caAverage != null ? `${Math.round(data.caAverage)}%` : "—"} hint="Continuous assessment" />
                 <StatCard label="Midterm average" value={data?.midtermAverage != null ? `${Math.round(data.midtermAverage)}%` : "—"} />
-                <StatCard label="Exam average" value={data?.examAverage != null ? `${Math.round(data.examAverage)}%` : "—"} />
+                <StatCard label="End of term average" value={data?.examAverage != null ? `${Math.round(data.examAverage)}%` : "—"} />
               </div>
             )}
 
