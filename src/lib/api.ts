@@ -373,6 +373,12 @@ export const api = {
     create: (data: BackendSchoolDto) => unwrap<BackendSchool>(apiClient.post("/api/schools", data)),
     update: (id: string, data: BackendSchoolDto) => unwrap<BackendSchool>(apiClient.put(`/api/schools/${id}`, data)),
     delete: (id: string) => unwrap<void>(apiClient.delete(`/api/schools/${id}`)),
+    // Split from get()/list() on purpose — these two fields are large base64 images that only
+    // the report card and Settings' branding form need, not every page's tenant-context load.
+    brandingAssets: (id: string) =>
+      unwrap<{ headTeacherSignatureUrl?: string | null; schoolStampUrl?: string | null }>(
+        apiClient.get(`/api/schools/${id}/branding-assets`),
+      ),
   },
 
   // School users

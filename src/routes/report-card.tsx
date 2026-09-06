@@ -340,9 +340,10 @@ function ReportCardPage() {
     enabled: !!active.id,
   });
 
-  const { data: allTeachers = [] } = useQuery({
-    queryKey: ["teachers", active.id],
-    queryFn: () => api.teachers.list(active.id),
+  // Fetched separately from the main tenant object — see api.schools.brandingAssets.
+  const { data: brandingAssets } = useQuery({
+    queryKey: ["school-branding-assets", active.id],
+    queryFn: () => api.schools.brandingAssets(active.id),
     enabled: !!active.id,
   });
 
@@ -377,7 +378,15 @@ function ReportCardPage() {
     || matchingClass?.name
     || (backendStudent?.grade ? `${formatGrade(backendStudent.grade, active.type)}${backendStudent?.section ? backendStudent.section : ""}` : "—");
   const classTeacherName = matchingClass?.classTeacherName || backendStudent?.classTeacher || active.headTeacher || "—";
-  const classTeacherRecord = (allTeachers as any[]).find((t: any) => t.id === matchingClass?.classTeacherId);
+
+  // A single-teacher fetch, not the full staff list — a class only ever has one class
+  // teacher, so there's no reason to pull every teacher's record (each potentially carrying
+  // a multi-MB signature image, see TeacherSignatureAsset) just to find this one.
+  const { data: classTeacherRecord } = useQuery({
+    queryKey: ["teacher", active.id, matchingClass?.classTeacherId],
+    queryFn: () => api.teachers.get(active.id, matchingClass.classTeacherId),
+    enabled: !!active.id && !!matchingClass?.classTeacherId,
+  });
   const classTeacherSignature = classTeacherRecord?.signatureUrl;
 
   const termGrades = useMemo(
@@ -706,8 +715,8 @@ function ReportCardPage() {
               canEditHead={canEditHead}
               canEditTeacher={canEditTeacher}
               classTeacherSignatureUrl={classTeacherSignature}
-              headTeacherSignatureUrl={active.headTeacherSignatureUrl}
-              schoolStampUrl={active.schoolStampUrl}
+              headTeacherSignatureUrl={brandingAssets?.headTeacherSignatureUrl}
+              schoolStampUrl={brandingAssets?.schoolStampUrl}
             />
           )}
         </div>

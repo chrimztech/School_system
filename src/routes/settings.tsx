@@ -156,13 +156,24 @@ function SettingsPage() {
   const [fontFamily, setFontFamily] = useState(school.fontFamily ?? "Inter");
   const [logoUrl, setLogoUrl] = useState(school.logoUrl ?? "");
   const [faviconUrl, setFaviconUrl] = useState(school.faviconUrl ?? "");
-  const [headTeacherSignatureUrl, setHeadTeacherSignatureUrl] = useState(school.headTeacherSignatureUrl ?? "");
-  const [schoolStampUrl, setSchoolStampUrl] = useState(school.schoolStampUrl ?? "");
+  const [headTeacherSignatureUrl, setHeadTeacherSignatureUrl] = useState("");
+  const [schoolStampUrl, setSchoolStampUrl] = useState("");
   const [slug, setSlug] = useState(school.slug ?? "");
   const logoInput = useRef<HTMLInputElement>(null);
   const faviconInput = useRef<HTMLInputElement>(null);
   const headTeacherSignatureInput = useRef<HTMLInputElement>(null);
   const schoolStampInput = useRef<HTMLInputElement>(null);
+
+  // Fetched separately from the main tenant object on purpose — see api.schools.brandingAssets.
+  const { data: brandingAssets } = useQuery({
+    queryKey: ["school-branding-assets", school.id],
+    queryFn: () => api.schools.brandingAssets(school.id),
+    enabled: !!school.id,
+  });
+  useEffect(() => {
+    setHeadTeacherSignatureUrl(brandingAssets?.headTeacherSignatureUrl ?? "");
+    setSchoolStampUrl(brandingAssets?.schoolStampUrl ?? "");
+  }, [brandingAssets]);
 
   // ── Academic term calendar (when each term starts/ends) ────────────────
   const qc = useQueryClient();
@@ -275,8 +286,6 @@ function SettingsPage() {
     setFontFamily(school.fontFamily ?? "Inter");
     setLogoUrl(school.logoUrl ?? "");
     setFaviconUrl(school.faviconUrl ?? "");
-    setHeadTeacherSignatureUrl(school.headTeacherSignatureUrl ?? "");
-    setSchoolStampUrl(school.schoolStampUrl ?? "");
     setSlug(school.slug ?? "");
   }, [school]);
 
@@ -405,6 +414,7 @@ function SettingsPage() {
         },
       });
       if (canConfigureResults) await api.gradeWeights.update(school.id, gradeWeights);
+      void qc.invalidateQueries({ queryKey: ["school-branding-assets", school.id] });
       toast.success("Settings saved successfully");
     } catch (error: any) {
       toast.error(error?.response?.data?.message ?? "Unable to save settings");
