@@ -28,17 +28,56 @@ interface ImportDialogProps {
   onDone?: () => void;
 }
 
-function parseCsvText(text: string): Record<string, string>[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+// Strips whitespace, a trailing "*" (the template marks required columns "Guardian Name *"
+// — a user who types their header by hand often copies that literally), and a leading UTF-8
+// BOM (Excel prepends one to "CSV UTF-8" exports; it survives FileReader.readAsText and would
+// otherwise glue itself to the very first header, e.g. "﻿First Name").
+function normalizeHeaderKey(h: string): string {
+  return h.replace(/﻿/g, "").trim().replace(/\s*\*\s*$/, "").toLowerCase();
+}
+
+// Excel's "Save As CSV" delimiter follows the OS list-separator setting, which is a comma
+// only in some locales — many regional Windows installs (including common Southern African
+// locale settings) default to semicolon. A semicolon-delimited file parsed as comma-delimited
+// produces exactly one giant "column" per line, which is why a wrong delimiter shows up as
+// *every* required column missing at once, not just one. Tab is included for completeness
+// (some spreadsheet "Save As" text-export options use it). Picks whichever candidate appears
+// most often in the header line, outside quotes; falls back to comma if none appear at all.
+function detectDelimiter(headerLine: string): string {
+  const candidates = [",", ";", "\t"];
+  let best = ",";
+  let bestCount = 0;
+  for (const delimiter of candidates) {
+    let count = 0;
+    let inQ = false;
+    for (let i = 0; i < headerLine.length; i++) {
+      if (headerLine[i] === '"') inQ = !inQ;
+      else if (!inQ && headerLine[i] === delimiter) count++;
+    }
+    if (count > bestCount) { bestCount = count; best = delimiter; }
+  }
+  return best;
+}
+
+function parseCsvText(text: string, columns: ImportColumn[]): Record<string, string>[] {
+  const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const lines = withoutBom.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
-  const headers = splitCsvLine(lines[0]).map((h) => h.trim());
+  const delimiter = detectDelimiter(lines[0]);
+  const rawHeaders = splitCsvLine(lines[0], delimiter).map((h) => h.trim());
+  // Snap each raw header to the column's canonical label whenever it's a case/whitespace/"*"
+  // -insensitive match, so a user's own capitalization doesn't break either the required-
+  // column check or downstream code that reads rows by the exact label (e.g. row["Guardian
+  // Name"]). Left as-is when it doesn't match anything recognized.
+  const labelByNormalized = new Map(columns.map((c) => [normalizeHeaderKey(c.label), c.label]));
+  const headers = rawHeaders.map((h) => labelByNormalized.get(normalizeHeaderKey(h)) ?? h);
   return lines.slice(1).map((line) => {
-    const values = splitCsvLine(line);
+    const values = splitCsvLine(line, delimiter);
     return Object.fromEntries(headers.map((h, i) => [h, (values[i] ?? "").trim()]));
   });
 }
 
-function splitCsvLine(line: string): string[] {
+function splitCsvLine(line: string, delimiter = ","): string[] {
   const result: string[] = [];
   let cur = "";
   let inQ = false;
@@ -46,7 +85,7 @@ function splitCsvLine(line: string): string[] {
     if (line[i] === '"') {
       if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
       else inQ = !inQ;
-    } else if (line[i] === "," && !inQ) {
+    } else if (line[i] === delimiter && !inQ) {
       result.push(cur);
       cur = "";
     } else {
@@ -73,7 +112,7 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = (e.target?.result ?? "") as string;
-      const parsed = parseCsvText(text);
+      const parsed = parseCsvText(text, columns);
       if (parsed.length === 0) { toast.error("File is empty or has no data rows"); return; }
       setRows(parsed);
       setFileName(file.name);
@@ -204,7 +243,18 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
           {/* Preview table */}
           {rows.length > 0 && (
             <div>
-              <p className="text-sm font-medium mb-2">Preview (first {previewRows.length} of {rows.length} rows)</p>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">
+                  Preview{rows.length > 5 ? ` (showing the first ${previewRows.length} of ${rows.length} rows)` : ""}
+                </p>
+                {rows.length > 5 && (
+                  <Chip
+                    size="small"
+                    label={`All ${rows.length} rows will be imported`}
+                    sx={{ ...badgeSx("success"), fontSize: 11 }}
+                  />
+                )}
+              </div>
               <div className="overflow-x-auto rounded-xl border border-border">
                 <TableContainer>
                 <Table>
@@ -226,7 +276,9 @@ export function ImportDialog({ open, onOpenChange, title, entityName, columns, o
                 </TableContainer>
               </div>
               {rows.length > 5 && (
-                <p className="mt-1.5 text-xs text-muted-foreground">… and {rows.length - 5} more rows</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  … and {rows.length - 5} more row{rows.length - 5 !== 1 ? "s" : ""} not shown here, but still included when you import.
+                </p>
               )}
             </div>
           )}
