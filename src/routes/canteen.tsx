@@ -232,7 +232,9 @@ function CanteenPage() {
       (s: any) =>
         (s.firstName + " " + s.lastName).toLowerCase().includes(q) ||
         (s.name ?? "").toLowerCase().includes(q) ||
-        (s.grade ?? "").toLowerCase().includes(q) ||
+        // s.grade is often the raw numeric Student.grade (falls back to s.class/className only
+        // when grade is falsy) — .toLowerCase() on a number crashes this filter outright.
+        String(s.grade ?? "").toLowerCase().includes(q) ||
         (s.admissionNumber ?? "").toLowerCase().includes(q),
     );
   }, [accessList, accessSearch]);

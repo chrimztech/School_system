@@ -144,7 +144,18 @@ function ClassDetailSheet({
       if (enrolledIds.has(s.id)) return false;
       if (!q) return true;
       const name = `${s.firstName ?? ""} ${s.lastName ?? ""}`.toLowerCase();
-      return name.includes(q) || (s.admissionNumber ?? "").toLowerCase().includes(q) || (s.grade ?? "").toLowerCase().includes(q);
+      // s.grade is a number (Student.grade is a raw int on the backend) — .toLowerCase()
+      // on it crashed this filter outright, breaking the search box for every school with at
+      // least one student. String() it, and also match against the formatted label (e.g.
+      // "Form 3") since that's what a teacher searching by grade is more likely to type.
+      const gradeText = String(s.grade ?? "").toLowerCase();
+      const gradeLabelText = gradeLabel(s.grade, undefined, active.type).toLowerCase();
+      return (
+        name.includes(q) ||
+        (s.admissionNumber ?? "").toLowerCase().includes(q) ||
+        gradeText.includes(q) ||
+        gradeLabelText.includes(q)
+      );
     });
   }, [allStudents, enrolledIds, enrollSearch]);
 
