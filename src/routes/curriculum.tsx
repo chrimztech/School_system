@@ -60,7 +60,7 @@ function CurriculumPage() {
       <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
         <span>
-          This school is on the <strong>Zambia 2025 Curriculum</strong>. Grade 7 is abolished — primary ends at Grade 6 and secondary starts at Form 1. See the <strong>2025 Changes</strong> tab for the full transition summary.
+          This school is on the <strong>Zambia 2025 Curriculum</strong>. Grade 7 is abolished — primary ends at Grade 6 and secondary starts at Form 1. See the <strong>2025 Changes</strong> tab for the full transition summary. Still finishing a cohort under the old naming? <strong>Classes</strong> and <strong>Subjects</strong> both support legacy Grade 7–12 alongside Form 1–6 for the transition period.
         </span>
       </div>
 

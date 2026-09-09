@@ -145,14 +145,24 @@ function StudentProfilePage() {
 
   const isSecondary = ["SECONDARY", "COMBINED", "FULL"].includes(active.type);
   const isPrimary = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(active.type);
+  // Legacy Grade 7-12 (pre-2025 curriculum) is offered wherever Form 1-6 is, for the
+  // transitional cohorts still finishing under the old naming — see the matching comment on
+  // formatGrade/gradeLabelToNumber in lib/tenant.tsx for the raw-value offsets.
+  const legacyGradeOptions: { value: string; label: string }[] = isSecondary
+    ? [7, 8, 9, 10, 11, 12].map((n) => ({
+        value: String(isPrimary ? n + 6 : n),
+        label: `Grade ${n} (legacy)`,
+      }))
+    : [];
   const gradeOptions: { value: string; label: string }[] =
     isSecondary && !isPrimary
-      ? [1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `Form ${n}` }))
+      ? [...[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `Form ${n}` })), ...legacyGradeOptions]
       : isPrimary && !isSecondary
       ? [1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `Grade ${n}` }))
       : [
           ...[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `Grade ${n}` })),
           ...[7, 8, 9, 10, 11, 12].map((n) => ({ value: String(n), label: `Form ${n - 6}` })),
+          ...legacyGradeOptions,
         ];
 
   const openEditDialog = () => {

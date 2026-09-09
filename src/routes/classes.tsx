@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { Button, Chip, Checkbox, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Drawer, Box, Typography, Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
-import { useTenant, gradeRangeForType } from "@/lib/tenant";
+import { useTenant, gradeRangeForType, formatGrade, type SchoolType } from "@/lib/tenant";
 import { api, isValidSchoolId } from "@/lib/api";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 
@@ -16,24 +16,38 @@ export const Route = createFileRoute("/classes")({
   component: ClassesPage,
 });
 
-function gradeLabel(grade: number | string | undefined, phase?: string): string {
+// A COMBINED/FULL school offsets legacy Grade 7-12 by +6 (raw 13-18) to stay clear of the
+// Form 1-6 range (raw 7-12) it already uses — see the matching comment on formatGrade in
+// lib/tenant.tsx. A pure SECONDARY school has no such collision (it only ever uses raw 1-6
+// for Form 1-6) so legacy grades store literally: raw 7 = "Grade 7", raw 12 = "Grade 12".
+function legacyGradeOffset(type?: SchoolType): number {
+  return type === "COMBINED" || type === "FULL" ? 6 : 0;
+}
+
+function gradeLabel(grade: number | string | undefined, phase?: string, type?: SchoolType): string {
   const g = Number(grade);
   if (!g) return "—";
   if (phase === "olevel" || phase === "alevel") return `Form ${g}`;
   if (phase === "primary") return `Grade ${g}`;
-  // No phase tag (legacy class record): secondary grades are stored as 7-12 elsewhere
-  // in the app (see formatGrade in lib/tenant.tsx) — same offset here for consistency.
-  return g >= 7 ? `Form ${g - 6}` : `Grade ${g}`;
+  if (phase === "secondary_legacy") return `Grade ${g - legacyGradeOffset(type)}`;
+  // No phase tag: this is a Student.grade value (or an untagged legacy class record), which
+  // uses lib/tenant.tsx's own type-aware raw-grade encoding rather than classes.tsx's
+  // phase-tagged SchoolClass one — defer to that single source of truth instead of guessing.
+  return type ? formatGrade(g, type) : (g >= 7 ? `Form ${g - 6}` : `Grade ${g}`);
 }
 
 // Suggests the next-grade destination class for promotion, following the same
 // primary(1-6) → olevel(1-4) → alevel(5-6) progression used when creating classes.
-function suggestDestination(grade: number, phase: string, allClasses: any[], targetYear: string) {
+// The legacy secondary track (pre-2025 Grade 7-12) is a separate, self-contained chain —
+// a transitional-cohort student finishes it under the same old naming rather than being
+// folded into Form 1-6 partway through.
+function suggestDestination(grade: number, phase: string, allClasses: any[], targetYear: string, type?: SchoolType) {
   let nextGrade = grade + 1;
   let nextPhase = phase || "primary";
   if (nextPhase === "primary" && grade >= 6) { nextGrade = 1; nextPhase = "olevel"; }
   else if (nextPhase === "olevel" && grade >= 4) { nextGrade = 5; nextPhase = "alevel"; }
   else if (nextPhase === "alevel" && grade >= 6) return { graduate: true, defaultId: "" };
+  else if (nextPhase === "secondary_legacy" && grade - legacyGradeOffset(type) >= 12) return { graduate: true, defaultId: "" };
   const candidates = (allClasses as any[]).filter(
     (c: any) => String(c.academicYear) === targetYear && Number(c.grade) === nextGrade && (c.phase ?? nextPhase) === nextPhase,
   );
@@ -55,6 +69,7 @@ function ClassDetailSheet({
   cls: any; schoolId: string; onClose: () => void; readOnly?: boolean;
   canAssignTeachers?: boolean; assignableTeachers?: any[]; canDelete?: boolean;
 }) {
+  const { active } = useTenant();
   const qc = useQueryClient();
   const [detailTab, setDetailTab] = useState("pupils");
   const [enrollSearch, setEnrollSearch] = useState("");
@@ -229,7 +244,7 @@ function ClassDetailSheet({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span>{gradeLabel(cls.grade, cls.phase)}{cls.section ? ` · ${cls.section}` : ""}</span>
+            <span>{gradeLabel(cls.grade, cls.phase, active.type)}{cls.section ? ` · ${cls.section}` : ""}</span>
             {cls.room && <span>Room {cls.room}</span>}
             {cls.academicYear && <span>{cls.academicYear}</span>}
             <span className="font-medium text-foreground">
@@ -343,7 +358,7 @@ function ClassDetailSheet({
                         <div key={s.id} className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-0">
                           <div>
                             <div className="text-sm font-medium">{name}</div>
-                            <div className="text-xs text-muted-foreground">{s.admissionNumber} · {s.grade ? gradeLabel(s.grade) : "—"}</div>
+                            <div className="text-xs text-muted-foreground">{s.admissionNumber} · {s.grade ? gradeLabel(s.grade, undefined, active.type) : "—"}</div>
                           </div>
                           <Button size="small" variant="outlined" onClick={() => enrolMut.mutate(s)} disabled={enrolMut.isPending}>
                             Enrol
@@ -383,7 +398,7 @@ function ClassDetailSheet({
                     ) : enrolments.map((e: any) => (
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.studentName}</TableCell>
-                        <TableCell className="text-muted-foreground">{e.grade ? gradeLabel(e.grade, cls.phase) : "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{e.grade ? gradeLabel(e.grade, cls.phase, active.type) : "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{e.academicYear}</TableCell>
                         <TableCell>
                           <Chip
@@ -560,6 +575,7 @@ function PromoteClassDialog({
   onSubmit: (payload: any) => void;
   isPending: boolean;
 }) {
+  const { active } = useTenant();
   const activeEnrolments = useMemo(
     () => (enrolments as any[]).filter((e: any) => (e.status ?? "ACTIVE") === "ACTIVE"),
     [enrolments],
@@ -572,7 +588,7 @@ function PromoteClassDialog({
     if (!open) return;
     const year = String(Number(cls.academicYear ?? new Date().getFullYear()) + 1);
     setTargetYear(year);
-    const suggestion = suggestDestination(Number(cls.grade), cls.phase ?? "primary", allClasses, year);
+    const suggestion = suggestDestination(Number(cls.grade), cls.phase ?? "primary", allClasses, year, active.type);
     const next: Record<string, { include: boolean; destinationClassId: string; graduate: boolean }> = {};
     for (const e of activeEnrolments) {
       next[e.id] = {
@@ -771,7 +787,7 @@ function ClassesPage() {
     };
   });
 
-  const isSecondaryPhase = (p: string) => p === "secondary" || p === "olevel" || p === "alevel";
+  const isSecondaryPhase = (p: string) => p === "secondary" || p === "olevel" || p === "alevel" || p === "secondary_legacy";
   const list = classList.filter((c: any) =>
     (c.phase === "primary" && showPrimary) ||
     (isSecondaryPhase(c.phase) && showSecondary) ||
@@ -782,9 +798,13 @@ function ClassesPage() {
     if (!form.name.trim()) { toast.error("Class name is required"); return; }
     if (!form.grade || Number(form.grade) <= 0) { toast.error("Grade is required"); return; }
     const teacher = (teachersRaw as any[]).find((t: any) => t.id === form.teacherId);
+    const grade =
+      form.phase === "secondary_legacy"
+        ? Number(form.grade) + legacyGradeOffset(active.type)
+        : Number(form.grade);
     createMutation.mutate({
       name: form.name.trim(),
-      grade: Number(form.grade),
+      grade,
       section: form.section.trim() || null,
       classTeacherId: teacher?.id ?? null,
       classTeacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : form.teacherName.trim() || null,
@@ -891,6 +911,8 @@ function ClassesPage() {
                     [5,6].map((g) => <MenuItem key={g} value={String(g)}>Form {g} (A-Level)</MenuItem>)}
                   {!showPrimary && !form.phase &&
                     [5,6].map((g) => <MenuItem key={`al-${g}`} value={String(g)}>Form {g} (A-Level)</MenuItem>)}
+                  {form.phase === "secondary_legacy" &&
+                    [7,8,9,10,11,12].map((g) => <MenuItem key={`legacy-${g}`} value={String(g)}>Grade {g} (legacy, pre-2025)</MenuItem>)}
                 </TextField>
                 <TextField
                   label="Section / stream"
@@ -948,6 +970,9 @@ function ClassesPage() {
                   {showPrimary && <MenuItem value="primary">Primary (Grade 1-6)</MenuItem>}
                   {showSecondary && <MenuItem value="olevel">O-Level Secondary (Form 1-4)</MenuItem>}
                   {showSecondary && <MenuItem value="alevel">A-Level Secondary (Form 5-6)</MenuItem>}
+                  {showSecondary && (
+                    <MenuItem value="secondary_legacy">Secondary — legacy Grade 7-12 (pre-2025)</MenuItem>
+                  )}
                 </TextField>
                 <TextField
                   select

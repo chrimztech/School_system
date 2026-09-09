@@ -1122,11 +1122,11 @@ export function gradeRangeForType(type: SchoolType): string {
     case "PRIMARY":
       return "Lower & Upper Primary: Grade 1 - Grade 6";
     case "SECONDARY":
-      return "O-Level Form 1-4 · A-Level Form 5-6 (Zambia 2025 curriculum)";
+      return "O-Level Form 1-4 · A-Level Form 5-6 (2025 curriculum) · legacy Grade 7-12 for transitional cohorts";
     case "COMBINED":
-      return "Primary Grade 1-6 · Secondary Form 1-6";
+      return "Primary Grade 1-6 · Secondary Form 1-6 · legacy Grade 7-12 for transitional cohorts";
     case "FULL":
-      return "ECE · Primary Grade 1-6 · Secondary Form 1-6";
+      return "ECE · Primary Grade 1-6 · Secondary Form 1-6 · legacy Grade 7-12 for transitional cohorts";
   }
 }
 
@@ -1138,39 +1138,58 @@ export function gradeRangeForType(type: SchoolType): string {
  * "Form N-6" per gradeRangeForType's documented split — do not duplicate this logic inline;
  * every place that renders a student's grade should call this instead.
  */
+// Zambia's 2025 curriculum reform replaced Grade 8-12 with Form 1-6, but the rollout is
+// gradual: a school can have students who already started under the old Grade 7-12 naming
+// and need to finish under it, alongside new intake going through Form 1-6. "Legacy" here
+// always means that pre-2025 secondary naming, never primary — Grade 1-6 (primary) is
+// unchanged by the reform and is not "legacy".
+const LEGACY_SECONDARY_GRADES = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
+
 /**
  * Grade/Form label options appropriate for a school's type — used to populate select
  * dropdowns, filters, and audience pickers so a pure SECONDARY school is never offered
  * "Grade 1-6" (it only has Form 1-6) and a pure PRIMARY/NURSERY school is never offered
- * Forms. COMBINED/FULL schools offer both.
+ * Forms or legacy secondary grades. COMBINED/FULL schools offer everything. Every
+ * SECONDARY-capable type also offers the legacy Grade 7-12 labels for transitional cohorts
+ * (see LEGACY_SECONDARY_GRADES) — Zambia's 2025 curriculum rollout is multi-year, so most
+ * schools carry both naming schemes at once for a while.
  */
 export function gradeFormLabels(type: SchoolType): string[] {
   const forms = ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6"];
   const grades = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
   switch (type) {
     case "SECONDARY":
-      return forms;
+      return [...forms, ...LEGACY_SECONDARY_GRADES];
     case "PRIMARY":
     case "NURSERY":
       return grades;
     case "COMBINED":
     case "FULL":
-      return [...grades, ...forms];
+      return [...grades, ...forms, ...LEGACY_SECONDARY_GRADES];
   }
 }
 
+/**
+ * A pure SECONDARY school stores Form 1-6 as raw grade 1-6, so raw 7-12 is free and stores
+ * legacy Grade 7-12 directly (no offset — the label's number IS the raw number). A
+ * COMBINED/FULL school stores primary Grade 1-6 as raw 1-6 and Form 1-6 as raw 7-12 (the
+ * +6 offset — see the comment on gradeLabelToNumber), so legacy Grade 7-12 there needs its
+ * own unclaimed range: raw 13-18 (also a +6 offset, this time off the legacy number itself).
+ */
 export function formatGrade(grade: number | string | null | undefined, type: SchoolType): string {
   const n = Number(grade);
   if (!n) return "—";
   switch (type) {
     case "SECONDARY":
-      return `Form ${n}`;
+      return n <= 6 ? `Form ${n}` : `Grade ${n}`;
     case "PRIMARY":
     case "NURSERY":
       return `Grade ${n}`;
     case "COMBINED":
     case "FULL":
-      return n <= 6 ? `Grade ${n}` : `Form ${n - 6}`;
+      if (n <= 6) return `Grade ${n}`;
+      if (n <= 12) return `Form ${n - 6}`;
+      return `Grade ${n - 6}`;
   }
 }
 
@@ -1179,8 +1198,12 @@ export function formatGrade(grade: number | string | null | undefined, type: Sch
  * raw numeric grade this school's type actually stores. Do not shortcut this with a plain
  * `parseInt` on the label: for COMBINED/FULL schools "Form 3" is stored as raw grade 9 (the
  * +6 offset), not 3 — a naive digit-extraction silently mismatches every Form-based fee
- * structure/levy against the real student grade on those school types. Returns null for a
- * wildcard label (e.g. "All forms", "All grades") or anything unparseable.
+ * structure/levy against the real student grade on those school types. The same applies to
+ * legacy secondary labels on COMBINED/FULL schools: "Grade 10" there is raw 16 (10 + 6),
+ * not 10 — see formatGrade's comment for why legacy needs its own +6 offset off the primary
+ * Grade 1-6 / Form 1-6 offset, distinct from the plain Grade 1-6 primary label at the same
+ * number. Returns null for a wildcard label (e.g. "All forms", "All grades") or anything
+ * unparseable.
  */
 export function gradeLabelToNumber(label: string | null | undefined, type: SchoolType): number | null {
   if (!label) return null;
@@ -1191,7 +1214,8 @@ export function gradeLabelToNumber(label: string | null | undefined, type: Schoo
   const n = Number(match[2]);
   if (!n) return null;
   if (type === "COMBINED" || type === "FULL") {
-    return kind === "form" ? n + 6 : n;
+    if (kind === "form") return n + 6;
+    return n <= 6 ? n : n + 6; // "Grade 1-6" as-is (primary); "Grade 7-12" (legacy) offset to 13-18
   }
   return n;
 }

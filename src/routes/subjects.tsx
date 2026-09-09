@@ -21,6 +21,7 @@ const PHASES = [
   { value: "primary", label: "Primary (Grade 1-6)" },
   { value: "olevel",  label: "O-Level Secondary (Form 1-4)" },
   { value: "alevel",  label: "A-Level Secondary (Form 5-6)" },
+  { value: "secondary_legacy", label: "Secondary — legacy (Grade 7-12, pre-2025)" },
 ];
 
 function emptyForm(defaultPhase: string, firstDept = "") {
@@ -38,6 +39,7 @@ function phaseFormRange(phase: string): { gradeFrom: string; gradeTo: string } {
   if (phase === "primary") return { gradeFrom: "1", gradeTo: "6" };
   if (phase === "olevel")  return { gradeFrom: "1", gradeTo: "4" };
   if (phase === "alevel")  return { gradeFrom: "5", gradeTo: "6" };
+  if (phase === "secondary_legacy") return { gradeFrom: "7", gradeTo: "12" };
   return { gradeFrom: "", gradeTo: "" };
 }
 
@@ -46,6 +48,7 @@ function formRangeLabel(s: any): string {
   const to   = s.gradeTo   ?? 0;
   if (!from || !to) return "";
   if (s.phase === "primary") return `Gr ${from}–${to}`;
+  if (s.phase === "secondary_legacy") return `Gr ${from}–${to} (legacy)`;
   return `Form ${from}–${to}`;
 }
 
@@ -179,6 +182,7 @@ function SubjectsPage() {
     if (phase === "primary") return { gradeFrom: 1, gradeTo: 6 };
     if (phase === "olevel")  return { gradeFrom: 1, gradeTo: 4 };
     if (phase === "alevel")  return { gradeFrom: 5, gradeTo: 6 };
+    if (phase === "secondary_legacy") return { gradeFrom: 7, gradeTo: 12 };
     return { gradeFrom: 1, gradeTo: 6 };
   };
 
@@ -220,10 +224,12 @@ function SubjectsPage() {
     s.phase === "alevel" ||
     s.phase === "senior" ||
     (s.phase === "secondary" && (s.gradeFrom ?? 10) >= 10);
+  const isLegacySecondary = (s: any) => s.phase === "secondary_legacy";
 
   const primary = useMemo(() => subjectList.filter((s) => (s.phase ?? "olevel") === "primary"), [subjectList]);
   const olevel  = useMemo(() => subjectList.filter(isOLevel), [subjectList]);
   const alevel  = useMemo(() => subjectList.filter(isALevel), [subjectList]);
+  const legacySecondary = useMemo(() => subjectList.filter(isLegacySecondary), [subjectList]);
 
   // ── Stats ─────────────────────────────────────────────────────
   const totalPeriods = (list: any[]) => list.reduce((s, x) => s + (x.periodsPerWeek ?? x.periods ?? 0), 0);
@@ -239,7 +245,11 @@ function SubjectsPage() {
     if (phaseTab === "primary" && !showPrimary) setPhaseTab(isSecondary ? "olevel" : "primary");
     else if (phaseTab !== "primary" && !isSecondary && showPrimary) setPhaseTab("primary");
   }, [showPrimary, isSecondary]);
-  const activeList   = phaseTab === "primary" ? primary : phaseTab === "olevel" ? olevel : alevel;
+  const activeList   =
+    phaseTab === "primary" ? primary
+    : phaseTab === "olevel" ? olevel
+    : phaseTab === "alevel" ? alevel
+    : legacySecondary;
   const hasNoSubjects = subjectList.length === 0;
 
   // ── Grouped table ─────────────────────────────────────────────
@@ -574,6 +584,7 @@ function SubjectsPage() {
         {showPrimary  && <Tab value="primary" label={`Primary — Grade 1-6 (${primary.length})`} />}
         {isSecondary  && <Tab value="olevel" label={`O-Level — Form 1-4 (${olevel.length})`} />}
         {isSecondary  && <Tab value="alevel" label={`A-Level — Form 5-6 (${alevel.length})`} />}
+        {isSecondary  && <Tab value="secondary_legacy" label={`Legacy — Grade 7-12 (${legacySecondary.length})`} />}
       </Tabs>
 
       {showPrimary && phaseTab === "primary" && (
@@ -589,6 +600,11 @@ function SubjectsPage() {
       {isSecondary && phaseTab === "alevel" && (
         <div className="rounded-xl border border-border bg-card shadow-sm">
           <SubjectTable list={alevel} />
+        </div>
+      )}
+      {isSecondary && phaseTab === "secondary_legacy" && (
+        <div className="rounded-xl border border-border bg-card shadow-sm">
+          <SubjectTable list={legacySecondary} />
         </div>
       )}
     </div>

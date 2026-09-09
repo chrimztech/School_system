@@ -8,7 +8,7 @@ import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, Dial
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
-import { useTenant, gradeFormLabels, gradeLabelToNumber } from "@/lib/tenant";
+import { useTenant, gradeFormLabels, gradeLabelToNumber, formatGrade } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
@@ -160,9 +160,16 @@ function FeeStructurePage() {
 
   const rawFees = structuresData as any[];
   const fees: FeeItem[] = rawFees.map((f: any) => {
+    // formatGrade is the single source of truth for turning a raw gradeFrom/gradeTo into a
+    // label — a bare `gradeFrom <= 6 ? Form : Grade` guess (the old approach here) gets Form
+    // labels wrong on COMBINED/FULL schools (Form N is stored at raw N+6, not N) and can't
+    // tell a legacy Grade 7-12 raw value from anything else.
+    const maxFormGrade = active.type === "COMBINED" || active.type === "FULL" ? 12 : 6;
     const grade = f.gradeFrom === f.gradeTo
-      ? (f.gradeFrom <= 6 ? `Form ${f.gradeFrom}` : `Grade ${f.gradeFrom}`)
-      : f.gradeFrom === 1 && f.gradeTo === 6 ? "All forms" : `Form ${f.gradeFrom}-${f.gradeTo}`;
+      ? formatGrade(f.gradeFrom, active.type)
+      : f.gradeFrom === 1 && f.gradeTo === maxFormGrade
+        ? "All forms"
+        : `${formatGrade(f.gradeFrom, active.type)}-${formatGrade(f.gradeTo, active.type)}`;
     return {
       id: f.id,
       category: f.name ?? f.category ?? "Tuition",

@@ -86,9 +86,9 @@ const steps = [
 const types: { code: SchoolType; name: string; desc: string }[] = [
   { code: "NURSERY", name: "Nursery / ECD", desc: "Baby Class to Reception" },
   { code: "PRIMARY", name: "Primary", desc: "Grade 1 – Grade 6 (Zambia 2025)" },
-  { code: "SECONDARY", name: "Secondary", desc: "Form 1–4 (O-Level) · Form 5–6 (A-Level)" },
-  { code: "COMBINED", name: "Combined", desc: "Grade 1–6 · Form 1–6" },
-  { code: "FULL", name: "Full School", desc: "Baby Class · Grade 1–6 · Form 1–6" },
+  { code: "SECONDARY", name: "Secondary", desc: "Form 1–4 (O-Level) · Form 5–6 (A-Level) · legacy Grade 7–12 supported" },
+  { code: "COMBINED", name: "Combined", desc: "Grade 1–6 · Form 1–6 · legacy Grade 7–12 supported" },
+  { code: "FULL", name: "Full School", desc: "Baby Class · Grade 1–6 · Form 1–6 · legacy Grade 7–12 supported" },
 ];
 
 const palette = [

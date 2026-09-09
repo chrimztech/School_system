@@ -28,6 +28,14 @@ const CHANNEL_OPTIONS: { id: string; disabled?: boolean }[] = [
   { id: "USSD" },
 ];
 
+// "Grade N" for N 7-12 is the legacy pre-2025 secondary naming (see gradeFormLabels in
+// lib/tenant.tsx) — it must group under secondary, not primary, even though it shares the
+// "Grade" prefix with the real primary Grade 1-6 labels.
+function isPrimaryGradeLabel(label: string): boolean {
+  const match = /^Grade\s+(\d+)$/.exec(label);
+  return !!match && Number(match[1]) <= 6;
+}
+
 function audiencesForType(type: any): string[] {
   const base = ["All", "All parents", "All staff", "All alumni"];
   const showPrimary = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(type);
@@ -35,8 +43,10 @@ function audiencesForType(type: any): string[] {
   const grades = gradeFormLabels(type);
   return [
     ...base,
-    ...(showSecondary ? ["All secondary", ...grades.filter((g) => g.startsWith("Form"))] : []),
-    ...(showPrimary ? ["All primary", ...grades.filter((g) => g.startsWith("Grade"))] : []),
+    ...(showSecondary
+      ? ["All secondary", ...grades.filter((g) => g.startsWith("Form") || !isPrimaryGradeLabel(g))]
+      : []),
+    ...(showPrimary ? ["All primary", ...grades.filter(isPrimaryGradeLabel)] : []),
   ];
 }
 

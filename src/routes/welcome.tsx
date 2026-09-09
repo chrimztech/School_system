@@ -250,7 +250,7 @@ const FAQS = [
   },
   {
     q: "Do parents need to install anything?",
-    a: "No. Parents sign in to a web workspace to see published results, attendance, and fee balances, and receive SMS, email, or WhatsApp updates directly — no app install required.",
+    a: "It's their choice. Parents can sign in from any web browser or use the dedicated mobile app — either way they see the same published results, attendance, and fee balances, and get SMS, email, or WhatsApp updates directly.",
   },
   {
     q: "Can we take payments the way our parents actually pay?",
