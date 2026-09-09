@@ -16,20 +16,24 @@ export const Route = createFileRoute("/classes")({
   component: ClassesPage,
 });
 
-// A COMBINED/FULL school offsets legacy Grade 7-12 by +6 (raw 13-18) to stay clear of the
-// Form 1-6 range (raw 7-12) it already uses — see the matching comment on formatGrade in
-// lib/tenant.tsx. A pure SECONDARY school has no such collision (it only ever uses raw 1-6
-// for Form 1-6) so legacy grades store literally: raw 7 = "Grade 7", raw 12 = "Grade 12".
-function legacyGradeOffset(type?: SchoolType): number {
+// A COMBINED/FULL school stores primary Grade 1-6 at raw 1-6, so every secondary phase
+// (Form 1-6 AND legacy Grade 7-12) has to shift off that range to stay distinguishable via
+// Student.grade alone (Student has no phase field — only SchoolClass does). Form 1-6 shifts
+// by +6 (raw 7-12); legacy Grade 7-12 shifts by the same +6 off ITS OWN number (raw 13-18).
+// A pure SECONDARY school has no such collision (nothing else claims 1-6 or 7-12), so both
+// store literally: Form 3 = raw 3, legacy Grade 10 = raw 10. See the matching comment on
+// formatGrade in lib/tenant.tsx — this offset must always agree with that one, since
+// PromotionService copies SchoolClass.grade directly onto Student.grade with no conversion.
+function secondaryGradeOffset(type?: SchoolType): number {
   return type === "COMBINED" || type === "FULL" ? 6 : 0;
 }
 
 function gradeLabel(grade: number | string | undefined, phase?: string, type?: SchoolType): string {
   const g = Number(grade);
   if (!g) return "—";
-  if (phase === "olevel" || phase === "alevel") return `Form ${g}`;
+  if (phase === "olevel" || phase === "alevel") return `Form ${g - secondaryGradeOffset(type)}`;
   if (phase === "primary") return `Grade ${g}`;
-  if (phase === "secondary_legacy") return `Grade ${g - legacyGradeOffset(type)}`;
+  if (phase === "secondary_legacy") return `Grade ${g - secondaryGradeOffset(type)}`;
   // No phase tag: this is a Student.grade value (or an untagged legacy class record), which
   // uses lib/tenant.tsx's own type-aware raw-grade encoding rather than classes.tsx's
   // phase-tagged SchoolClass one — defer to that single source of truth instead of guessing.
@@ -37,17 +41,22 @@ function gradeLabel(grade: number | string | undefined, phase?: string, type?: S
 }
 
 // Suggests the next-grade destination class for promotion, following the same
-// primary(1-6) → olevel(1-4) → alevel(5-6) progression used when creating classes.
-// The legacy secondary track (pre-2025 Grade 7-12) is a separate, self-contained chain —
-// a transitional-cohort student finishes it under the same old naming rather than being
-// folded into Form 1-6 partway through.
+// primary(1-6) → olevel(1-4) → alevel(5-6) progression used when creating classes. All
+// arithmetic here works in phase-relative numbers (1-6/1-4/5-6/7-12) and only converts to/from
+// the raw offset SchoolClass.grade value at the boundary — see secondaryGradeOffset above.
+// The legacy secondary track (pre-2025 Grade 7-12) is a separate, self-contained chain — a
+// transitional-cohort student finishes it under the same old naming rather than being folded
+// into Form 1-6 partway through.
 function suggestDestination(grade: number, phase: string, allClasses: any[], targetYear: string, type?: SchoolType) {
-  let nextGrade = grade + 1;
+  const nextPhaseIsPrimary = (phase || "primary") === "primary";
+  const rel = grade - (nextPhaseIsPrimary ? 0 : secondaryGradeOffset(type));
+  let nextRel = rel + 1;
   let nextPhase = phase || "primary";
-  if (nextPhase === "primary" && grade >= 6) { nextGrade = 1; nextPhase = "olevel"; }
-  else if (nextPhase === "olevel" && grade >= 4) { nextGrade = 5; nextPhase = "alevel"; }
-  else if (nextPhase === "alevel" && grade >= 6) return { graduate: true, defaultId: "" };
-  else if (nextPhase === "secondary_legacy" && grade - legacyGradeOffset(type) >= 12) return { graduate: true, defaultId: "" };
+  if (nextPhase === "primary" && rel >= 6) { nextRel = 1; nextPhase = "olevel"; }
+  else if (nextPhase === "olevel" && rel >= 4) { nextRel = 5; nextPhase = "alevel"; }
+  else if (nextPhase === "alevel" && rel >= 6) return { graduate: true, defaultId: "" };
+  else if (nextPhase === "secondary_legacy" && rel >= 12) return { graduate: true, defaultId: "" };
+  const nextGrade = nextRel + (nextPhase === "primary" ? 0 : secondaryGradeOffset(type));
   const candidates = (allClasses as any[]).filter(
     (c: any) => String(c.academicYear) === targetYear && Number(c.grade) === nextGrade && (c.phase ?? nextPhase) === nextPhase,
   );
@@ -777,6 +786,24 @@ function ClassesPage() {
     onError: () => toast.error("Failed to create class"),
   });
 
+  const [repairConfirmOpen, setRepairConfirmOpen] = useState(false);
+  const repairMutation = useMutation({
+    mutationFn: () => api.classes.fixSecondaryGradeOffset(schoolId),
+    onSuccess: (result) => {
+      void qc.invalidateQueries({ queryKey: ["classes", schoolId, teacherEmail] });
+      void qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      setRepairConfirmOpen(false);
+      if (result.classesFixed === 0) {
+        toast.success("Nothing to repair — grade data was already correct.");
+      } else {
+        toast.success(
+          `Repaired ${result.classesFixed} class(es) and ${result.studentsFixed} enrolled student(s). Refresh other pages to see the corrected grades.`,
+        );
+      }
+    },
+    onError: () => toast.error("Failed to repair grade data"),
+  });
+
   const classList = (classesRaw as any[]).map((c: any) => {
     const numericGrade = Number(c.grade ?? 0);
     return {
@@ -798,10 +825,9 @@ function ClassesPage() {
     if (!form.name.trim()) { toast.error("Class name is required"); return; }
     if (!form.grade || Number(form.grade) <= 0) { toast.error("Grade is required"); return; }
     const teacher = (teachersRaw as any[]).find((t: any) => t.id === form.teacherId);
-    const grade =
-      form.phase === "secondary_legacy"
-        ? Number(form.grade) + legacyGradeOffset(active.type)
-        : Number(form.grade);
+    const isSecondaryPhaseForm =
+      form.phase === "olevel" || form.phase === "alevel" || form.phase === "secondary_legacy";
+    const grade = Number(form.grade) + (isSecondaryPhaseForm ? secondaryGradeOffset(active.type) : 0);
     createMutation.mutate({
       name: form.name.trim(),
       grade,
@@ -867,7 +893,30 @@ function ClassesPage() {
           : `${gradeRangeForType(active.type)} · ${active.name}. Create classes, enrol pupils and assign subject teachers.`}
         actions={canManage && (
           <>
+            {(active.type === "COMBINED" || active.type === "FULL") && (
+              <Button variant="outlined" color="inherit" onClick={() => setRepairConfirmOpen(true)}>
+                Repair grade data
+              </Button>
+            )}
             <Button variant="contained" startIcon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>Create class</Button>
+            <Dialog open={repairConfirmOpen} onClose={() => setRepairConfirmOpen(false)} maxWidth="xs" fullWidth>
+              <DialogTitle>Repair O-Level/A-Level grade data?</DialogTitle>
+              <DialogContent>
+                <p className="text-sm text-muted-foreground">
+                  A past bug could store an O-Level/A-Level class (and its enrolled pupils) at
+                  the same raw grade number as a primary class, mislabeling secondary pupils as
+                  primary on report cards, fee structures, and elsewhere. This corrects any
+                  affected class and student found for {active.name}. Safe to run more than
+                  once — classes already correct are left untouched.
+                </p>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setRepairConfirmOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={() => repairMutation.mutate()} disabled={repairMutation.isPending}>
+                  {repairMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Run repair
+                </Button>
+              </DialogActions>
+            </Dialog>
             <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
               <DialogTitle>Create new class</DialogTitle>
               <DialogContent>

@@ -443,6 +443,12 @@ export const api = {
     classTeachers: (schoolId: string, classId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, `classes/${classId}/teachers`))),
     assignTeacher: (schoolId: string, classId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, `classes/${classId}/teachers`), data)),
     removeTeacher: (schoolId: string, classId: string, assignmentId: string) => apiClient.delete(schoolPath(schoolId, `classes/${classId}/teachers/${assignmentId}`)),
+    // One-time repair for the pre-fix COMBINED/FULL Form grade-offset bug — see
+    // AcademicService.fixSecondaryGradeOffset. Safe to call more than once (idempotent).
+    fixSecondaryGradeOffset: (schoolId: string) =>
+      unwrap<{ classesFixed: number; studentsFixed: number; details: string[] }>(
+        apiClient.post(schoolPath(schoolId, "classes/fix-secondary-grade-offset")),
+      ),
   },
 
   // Departments

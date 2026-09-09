@@ -370,7 +370,11 @@ function ReportCardPage() {
     ? `${backendStudent.firstName} ${backendStudent.lastName}`
     : "";
   const admissionNo = backendStudent?.admissionNumber || backendStudent?.admissionNo || "—";
-  const classLabel = active.type === "SECONDARY" ? "Form" : active.type === "PRIMARY" || active.type === "NURSERY" ? "Grade" : "Class";
+  // Derived from the student's actual raw grade (via formatGrade — the shared source of
+  // truth), not just the school's type: a SECONDARY school's legacy Grade 7-12 cohort must
+  // show "Grade" here, not a blanket "Form" that would mismatch the value shown underneath.
+  const gradeWord = backendStudent?.grade ? formatGrade(backendStudent.grade, active.type).split(" ")[0] : null;
+  const classLabel = gradeWord === "Form" || gradeWord === "Grade" ? gradeWord : "Class";
   const matchingClass = (classes as any[]).find(
     (c: any) => c.grade === backendStudent?.grade && (c.section ?? "") === (backendStudent?.section ?? ""),
   );
