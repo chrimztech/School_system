@@ -16,6 +16,7 @@ import {
   FileBadge,
   FileText,
   GraduationCap,
+  HandCoins,
   HeartPulse,
   Mail,
   Menu,
@@ -340,7 +341,9 @@ function useActiveSection(ids: string[]) {
       (entries) => {
         const visible = entries.filter((entry) => entry.isIntersecting);
         if (visible.length > 0) {
-          const topMost = visible.reduce((a, b) => (a.intersectionRatio > b.intersectionRatio ? a : b));
+          const topMost = visible.reduce((a, b) =>
+            a.intersectionRatio > b.intersectionRatio ? a : b,
+          );
           setActive(topMost.target.id);
         }
       },
@@ -357,14 +360,191 @@ function useActiveSection(ids: string[]) {
   return active;
 }
 
+type PreviewView = {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  accent: string;
+  tint: string;
+  chartTitle: string;
+  chartCaption: string;
+  chartPath: string;
+  chartPoints: Array<[number, number]>;
+  chartLabels: string[];
+  metrics: Array<{ label: string; value: string; note: string; color: string }>;
+  tasks: Array<{ icon: LucideIcon; label: string; count: string; color: string }>;
+};
+
+const PREVIEW_VIEWS: PreviewView[] = [
+  {
+    id: "overview",
+    icon: BarChart3,
+    label: "Overview",
+    eyebrow: "School command centre",
+    title: "Good morning, Administrator",
+    subtitle: "Today across the whole school · Sample workspace",
+    accent: "#215ce8",
+    tint: "#eaf0ff",
+    chartTitle: "Attendance trend",
+    chartCaption: "Whole-school daily view",
+    chartPath: "M8 88 C48 70 64 76 101 58 S158 72 197 45 S253 55 290 30 S354 44 412 18",
+    chartPoints: [
+      [8, 88],
+      [101, 58],
+      [197, 45],
+      [290, 30],
+      [412, 18],
+    ],
+    chartLabels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    metrics: [
+      { label: "Learners", value: "1,248", note: "+32 this term", color: "#215ce8" },
+      { label: "Attendance", value: "94.6%", note: "Today", color: "#087f62" },
+      { label: "Fees collected", value: "82%", note: "Term target", color: "#b9690d" },
+      { label: "Results review", value: "12", note: "Awaiting action", color: "#6d46c7" },
+    ],
+    tasks: [
+      { icon: ClipboardCheck, label: "Result approvals", count: "12", color: "#6d46c7" },
+      { icon: ReceiptText, label: "Fee follow-up", count: "26", color: "#b9690d" },
+      { icon: HeartPulse, label: "Welfare cases", count: "3", color: "#087f62" },
+    ],
+  },
+  {
+    id: "students",
+    icon: Users,
+    label: "Students",
+    eyebrow: "Learner records",
+    title: "Every learner, one complete story",
+    subtitle: "Admissions, profiles, placement, and progression · Sample workspace",
+    accent: "#215ce8",
+    tint: "#eaf0ff",
+    chartTitle: "Enrolment movement",
+    chartCaption: "Active learners this academic year",
+    chartPath: "M8 82 C54 80 72 68 108 70 S165 54 205 56 S269 36 309 41 S370 24 412 20",
+    chartPoints: [
+      [8, 82],
+      [108, 70],
+      [205, 56],
+      [309, 41],
+      [412, 20],
+    ],
+    chartLabels: ["Jan", "Mar", "May", "Jul", "Sep"],
+    metrics: [
+      { label: "Active learners", value: "1,248", note: "Across 34 classes", color: "#215ce8" },
+      { label: "New admissions", value: "38", note: "This term", color: "#087f62" },
+      { label: "Complete records", value: "96%", note: "Verified profiles", color: "#6d46c7" },
+      { label: "Transfers", value: "6", note: "In progress", color: "#b9690d" },
+    ],
+    tasks: [
+      { icon: FileText, label: "New applications", count: "18", color: "#215ce8" },
+      { icon: UserRoundCheck, label: "Profile follow-up", count: "9", color: "#b9690d" },
+      { icon: School, label: "Class placements", count: "6", color: "#087f62" },
+    ],
+  },
+  {
+    id: "attendance",
+    icon: CalendarCheck,
+    label: "Attendance",
+    eyebrow: "Live attendance",
+    title: "Know who is present—before lessons move on",
+    subtitle: "Registers update the school-wide picture · Sample workspace",
+    accent: "#087f62",
+    tint: "#e7f8f1",
+    chartTitle: "Weekly attendance",
+    chartCaption: "Present learners by day",
+    chartPath: "M8 48 C45 35 74 43 108 30 S168 38 205 26 S266 34 309 21 S371 27 412 16",
+    chartPoints: [
+      [8, 48],
+      [108, 30],
+      [205, 26],
+      [309, 21],
+      [412, 16],
+    ],
+    chartLabels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    metrics: [
+      { label: "Present", value: "1,181", note: "94.6% today", color: "#087f62" },
+      { label: "Late", value: "21", note: "Checked in", color: "#b9690d" },
+      { label: "Absent", value: "34", note: "Guardians notified", color: "#dc3f45" },
+      { label: "Registers", value: "98%", note: "Completed", color: "#215ce8" },
+    ],
+    tasks: [
+      { icon: ClipboardCheck, label: "Registers outstanding", count: "4", color: "#b9690d" },
+      { icon: MessageSquare, label: "Guardian follow-up", count: "11", color: "#215ce8" },
+      { icon: HeartPulse, label: "Health-linked absences", count: "3", color: "#087f62" },
+    ],
+  },
+  {
+    id: "finance",
+    icon: Wallet,
+    label: "Finance",
+    eyebrow: "School finance",
+    title: "Collections and balances, reconciled in context",
+    subtitle: "One fee ledger connected to every learner · Sample workspace",
+    accent: "#b9690d",
+    tint: "#fff3df",
+    chartTitle: "Collection progress",
+    chartCaption: "Term receipts against target",
+    chartPath: "M8 94 C48 88 70 78 108 72 S170 61 205 54 S265 48 309 35 S365 30 412 18",
+    chartPoints: [
+      [8, 94],
+      [108, 72],
+      [205, 54],
+      [309, 35],
+      [412, 18],
+    ],
+    chartLabels: ["Week 1", "3", "5", "7", "9"],
+    metrics: [
+      { label: "Collected", value: "K1.82m", note: "This term", color: "#087f62" },
+      { label: "Outstanding", value: "K392k", note: "Across accounts", color: "#dc3f45" },
+      { label: "Receipts", value: "167", note: "This week", color: "#215ce8" },
+      { label: "Collection rate", value: "82%", note: "Of term target", color: "#b9690d" },
+    ],
+    tasks: [
+      { icon: ReceiptText, label: "Overdue accounts", count: "26", color: "#dc3f45" },
+      { icon: Wallet, label: "Payments to match", count: "3", color: "#b9690d" },
+      { icon: HandCoins, label: "Bursary reviews", count: "7", color: "#087f62" },
+    ],
+  },
+  {
+    id: "results",
+    icon: FileBadge,
+    label: "Results",
+    eyebrow: "Assessment workflow",
+    title: "Marks move through review with confidence",
+    subtitle: "From teacher entry to approved family reports · Sample workspace",
+    accent: "#6d46c7",
+    tint: "#f1ecff",
+    chartTitle: "Subject performance",
+    chartCaption: "Current term averages",
+    chartPath: "M8 66 C40 64 74 36 108 42 S168 72 205 52 S268 22 309 31 S369 48 412 25",
+    chartPoints: [
+      [8, 66],
+      [108, 42],
+      [205, 52],
+      [309, 31],
+      [412, 25],
+    ],
+    chartLabels: ["Math", "Eng", "Sci", "ICT", "Soc"],
+    metrics: [
+      { label: "Average", value: "68%", note: "Current term", color: "#215ce8" },
+      { label: "Ready", value: "14", note: "Classes reviewed", color: "#087f62" },
+      { label: "Awaiting", value: "12", note: "Approval actions", color: "#b9690d" },
+      { label: "Published", value: "8", note: "Class reports", color: "#6d46c7" },
+    ],
+    tasks: [
+      { icon: ClipboardCheck, label: "Awaiting approval", count: "12", color: "#6d46c7" },
+      { icon: FileBadge, label: "Marks to verify", count: "4", color: "#b9690d" },
+      { icon: CheckCircle2, label: "Ready to publish", count: "8", color: "#087f62" },
+    ],
+  },
+];
+
 function SystemPreview() {
-  const navigation = [
-    { icon: BarChart3, label: "Overview", active: true },
-    { icon: Users, label: "Students" },
-    { icon: CalendarCheck, label: "Attendance" },
-    { icon: Wallet, label: "Finance" },
-    { icon: FileBadge, label: "Results" },
-  ];
+  const [activeViewId, setActiveViewId] = useState(PREVIEW_VIEWS[0].id);
+  const activeView = PREVIEW_VIEWS.find((view) => view.id === activeViewId) ?? PREVIEW_VIEWS[0];
+  const chartGradientId = `preview-chart-${activeView.id}`;
 
   return (
     <div className="srms-tilt overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_35px_90px_rgba(8,28,51,0.18)] transition-transform duration-500 ease-out">
@@ -394,151 +574,162 @@ function SystemPreview() {
             </div>
           </div>
 
-          <div className="mt-7 space-y-1.5">
-            {navigation.map((item) => (
-              <div
+          <nav className="mt-7 space-y-1.5" aria-label="Explore the sample workspace">
+            {PREVIEW_VIEWS.map((item) => (
+              <button
                 key={item.label}
-                className={`flex h-10 items-center justify-center gap-2.5 rounded-lg px-2 text-[11px] font-semibold sm:justify-start ${item.active ? "bg-white/10 text-white" : "text-white/43"}`}
+                type="button"
+                aria-pressed={activeView.id === item.id}
+                aria-label={`Preview ${item.label}`}
+                onClick={() => setActiveViewId(item.id)}
+                className={`group flex h-10 w-full items-center justify-center gap-2.5 rounded-lg px-2 text-[11px] font-semibold transition-all duration-200 sm:justify-start ${activeView.id === item.id ? "bg-white/11 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]" : "text-white/43 hover:bg-white/[0.055] hover:text-white/75"}`}
               >
-                <item.icon className="h-4 w-4 shrink-0" />
+                <item.icon
+                  className={`h-4 w-4 shrink-0 transition-transform duration-200 ${activeView.id === item.id ? "text-[#7ee7c1]" : "group-hover:scale-105"}`}
+                />
                 <span className="hidden sm:block">{item.label}</span>
-              </div>
+                {activeView.id === item.id && (
+                  <span className="ml-auto hidden h-1.5 w-1.5 rounded-full bg-[#55d6a9] sm:block" />
+                )}
+              </button>
             ))}
-          </div>
+          </nav>
 
           <div className="mt-8 hidden rounded-xl border border-white/8 bg-white/[0.04] p-3 sm:block">
             <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/35">
               Current role
             </p>
             <p className="mt-2 text-[11px] font-semibold">School administrator</p>
-            <p className="mt-1 text-[9px] text-white/38">Access matched to role</p>
+            <p className="mt-1 text-[9px] text-white/38">Select an area to explore</p>
           </div>
         </aside>
 
-        <div className="min-w-0 bg-[#f5f7fa] p-4 sm:p-6 lg:p-7">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#215ce8]">
-                School command centre
-              </p>
-              <h3 className="mt-1.5 text-base font-bold tracking-[-0.02em] text-[#10233c] sm:text-xl">
-                Good morning, Administrator
-              </h3>
-              <p className="mt-1 hidden text-[11px] text-slate-400 sm:block">
-                An illustrative view of today across the school.
-              </p>
-            </div>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#163f9f] text-[10px] font-black text-white ring-4 ring-white">
-              SA
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-            {[
-              { label: "Learners", value: "Live count", note: "Active records", color: "#215ce8" },
-              { label: "Attendance", value: "Real-time", note: "Today", color: "#087f62" },
-              { label: "Fee collection", value: "One ledger", note: "This term", color: "#b9690d" },
-              { label: "Results review", value: "One queue", note: "Awaiting action", color: "#6d46c7" },
-            ].map((metric) => (
-              <div
-                key={metric.label}
-                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-3.5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-[9px] font-bold text-slate-400 sm:text-[10px]">
-                    {metric.label}
-                  </p>
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: metric.color }}
-                  />
-                </div>
-                <p className="mt-2 text-base font-extrabold tracking-[-0.02em] text-[#10233c] sm:text-lg">
-                  {metric.value}
-                </p>
-                <p className="mt-0.5 text-[9px] text-slate-400">{metric.note}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-bold text-[#10233c]">Attendance trend</p>
-                  <p className="mt-0.5 text-[9px] text-slate-400">Whole-school daily view</p>
-                </div>
-                <span className="rounded-md bg-[#e8f8f2] px-2 py-1 text-[9px] font-bold text-[#087f62]">
-                  Live
-                </span>
-              </div>
-              <div className="mt-5 h-[105px] w-full">
-                <svg
-                  viewBox="0 0 420 110"
-                  className="srms-draw h-full w-full"
-                  role="img"
-                  aria-label="Illustrative attendance trend"
+        <div className="min-w-0 bg-[#f5f7fa] p-4 sm:p-6 lg:p-7" aria-live="polite">
+          <div key={activeView.id} className="srms-preview-enter">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p
+                  className="text-[10px] font-bold uppercase tracking-[0.14em]"
+                  style={{ color: activeView.accent }}
                 >
-                  <defs>
-                    <linearGradient id="attendance-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#215ce8" stopOpacity="0.2" />
-                      <stop offset="100%" stopColor="#215ce8" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d="M8 88 C48 70 64 76 101 58 S158 72 197 45 S253 55 290 30 S354 44 412 18 L412 106 L8 106 Z"
-                    fill="url(#attendance-fill)"
-                  />
-                  <path
-                    d="M8 88 C48 70 64 76 101 58 S158 72 197 45 S253 55 290 30 S354 44 412 18"
-                    fill="none"
-                    stroke="#215ce8"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    pathLength={100}
-                  />
-                  {[8, 101, 197, 290, 412].map((x, index) => (
-                    <circle
-                      key={x}
-                      cx={x}
-                      cy={[88, 58, 45, 30, 18][index]}
-                      r="4"
-                      fill="white"
-                      stroke="#215ce8"
-                      strokeWidth="2.5"
-                    />
-                  ))}
-                </svg>
+                  {activeView.eyebrow}
+                </p>
+                <h3 className="mt-1.5 text-base font-bold tracking-[-0.02em] text-[#10233c] sm:text-xl">
+                  {activeView.title}
+                </h3>
+                <p className="mt-1 hidden text-[11px] text-slate-400 sm:block">
+                  {activeView.subtitle}
+                </p>
               </div>
-              <div className="flex justify-between text-[8px] font-semibold text-slate-400">
-                <span>Mon</span>
-                <span>Tue</span>
-                <span>Wed</span>
-                <span>Thu</span>
-                <span>Fri</span>
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-black ring-4 ring-white"
+                style={{ color: activeView.accent, backgroundColor: activeView.tint }}
+              >
+                <activeView.icon className="h-4 w-4" />
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-[11px] font-bold text-[#10233c]">Needs attention</p>
-              <p className="mt-0.5 text-[9px] text-slate-400">One queue across teams</p>
-              <div className="mt-4 space-y-2">
-                {[
-                  { icon: ClipboardCheck, label: "Result approvals", color: "#6d46c7" },
-                  { icon: ReceiptText, label: "Fee follow-up", color: "#b9690d" },
-                  { icon: HeartPulse, label: "Welfare cases", color: "#087f62" },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center gap-2.5 rounded-lg bg-[#f6f8fb] px-2.5 py-2.5 transition-colors duration-200 hover:bg-[#eef2f8]"
-                  >
-                    <item.icon className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />
-                    <span className="min-w-0 flex-1 truncate text-[9px] font-semibold text-slate-600">
-                      {item.label}
-                    </span>
-                    <ChevronRight className="h-3 w-3 text-slate-300" />
+            <div className="mt-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+              {activeView.metrics.map((metric) => (
+                <div
+                  key={metric.label}
+                  className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-3.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-[9px] font-bold text-slate-400 sm:text-[10px]">
+                      {metric.label}
+                    </p>
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ backgroundColor: metric.color }}
+                    />
                   </div>
-                ))}
+                  <p className="mt-2 text-base font-extrabold tracking-[-0.02em] text-[#10233c] sm:text-lg">
+                    {metric.value}
+                  </p>
+                  <p className="mt-0.5 text-[9px] text-slate-400">{metric.note}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-bold text-[#10233c]">{activeView.chartTitle}</p>
+                    <p className="mt-0.5 text-[9px] text-slate-400">{activeView.chartCaption}</p>
+                  </div>
+                  <span
+                    className="rounded-md px-2 py-1 text-[9px] font-bold"
+                    style={{ color: activeView.accent, backgroundColor: activeView.tint }}
+                  >
+                    Sample
+                  </span>
+                </div>
+                <div className="mt-5 h-[105px] w-full">
+                  <svg
+                    viewBox="0 0 420 110"
+                    className="srms-draw h-full w-full"
+                    role="img"
+                    aria-label="Illustrative attendance trend"
+                  >
+                    <defs>
+                      <linearGradient id={chartGradientId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={activeView.accent} stopOpacity="0.2" />
+                        <stop offset="100%" stopColor={activeView.accent} stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d={`${activeView.chartPath} L412 106 L8 106 Z`}
+                      fill={`url(#${chartGradientId})`}
+                    />
+                    <path
+                      d={activeView.chartPath}
+                      fill="none"
+                      stroke={activeView.accent}
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      pathLength={100}
+                    />
+                    {activeView.chartPoints.map(([x, y]) => (
+                      <circle
+                        key={`${x}-${y}`}
+                        cx={x}
+                        cy={y}
+                        r="4"
+                        fill="white"
+                        stroke={activeView.accent}
+                        strokeWidth="2.5"
+                      />
+                    ))}
+                  </svg>
+                </div>
+                <div className="flex justify-between text-[8px] font-semibold text-slate-400">
+                  {activeView.chartLabels.map((label) => (
+                    <span key={label}>{label}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-[11px] font-bold text-[#10233c]">Needs attention</p>
+                <p className="mt-0.5 text-[9px] text-slate-400">One queue across teams</p>
+                <div className="mt-4 space-y-2">
+                  {activeView.tasks.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center gap-2.5 rounded-lg bg-[#f6f8fb] px-2.5 py-2.5 transition-colors duration-200 hover:bg-[#eef2f8]"
+                    >
+                      <item.icon className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />
+                      <span className="min-w-0 flex-1 truncate text-[9px] font-semibold text-slate-600">
+                        {item.label}
+                      </span>
+                      <span className="rounded-full bg-white px-1.5 py-0.5 text-[8px] font-black text-slate-500 shadow-sm">
+                        {item.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -575,7 +766,10 @@ function ConnectedRecordCard() {
             { icon: Wallet, label: "Bill" },
             { icon: FileBadge, label: "Report" },
           ].map((item) => (
-            <div key={item.label} className="relative z-10 flex flex-col items-center gap-2 text-center">
+            <div
+              key={item.label}
+              className="relative z-10 flex flex-col items-center gap-2 text-center"
+            >
               <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#102d49] text-[#7ee7c1] shadow-[0_0_0_4px_rgba(7,24,39,.78)]">
                 <item.icon className="h-3.5 w-3.5" />
               </span>
@@ -656,7 +850,13 @@ function WelcomePage() {
   );
 
   const sectionIds = useMemo(
-    () => ["platform", "workflow", "roles", "faq", ...(featuredTestimonials.length > 0 ? ["stories"] : [])],
+    () => [
+      "platform",
+      "workflow",
+      "roles",
+      "faq",
+      ...(featuredTestimonials.length > 0 ? ["stories"] : []),
+    ],
     [featuredTestimonials.length],
   );
   const activeSection = useActiveSection(sectionIds);
@@ -792,7 +992,11 @@ function WelcomePage() {
                 px: { xs: 1.5, sm: 2.25 },
                 boxShadow: "0 8px 22px rgba(22,73,189,.18)",
                 transition: "transform 160ms ease, box-shadow 160ms ease",
-                "&:hover": { bgcolor: "#103c9d", transform: "translateY(-1px)", boxShadow: "0 12px 28px rgba(22,73,189,.26)" },
+                "&:hover": {
+                  bgcolor: "#103c9d",
+                  transform: "translateY(-1px)",
+                  boxShadow: "0 12px 28px rgba(22,73,189,.26)",
+                },
               }}
             >
               Book a demo
@@ -852,7 +1056,11 @@ function WelcomePage() {
                     px: 3.5,
                     boxShadow: "0 14px 34px rgba(85,214,169,.18)",
                     transition: "transform 160ms ease, box-shadow 160ms ease",
-                    "&:hover": { bgcolor: "#6de0b8", transform: "translateY(-2px)", boxShadow: "0 18px 40px rgba(85,214,169,.28)" },
+                    "&:hover": {
+                      bgcolor: "#6de0b8",
+                      transform: "translateY(-2px)",
+                      boxShadow: "0 18px 40px rgba(85,214,169,.28)",
+                    },
                   }}
                 >
                   Book a tailored walkthrough
@@ -938,7 +1146,10 @@ function WelcomePage() {
               ))}
             </div>
           </Reveal>
-          <Reveal delayMs={80} className="grid border-b border-slate-200 py-8 sm:grid-cols-3 sm:py-10">
+          <Reveal
+            delayMs={80}
+            className="grid border-b border-slate-200 py-8 sm:grid-cols-3 sm:py-10"
+          >
             {PLATFORM_PROOF.map((item, index) => (
               <div
                 key={item.label}
@@ -986,12 +1197,18 @@ function WelcomePage() {
                     onClick={() => setActiveSuiteId(suite.id)}
                     onKeyDown={(event) => {
                       const index = PRODUCT_SUITES.findIndex((item) => item.id === suite.id);
-                      const direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+                      const direction =
+                        event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
                       if (!direction) return;
                       event.preventDefault();
-                      const next = PRODUCT_SUITES[(index + direction + PRODUCT_SUITES.length) % PRODUCT_SUITES.length];
+                      const next =
+                        PRODUCT_SUITES[
+                          (index + direction + PRODUCT_SUITES.length) % PRODUCT_SUITES.length
+                        ];
                       setActiveSuiteId(next.id);
-                      requestAnimationFrame(() => document.getElementById(`product-suite-tab-${next.id}`)?.focus());
+                      requestAnimationFrame(() =>
+                        document.getElementById(`product-suite-tab-${next.id}`)?.focus(),
+                      );
                     }}
                     className={`relative min-w-max flex-1 px-5 py-5 text-left text-sm font-bold transition-colors ${activeSuite.id === suite.id ? "text-[#0a1c30]" : "text-slate-400 hover:text-slate-700"}`}
                   >
@@ -1093,7 +1310,9 @@ function WelcomePage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-bold tracking-[-0.02em]">{step.title}</h3>
-                      <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">{step.detail}</p>
+                      <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">
+                        {step.detail}
+                      </p>
                     </div>
                   </article>
                 </Reveal>
@@ -1234,8 +1453,8 @@ function WelcomePage() {
                   See how SRMS fits your school.
                 </h2>
                 <p className="mt-5 max-w-xl text-base leading-7 text-white/72">
-                  We’ll tailor the walkthrough to your structure, priorities, and the teams that need
-                  to work better together.
+                  We’ll tailor the walkthrough to your structure, priorities, and the teams that
+                  need to work better together.
                 </p>
               </div>
               <div className="border-t border-white/15 p-8 sm:p-12 lg:border-l lg:border-t-0 lg:p-14">
