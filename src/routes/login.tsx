@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { keyframes } from "@emotion/react";
@@ -107,6 +107,21 @@ type SchoolBranding = {
 };
 
 const PENDING_SLUG_KEY = "srms_pending_slug";
+// Persists across sessions (unlike PENDING_SLUG_KEY's sessionStorage) so /welcome can offer
+// a "Continue to [School]" shortcut the next time this browser visits, without needing the
+// subdomain or a fresh /s/$slug link.
+const LAST_SCHOOL_KEY = "srms_last_school";
+
+type RememberedSchool = { slug: string; name: string };
+
+function rememberSchool(slug: string, name: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LAST_SCHOOL_KEY, JSON.stringify({ slug, name } satisfies RememberedSchool));
+  } catch {
+    /* localStorage unavailable (private mode, quota) — non-critical, skip */
+  }
+}
 
 function detectSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
@@ -165,11 +180,13 @@ function LoginPage() {
         // Defensive trim — stray leading/trailing whitespace in stored school names has
         // shown up in the wild and breaks possessive copy like "{name}'s platform".
         if (data?.id) {
+          const name = (data.name ?? "").trim();
           setSchoolBranding({
             ...(data as SchoolBranding),
-            name: (data.name ?? "").trim(),
+            name,
             motto: data.motto?.trim() || data.motto,
           });
+          if (name) rememberSchool(slug, name);
         }
       })
       .catch(() => {
@@ -330,8 +347,25 @@ function LoginPage() {
           }}
         />
 
-        {/* Logo */}
-        <Stack direction="row" spacing={2} sx={{ alignItems: "center", position: "relative", zIndex: 1, ...reveal(0) }}>
+        {/* Logo — also the way back to the public marketing page, since nothing else on this
+            page links away from the sign-in form once you're here. */}
+        <Stack
+          component={Link}
+          to="/welcome"
+          direction="row"
+          spacing={2}
+          sx={{
+            alignItems: "center",
+            position: "relative",
+            zIndex: 1,
+            textDecoration: "none",
+            cursor: "pointer",
+            width: "fit-content",
+            transition: "opacity 160ms ease",
+            "&:hover": { opacity: 0.82 },
+            ...reveal(0),
+          }}
+        >
           {schoolBranding?.logoUrl ? (
             <Box
               component="img"
@@ -563,14 +597,21 @@ function LoginPage() {
 
         <Fade in timeout={500}>
           <Box sx={{ width: "100%", maxWidth: 460, minWidth: 0, position: "relative" }}>
-            {/* Mobile brand header */}
+            {/* Mobile brand header — also the way back to the public marketing page on small
+                screens, where the desktop left panel (with the same link) is hidden. */}
             <Stack
+              component={Link}
+              to="/welcome"
               spacing={1.5}
               sx={{
                 alignItems: "center",
                 mb: 4.5,
                 textAlign: "center",
                 display: "flex",
+                textDecoration: "none",
+                cursor: "pointer",
+                transition: "opacity 160ms ease",
+                "&:hover": { opacity: 0.82 },
                 [`@media (min-width:${BP}px)`]: { display: "none" },
               }}
             >

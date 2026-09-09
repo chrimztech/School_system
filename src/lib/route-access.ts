@@ -121,6 +121,7 @@ export const ROUTE_ACCESS_BY_SEGMENT: Readonly<Record<string, RouteAccessRule>> 
   "user-management": { module: "user-management" },
   "vendor-management": { module: "vendor-management" },
   "visitor-log": { module: "visitor-log" },
+  welcome: {},
 };
 
 export function routeAccessForPath(pathname: string): RouteAccessRule {

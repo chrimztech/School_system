@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as VisitorLogRouteImport } from './routes/visitor-log'
 import { Route as VendorManagementRouteImport } from './routes/vendor-management'
 import { Route as UserManagementRouteImport } from './routes/user-management'
@@ -97,6 +98,11 @@ import { Route as TeachersStaffIdRouteImport } from './routes/teachers.$staffId'
 import { Route as StudentsStudentIdRouteImport } from './routes/students.$studentId'
 import { Route as SSlugRouteImport } from './routes/s.$slug'
 
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VisitorLogRoute = VisitorLogRouteImport.update({
   id: '/visitor-log',
   path: '/visitor-log',
@@ -618,6 +624,7 @@ export interface FileRoutesByFullPath {
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
+  '/welcome': typeof WelcomeRoute
   '/s/$slug': typeof SSlugRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/teachers/$staffId': typeof TeachersStaffIdRoute
@@ -707,6 +714,7 @@ export interface FileRoutesByTo {
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
+  '/welcome': typeof WelcomeRoute
   '/s/$slug': typeof SSlugRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/teachers/$staffId': typeof TeachersStaffIdRoute
@@ -797,6 +805,7 @@ export interface FileRoutesById {
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
+  '/welcome': typeof WelcomeRoute
   '/s/$slug': typeof SSlugRoute
   '/students/$studentId': typeof StudentsStudentIdRoute
   '/teachers/$staffId': typeof TeachersStaffIdRoute
@@ -888,6 +897,7 @@ export interface FileRouteTypes {
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
+    | '/welcome'
     | '/s/$slug'
     | '/students/$studentId'
     | '/teachers/$staffId'
@@ -977,6 +987,7 @@ export interface FileRouteTypes {
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
+    | '/welcome'
     | '/s/$slug'
     | '/students/$studentId'
     | '/teachers/$staffId'
@@ -1066,6 +1077,7 @@ export interface FileRouteTypes {
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
+    | '/welcome'
     | '/s/$slug'
     | '/students/$studentId'
     | '/teachers/$staffId'
@@ -1156,11 +1168,19 @@ export interface RootRouteChildren {
   UserManagementRoute: typeof UserManagementRoute
   VendorManagementRoute: typeof VendorManagementRoute
   VisitorLogRoute: typeof VisitorLogRoute
+  WelcomeRoute: typeof WelcomeRoute
   SSlugRoute: typeof SSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/visitor-log': {
       id: '/visitor-log'
       path: '/visitor-log'
@@ -1882,6 +1902,7 @@ const rootRouteChildren: RootRouteChildren = {
   UserManagementRoute: UserManagementRoute,
   VendorManagementRoute: VendorManagementRoute,
   VisitorLogRoute: VisitorLogRoute,
+  WelcomeRoute: WelcomeRoute,
   SSlugRoute: SSlugRoute,
 }
 export const routeTree = rootRouteImport

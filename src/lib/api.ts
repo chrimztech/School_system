@@ -331,6 +331,8 @@ export const api = {
       unwrap<{ id: string; name: string; shortCode: string; slug: string; primaryColor?: string | null; secondaryColor?: string | null; accentColor?: string | null; fontFamily?: string | null; logoUrl?: string | null; faviconUrl?: string | null; district?: string | null; province?: string | null; type?: string | null; motto?: string | null }>(
         apiClient.get(`/api/public/schools/by-slug/${encodeURIComponent(slug)}`)
       ),
+    submitDemoRequest: (data: { tenantName: string; reporterName: string; reporterEmail: string; message?: string }) =>
+      unwrap<void>(apiClient.post("/api/public/demo-requests", data)),
   },
 
   // Auth

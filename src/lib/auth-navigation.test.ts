@@ -25,6 +25,22 @@ test("signed-out users are sent to login without redirecting login to itself", (
   );
 });
 
+test("signed-out visitors land on the public marketing page at the bare root, not login", () => {
+  assert.equal(
+    authRedirectFor({ clientReady: true, loadingSession: false, user: null, path: "/" }),
+    "/welcome",
+  );
+  assert.equal(
+    authRedirectFor({ clientReady: true, loadingSession: false, user: null, path: "/welcome" }),
+    null,
+  );
+  // Deep links to anything else still bounce straight to sign-in, same as before.
+  assert.equal(
+    authRedirectFor({ clientReady: true, loadingSession: false, user: null, path: "/students" }),
+    "/login",
+  );
+});
+
 test("authenticated users leave login through one app-shell redirect", () => {
   const user = { mustChangePassword: false };
   assert.equal(
@@ -34,6 +50,12 @@ test("authenticated users leave login through one app-shell redirect", () => {
   assert.equal(
     authRedirectFor({ clientReady: true, loadingSession: false, user, path: "/" }),
     null,
+  );
+  // An already-signed-in user revisiting the marketing page (e.g. an old bookmark) goes
+  // straight to their dashboard, same treatment as revisiting /login.
+  assert.equal(
+    authRedirectFor({ clientReady: true, loadingSession: false, user, path: "/welcome" }),
+    "/",
   );
 });
 

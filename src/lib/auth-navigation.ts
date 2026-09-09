@@ -12,13 +12,19 @@ export function authRedirectFor({
   loadingSession: boolean;
   user: AuthRedirectUser | null;
   path: string;
-}): "/" | "/login" | "/change-password" | null {
+}): "/" | "/login" | "/welcome" | "/change-password" | null {
   if (!clientReady || loadingSession) return null;
 
-  if (!user) return path === "/login" ? null : "/login";
+  if (!user) {
+    // The public marketing page — visiting it, or the bare root (which would otherwise be the
+    // signed-in dashboard), needs no redirect; any other protected deep link still bounces
+    // straight to sign-in rather than the marketing page, same as before.
+    if (path === "/login" || path === "/welcome") return null;
+    return path === "/" ? "/welcome" : "/login";
+  }
   if (user.mustChangePassword) {
     return path === "/change-password" ? null : "/change-password";
   }
 
-  return path === "/login" ? "/" : null;
+  return path === "/login" || path === "/welcome" ? "/" : null;
 }

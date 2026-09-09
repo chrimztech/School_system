@@ -431,8 +431,8 @@ function AppShell() {
     return <div className="min-h-screen w-full bg-background" />;
   }
 
-  // Login page renders without sidebar/header
-  if (loadingSession && path !== "/login") {
+  // Login and the public marketing page render without sidebar/header
+  if (loadingSession && path !== "/login" && path !== "/welcome") {
     return (
       <div className="min-h-screen w-full bg-background flex items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading workspace…</p>
@@ -440,11 +440,11 @@ function AppShell() {
     );
   }
 
-  if (path === "/login" || !user) {
+  if (path === "/login" || path === "/welcome" || !user) {
     return (
       <ThemeProvider theme={muiTheme}>
         <div className="min-h-screen w-full bg-background">
-          {!user && path !== "/login" ? null : <Outlet />}
+          {!user && path !== "/login" && path !== "/welcome" ? null : <Outlet />}
         </div>
       </ThemeProvider>
     );
