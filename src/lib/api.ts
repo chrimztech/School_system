@@ -437,8 +437,8 @@ export const api = {
   classes: {
     list: (schoolId: string, teacherEmail?: string) =>
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "classes"), { params: teacherEmail ? { teacherEmail } : undefined })),
-    assignments: (schoolId: string, teacherEmail: string) =>
-      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "classes/assignments"), { params: { teacherEmail } })),
+    assignments: (schoolId: string, teacherEmail?: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "classes/assignments"), { params: teacherEmail ? { teacherEmail } : undefined })),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "classes"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `classes/${id}`), data)),
     delete: (schoolId: string, id: string) => apiClient.delete(schoolPath(schoolId, `classes/${id}`)),
@@ -585,9 +585,6 @@ export const api = {
     payments: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/payments"))),
     collected: async (schoolId: string) => {
       const data = await unwrap<any>(apiClient.get(schoolPath(schoolId, "fees/collected")));
-      if (typeof data === "number") {
-        return { collected: data, outstanding: 0, collectionRate: 0 };
-      }
       return {
         collected: Number(data?.collected ?? 0),
         outstanding: Number(data?.outstanding ?? 0),

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Wallet, AlertCircle, TrendingUp, Plus, Download, Send, Loader2, Bell, CheckCircle2, Users, Printer, CreditCard } from "lucide-react";
+import { Wallet, AlertCircle, TrendingUp, Plus, Download, Send, Loader2, Bell, CheckCircle2, Users, Printer, CreditCard, RefreshCw } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -106,6 +106,7 @@ function FeesPage() {
   const { push } = useNotifications();
 
   const [open, setOpen] = useState(false);
+  const [recalcConfirmOpen, setRecalcConfirmOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
   const [reminderPreviewStudent, setReminderPreviewStudent] = useState<any | null>(null);
@@ -235,6 +236,26 @@ function FeesPage() {
       setReversePaymentTarget(null);
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to reverse payment"),
+  });
+
+  // A pupil's feeBalance is a snapshot taken once at admission and only ever adjusted by
+  // individual payments after that — it's never automatically revisited, so a roster imported
+  // before fee structures were set up shows every pupil as permanently "cleared" even though
+  // nothing has actually been paid. This re-derives every active pupil's balance from the fee
+  // structures/levies that exist now, minus payments already on file. Safe to run repeatedly.
+  const recalcMutation = useMutation({
+    mutationFn: () => api.fees.recalculateBalances(schoolId),
+    onSuccess: (result: any) => {
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      qc.invalidateQueries({ queryKey: ["fees-collected", schoolId] });
+      setRecalcConfirmOpen(false);
+      toast.success(
+        result?.updated
+          ? `Recalculated — ${result.updated} of ${result.checked} pupil balance(s) updated.`
+          : `Recalculated — all ${result?.checked ?? 0} pupil balances were already correct.`,
+      );
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to recalculate balances"),
   });
 
   const openEditPayment = (p: any) => {
@@ -369,6 +390,27 @@ function FeesPage() {
             <Button variant="outlined" component={Link} to="/bursaries">
               Bursaries
             </Button>
+            <Button variant="outlined" startIcon={<RefreshCw size={16} />} onClick={() => setRecalcConfirmOpen(true)}>
+              Recalculate balances
+            </Button>
+            <Dialog open={recalcConfirmOpen} onClose={() => setRecalcConfirmOpen(false)} maxWidth="xs" fullWidth>
+              <DialogTitle>Recalculate every pupil's fee balance?</DialogTitle>
+              <DialogContent>
+                <p className="text-sm text-muted-foreground">
+                  A pupil's balance is only set once, at admission, and doesn't update itself if a
+                  fee structure is added or changed afterwards. This recomputes what every active
+                  pupil currently owes from today's fee structures and levies, minus payments
+                  already on file. Safe to run more than once — it never discards a recorded
+                  payment.
+                </p>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setRecalcConfirmOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={() => recalcMutation.mutate()} disabled={recalcMutation.isPending}>
+                  {recalcMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Recalculate
+                </Button>
+              </DialogActions>
+            </Dialog>
             <Button variant="outlined" startIcon={<Send size={16} />} onClick={() => setReminderOpen(true)}>Send reminders</Button>
             <Dialog open={reminderOpen} onClose={() => setReminderOpen(false)} maxWidth="sm" fullWidth>
               <DialogTitle>Send fee reminders</DialogTitle>

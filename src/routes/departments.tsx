@@ -155,7 +155,16 @@ function DepartmentsPage() {
   });
   const classes = rawClasses as any[];
 
-  // Group subjects and teachers by department name
+  // Every class+subject assignment in the school, unfiltered — lets a department's teacher
+  // list include anyone actually teaching a subject there, not just staff whose home
+  // department (Teacher.department) happens to match.
+  const { data: rawAssignments = [] } = useQuery({
+    queryKey: ["all-assignments", schoolId],
+    queryFn: () => api.classes.assignments(schoolId),
+  });
+  const assignments = rawAssignments as any[];
+
+  // Group subjects by department name
   const subjectsByDept = subjects.reduce<Record<string, any[]>>((acc, s) => {
     const key = s.department ?? "__unassigned__";
     if (!acc[key]) acc[key] = [];
@@ -163,12 +172,42 @@ function DepartmentsPage() {
     return acc;
   }, {});
 
-  const teachersByDept = teachers.reduce<Record<string, any[]>>((acc, t) => {
-    const key = t.department ?? "__unassigned__";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(t);
+  // Teachers per department: home-department staff (Teacher.department) plus anyone with an
+  // actual class/subject assignment for a subject that belongs to this department — the
+  // latter get a "Teaches here" badge (see render below) so it's clear they're on loan from
+  // elsewhere rather than double-counted as home staff. A teacher can appear in more than one
+  // department this way, which is the point: a teacher's subjects aren't limited to their home
+  // department (see the cross-department fix on the class assignment dialogs).
+  const subjectDeptByName = subjects.reduce<Record<string, string>>((acc, s) => {
+    if (s.name && s.department) acc[s.name.trim().toLowerCase()] = s.department;
     return acc;
   }, {});
+  type DeptTeacherEntry = { teacher: any; home: boolean; subjectNames: string[] };
+  const teachersByDept = (() => {
+    const buckets: Record<string, Map<string, DeptTeacherEntry>> = {};
+    const addEntry = (deptName: string, teacher: any, home: boolean, subjectName?: string) => {
+      if (!buckets[deptName]) buckets[deptName] = new Map();
+      const bucket = buckets[deptName];
+      const existing = bucket.get(teacher.id);
+      if (existing) {
+        existing.home = existing.home || home;
+        if (subjectName && !existing.subjectNames.includes(subjectName)) existing.subjectNames.push(subjectName);
+      } else {
+        bucket.set(teacher.id, { teacher, home, subjectNames: subjectName ? [subjectName] : [] });
+      }
+    };
+    teachers.forEach((t: any) => { if (t.department) addEntry(t.department, t, true); });
+    assignments.forEach((a: any) => {
+      const deptName = a.subjectName ? subjectDeptByName[a.subjectName.trim().toLowerCase()] : undefined;
+      if (!deptName) return;
+      const teacher = teachers.find((t: any) => t.id === a.teacherId);
+      if (!teacher) return;
+      addEntry(deptName, teacher, teacher.department === deptName, a.subjectName);
+    });
+    const out: Record<string, DeptTeacherEntry[]> = {};
+    Object.entries(buckets).forEach(([dept, bucket]) => { out[dept] = Array.from(bucket.values()); });
+    return out;
+  })();
 
   const deptNames = depts.map((d: any) => d.name);
   const unassigned = subjects.filter((s) => !s.department || !deptNames.includes(s.department));
@@ -312,7 +351,7 @@ function DepartmentsPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Departments" value={visibleDepts.length} accent="primary" icon={<Building2 className="h-4 w-4" />} />
         <StatCard label="Linked subjects" value={subjects.filter(s => s.department && visibleDeptNames.includes(s.department)).length} accent="success" icon={<BookMarked className="h-4 w-4" />} />
-        <StatCard label="Linked teachers" value={teachers.filter(t => t.department && visibleDeptNames.includes(t.department)).length} accent="accent" icon={<UserCog className="h-4 w-4" />} />
+        <StatCard label="Linked teachers" value={new Set(visibleDeptNames.flatMap((name: string) => (teachersByDept[name] ?? []).map((e) => e.teacher.id))).size} accent="accent" icon={<UserCog className="h-4 w-4" />} />
         {!isHOD && <StatCard label="Unassigned" value={unassigned.length + unassignedTeachers.length} accent="warning" hint="Subjects + teachers" />}
       </div>
 
@@ -585,7 +624,7 @@ function DepartmentsPage() {
                         <div className="border-t border-border/50 bg-muted/10 px-10 py-1.5">
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Teachers ({deptTeachers.length})</span>
                         </div>
-                        {deptTeachers.map((t: any) => (
+                        {deptTeachers.map(({ teacher: t, home, subjectNames }) => (
                           <div key={t.id} className="flex items-center justify-between px-4 py-2 border-t border-border/50 bg-muted/10 hover:bg-muted/30 transition-colors">
                             <div className="flex items-center gap-3">
                               <UserCog className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -593,9 +632,19 @@ function DepartmentsPage() {
                                 <span className="text-sm font-medium">{t.firstName} {t.lastName}</span>
                                 <span className="ml-2 text-xs text-muted-foreground">{t.staffNumber}</span>
                               </div>
-                              {t.subject
-                                ? <Chip size="small" label={t.subject} sx={{ ...badgeSx("secondary"), fontSize: 12 }} />
-                                : <span className="text-xs text-muted-foreground italic">No subject</span>}
+                              {home ? (
+                                <Chip
+                                  size="small"
+                                  label={t.subject ? `Home · ${t.subject}` : "Home"}
+                                  sx={{ ...badgeSx("secondary"), fontSize: 12 }}
+                                />
+                              ) : (
+                                <Chip
+                                  size="small"
+                                  label={`Teaches here${subjectNames.length ? ` · ${subjectNames.join(", ")}` : ""}`}
+                                  sx={{ ...badgeSx("outline"), fontSize: 12 }}
+                                />
+                              )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               {!isHOD && (
