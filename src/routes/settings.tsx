@@ -108,6 +108,18 @@ const schoolTypes = [
   { code: "FULL", name: "Full School", range: "Baby Class · Grade 1-6 · Form 1-6" },
 ] as const;
 
+/** ECSEOL Competency-Based Curriculum reference table (ECZ, 2026) — shown as read-only context
+ * next to the Form 1-4 scale editor below. This school's active Form 1-4 grades still come from
+ * the editable ECZ Upper/Lower bands, not this label set; it exists purely so admins editing
+ * that scale can see how ECZ's own CBC competency levels map to score ranges. */
+const CBC_REFERENCE_BANDS = [
+  { label: "1", range: "70–100%", name: "Outstanding" },
+  { label: "2", range: "60–69%", name: "Advanced" },
+  { label: "3", range: "50–59%", name: "Basic" },
+  { label: "4", range: "40–49%", name: "Satisfactory" },
+  { label: "5", range: "0–39%", name: "Unsatisfactory" },
+] as const;
+
 const managedFeatures = FEATURE_ORDER;
 const FEATURE_CATEGORY_ORDER: FeatureCategory[] = [
   "Communication",
@@ -1069,6 +1081,29 @@ function SettingsPage() {
                     Applies only to pupils still on the pre-2023-curriculum Grade 7-12 naming — a
                     transitional cohort finishes under this scale rather than Form 1-4's.
                   </p>
+                )}
+                {gradingScaleTab === "current" && (
+                  <div className="mt-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                      <Info className="h-3.5 w-3.5 shrink-0" />
+                      ECSEOL CBC competency levels — reference only
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This school's Form 1-4 grades still come from the editable scale below;
+                      shown here for context when setting those bands.
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+                      {CBC_REFERENCE_BANDS.map((band) => (
+                        <div key={band.label} className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-xs">
+                          <div className="flex items-baseline justify-between">
+                            <span className="font-semibold">{band.label}</span>
+                            <span className="text-muted-foreground">{band.range}</span>
+                          </div>
+                          <div className="text-muted-foreground">{band.name}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 <div className="mt-3">
                   <GradingBandsTable

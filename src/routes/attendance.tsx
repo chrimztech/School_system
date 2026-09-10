@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CalendarCheck, UserX, Clock, Plus, Loader2, HeartPulse, ShieldCheck, BarChart3, Bell } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -62,15 +62,31 @@ function AttendancePage() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: students = [] } = useQuery({
-    queryKey: ["students", schoolId, teacherEmail],
-    queryFn: () => api.students.list(schoolId, teacherEmail),
-    select: (data: any[]) => data.map((s: any) => ({
-      id: s.id,
-      student: `${s.firstName} ${s.lastName}`,
-      status: "present" as EntryStatus,
-    })),
+  // The register is per-class, not per-teacher — a teacher who teaches several classes must
+  // only see the roster of the class selected in the dialog, so resolve the selector's display
+  // name to the real SchoolClass id and pull that class's own enrolments (same pattern as the
+  // assessments page), rather than every student across all of the teacher's classes.
+  const resolvedClassId = useMemo(() => {
+    if (!selectedClass) return undefined;
+    const match = (classesData as any[]).find(
+      (c: any) => c.id === selectedClass || c.name === selectedClass || c.className === selectedClass,
+    );
+    return match?.id ?? selectedClass;
+  }, [classesData, selectedClass]);
+
+  const { data: enrolments = [] } = useQuery({
+    queryKey: ["class-enrolments", schoolId, resolvedClassId],
+    queryFn: () => api.classes.enrolments(schoolId, resolvedClassId),
+    enabled: open && !!resolvedClassId,
   });
+
+  const students = (enrolments as any[])
+    .filter((e) => String(e.status ?? "ACTIVE").toUpperCase() === "ACTIVE")
+    .map((e) => ({
+      id: e.studentId,
+      student: e.studentName || e.studentId,
+      status: "present" as EntryStatus,
+    }));
 
   const { data: recentRecords = [] } = useQuery({
     queryKey: ["attendance-list", schoolId],
