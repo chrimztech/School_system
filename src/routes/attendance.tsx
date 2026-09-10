@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarCheck, UserX, Clock, Plus, Loader2, HeartPulse, ShieldCheck, BarChart3, Bell } from "lucide-react";
+import { CalendarCheck, UserX, Clock, Plus, Loader2, HeartPulse, ShieldCheck, BarChart3, Bell, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader, StatCard } from "@/components/page-header";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { Box, Chip, Button, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
@@ -190,12 +191,22 @@ function AttendancePage() {
 
   return (
     <div className="space-y-6">
+    <div className="space-y-6 print:hidden">
       <PageHeader
         title="Attendance"
         description="Configurable per phase: full-day for primary, period-based for secondary"
         actions={
-          canManage ? (
           <>
+            <Button
+              variant="outlined"
+              startIcon={<Download size={16} />}
+              onClick={() => window.print()}
+              disabled={(recentRecords as any[]).length === 0}
+            >
+              Save as PDF
+            </Button>
+            {canManage && (
+            <>
             <Button
               variant="contained"
               startIcon={<Plus size={16} />}
@@ -292,8 +303,9 @@ function AttendancePage() {
                 </Button>
               </DialogActions>
             </Dialog>
+            </>
+            )}
           </>
-          ) : null
         }
       />
 
@@ -457,6 +469,53 @@ function AttendancePage() {
         </Box>
       )}
       </Box>
+    </div>
+
+      {/* Printable register — today's attendance grouped by class, always rendered (not
+         tab-conditional) so "Save as PDF" works from any tab. */}
+      <div className="print-area hidden print:block">
+        <SchoolDocumentHeader
+          title="Attendance Register"
+          subtitle={new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+        />
+        <div className="p-6">
+          {(recentRecords as any[]).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No attendance records for today.</p>
+          ) : (
+            (() => {
+              const byClass = new Map<string, any[]>();
+              for (const r of recentRecords as any[]) {
+                const cls = r.className ?? r.class ?? "Unknown";
+                if (!byClass.has(cls)) byClass.set(cls, []);
+                byClass.get(cls)!.push(r);
+              }
+              return Array.from(byClass.entries()).map(([cls, records]) => (
+                <div key={cls} className="mb-6 break-inside-avoid">
+                  <h3 className="mb-2 text-sm font-semibold">{cls}</h3>
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-400">
+                        <th className="py-1.5 pr-2 text-left">#</th>
+                        <th className="py-1.5 pr-2 text-left">Pupil</th>
+                        <th className="py-1.5 text-left">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {records.map((r: any, i: number) => (
+                        <tr key={r.id ?? i} className="border-b border-gray-200">
+                          <td className="py-1.5 pr-2 text-muted-foreground">{i + 1}</td>
+                          <td className="py-1.5 pr-2 font-medium">{r.studentName ?? r.student ?? "—"}</td>
+                          <td className="py-1.5">{STATUS_ORDER.includes(r.status) ? STATUS_META[r.status as EntryStatus].label : r.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ));
+            })()
+          )}
+        </div>
+      </div>
     </div>
   );
 }

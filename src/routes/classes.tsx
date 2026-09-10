@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Users, Loader2, Trash2, BookOpen, UserCog, Search, GraduationCap } from "lucide-react";
+import { Plus, Users, Loader2, Trash2, BookOpen, UserCog, Search, GraduationCap, Printer, Download } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { useTenant, gradeRangeForType, formatGrade, type SchoolType } from "@/li
 import { api, isValidSchoolId } from "@/lib/api";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { usePagedRows, ListPagination } from "@/components/list-pagination";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 
 export const Route = createFileRoute("/classes")({
   head: () => ({ meta: [{ title: "Classes — SRMS" }] }),
@@ -75,9 +76,16 @@ function blankClassForm(year: string, defaultPhase = "") {
 // ── Class detail sheet ────────────────────────────────────────────
 function ClassDetailSheet({
   cls, schoolId, onClose, readOnly = false, canAssignTeachers = false, assignableTeachers = [], canDelete = false,
+  hodDepartments = null,
 }: {
   cls: any; schoolId: string; onClose: () => void; readOnly?: boolean;
   canAssignTeachers?: boolean; assignableTeachers?: any[]; canDelete?: boolean;
+  /** Null for leadership roles (every subject assignable). For an HOD, the department name(s)
+   * they head — a subject-teacher assignment here is scoped to those subjects, since an HOD
+   * manages their own department's staffing, not the whole school's. The *teacher* being
+   * assigned is never scoped this way: which subjects someone is qualified to teach is
+   * independent of their own home department (see assignableTeachers in ClassesPage). */
+  hodDepartments?: string[] | null;
 }) {
   const { active } = useTenant();
   const qc = useQueryClient();
@@ -99,7 +107,7 @@ function ClassDetailSheet({
   useEffect(() => {
     if (!teacherDialog) { setTeacherForm({ teacherId: "", teacherName: "", subjectId: "", subjectName: "" }); return; }
     const firstT = assignableTeachers[0];
-    const firstS = (allSubjects as any[])[0];
+    const firstS = assignableSubjects[0];
     setTeacherForm({
       teacherId: firstT?.id ?? "",
       teacherName: firstT ? `${firstT.firstName} ${firstT.lastName}` : "",
@@ -128,6 +136,9 @@ function ClassDetailSheet({
     queryKey: ["subjects", schoolId],
     queryFn: () => api.subjects.list(schoolId),
   });
+  const assignableSubjects = hodDepartments
+    ? (allSubjects as any[]).filter((s: any) => s.department && hodDepartments.includes(s.department))
+    : (allSubjects as any[]);
 
   const { data: allClassesRaw = [] } = useQuery({
     queryKey: ["classes", schoolId],
@@ -260,7 +271,7 @@ function ClassDetailSheet({
     <>
     <Drawer anchor="right" open onClose={onClose}>
       <Box sx={{ width: { xs: "100vw", sm: 720 }, display: "flex", flexDirection: "column", height: "100%" }}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider", px: 3, py: 2 }}>
+        <Box className="print:hidden" sx={{ borderBottom: 1, borderColor: "divider", px: 3, py: 2 }}>
           <div className="flex items-start justify-between gap-2">
             <Typography variant="h6">{cls.name}</Typography>
             {canDelete && (
@@ -318,7 +329,7 @@ function ClassDetailSheet({
             >
               <MenuItem value="" disabled>Select teacher</MenuItem>
               {assignableTeachers.length === 0 && (
-                <MenuItem value="" disabled>No teachers in your department yet</MenuItem>
+                <MenuItem value="" disabled>No active teachers yet</MenuItem>
               )}
               {assignableTeachers.map((t: any) => (
                 <MenuItem key={t.id} value={t.id}>{t.firstName} {t.lastName}{t.subject ? ` · ${t.subject}` : ""}</MenuItem>
@@ -341,7 +352,7 @@ function ClassDetailSheet({
           </DialogActions>
         </Dialog>
 
-        <Box className="flex flex-1 flex-col overflow-hidden">
+        <Box className="flex flex-1 flex-col overflow-hidden print:hidden">
           <Tabs value={detailTab} onChange={(_e, v) => setDetailTab(v)} className="mx-6 mt-4 w-auto self-start">
             <Tab value="pupils" icon={<Users size={14} />} iconPosition="start" label={`Pupils (${enrolments.length})`} />
             <Tab value="teachers" icon={<BookOpen size={14} />} iconPosition="start" label={`Subject teachers (${classTeachers.length})`} />
@@ -354,7 +365,11 @@ function ClassDetailSheet({
               <p className="text-sm text-muted-foreground">
                 {enrolments.length} / {cls.capacity ?? "—"} enrolled
               </p>
-              {!readOnly && <div className="flex gap-2">
+              <div className="flex gap-2">
+              <Button size="small" variant="outlined" onClick={() => window.print()} disabled={enrolments.length === 0} startIcon={<Download className="h-3.5 w-3.5" />}>
+                Save as PDF
+              </Button>
+              {!readOnly && <>
               <Button size="small" variant="outlined" onClick={() => setPromoteDialog(true)} startIcon={<GraduationCap className="h-3.5 w-3.5" />}>
                 Promote to next year
               </Button>
@@ -398,7 +413,8 @@ function ClassDetailSheet({
                   <Button variant="outlined" color="inherit" onClick={() => { setEnrollDialog(false); setEnrollSearch(""); }}>Done</Button>
                 </DialogActions>
               </Dialog>
-              </div>}
+              </>}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -483,7 +499,7 @@ function ClassDetailSheet({
                     >
                       <MenuItem value="" disabled>Select teacher</MenuItem>
                       {assignableTeachers.length === 0 && (
-                        <MenuItem value="" disabled>No teachers in your department yet</MenuItem>
+                        <MenuItem value="" disabled>No active teachers yet</MenuItem>
                       )}
                       {assignableTeachers.map((t: any) => (
                         <MenuItem key={t.id} value={t.id}>
@@ -492,7 +508,7 @@ function ClassDetailSheet({
                       ))}
                     </TextField>
                     <div>
-                      {(allSubjects as any[]).length > 0 ? (
+                      {assignableSubjects.length > 0 ? (
                         <TextField
                           select
                           label="Subject *"
@@ -504,21 +520,21 @@ function ClassDetailSheet({
                             if (v === "__custom__") {
                               setTeacherForm({ ...teacherForm, subjectId: "", subjectName: "" });
                             } else {
-                              const sub = (allSubjects as any[]).find((s: any) => s.id === v);
+                              const sub = assignableSubjects.find((s: any) => s.id === v);
                               setTeacherForm({ ...teacherForm, subjectId: v, subjectName: sub?.name ?? "" });
                             }
                           }}
                         >
-                          {(allSubjects as any[]).map((s: any) => (
+                          {assignableSubjects.map((s: any) => (
                             <MenuItem key={s.id} value={s.id}>{s.name}{s.code ? ` (${s.code})` : ""}</MenuItem>
                           ))}
                           <MenuItem value="__custom__">Other / type below</MenuItem>
                         </TextField>
                       ) : null}
-                      {((allSubjects as any[]).length === 0 || !teacherForm.subjectId) && (
+                      {(assignableSubjects.length === 0 || !teacherForm.subjectId) && (
                         <TextField
-                          className={(allSubjects as any[]).length > 0 ? "mt-1" : undefined}
-                          label={(allSubjects as any[]).length === 0 ? "Subject *" : undefined}
+                          className={assignableSubjects.length > 0 ? "mt-1" : undefined}
+                          label={assignableSubjects.length === 0 ? "Subject *" : undefined}
                           fullWidth
                           size="small"
                           placeholder="e.g. Mathematics, English Language"
@@ -581,6 +597,43 @@ function ClassDetailSheet({
           </Box>
           )}
         </Box>
+
+        {/* Printable class list — always rendered (not tab-conditional) so "Save as PDF" works
+           from the Pupils tab regardless of pagination, and includes every enrolled pupil, not
+           just the current page. */}
+        <div className="print-area hidden print:block">
+          <SchoolDocumentHeader
+            title="Class List"
+            subtitle={`${cls.name}${cls.section ? ` ${cls.section}` : ""} · ${cls.academicYear ?? ""}`}
+          />
+          <div className="p-6">
+            <div className="mb-4 flex flex-wrap gap-x-8 gap-y-1 text-sm">
+              <span><span className="text-muted-foreground">Class teacher:</span> {cls.classTeacherName ?? "—"}</span>
+              <span><span className="text-muted-foreground">Room:</span> {cls.room ?? "—"}</span>
+              <span><span className="text-muted-foreground">Enrolled:</span> {enrolments.length}</span>
+            </div>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-gray-400">
+                  <th className="py-1.5 pr-2 text-left">#</th>
+                  <th className="py-1.5 pr-2 text-left">Pupil</th>
+                  <th className="py-1.5 pr-2 text-left">Grade / Form</th>
+                  <th className="py-1.5 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {enrolments.map((e: any, i: number) => (
+                  <tr key={e.id} className="border-b border-gray-200">
+                    <td className="py-1.5 pr-2 text-muted-foreground">{i + 1}</td>
+                    <td className="py-1.5 pr-2 font-medium">{e.studentName}</td>
+                    <td className="py-1.5 pr-2">{e.grade ? gradeLabel(e.grade, cls.phase, active.type) : "—"}</td>
+                    <td className="py-1.5 capitalize">{(e.status ?? "ACTIVE").toLowerCase()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </Box>
     </Drawer>
     {!readOnly && (
@@ -799,9 +852,14 @@ function ClassesPage() {
     enabled: hasValidSchool,
   });
 
-  // A department head only manages their own department's proceedings — mirrors the same
-  // email-match scoping departments.tsx uses so both pages agree on which department(s) a
-  // given HOD actually heads. Leadership roles (canManage) see every teacher, unscoped.
+  // A department head only manages their own department's *subject* assignments — mirrors the
+  // same email-match scoping departments.tsx uses so both pages agree on which department(s) a
+  // given HOD actually heads. This does NOT restrict which teacher can be picked: a teacher's
+  // own home department doesn't limit what subjects they're assigned to teach elsewhere (e.g.
+  // a Mathematics teacher also teaching a Sciences elective), and homeroom/class-teacher
+  // assignment has nothing to do with subject departments at all. Every active teacher in the
+  // school is assignable; hodDepartments (passed to ClassDetailSheet) instead scopes which
+  // *subjects* an HOD can assign teachers to.
   const myTeacherRecord = isHOD
     ? (teachersRaw as any[]).find((t: any) => t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase())
     : undefined;
@@ -811,9 +869,7 @@ function ClassesPage() {
         .map((d: any) => d.name)
     : [];
   const canAssignTeachers = canManage || isHOD;
-  const assignableTeachers = isHOD
-    ? (teachersRaw as any[]).filter((t: any) => t.department && myDepartmentNames.includes(t.department))
-    : (teachersRaw as any[]);
+  const assignableTeachers = teachersRaw as any[];
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.classes.create(schoolId, data),
@@ -925,7 +981,7 @@ function ClassesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:hidden">
       <PageHeader
         title="Classes"
         description={!canManage
@@ -1153,6 +1209,7 @@ function ClassesPage() {
           readOnly={!canManage}
           canAssignTeachers={canAssignTeachers}
           assignableTeachers={assignableTeachers}
+          hodDepartments={isHOD ? myDepartmentNames : null}
           canDelete={canManage}
         />
       )}

@@ -655,6 +655,13 @@
     display: none !important;
   }
 
+  /* A Modal/Drawer's backdrop is never meant to print, whether or not the modal it belongs to
+     is currently showing a print-area — unlike the modal's own root (handled by the ":has()"
+     overrides below), there's no case where the backdrop itself should ever become visible. */
+  .MuiBackdrop-root {
+    display: none !important;
+  }
+
   /* Tailwind's "print:hidden" utility and MUI's own base component styles (e.g.
      ".MuiTableCell-root { display: table-cell }") both have single-class specificity, so
      whichever one MUI's runtime-injected Emotion stylesheet places later in the cascade
@@ -688,11 +695,17 @@
      chrome is a fixed-position, flex-centered, height-and-overflow-capped stack (the exact
      same shape of problem as the app shell), which silently clips a multi-page document down
      to whatever fits in one on-screen dialog instead of letting it paginate. Un-wrap any such
-     ancestor the same way, wherever a ".print-area" is nested inside one. */
+     ancestor the same way, wherever a ".print-area" is nested inside one. Drawer needs the
+     same treatment (e.g. a class roster printed from the class detail side-drawer) — its root
+     also carries ".MuiDrawer-root", which the block above hides unconditionally (that's what
+     keeps the permanent sidebar drawer off the page); the higher-specificity ":has()" rule
+     here wins over that plain-class rule for the one drawer that actually holds a print-area. */
   .MuiModal-root:has(.print-area),
   .MuiDialog-container:has(.print-area),
   .MuiPaper-root:has(.print-area),
-  .MuiDialogContent-root:has(.print-area) {
+  .MuiDialogContent-root:has(.print-area),
+  .MuiDrawer-root:has(.print-area),
+  .MuiDrawer-root:has(.print-area) .MuiPaper-root {
     all: unset !important;
     display: block !important;
     width: 100% !important;

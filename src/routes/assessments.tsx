@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Clock3,
+  Download,
   FileCheck2,
   FileSpreadsheet,
   FileText,
@@ -59,6 +60,7 @@ import { gradingBandForPercentage, useTenant, type GradingBand } from "@/lib/ten
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { ImportDialog, type ImportColumn, type ImportResult } from "@/components/import-dialog";
 import { badgeSx, gradeChipSx, type BadgeTone } from "@/lib/utils";
 import { usePagedRows, ListPagination } from "@/components/list-pagination";
@@ -732,7 +734,7 @@ export function ResultsSheet({
           className="flex w-full flex-col gap-0"
           sx={{ width: { xs: "100vw", sm: 900 }, maxWidth: "100vw", height: "100%" }}
         >
-          <Box className="shrink-0 border-b border-border bg-gradient-to-br from-primary/[0.07] via-card to-card px-5 py-5 text-left sm:px-7">
+          <Box className="shrink-0 border-b border-border bg-gradient-to-br from-primary/[0.07] via-card to-card px-5 py-5 text-left sm:px-7 print:hidden">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Typography variant="h6" className="text-base leading-snug">{assessment?.title}</Typography>
@@ -754,12 +756,19 @@ export function ResultsSheet({
                   />
                 </div>
               </div>
-              <button
-                onClick={requestClose}
-                className="rounded-md p-1 hover:bg-muted transition-colors shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Tooltip title="Save as PDF">
+                  <IconButton size="small" onClick={() => window.print()} disabled={rows.length === 0} aria-label="Save mark sheet as PDF">
+                    <Download className="h-4 w-4" />
+                  </IconButton>
+                </Tooltip>
+                <button
+                  onClick={requestClose}
+                  className="rounded-md p-1 hover:bg-muted transition-colors shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             {rows.length > 0 && (
               <div className="mt-4 rounded-2xl border border-border/70 bg-background/75 p-4 shadow-sm backdrop-blur">
@@ -829,7 +838,7 @@ export function ResultsSheet({
             )}
           </Box>
 
-          <div className="flex-1 overflow-y-auto bg-muted/15">
+          <div className="flex-1 overflow-y-auto bg-muted/15 print:hidden">
             {!isLoading && rows.length > 0 && (
               <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/95 px-5 py-3 backdrop-blur sm:px-7">
                 <div className="relative min-w-0 flex-1 sm:max-w-xs">
@@ -985,7 +994,7 @@ export function ResultsSheet({
           </div>
 
           {rows.length > 0 && (
-            <div className="shrink-0 border-t border-border bg-card px-5 py-4 sm:px-7">
+            <div className="shrink-0 border-t border-border bg-card px-5 py-4 sm:px-7 print:hidden">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 text-xs text-muted-foreground">
                   {invalidCount > 0 ? (
@@ -1067,6 +1076,41 @@ export function ResultsSheet({
               </div>
             </div>
           )}
+
+          {/* Printable mark sheet — a static table (not the editable score inputs above), always
+             rendered so "Save as PDF" reflects every row regardless of scroll position. */}
+          <div className="print-area hidden print:block">
+            <SchoolDocumentHeader
+              title="Assessment Mark Sheet"
+              subtitle={`${assessment?.title ?? ""} · ${assessment?.classId ?? assessment?.class ?? ""} · ${assessment?.subjectName ?? assessment?.subject ?? ""}`}
+            />
+            <div className="p-6">
+              <p className="mb-4 text-sm">
+                Max score: {assessment?.maxScore} · Term {assessment?.term ?? "—"} ·{" "}
+                {effectiveReportingPeriod(assessment, active.resultPublicationMode).replace("_", " ")} · Status: {workflowStatus}
+              </p>
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-gray-400">
+                    <th className="py-1.5 pr-2 text-left">#</th>
+                    <th className="py-1.5 pr-2 text-left">Pupil</th>
+                    <th className="py-1.5 pr-2 text-left">Score /{assessment?.maxScore}</th>
+                    <th className="py-1.5 text-left">Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.studentId} className="border-b border-gray-200">
+                      <td className="py-1.5 pr-2 text-muted-foreground">{i + 1}</td>
+                      <td className="py-1.5 pr-2 font-medium">{r.studentName}</td>
+                      <td className="py-1.5 pr-2">{r.absent ? "Absent" : r.score || "—"}</td>
+                      <td className="py-1.5">{r.grade || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </Box>
       </Drawer>
 
@@ -1532,7 +1576,7 @@ function AssessmentsPage() {
 
   return (
     <AccessGuard module="assessments">
-      <div className="space-y-6">
+      <div className="space-y-6 print:hidden">
         <PageHeader
           title="Results Operations"
           description="A controlled, role-based path from classroom marks to published learner reports."
