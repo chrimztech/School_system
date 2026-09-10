@@ -19,21 +19,15 @@ export function AccessGuard({
   const { can, isSystemAdmin, user } = useAuth();
   const { active } = useTenant();
 
-  if (can(module) === false || (allowedRoles && (!user || !allowedRoles.includes(user.role)))) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
-        <ShieldAlert className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-semibold">Access restricted</p>
-        <p className="text-sm text-muted-foreground">
-          You don't have permission to view this page. Contact your school administrator.
-        </p>
-        <Button component={Link} to="/" variant="outlined">
-          Go to dashboard
-        </Button>
-      </div>
-    );
-  }
-
+  // Checked first, and independently of can(): can() already folds "is this module even
+  // enabled for the tenant" into its answer (see useAuth's can(), which calls
+  // isModuleEnabled internally), so can(module) === false is equally true whether the real
+  // reason is "your role has no access" or "this module is switched off for the school".
+  // Checking role second — via can(), only once we know the module itself is enabled — is
+  // what makes each branch below actually correspond to its message; the reverse order left
+  // this branch unreachable and showed every disabled-module page as if it were a denied-role
+  // page, which told a school admin to "contact your school administrator" for a module only
+  // they can turn on.
   if (!isSystemAdmin && !isTenantModuleEnabled(active, module)) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -44,6 +38,21 @@ export function AccessGuard({
         </p>
         <Button component={Link} to="/settings" variant="outlined">
           Go to Settings
+        </Button>
+      </div>
+    );
+  }
+
+  if (can(module) === false || (allowedRoles && (!user || !allowedRoles.includes(user.role)))) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-semibold">Access restricted</p>
+        <p className="text-sm text-muted-foreground">
+          You don't have permission to view this page. Contact your school administrator.
+        </p>
+        <Button component={Link} to="/" variant="outlined">
+          Go to dashboard
         </Button>
       </div>
     );

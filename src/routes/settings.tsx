@@ -48,6 +48,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -64,11 +66,13 @@ import {
   planIncludesFeature,
   createCampusDraft,
   ZAMBIA_2023_GRADING_BANDS,
+  ZAMBIA_LEGACY_GRADING_BANDS,
   type AcademicLevel,
   type Campus,
   type CampusStatus,
   type FeatureKey,
   type FeatureCategory,
+  type GradingBand,
   useTenant,
 } from "@/lib/tenant";
 
@@ -121,6 +125,91 @@ function currentFeatureState(features: Record<FeatureKey, boolean>): FeatureStat
   }, {} as FeatureState);
 }
 
+/** The fixed 9-row ECZ 1-9 band editor — shared between the current Form 1-4 scale and the
+ * legacy Grade 7-12 scale below (both are the same shape, just possibly different text). */
+function GradingBandsTable({
+  bands,
+  onChange,
+}: {
+  bands: GradingBand[];
+  onChange: (updater: (current: GradingBand[]) => GradingBand[]) => void;
+}) {
+  const updateField = (index: number, field: keyof GradingBand, value: string | number) => {
+    onChange((current) =>
+      current.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
+    );
+  };
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-border bg-background/60">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/60 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 text-left">Minimum</th>
+            <th className="px-3 py-2 text-left">Maximum</th>
+            <th className="px-3 py-2 text-left">Grade</th>
+            <th className="px-3 py-2 text-left">Description</th>
+            <th className="px-3 py-2 text-left">Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {bands.map((band, index) => (
+            <tr key={`${band.grade}-${index}`} className="border-t border-border transition-colors hover:bg-muted/30">
+              <td className="p-2">
+                <TextField
+                  className="min-w-20"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 0, max: 100, className: "tabular-nums" } }}
+                  value={band.min}
+                  onChange={(event) => updateField(index, "min", Number(event.target.value))}
+                  size="small"
+                />
+              </td>
+              <td className="p-2">
+                <TextField
+                  className="min-w-20"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 0, max: 100, className: "tabular-nums" } }}
+                  value={band.max}
+                  onChange={(event) => updateField(index, "max", Number(event.target.value))}
+                  size="small"
+                />
+              </td>
+              <td className="p-2">
+                <TextField
+                  className="min-w-20"
+                  slotProps={{ htmlInput: { className: "font-semibold" } }}
+                  value={band.grade}
+                  onChange={(event) => updateField(index, "grade", event.target.value.toUpperCase())}
+                  size="small"
+                />
+              </td>
+              <td className="p-2">
+                <TextField
+                  className="min-w-40"
+                  value={band.description}
+                  onChange={(event) => updateField(index, "description", event.target.value)}
+                  size="small"
+                  fullWidth
+                />
+              </td>
+              <td className="p-2">
+                <TextField
+                  className="min-w-20"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 0, className: "tabular-nums" } }}
+                  value={band.points}
+                  onChange={(event) => updateField(index, "points", Number(event.target.value))}
+                  size="small"
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function SettingsPage() {
   const { user, isSystemAdmin } = useAuth();
   const canConfigureResults = user?.role === "school_admin" || user?.role === "super_admin";
@@ -140,6 +229,10 @@ function SettingsPage() {
   const [gradingBands, setGradingBands] = useState(() =>
     school.gradingBands.map((band) => ({ ...band })),
   );
+  const [legacyGradingBands, setLegacyGradingBands] = useState(() =>
+    school.legacyGradingBands.map((band) => ({ ...band })),
+  );
+  const [gradingScaleTab, setGradingScaleTab] = useState<"current" | "legacy">("current");
   const [passMark, setPassMark] = useState(String(school.passMark ?? 40));
   const [gradeWeights, setGradeWeights] = useState({
     caWeight: 30,
@@ -278,6 +371,7 @@ function SettingsPage() {
     setDefaultCurrency(school.currency ?? "ZMW");
     setResultPublicationMode(school.resultPublicationMode);
     setGradingBands(school.gradingBands.map((band) => ({ ...band })));
+    setLegacyGradingBands(school.legacyGradingBands.map((band) => ({ ...band })));
     setPassMark(String(school.passMark ?? 40));
     setFeatureValues(currentFeatureState(school.features));
     setPrimaryColor(school.primaryColor ?? "#1e40af");
@@ -330,26 +424,33 @@ function SettingsPage() {
       return;
     }
 
-    const orderedBands = [...gradingBands].sort((a, b) => a.min - b.min);
-    let expectedMin = 0;
-    for (const band of orderedBands) {
-      if (
-        band.min !== expectedMin ||
-        band.max < band.min ||
-        !band.grade.trim() ||
-        !band.description.trim()
-      ) {
-        toast.error(
-          "Grading bands must cover 0–100 without gaps and include a grade and description",
-        );
-        return;
+    const validateBandCoverage = (bands: typeof gradingBands, label: string) => {
+      const ordered = [...bands].sort((a, b) => a.min - b.min);
+      let expectedMin = 0;
+      for (const band of ordered) {
+        if (
+          band.min !== expectedMin ||
+          band.max < band.min ||
+          !band.grade.trim() ||
+          !band.description.trim()
+        ) {
+          toast.error(
+            `${label} grading bands must cover 0–100 without gaps and include a grade and description`,
+          );
+          return null;
+        }
+        expectedMin = band.max + 1;
       }
-      expectedMin = band.max + 1;
-    }
-    if (expectedMin !== 101) {
-      toast.error("Grading bands must cover 0–100 without gaps");
-      return;
-    }
+      if (expectedMin !== 101) {
+        toast.error(`${label} grading bands must cover 0–100 without gaps`);
+        return null;
+      }
+      return ordered;
+    };
+    const orderedBands = validateBandCoverage(gradingBands, "Form 1-4");
+    if (!orderedBands) return;
+    const orderedLegacyBands = validateBandCoverage(legacyGradingBands, "Legacy Grade 7-12");
+    if (!orderedLegacyBands) return;
 
     const passMarkValue = Number(passMark);
     if (!Number.isFinite(passMarkValue) || passMarkValue < 0 || passMarkValue > 100) {
@@ -390,6 +491,7 @@ function SettingsPage() {
         resultPublicationMode,
         gradingScale: "ECZ",
         gradingBands: orderedBands.sort((a, b) => b.min - a.min),
+        legacyGradingBands: orderedLegacyBands.sort((a, b) => b.min - a.min),
         passMark: passMarkValue,
         offlineMode: featureValues.offlineMode,
         primaryColor,
@@ -926,132 +1028,51 @@ function SettingsPage() {
                       <p className="text-sm font-medium">Achievement grading scale</p>
                       <p className="text-xs text-muted-foreground">
                         Applied automatically to every result; teachers never choose letter grades
-                        manually.
+                        manually. Legacy Grade 7-12 (pre-2023-curriculum) pupils are graded on
+                        their own separate scale below, distinct from Form 1-4.
                       </p>
                     </div>
                   </div>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Chip size="small" label={`${gradingBands.length} bands`} sx={badgeSx("secondary")} />
+                    <Chip
+                      size="small"
+                      label={`${(gradingScaleTab === "current" ? gradingBands : legacyGradingBands).length} bands`}
+                      sx={badgeSx("secondary")}
+                    />
                     <Button
                       type="button"
                       variant="outlined"
                       size="small"
-                      onClick={() => setGradingBands(ZAMBIA_2023_GRADING_BANDS.map((band) => ({ ...band })))}
+                      onClick={() =>
+                        gradingScaleTab === "current"
+                          ? setGradingBands(ZAMBIA_2023_GRADING_BANDS.map((band) => ({ ...band })))
+                          : setLegacyGradingBands(ZAMBIA_LEGACY_GRADING_BANDS.map((band) => ({ ...band })))
+                      }
                       startIcon={<RotateCcw className="h-3.5 w-3.5" />}
                     >
-                      Restore Zambia 2023 scale
+                      Restore default scale
                     </Button>
                   </Box>
                 </div>
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background/60">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/60 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left">Minimum</th>
-                        <th className="px-3 py-2 text-left">Maximum</th>
-                        <th className="px-3 py-2 text-left">Grade</th>
-                        <th className="px-3 py-2 text-left">Description</th>
-                        <th className="px-3 py-2 text-left">Points</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {gradingBands.map((band, index) => (
-                        <tr
-                          key={`${band.grade}-${index}`}
-                          className="border-t border-border transition-colors hover:bg-muted/30"
-                        >
-                          <td className="p-2">
-                            <TextField
-                              className="min-w-20"
-                              type="number"
-                              slotProps={{ htmlInput: { min: 0, max: 100, className: "tabular-nums" } }}
-                              value={band.min}
-                              onChange={(event) =>
-                                setGradingBands((current) =>
-                                  current.map((item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, min: Number(event.target.value) }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              size="small"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <TextField
-                              className="min-w-20"
-                              type="number"
-                              slotProps={{ htmlInput: { min: 0, max: 100, className: "tabular-nums" } }}
-                              value={band.max}
-                              onChange={(event) =>
-                                setGradingBands((current) =>
-                                  current.map((item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, max: Number(event.target.value) }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              size="small"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <TextField
-                              className="min-w-20"
-                              slotProps={{ htmlInput: { className: "font-semibold" } }}
-                              value={band.grade}
-                              onChange={(event) =>
-                                setGradingBands((current) =>
-                                  current.map((item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, grade: event.target.value.toUpperCase() }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              size="small"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <TextField
-                              className="min-w-40"
-                              value={band.description}
-                              onChange={(event) =>
-                                setGradingBands((current) =>
-                                  current.map((item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, description: event.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              size="small"
-                              fullWidth
-                            />
-                          </td>
-                          <td className="p-2">
-                            <TextField
-                              className="min-w-20"
-                              type="number"
-                              slotProps={{ htmlInput: { min: 0, className: "tabular-nums" } }}
-                              value={band.points}
-                              onChange={(event) =>
-                                setGradingBands((current) =>
-                                  current.map((item, itemIndex) =>
-                                    itemIndex === index
-                                      ? { ...item, points: Number(event.target.value) }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              size="small"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <Tabs
+                  value={gradingScaleTab}
+                  onChange={(_e, v) => setGradingScaleTab(v)}
+                  sx={{ mt: 3, minHeight: 36, "& .MuiTab-root": { minHeight: 36, py: 0.5 } }}
+                >
+                  <Tab value="current" label="Form 1-4 (current)" />
+                  <Tab value="legacy" label="Legacy Grade 7-12" />
+                </Tabs>
+                {gradingScaleTab === "legacy" && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Applies only to pupils still on the pre-2023-curriculum Grade 7-12 naming — a
+                    transitional cohort finishes under this scale rather than Form 1-4's.
+                  </p>
+                )}
+                <div className="mt-3">
+                  <GradingBandsTable
+                    bands={gradingScaleTab === "current" ? gradingBands : legacyGradingBands}
+                    onChange={gradingScaleTab === "current" ? setGradingBands : setLegacyGradingBands}
+                  />
                 </div>
               </div>
             </AccordionDetails>

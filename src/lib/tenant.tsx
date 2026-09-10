@@ -8,7 +8,28 @@ export type SchoolType = "NURSERY" | "PRIMARY" | "SECONDARY" | "COMBINED" | "FUL
 export type ResultPublicationMode = "SEPARATE" | "COMBINED";
 export type GradingBand = BackendGradingBand;
 
+// Matches the backend's GradingScaleService.zambia2023Defaults() — the current ECZ School
+// Certificate scale for Form 1-4, with the official Upper/Lower distinction within each
+// point-pair. Used only as a client-side fallback before a school's real (possibly
+// customized) bands have loaded; the live-typed grade *symbol* during mark entry never
+// actually depends on which of the two scales below is used, since both share the exact
+// same percentage ranges and grade numbers — only the description text differs.
 export const ZAMBIA_2023_GRADING_BANDS: GradingBand[] = [
+  { min: 75, max: 100, grade: "1", description: "UPPER DISTINCTION", points: 1 },
+  { min: 70, max: 74, grade: "2", description: "LOWER DISTINCTION", points: 2 },
+  { min: 65, max: 69, grade: "3", description: "UPPER MERIT", points: 3 },
+  { min: 60, max: 64, grade: "4", description: "LOWER MERIT", points: 4 },
+  { min: 55, max: 59, grade: "5", description: "UPPER CREDIT", points: 5 },
+  { min: 50, max: 54, grade: "6", description: "LOWER CREDIT", points: 6 },
+  { min: 45, max: 49, grade: "7", description: "UPPER SATISFACTORY", points: 7 },
+  { min: 40, max: 44, grade: "8", description: "LOWER SATISFACTORY", points: 8 },
+  { min: 0, max: 39, grade: "9", description: "UNSATISFACTORY", points: 9 },
+];
+
+// Matches the backend's GradingScaleService.zambiaLegacyDefaults() — the pre-2023-curriculum
+// scale, with no Upper/Lower split. A transitional-cohort legacy Grade 7-12 student finishes
+// under the scale they started with rather than the newer Form 1-4 wording.
+export const ZAMBIA_LEGACY_GRADING_BANDS: GradingBand[] = [
   { min: 75, max: 100, grade: "1", description: "DISTINCTION", points: 1 },
   { min: 70, max: 74, grade: "2", description: "DISTINCTION", points: 2 },
   { min: 65, max: 69, grade: "3", description: "MERIT", points: 3 },
@@ -161,6 +182,7 @@ export type Tenant = {
   gradingScale?: "ECZ" | "Percentage" | "GPA" | "Letter";
   resultPublicationMode: ResultPublicationMode;
   gradingBands: GradingBand[];
+  legacyGradingBands: GradingBand[];
   passMark?: number;
   currency?: "ZMW" | "USD";
   bankName?: string;
@@ -512,6 +534,7 @@ const EMPTY_TENANT: Tenant = normaliseTenantStructure({
   primaryColor: "#1e40af",
   resultPublicationMode: "SEPARATE",
   gradingBands: ZAMBIA_2023_GRADING_BANDS,
+  legacyGradingBands: ZAMBIA_LEGACY_GRADING_BANDS,
   offlineMode: false,
   subscription: createTenantSubscription("core", {
     status: "trial",
@@ -643,6 +666,7 @@ function toSchoolDto(tenant: Tenant): BackendSchoolDto {
     gradingScale: tenant.gradingScale,
     resultPublicationMode: tenant.resultPublicationMode,
     gradingBands: tenant.gradingBands,
+    legacyGradingBands: tenant.legacyGradingBands,
     passMark: tenant.passMark,
     currency: tenant.currency,
     bankName: tenant.bankName,
@@ -784,6 +808,7 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
         : "ECZ",
       resultPublicationMode: school.resultPublicationMode === "COMBINED" ? "COMBINED" : "SEPARATE",
       gradingBands: school.gradingBands?.length ? school.gradingBands : ZAMBIA_2023_GRADING_BANDS,
+      legacyGradingBands: school.legacyGradingBands?.length ? school.legacyGradingBands : ZAMBIA_LEGACY_GRADING_BANDS,
       passMark: school.passMark ?? undefined,
       currency: school.currency === "USD" || school.currency === "ZMW" ? school.currency : "ZMW",
       bankName: school.bankName ?? "",
@@ -859,6 +884,7 @@ function tenantFromBackendSchool(school: BackendSchool, existing?: Tenant): Tena
       ? school.resultPublicationMode
       : existing?.resultPublicationMode ?? "SEPARATE",
     gradingBands: school.gradingBands?.length ? school.gradingBands : existing?.gradingBands ?? ZAMBIA_2023_GRADING_BANDS,
+    legacyGradingBands: school.legacyGradingBands?.length ? school.legacyGradingBands : existing?.legacyGradingBands ?? ZAMBIA_LEGACY_GRADING_BANDS,
     passMark: school.passMark ?? existing?.passMark,
     currency: school.currency === "USD" || school.currency === "ZMW"
       ? school.currency
@@ -1212,6 +1238,28 @@ export function formatGrade(grade: number | string | null | undefined, type: Sch
       if (n <= 6) return `Grade ${n}`;
       if (n <= 12) return `Form ${n - 6}`;
       return `Grade ${n - 6}`;
+  }
+}
+
+/**
+ * True for a raw grade in the legacy Grade 7-12 range (as opposed to Form 1-6 or primary
+ * Grade 1-6) — the same range formatGrade uses to decide "Form" vs "Grade" above. Used to
+ * pick between a school's two grading scales (current Form 1-4 vs legacy pre-2023) for any
+ * client-side aggregate that reads active.gradingBands directly, mirroring the backend's
+ * GradingScaleService.getBandsForPhase — per-subject grades themselves are always phase-aware
+ * already, since the backend computes those server-side.
+ */
+export function isLegacySecondaryGrade(grade: number | string | null | undefined, type: SchoolType): boolean {
+  const n = Number(grade);
+  if (!n) return false;
+  switch (type) {
+    case "SECONDARY":
+      return n > 6;
+    case "COMBINED":
+    case "FULL":
+      return n > 12;
+    default:
+      return false;
   }
 }
 

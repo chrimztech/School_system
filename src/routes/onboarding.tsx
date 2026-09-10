@@ -55,6 +55,7 @@ import {
   PLAN_CATALOG,
   planIncludesFeature,
   ZAMBIA_2023_GRADING_BANDS,
+  ZAMBIA_LEGACY_GRADING_BANDS,
   type SchoolType,
   type Tenant,
   type AcademicLevel,
@@ -208,6 +209,7 @@ function OnboardingPage() {
     gradingScale: "ECZ",
     resultPublicationMode: "SEPARATE",
     gradingBands: ZAMBIA_2023_GRADING_BANDS,
+    legacyGradingBands: ZAMBIA_LEGACY_GRADING_BANDS,
     passMark: 40,
     currency: "ZMW",
     bankName: "",
@@ -958,7 +960,7 @@ function OnboardingPage() {
                     Administrators can adjust these bands later; teachers receive automatic grades.
                   </p>
                 </div>
-                <Chip size="small" label="8 achievement bands" sx={badgeSx("outline")} />
+                <Chip size="small" label={`${form.gradingBands.length} achievement bands`} sx={badgeSx("outline")} />
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {form.gradingBands.map((band) => (

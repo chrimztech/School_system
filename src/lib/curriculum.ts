@@ -142,17 +142,19 @@ export const PRIMARY_GRADING: GradingBand[] = [
   { symbol: "F", min: 0,  max: 39,  descriptor: "Fail" },
 ];
 
-// O-Level: ECZ 1–9 numeric scale (unchanged from old Grade 8–12 scale)
+// O-Level: ECZ 1–9 numeric scale (unchanged from old Grade 8–12 scale). Descriptors match
+// ECZ's published School Certificate scale, which distinguishes an Upper/Lower band within
+// each point-pair rather than repeating the same label for both points.
 export const SECONDARY_GRADING: GradingBand[] = [
-  { symbol: "1", min: 75, max: 100, descriptor: "Distinction" },
-  { symbol: "2", min: 70, max: 74,  descriptor: "Distinction" },
-  { symbol: "3", min: 65, max: 69,  descriptor: "Merit" },
-  { symbol: "4", min: 60, max: 64,  descriptor: "Merit" },
-  { symbol: "5", min: 55, max: 59,  descriptor: "Credit" },
-  { symbol: "6", min: 50, max: 54,  descriptor: "Credit" },
-  { symbol: "7", min: 45, max: 49,  descriptor: "Satisfactory" },
-  { symbol: "8", min: 40, max: 44,  descriptor: "Pass" },
-  { symbol: "9", min: 0,  max: 39,  descriptor: "Fail" },
+  { symbol: "1", min: 75, max: 100, descriptor: "Upper Distinction" },
+  { symbol: "2", min: 70, max: 74,  descriptor: "Lower Distinction" },
+  { symbol: "3", min: 65, max: 69,  descriptor: "Upper Merit" },
+  { symbol: "4", min: 60, max: 64,  descriptor: "Lower Merit" },
+  { symbol: "5", min: 55, max: 59,  descriptor: "Upper Credit" },
+  { symbol: "6", min: 50, max: 54,  descriptor: "Lower Credit" },
+  { symbol: "7", min: 45, max: 49,  descriptor: "Upper Satisfactory" },
+  { symbol: "8", min: 40, max: 44,  descriptor: "Lower Satisfactory" },
+  { symbol: "9", min: 0,  max: 39,  descriptor: "Fail / Unsatisfactory" },
 ];
 
 // A-Level: letter scale A–E + U (new formalised A-Level grading 2025)

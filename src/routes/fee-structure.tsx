@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { DollarSign, Layers, Tag, CalendarDays, Plus, Loader2 } from "lucide-react";
+import { DollarSign, Layers, Tag, CalendarDays, Plus, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, DialogContent, DialogContentText, DialogActions, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
@@ -212,6 +212,21 @@ function FeeStructurePage() {
   const [editingFeeId, setEditingFeeId] = useState<string | null>(null);
   const [editingLevyId, setEditingLevyId] = useState<string | null>(null);
   const [tab, setTab] = useState("tariff");
+  const [recalcConfirmOpen, setRecalcConfirmOpen] = useState(false);
+
+  const recalcMutation = useMutation({
+    mutationFn: () => api.fees.recalculateBalances(schoolId),
+    onSuccess: (result) => {
+      setRecalcConfirmOpen(false);
+      void qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      toast.success(
+        result.updated > 0
+          ? `${result.updated} of ${result.checked} pupils' balances updated`
+          : `All ${result.checked} pupils' balances were already correct`,
+      );
+    },
+    onError: () => toast.error("Failed to recalculate fee balances"),
+  });
 
   // Defaulting these to the school's own current term/year (instead of a hardcoded literal)
   // matters more than it looks: computeInitialBalance only bills a student against a fee
@@ -409,9 +424,37 @@ function FeeStructurePage() {
             <Button variant="outlined" component={Link} to="/fees">Collections</Button>
             <Button variant="outlined" component={Link} to="/bursaries">Bursaries</Button>
             <Button variant="outlined" onClick={() => { window.print(); toast.success("Fee schedule exported to PDF"); }}>Export schedule</Button>
+            <Button variant="outlined" startIcon={<RefreshCw className="h-4 w-4" />} onClick={() => setRecalcConfirmOpen(true)}>
+              Recalculate balances
+            </Button>
           </>
         }
       />
+
+      <Dialog open={recalcConfirmOpen} onClose={() => setRecalcConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Recalculate every pupil's fee balance?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Re-derives what every active pupil currently owes from the fee structures and
+            levies above, minus payments already recorded. Use this after adding or changing
+            fee structures for pupils who were registered before those existed — otherwise
+            their balance stays at whatever it was computed as when they were added (often K0,
+            which reads as "cleared" even though nothing's actually been paid). Never discards
+            a recorded payment.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setRecalcConfirmOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={recalcMutation.isPending}
+            onClick={() => recalcMutation.mutate()}
+            startIcon={recalcMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Recalculate
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Active fee items" value={activeCount} accent="primary" icon={<DollarSign className="h-4 w-4" />} />

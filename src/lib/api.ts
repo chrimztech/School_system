@@ -123,6 +123,7 @@ export type BackendSchool = {
   whatsappNumber?: string | null;
   resultPublicationMode?: string | null;
   gradingBands?: BackendGradingBand[] | null;
+  legacyGradingBands?: BackendGradingBand[] | null;
   passMark?: number | null;
   currency?: string | null;
   bankName?: string | null;
@@ -202,6 +203,7 @@ export type BackendSchoolDto = {
   whatsappNumber?: string;
   resultPublicationMode?: string;
   gradingBands?: BackendGradingBand[];
+  legacyGradingBands?: BackendGradingBand[];
   passMark?: number;
   currency?: string;
   bankName?: string;
@@ -592,6 +594,8 @@ export const api = {
         collectionRate: Number(data?.collectionRate ?? 0),
       };
     },
+    recalculateBalances: (schoolId: string) =>
+      unwrap<{ checked: number; updated: number }>(apiClient.post(schoolPath(schoolId, "fees/recalculate-balances"))),
     structures: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "fees/structures"))),
     createStructure: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "fees/structures"), data)),
     updateStructure: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `fees/structures/${id}`), data)),
