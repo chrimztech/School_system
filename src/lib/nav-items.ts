@@ -73,7 +73,7 @@ export type NavItem = {
 
 export const schoolOverview: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, module: "dashboard", shortcut: "G D" },
-  { title: "Students", url: "/students", icon: Users, module: "students", shortcut: "G S" },
+  { title: "Pupils", url: "/students", icon: Users, module: "students", shortcut: "G S" },
   { title: "Admissions", url: "/admissions", icon: UserPlus, module: "admissions" },
   { title: "Parents", url: "/parents", icon: Users2, module: "communication" },
   { title: "Teachers", url: "/teachers", icon: UserCog, module: "teachers" },
@@ -100,7 +100,7 @@ export const schoolOverview: NavItem[] = [
 export const schoolStudentLife: NavItem[] = [
   { title: "Communication", url: "/communication", icon: MessageSquare, module: "communication" },
   { title: "Discipline", url: "/discipline", icon: ShieldAlert, module: "discipline" },
-  { title: "Student Welfare", url: "/student-welfare", icon: Heart, module: "student-welfare" },
+  { title: "Pupil Welfare", url: "/student-welfare", icon: Heart, module: "student-welfare" },
   { title: "Activities & Clubs", url: "/activities", icon: Trophy, module: "activities" },
   { title: "Alumni", url: "/alumni", icon: Award, module: "alumni" },
   { title: "PTC Committee", url: "/ptc", icon: Users2, module: "ptc" },

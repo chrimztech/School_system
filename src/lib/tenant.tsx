@@ -1115,6 +1115,28 @@ export function useTenant() {
   return context;
 }
 
+/**
+ * The highest raw grade value this school type ever stores — the upper bound of a true
+ * "applies to every grade" wildcard (e.g. a fee structure's "All forms" option). Must stay in
+ * sync with formatGrade/gradeLabelToNumber's raw-value ranges above: SECONDARY tops out at
+ * legacy Grade 12 (raw 12, since Form 1-6 only uses 1-6); COMBINED/FULL tops out at legacy
+ * Grade 12 too, but offset (raw 18, since primary and Form 1-6 already occupy 1-12). Getting
+ * this wrong silently excludes legacy-grade pupils from any "All forms"-style wildcard, even
+ * though the fee/rule looks like it covers everyone.
+ */
+export function maxRawGrade(type: SchoolType): number {
+  switch (type) {
+    case "NURSERY":
+    case "PRIMARY":
+      return 6;
+    case "SECONDARY":
+      return 12;
+    case "COMBINED":
+    case "FULL":
+      return 18;
+  }
+}
+
 export function gradeRangeForType(type: SchoolType): string {
   switch (type) {
     case "NURSERY":

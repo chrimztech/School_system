@@ -8,7 +8,7 @@ import { Box, Button, Chip, Switch, MenuItem, Tab, Tabs, TextField, Dialog, Dial
 
 import { PageHeader, StatCard } from "@/components/page-header";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
-import { useTenant, gradeFormLabels, gradeLabelToNumber, formatGrade } from "@/lib/tenant";
+import { useTenant, gradeFormLabels, gradeLabelToNumber, formatGrade, maxRawGrade } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
@@ -164,10 +164,9 @@ function FeeStructurePage() {
     // label — a bare `gradeFrom <= 6 ? Form : Grade` guess (the old approach here) gets Form
     // labels wrong on COMBINED/FULL schools (Form N is stored at raw N+6, not N) and can't
     // tell a legacy Grade 7-12 raw value from anything else.
-    const maxFormGrade = active.type === "COMBINED" || active.type === "FULL" ? 12 : 6;
     const grade = f.gradeFrom === f.gradeTo
       ? formatGrade(f.gradeFrom, active.type)
-      : f.gradeFrom === 1 && f.gradeTo === maxFormGrade
+      : f.gradeFrom === 1 && f.gradeTo === maxRawGrade(active.type)
         ? "All forms"
         : `${formatGrade(f.gradeFrom, active.type)}-${formatGrade(f.gradeTo, active.type)}`;
     return {
@@ -214,7 +213,24 @@ function FeeStructurePage() {
   const [editingLevyId, setEditingLevyId] = useState<string | null>(null);
   const [tab, setTab] = useState("tariff");
 
-  const emptyFeeForm = () => ({ category: FEE_CATEGORIES[0], customCategory: "", grade: gradeOptions[1], amount: "", frequency: "Per term" as FeeItem["frequency"], academicYear: "2026", term: "Term 2", dueDate: "", latePenaltyAmount: "", penaltyGraceDays: "7", notes: "", boardingStatus: "" });
+  // Defaulting these to the school's own current term/year (instead of a hardcoded literal)
+  // matters more than it looks: computeInitialBalance only bills a student against a fee
+  // structure whose academicYear/term match the school's current ones exactly — a fee
+  // created under a stale default silently never applies to anyone, with no visible error.
+  const emptyFeeForm = () => ({
+    category: FEE_CATEGORIES[0],
+    customCategory: "",
+    grade: gradeOptions[1],
+    amount: "",
+    frequency: "Per term" as FeeItem["frequency"],
+    academicYear: String(active.currentYear ?? new Date().getFullYear()),
+    term: `Term ${active.currentTerm ?? 1}`,
+    dueDate: "",
+    latePenaltyAmount: "",
+    penaltyGraceDays: "7",
+    notes: "",
+    boardingStatus: "",
+  });
   const emptyLevyForm = () => ({ name: "", amount: "", grade: gradeOptions[0], mandatory: true, description: "", applicableTo: "All students", effectiveFrom: "" });
   const [feeForm, setFeeForm] = useState(emptyFeeForm);
   const [levyForm, setLevyForm] = useState(emptyLevyForm);
@@ -232,15 +248,14 @@ function FeeStructurePage() {
     if (!cat) { toast.error("Please enter a custom category name"); return; }
     const isAllGrades = feeForm.grade === "All forms";
     const gradeNum = isAllGrades ? null : gradeLabelToNumber(feeForm.grade, active.type);
-    const maxGrade = active.type === "COMBINED" || active.type === "FULL" ? 12 : 6;
     const payload = {
       name: `${feeForm.grade} ${cat}`,
       gradeFrom: isAllGrades ? 1 : (gradeNum ?? 1),
-      gradeTo: isAllGrades ? maxGrade : (gradeNum ?? 1),
+      gradeTo: isAllGrades ? maxRawGrade(active.type) : (gradeNum ?? 1),
       termFee: Number(feeForm.amount),
       annualFee: Number(feeForm.amount) * 3,
       term: feeForm.term,
-      academicYear: Number(feeForm.academicYear) || 2026,
+      academicYear: Number(feeForm.academicYear) || active.currentYear || new Date().getFullYear(),
       dueDate: feeForm.dueDate || null,
       latePenaltyAmount: Number(feeForm.latePenaltyAmount) || null,
       penaltyGraceDays: Number(feeForm.penaltyGraceDays) || 7,
@@ -258,7 +273,7 @@ function FeeStructurePage() {
   const openFeeEdit = (feeId: string) => {
     const raw = rawFees.find((f: any) => f.id === feeId);
     if (!raw) return;
-    const isAllGrades = raw.gradeFrom === 1 && raw.gradeTo === (active.type === "COMBINED" || active.type === "FULL" ? 12 : 6) && raw.gradeFrom !== raw.gradeTo;
+    const isAllGrades = raw.gradeFrom === 1 && raw.gradeTo === maxRawGrade(active.type) && raw.gradeFrom !== raw.gradeTo;
     const gradeLabel = isAllGrades ? "All forms" : gradeOptions.find((g) => gradeLabelToNumber(g, active.type) === raw.gradeFrom) ?? gradeOptions[0];
     const nameParts = String(raw.name ?? "").split(" ");
     const category = FEE_CATEGORIES.find((c) => raw.name?.endsWith(c)) ?? "__other__";
@@ -268,8 +283,8 @@ function FeeStructurePage() {
       grade: gradeLabel,
       amount: String(raw.termFee ?? ""),
       frequency: "Per term",
-      academicYear: String(raw.academicYear ?? "2026"),
-      term: raw.term ?? "Term 2",
+      academicYear: String(raw.academicYear ?? active.currentYear ?? new Date().getFullYear()),
+      term: raw.term ?? `Term ${active.currentTerm ?? 1}`,
       dueDate: raw.dueDate ?? "",
       latePenaltyAmount: raw.latePenaltyAmount != null ? String(raw.latePenaltyAmount) : "",
       penaltyGraceDays: raw.penaltyGraceDays != null ? String(raw.penaltyGraceDays) : "7",

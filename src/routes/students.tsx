@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate, Outlet, useChildMatches } from "@tanstack/react-router";
-import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check, Trash2, Upload } from "lucide-react";
+import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check, Trash2, UserX, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/page-header";
-import { Button, Chip, Checkbox, FormControlLabel, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, TableContainer, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import { Button, Chip, Checkbox, FormControlLabel, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, TableContainer, Table, TableBody, TableCell, TableHead, TableRow, Tooltip } from "@mui/material";
 import { useTenant, formatGrade } from "@/lib/tenant";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -13,7 +13,7 @@ import { downloadCsv, badgeSx } from "@/lib/utils";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 
 export const Route = createFileRoute("/students")({
-  head: () => ({ meta: [{ title: "Students - SRMS" }] }),
+  head: () => ({ meta: [{ title: "Pupils - SRMS" }] }),
   component: StudentsPage,
 });
 
@@ -120,6 +120,15 @@ function StudentsListPage() {
   // to mirroring it, and only let staff type a different one when it's actually different.
   const [sameAsGuardianAddress, setSameAsGuardianAddress] = useState(true);
   const [form, setForm] = useState(createInitialForm);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<any | null>(null);
+  const [hardDeleteConfirmText, setHardDeleteConfirmText] = useState("");
+
+  type EnrollCandidate = { studentId: string; name: string; grade: number; section: string };
+  type EnrollReview = {
+    matched: (EnrollCandidate & { classId: string; className: string })[];
+    unmatched: EnrollCandidate[];
+  };
+  const [enrollReview, setEnrollReview] = useState<EnrollReview | null>(null);
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ["students", schoolId, teacherEmail],
@@ -130,9 +139,48 @@ function StudentsListPage() {
     mutationFn: (id: string) => api.students.delete(schoolId, id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["students", schoolId, teacherEmail] });
-      toast.success("Student record removed");
+      toast.success("Pupil record removed");
     },
-    onError: () => toast.error("Failed to remove student record"),
+    onError: () => toast.error("Failed to remove pupil record"),
+  });
+
+  const hardDeleteMutation = useMutation({
+    mutationFn: (id: string) => api.students.deletePermanently(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["students", schoolId, teacherEmail] });
+      toast.success("Pupil record permanently deleted");
+      setHardDeleteTarget(null);
+      setHardDeleteConfirmText("");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to permanently delete pupil record"),
+  });
+
+  const enrollMatchedMutation = useMutation({
+    mutationFn: async (matched: EnrollReview["matched"]) => {
+      const year = String(active.currentYear ?? new Date().getFullYear());
+      let succeeded = 0;
+      const failed: string[] = [];
+      for (const m of matched) {
+        try {
+          await api.classes.enrolStudent(schoolId, m.classId, {
+            studentId: m.studentId,
+            studentName: m.name,
+            grade: m.grade,
+            academicYear: year,
+          });
+          succeeded++;
+        } catch {
+          failed.push(m.name);
+        }
+      }
+      return { succeeded, failed };
+    },
+    onSuccess: ({ succeeded, failed }) => {
+      void qc.invalidateQueries({ queryKey: ["classes", schoolId] });
+      if (succeeded > 0) toast.success(`${succeeded} pupil${succeeded !== 1 ? "s" : ""} enrolled into their class`);
+      if (failed.length > 0) toast.error(`Could not enrol: ${failed.join(", ")}`);
+      setEnrollReview(null);
+    },
   });
 
   const createMutation = useMutation({
@@ -149,9 +197,16 @@ function StudentsListPage() {
           name: guardianName || "Guardian",
           email: guardianEmail,
           role: "PARENT",
-        }).then(() => {
+        }).then((created) => {
           void qc.invalidateQueries({ queryKey: ["school-users", schoolId] });
-          toast.info(`Parent login created — email: ${guardianEmail} · password: password123`);
+          // Leaving `password` unset makes the backend generate a random one-time password
+          // (returned here as temporaryPassword) instead of the old hardcoded "password123" —
+          // that string no longer actually works, so it must never be shown as if it does.
+          toast.info(
+            created.temporaryPassword
+              ? `Parent login created — email: ${guardianEmail} · temporary password: ${created.temporaryPassword}`
+              : `Parent login created — email: ${guardianEmail}`,
+          );
         }).catch(() => { /* login already exists for this guardian */ });
       }
 
@@ -160,7 +215,7 @@ function StudentsListPage() {
       setSameAsGuardianAddress(true);
       setOpen(false);
     },
-    onError: () => toast.error("Failed to enrol student"),
+    onError: () => toast.error("Failed to enrol pupil"),
   });
 
   const nextStep = () => {
@@ -203,12 +258,12 @@ function StudentsListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Students"
-        description="Admitted student register. To enrol a student into a class, open the Classes page and use Enrol pupils."
+        title="Pupils"
+        description="Admitted pupil register. To enrol a pupil into a class, open the Classes page and use Enrol pupils."
         actions={
           <>
             <Button variant="outlined" startIcon={<Download className="h-4 w-4" />} onClick={() => {
-              if (filtered.length === 0) { toast.error("No students to export"); return; }
+              if (filtered.length === 0) { toast.error("No pupils to export"); return; }
               downloadCsv(filtered.map((s: any) => ({
                 "Admission No": s.admissionNumber ?? "",
                 "First Name": s.firstName ?? "",
@@ -226,8 +281,8 @@ function StudentsListPage() {
                 "Blood Group": s.bloodGroup ?? "",
                 "Medical Conditions": s.medicalConditions ?? "",
                 Allergies: s.allergies ?? "",
-                "Student Phone": s.studentPhone ?? "",
-                "Student Email": s.studentEmail ?? "",
+                "Pupil Phone": s.studentPhone ?? "",
+                "Pupil Email": s.studentEmail ?? "",
                 Address: s.address ?? "",
                 City: s.city ?? "",
                 "Admission Date": s.admissionDate ?? "",
@@ -244,7 +299,7 @@ function StudentsListPage() {
                 "Emergency Contact Name": s.emergencyContactName ?? "",
                 "Emergency Contact Relationship": s.emergencyContactRelationship ?? "",
                 "Emergency Contact Phone": s.emergencyContactPhone ?? "",
-              })), `students-${new Date().toISOString().slice(0, 10)}`);
+              })), `pupils-${new Date().toISOString().slice(0, 10)}`);
             }}>
               Export
             </Button>
@@ -254,11 +309,11 @@ function StudentsListPage() {
               </Button>
             )}
             {canManage && <>
-              <Button variant="contained" startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Register student</Button>
+              <Button variant="contained" startIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Register pupil</Button>
               <Dialog open={open} onClose={() => { setOpen(false); setForm(createInitialForm()); setStep(1); setSameAsGuardianAddress(true); }} maxWidth="lg" fullWidth>
-                <DialogTitle>Register new student</DialogTitle>
+                <DialogTitle>Register new pupil</DialogTitle>
                 <DialogContent>
-                <DialogContentText sx={{ mb: 2 }}>Records the student's personal details. Class enrolment is done separately on the Classes page.</DialogContentText>
+                <DialogContentText sx={{ mb: 2 }}>Records the pupil's personal details. Class enrolment is done separately on the Classes page.</DialogContentText>
                 <div className="overflow-y-auto flex-1 pr-1">
 
                 {/* Step indicator */}
@@ -523,7 +578,7 @@ function StudentsListPage() {
                     ) : (
                       <Button variant="contained" onClick={enrol} disabled={createMutation.isPending}>
                         {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Register student
+                        Register pupil
                       </Button>
                     )}
                   </div>
@@ -567,7 +622,7 @@ function StudentsListPage() {
             Clear filters
           </Button>
         )}
-        <p className="ml-auto text-sm text-muted-foreground">{filtered.length} of {(students as any[]).length} students</p>
+        <p className="ml-auto text-sm text-muted-foreground">{filtered.length} of {(students as any[]).length} pupils</p>
       </div>
 
       {showFilters && (
@@ -601,7 +656,7 @@ function StudentsListPage() {
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" /><span>Loading students...</span>
+            <Loader2 className="h-5 w-5 animate-spin" /><span>Loading pupils...</span>
           </div>
         ) : (
           <TableContainer>
@@ -655,26 +710,40 @@ function StudentsListPage() {
                     />
                   </TableCell>
                   {canManage && <TableCell onClick={(e) => e.stopPropagation()}>
-                    <IconButton
-                      size="small"
-                      aria-label={`Remove ${fullStudentName(student)} from student records`}
-                      color="error"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => {
-                        const name = fullStudentName(student);
-                        if (window.confirm(`Remove ${name} (${student.admissionNumber}) from student records? This cannot be undone.`))
-                          deleteMutation.mutate(student.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </IconButton>
+                    <div className="flex items-center gap-1">
+                      <Tooltip title="Deactivate — keeps the record, can be reversed">
+                        <IconButton
+                          size="small"
+                          aria-label={`Deactivate ${fullStudentName(student)}`}
+                          color="error"
+                          disabled={deleteMutation.isPending}
+                          onClick={() => {
+                            const name = fullStudentName(student);
+                            if (window.confirm(`Deactivate ${name} (${student.admissionNumber})? Their record is kept and can be reactivated later.`))
+                              deleteMutation.mutate(student.id);
+                          }}
+                        >
+                          <UserX className="h-4 w-4" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Permanently delete — cannot be undone">
+                        <IconButton
+                          size="small"
+                          aria-label={`Permanently delete ${fullStudentName(student)}`}
+                          color="error"
+                          onClick={() => { setHardDeleteTarget(student); setHardDeleteConfirmText(""); }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </IconButton>
+                      </Tooltip>
+                    </div>
                   </TableCell>}
                 </TableRow>
               ))}
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No students match the current filters.
+                    No pupils match the current filters.
                   </TableCell>
                 </TableRow>
               )}
@@ -684,11 +753,94 @@ function StudentsListPage() {
         )}
       </div>
 
+      <Dialog open={!!hardDeleteTarget} onClose={() => setHardDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Permanently delete pupil?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This erases {hardDeleteTarget ? fullStudentName(hardDeleteTarget) : ""} and every
+            record tied to them — class enrolments, results, attendance, fee payments, health,
+            discipline and hostel/transport/activity records. This cannot be undone.
+          </DialogContentText>
+          <p className="mt-3 text-sm">
+            Type the admission number <strong>{hardDeleteTarget?.admissionNumber}</strong> to confirm.
+          </p>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            className="mt-2"
+            value={hardDeleteConfirmText}
+            onChange={(e) => setHardDeleteConfirmText(e.target.value)}
+            placeholder={hardDeleteTarget?.admissionNumber}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setHardDeleteTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={
+              !hardDeleteTarget ||
+              hardDeleteConfirmText.trim() !== hardDeleteTarget.admissionNumber ||
+              hardDeleteMutation.isPending
+            }
+            onClick={() => hardDeleteTarget && hardDeleteMutation.mutate(hardDeleteTarget.id)}
+          >
+            {hardDeleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Permanently delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!enrollReview} onClose={() => setEnrollReview(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Enrol imported pupils into their class?</DialogTitle>
+        <DialogContent>
+          {enrollReview && enrollReview.matched.length > 0 && (
+            <>
+              <p className="text-sm font-medium">
+                {enrollReview.matched.length} pupil{enrollReview.matched.length !== 1 ? "s" : ""} matched an existing class by Grade/Form{enrollReview.matched.some((m) => m.section) ? " and Section" : ""}:
+              </p>
+              <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-sm text-muted-foreground">
+                {enrollReview.matched.map((m) => (
+                  <li key={m.studentId}>{m.name} → {m.className}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {enrollReview && enrollReview.unmatched.length > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-sm font-medium text-amber-700">
+                {enrollReview.unmatched.length} pupil{enrollReview.unmatched.length !== 1 ? "s" : ""} had no single matching class (none exists yet for that Grade/Form, or more than one section exists and none matched what the CSV said) — enrol them manually from the Classes page:
+              </p>
+              <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                {enrollReview.unmatched.map((m) => (
+                  <li key={m.studentId}>{m.name} — {gradeLabel(m.grade)}{m.section ? ` ${m.section}` : ""}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setEnrollReview(null)}>
+            {enrollReview && enrollReview.matched.length > 0 ? "Skip enrolment" : "Close"}
+          </Button>
+          {enrollReview && enrollReview.matched.length > 0 && (
+            <Button
+              variant="contained"
+              disabled={enrollMatchedMutation.isPending}
+              onClick={() => enrollMatchedMutation.mutate(enrollReview.matched)}
+            >
+              {enrollMatchedMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enrol {enrollReview.matched.length} pupil{enrollReview.matched.length !== 1 ? "s" : ""}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
       <ImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        title="Import students"
-        entityName="student"
+        title="Import pupils"
+        entityName="pupil"
         columns={[
           { key: "firstName", label: "First Name", required: true, example: "Mwansa" },
           { key: "lastName", label: "Last Name", required: true, example: "Tembo" },
@@ -702,8 +854,8 @@ function StudentsListPage() {
           { key: "bloodGroup", label: "Blood Group", example: "O+" },
           { key: "medicalConditions", label: "Medical Conditions", example: "Asthma" },
           { key: "allergies", label: "Allergies", example: "Peanuts" },
-          { key: "studentPhone", label: "Student Phone", example: "+260 977 000001" },
-          { key: "studentEmail", label: "Student Email", example: "mwansa@example.com" },
+          { key: "studentPhone", label: "Pupil Phone", example: "+260 977 000001" },
+          { key: "studentEmail", label: "Pupil Email", example: "mwansa@example.com" },
           { key: "address", label: "Address", example: "12 Kalingalinga, Lusaka" },
           { key: "guardian", label: "Guardian Name", required: true, example: "Chanda Tembo" },
           { key: "guardianRelationship", label: "Guardian Relationship", example: "Father" },
@@ -749,8 +901,8 @@ function StudentsListPage() {
                 bloodGroup: row["Blood Group"]?.trim() || null,
                 medicalConditions: row["Medical Conditions"]?.trim() || null,
                 allergies: row["Allergies"]?.trim() || null,
-                studentPhone: row["Student Phone"]?.trim() || null,
-                studentEmail: row["Student Email"]?.trim() || null,
+                studentPhone: row["Pupil Phone"]?.trim() || null,
+                studentEmail: row["Pupil Email"]?.trim() || null,
                 address: row["Address"]?.trim() || null,
                 guardian: row["Guardian Name"].trim(),
                 guardianRelationship: row["Guardian Relationship"]?.trim() || null,
@@ -769,6 +921,33 @@ function StudentsListPage() {
               const bulk = await api.students.bulkCreate(schoolId, valid.map((v) => v.dto));
               result.imported += bulk.imported;
               bulk.errors.forEach((e) => result.errors.push({ row: valid[e.row]?.row ?? -1, error: e.error }));
+
+              // Offer to auto-enrol the newly created pupils into the class matching their
+              // Grade/Form (+ Section, if given) from the CSV — reviewed and confirmed here
+              // rather than enrolled silently, since a grade with several sections (or none
+              // yet created) needs a human to pick or create the right one.
+              if (bulk.created.length > 0) {
+                const classesRaw = await api.classes.list(schoolId);
+                const matched: EnrollReview["matched"] = [];
+                const unmatched: EnrollCandidate[] = [];
+                for (const c of bulk.created) {
+                  const source = valid[c.row];
+                  if (!source) continue;
+                  const candidate: EnrollCandidate = {
+                    studentId: c.id,
+                    name: `${source.dto.firstName} ${source.dto.lastName}`.trim(),
+                    grade: source.dto.grade,
+                    section: source.dto.section,
+                  };
+                  const sameGrade = (classesRaw as any[]).filter((cls: any) => Number(cls.grade) === candidate.grade);
+                  const best =
+                    sameGrade.find((cls: any) => (cls.section ?? "").toUpperCase() === candidate.section.toUpperCase()) ??
+                    (sameGrade.length === 1 ? sameGrade[0] : null);
+                  if (best) matched.push({ ...candidate, classId: best.id, className: best.name });
+                  else unmatched.push(candidate);
+                }
+                if (matched.length > 0 || unmatched.length > 0) setEnrollReview({ matched, unmatched });
+              }
             } catch (e: any) {
               valid.forEach((v) => result.errors.push({ row: v.row, error: e?.response?.data?.message ?? e?.message ?? "Unknown error" }));
             }

@@ -1,10 +1,10 @@
 import { createFileRoute, Link, useNavigate, Outlet, useChildMatches } from "@tanstack/react-router";
-import { Plus, Search, Mail, Phone, Loader2, Trash2, ClipboardCheck, AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
+import { Plus, Search, Mail, Phone, Loader2, Trash2, UserX, ClipboardCheck, AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { Button, Chip, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import { Button, Chip, IconButton, InputAdornment, MenuItem, TextField, Dialog, DialogContent, DialogActions, DialogTitle, DialogContentText, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
@@ -94,6 +94,19 @@ function TeachersListPage() {
     onError: () => toast.error("Failed to remove staff record"),
   });
 
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<any | null>(null);
+  const [hardDeleteConfirmText, setHardDeleteConfirmText] = useState("");
+  const hardDeleteMutation = useMutation({
+    mutationFn: (id: string) => api.teachers.deletePermanently(schoolId, id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["teachers", schoolId] });
+      toast.success("Staff record permanently deleted");
+      setHardDeleteTarget(null);
+      setHardDeleteConfirmText("");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to permanently delete staff record"),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: any) => api.teachers.create(schoolId, data),
     onSuccess: (t: any) => {
@@ -104,9 +117,16 @@ function TeachersListPage() {
           name: `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim(),
           email: t.email,
           role: "teacher",
-        }).then(() => {
+        }).then((created) => {
           void qc.invalidateQueries({ queryKey: ["school-users", schoolId] });
-          toast.info(`Teacher login created — email: ${t.email} · password: password123`);
+          // No password supplied above -> the backend generates a random one-time password
+          // (returned as temporaryPassword) rather than the old hardcoded "password123",
+          // which no longer actually works and must never be shown as if it does.
+          toast.info(
+            created.temporaryPassword
+              ? `Teacher login created — email: ${t.email} · temporary password: ${created.temporaryPassword}`
+              : `Teacher login created — email: ${t.email}`,
+          );
         }).catch(() => { /* login already exists */ });
       }
       setForm({
@@ -409,18 +429,32 @@ function TeachersListPage() {
                       </TableCell>
                       {canWrite && (
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <IconButton
-                            aria-label={`Remove ${t.firstName} ${t.lastName}`}
-                            size="small"
-                            color="error"
-                            disabled={deleteMutation.isPending}
-                            onClick={() => {
-                              if (window.confirm(`Remove ${t.firstName} ${t.lastName} from staff records? This cannot be undone.`))
-                                deleteMutation.mutate(t.id);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </IconButton>
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip title="Deactivate — keeps the record, can be reversed">
+                              <IconButton
+                                aria-label={`Deactivate ${t.firstName} ${t.lastName}`}
+                                size="small"
+                                color="error"
+                                disabled={deleteMutation.isPending}
+                                onClick={() => {
+                                  if (window.confirm(`Deactivate ${t.firstName} ${t.lastName}? Their record is kept and can be reactivated later.`))
+                                    deleteMutation.mutate(t.id);
+                                }}
+                              >
+                                <UserX className="h-4 w-4" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Permanently delete — cannot be undone">
+                              <IconButton
+                                aria-label={`Permanently delete ${t.firstName} ${t.lastName}`}
+                                size="small"
+                                color="error"
+                                onClick={() => { setHardDeleteTarget(t); setHardDeleteConfirmText(""); }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </IconButton>
+                            </Tooltip>
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -508,6 +542,45 @@ function TeachersListPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!hardDeleteTarget} onClose={() => setHardDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Permanently delete staff record?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This erases {hardDeleteTarget ? `${hardDeleteTarget.firstName} ${hardDeleteTarget.lastName}` : ""} and
+            their own tied records — signature, teaching assignments, and timetable slots. Any
+            class they lead as class teacher or department they head is unassigned, not deleted.
+            Their authorship on past grades, assessments, and attendance is kept as history. This cannot be undone.
+          </DialogContentText>
+          <p className="mt-3 text-sm">
+            Type the staff number <strong>{hardDeleteTarget?.staffNumber}</strong> to confirm.
+          </p>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            className="mt-2"
+            value={hardDeleteConfirmText}
+            onChange={(e) => setHardDeleteConfirmText(e.target.value)}
+            placeholder={hardDeleteTarget?.staffNumber}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setHardDeleteTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={
+              !hardDeleteTarget ||
+              hardDeleteConfirmText.trim() !== hardDeleteTarget.staffNumber ||
+              hardDeleteMutation.isPending
+            }
+            onClick={() => hardDeleteTarget && hardDeleteMutation.mutate(hardDeleteTarget.id)}
+          >
+            {hardDeleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Permanently delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <ImportDialog
         open={importOpen}
