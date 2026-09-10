@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Shield, Trash2, UserPlus, Check, X, Pencil, Loader2, Save, KeyRound, Copy } from "lucide-react";
+import {
+  Plus, Shield, Trash2, UserPlus, Check, X, Pencil, Loader2, Save, KeyRound, Copy,
+  Crown, ShieldCheck, GraduationCap, ClipboardList, Wallet, UsersRound, Award, UserCog, Compass,
+  Search, type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -9,6 +13,7 @@ import {
   Button,
   Chip,
   IconButton,
+  InputAdornment,
   TextField,
   MenuItem,
   Dialog,
@@ -24,6 +29,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
 } from "@mui/material";
 
 import { PageHeader, StatCard } from "@/components/page-header";
@@ -32,6 +38,20 @@ import { AccessGuard } from "@/components/access-guard";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
 import { badgeSx } from "@/lib/utils";
+
+// Gives each role's stat card and directory chip a distinct icon — the cards rendered as
+// bare numbers before, which read as unfinished next to every other stats row in the app.
+const ROLE_ICONS: Record<Role, LucideIcon> = {
+  super_admin: Crown,
+  school_admin: ShieldCheck,
+  teacher: GraduationCap,
+  hod: ClipboardList,
+  finance: Wallet,
+  parent: UsersRound,
+  principal: Award,
+  deputy_head: UserCog,
+  career_guidance: Compass,
+};
 
 export const Route = createFileRoute("/access")({
   head: () => ({ meta: [{ title: "Access Management — SRMS" }] }),
@@ -510,10 +530,20 @@ function AccessPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {counts.map((c) => (
-          <StatCard key={c.role} label={ROLE_META[c.role].label} value={c.count} accent="primary" />
-        ))}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {counts.map((c) => {
+          const Icon = ROLE_ICONS[c.role];
+          return (
+            <StatCard
+              key={c.role}
+              label={ROLE_META[c.role].label}
+              value={c.count}
+              hint={c.count === 1 ? "1 person in this role" : `${c.count} people in this role`}
+              accent="primary"
+              icon={<Icon className="h-5 w-5" />}
+            />
+          );
+        })}
       </div>
 
       <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -525,16 +555,30 @@ function AccessPage() {
       {/* ── Tab 1: Users ──────────────────────────────────────────────── */}
       {tab === "users" && (
         <Box>
-          <p className="mb-3 text-sm text-muted-foreground">Change a user's role using the <strong>Role</strong> dropdown on each row. Use <strong>Add user</strong> above to invite new staff.</p>
-          <TextField
-            size="small"
-            className="mb-3 max-w-xs"
-            fullWidth
-            value={userSearch}
-            onChange={(e) => setUserSearch(e.target.value)}
-            placeholder="Search by name, email, or role"
-          />
-          <div className="rounded-xl border border-border bg-card shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border bg-gradient-to-r from-primary/[0.07] via-card to-accent/[0.08] px-4 py-5 sm:px-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">Team directory</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Change a user's role using the <strong>Role</strong> dropdown on each row. Use <strong>Add user</strong> above to invite new staff.
+                  </p>
+                </div>
+                <div className="w-full lg:max-w-md">
+                  <TextField
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Search by name, email, or role"
+                    fullWidth
+                    size="small"
+                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> } }}
+                  />
+                  <p className="mt-2 text-right text-xs text-muted-foreground">
+                    Showing {filteredUsers.length} of {users.length} user{users.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </div>
+            </div>
             {usersLoading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />Loading users…
@@ -547,7 +591,7 @@ function AccessPage() {
                   <TableCell>User</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Role</TableCell>
-                  <TableCell className="w-32 text-right">Actions</TableCell>
+                  <TableCell className="text-right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -581,23 +625,27 @@ function AccessPage() {
                         <div className="flex items-center justify-end gap-1">
                           {u.hasLogin ? (
                             <>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<KeyRound size={12} />}
-                                sx={{ height: 28 }}
-                                onClick={() => { setResetTarget({ id: u.id, name: u.name, email: u.email }); setResetPassword(""); }}
-                              >
-                                Reset password
-                              </Button>
-                              <IconButton
-                                aria-label="Remove user"
-                                size="small"
-                                onClick={() => handleRemoveUser(u.id, u.name)}
-                                disabled={u.id === user?.id}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </IconButton>
+                              <Tooltip title="Reset password">
+                                <IconButton
+                                  aria-label={`Reset password for ${u.name}`}
+                                  size="small"
+                                  onClick={() => { setResetTarget({ id: u.id, name: u.name, email: u.email }); setResetPassword(""); }}
+                                >
+                                  <KeyRound className="h-4 w-4" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={u.id === user?.id ? "You can't remove your own login" : "Remove login"}>
+                                <span>
+                                  <IconButton
+                                    aria-label={`Remove ${u.name}`}
+                                    size="small"
+                                    onClick={() => handleRemoveUser(u.id, u.name)}
+                                    disabled={u.id === user?.id}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
                             </>
                           ) : (
                             <Button
@@ -627,7 +675,7 @@ function AccessPage() {
             </Table>
             </TableContainer>
             )}
-          </div>
+          </section>
         </Box>
       )}
 
@@ -695,9 +743,11 @@ function AccessPage() {
                 </tr>
               </thead>
               <tbody>
-                {modules.map((m) => (
-                  <tr key={m} className="border-b border-border last:border-0">
-                    <td className="p-3 font-medium capitalize sticky left-0 bg-card z-10 border-r border-border/40">
+                {modules.map((m, i) => {
+                  const rowBg = i % 2 === 1 ? "bg-muted/25" : "bg-card";
+                  return (
+                  <tr key={m} className={`border-b border-border last:border-0 ${rowBg}`}>
+                    <td className={`p-3 font-medium capitalize sticky left-0 z-10 border-r border-border/40 ${rowBg}`}>
                       {moduleLabel(m)}
                     </td>
                     {/* System roles — editable (super admin) or effective-value read-only (everyone else) */}
@@ -754,7 +804,8 @@ function AccessPage() {
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -804,7 +855,12 @@ function AccessPage() {
                 <div key={r} className="rounded-xl border border-border bg-card p-5 shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className={`rounded px-2 py-1 text-xs font-semibold ${ROLE_META[r].tone}`}>{ROLE_META[r].label}</span>
-                    <span className="text-xs text-muted-foreground">{users.filter((u) => u.role === r).length} users</span>
+                    <span className="text-xs text-muted-foreground">
+                      {(() => {
+                        const n = users.filter((u) => u.role === r).length;
+                        return `${n} user${n === 1 ? "" : "s"}`;
+                      })()}
+                    </span>
                   </div>
                   <p className="mt-3 text-sm text-muted-foreground">{ROLE_META[r].description}</p>
                   <div className="mt-4 flex flex-wrap gap-1">
