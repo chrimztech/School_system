@@ -11,6 +11,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/vendor-management")({
   head: () => ({ meta: [{ title: "Vendor Management — SRMS" }] }),
@@ -116,6 +117,7 @@ function VendorManagementPage() {
 
   const activeCount = (vendors as any[]).filter((v: any) => v.status === "Active").length;
   const expiringCount = (vendors as any[]).filter((v: any) => v.status !== "Active").length;
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedVendors, totalCount: vendorsTotalCount } = usePagedRows(vendors as any[]);
 
   return (
     <AccessGuard module="vendor-management">
@@ -194,7 +196,7 @@ function VendorManagementPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : (vendors as any[]).map((v: any) => (
+              ) : pagedVendors.map((v: any) => (
                 <TableRow key={v.id}>
                   <TableCell className="font-medium">{v.name}</TableCell>
                   <TableCell>{v.category}</TableCell>
@@ -220,6 +222,15 @@ function VendorManagementPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {!isLoading && vendorsTotalCount > 0 && (
+            <ListPagination
+              count={vendorsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">

@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/student-welfare")({
   head: () => ({ meta: [{ title: "Pupil Welfare — SRMS" }] }),
@@ -104,6 +105,12 @@ function StudentWelfarePage() {
   });
   const highRisk = atRiskCases.length;
 
+  const caseList = cases as any[];
+  const sessionList = sessions as any[];
+  const { page: casesPage, setPage: setCasesPage, pageSize: casesPageSize, setPageSize: setCasesPageSize, pagedRows: pagedCases, totalCount: casesTotalCount } = usePagedRows(caseList);
+  const { page: sessionsPage, setPage: setSessionsPage, pageSize: sessionsPageSize, setPageSize: setSessionsPageSize, pagedRows: pagedSessions, totalCount: sessionsTotalCount } = usePagedRows(sessionList);
+  const { page: atRiskPage, setPage: setAtRiskPage, pageSize: atRiskPageSize, setPageSize: setAtRiskPageSize, pagedRows: pagedAtRiskCases, totalCount: atRiskTotalCount } = usePagedRows(atRiskCases);
+
   return (
     <AccessGuard module="student-welfare">
       <div className="space-y-6">
@@ -195,7 +202,7 @@ function StudentWelfarePage() {
             <TableBody>
               {casesLoading ? (
                 <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : (cases as any[]).map((c: any) => (
+              ) : pagedCases.map((c: any) => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.student}</TableCell>
                   <TableCell>{c.grade}</TableCell>
@@ -218,6 +225,15 @@ function StudentWelfarePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {!casesLoading && casesTotalCount > 0 && (
+            <ListPagination
+              count={casesTotalCount}
+              page={casesPage}
+              pageSize={casesPageSize}
+              onPageChange={setCasesPage}
+              onPageSizeChange={setCasesPageSize}
+            />
+          )}
         </Box>
       )}
 
@@ -288,7 +304,7 @@ function StudentWelfarePage() {
             <TableBody>
               {sessionsLoading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : (sessions as any[]).map((s: any) => (
+              ) : pagedSessions.map((s: any) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.student}</TableCell>
                   <TableCell className="text-muted-foreground">{s.counselor}</TableCell>
@@ -300,6 +316,15 @@ function StudentWelfarePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {!sessionsLoading && sessionsTotalCount > 0 && (
+            <ListPagination
+              count={sessionsTotalCount}
+              page={sessionsPage}
+              pageSize={sessionsPageSize}
+              onPageChange={setSessionsPage}
+              onPageSizeChange={setSessionsPageSize}
+            />
+          )}
         </Box>
       )}
 
@@ -324,7 +349,7 @@ function StudentWelfarePage() {
                   <TableCell className="text-right">Action</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {atRiskCases.map((c: any) => (
+                  {pagedAtRiskCases.map((c: any) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.student}</TableCell>
                       <TableCell>{c.grade}</TableCell>
@@ -346,6 +371,15 @@ function StudentWelfarePage() {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+          {atRiskTotalCount > 0 && (
+            <ListPagination
+              count={atRiskTotalCount}
+              page={atRiskPage}
+              pageSize={atRiskPageSize}
+              onPageChange={setAtRiskPage}
+              onPageSizeChange={setAtRiskPageSize}
+            />
           )}
         </Box>
       )}

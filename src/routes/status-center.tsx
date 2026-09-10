@@ -27,6 +27,7 @@ import { useAuth } from "@/lib/auth";
 import { appendMaintenanceWindow, appendPlatformAuditEvent, appendStatusIncident, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type IncidentLevel = "Minor" | "Major" | "Critical";
 type IncidentState = "Monitoring" | "Investigating" | "Resolved";
@@ -77,6 +78,8 @@ function StatusCenterPage() {
     publishedMaintenance: maintenance.filter((window) => window.published).length,
     publicStatus: statusPageEnabled ? "Live" : "Hidden",
   }), [incidents, maintenance, statusPageEnabled]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedIncidents, totalCount: incidentsTotalCount } = usePagedRows(incidents);
 
   if (user?.role !== "super_admin") {
     return (
@@ -349,7 +352,7 @@ function StatusCenterPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {incidents.map((incident) => (
+              {pagedIncidents.map((incident) => (
                 <TableRow key={incident.id}>
                   <TableCell>
                     <div>
@@ -371,6 +374,15 @@ function StatusCenterPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {incidentsTotalCount > 0 && (
+            <ListPagination
+              count={incidentsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
       )}
 

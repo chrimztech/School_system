@@ -11,6 +11,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { downloadCsv, badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({ meta: [{ title: "Inventory & Procurement — SRMS" }] }),
@@ -170,6 +171,7 @@ function InventoryPage() {
   }));
   const lowCount = stockItems.filter((i: any) => i.qty < i.min).length;
   const visible = lowOnly ? stockItems.filter((i: any) => i.qty < i.min) : stockItems;
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedVisible, totalCount: visibleTotalCount } = usePagedRows(visible);
 
   return (
     <AccessGuard module="inventory">
@@ -415,7 +417,7 @@ function InventoryPage() {
                 <TableCell>Unit cost</TableCell><TableCell className="text-right">Action</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {visible.map((i: any) => {
+                {pagedVisible.map((i: any) => {
                   const qty = i.qty ?? i.quantity ?? 0;
                   const min = i.min ?? i.minQuantity ?? 10;
                   const low = qty < min;
@@ -446,6 +448,15 @@ function InventoryPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {visibleTotalCount > 0 && (
+            <ListPagination
+              count={visibleTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </Box>
       )}

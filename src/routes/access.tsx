@@ -38,6 +38,7 @@ import { AccessGuard } from "@/components/access-guard";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 // Gives each role's stat card and directory chip a distinct icon — the cards rendered as
 // bare numbers before, which read as unfinished next to every other stats row in the app.
@@ -482,12 +483,20 @@ function AccessPage() {
   const visibleSystemRoles = (Object.keys(ROLE_META) as Role[]).filter(
     (r) => isSystemAdmin || r !== "super_admin"
   );
+  // School leadership can edit staff-level system roles (teacher, hod, finance, parent,
+  // career_guidance) for their own school, but never a leadership role (school_admin,
+  // principal, deputy_head) or super_admin — editing one of those would let a school admin
+  // raise their own role's ceiling, a self-privilege-escalation path. Mirrors the backend
+  // guard in SystemRolePermissionController.
+  const canEditSystemRole = (r: Role) =>
+    isSystemAdmin || (isSchoolLeadershipRole(user.role) && r !== "super_admin" && !isSchoolLeadershipRole(r));
 
   const filteredUsers = users.filter((u) => {
     const q = userSearch.trim().toLowerCase();
     if (!q) return true;
     return [u.name, u.email, u.role].some((v) => (v ?? "").toLowerCase().includes(q));
   });
+  const { page: usersPage, setPage: setUsersPage, pageSize: usersPageSize, setPageSize: setUsersPageSize, pagedRows: pagedUsers, totalCount: usersTotalCount } = usePagedRows(filteredUsers);
 
   const counts = visibleSystemRoles.map((r) => ({
     role: r,
@@ -595,7 +604,7 @@ function AccessPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredUsers.map((u) => (
+                {pagedUsers.map((u) => (
                     <TableRow key={u.id} className={!u.hasLogin ? "opacity-70" : ""}>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -675,6 +684,15 @@ function AccessPage() {
             </Table>
             </TableContainer>
             )}
+            {usersTotalCount > 0 && (
+              <ListPagination
+                count={usersTotalCount}
+                page={usersPage}
+                pageSize={usersPageSize}
+                onPageChange={setUsersPage}
+                onPageSizeChange={setUsersPageSize}
+              />
+            )}
           </section>
         </Box>
       )}
@@ -689,16 +707,18 @@ function AccessPage() {
                   <th className="p-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground sticky left-0 bg-muted/40 z-10">
                     Module
                   </th>
-                  {/* System role columns — editable by super admin only; read-only (but still
-                      reflecting any override a super admin has set) for everyone else. Each
-                      editable column carries its own Save button, shown only once that column
-                      has an unsaved edit, rather than a permanent wall of buttons below the
-                      table for every role regardless of whether it changed. */}
+                  {/* System role columns — editable by super admin for every role, and by
+                      school leadership for staff-level roles only (never a leadership role or
+                      super_admin — see canEditSystemRole); read-only (but still reflecting any
+                      override that's been set) for everyone else. Each editable column carries
+                      its own Save button, shown only once that column has an unsaved edit,
+                      rather than a permanent wall of buttons below the table for every role
+                      regardless of whether it changed. */}
                   {visibleSystemRoles.map((r) => (
                     <th key={r} className="p-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                       <div className="flex flex-col items-center gap-1">
                         <span>{ROLE_META[r].label}</span>
-                        {isSystemAdmin && r !== "super_admin" && (
+                        {canEditSystemRole(r) && (
                           dirtySysRoles.has(r) ? (
                             <Button
                               size="small"
@@ -750,12 +770,12 @@ function AccessPage() {
                     <td className={`p-3 font-medium capitalize sticky left-0 z-10 border-r border-border/40 ${rowBg}`}>
                       {moduleLabel(m)}
                     </td>
-                    {/* System roles — editable (super admin) or effective-value read-only (everyone else) */}
+                    {/* System roles — editable per canEditSystemRole, or effective-value read-only otherwise */}
                     {visibleSystemRoles.map((r) => {
                       const baseline = ACCESS[r][m];
                       const override = r === "super_admin" ? undefined : sysPendingPerms[r]?.[m];
 
-                      if (isSystemAdmin && r !== "super_admin") {
+                      if (canEditSystemRole(r)) {
                         return (
                           <td key={r} className="p-2 text-center">
                             <TextField

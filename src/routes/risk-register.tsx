@@ -25,6 +25,7 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/risk-register")({
   head: () => ({ meta: [{ title: "Risk Register - SRMS" }] }),
@@ -110,6 +111,7 @@ function RiskRegisterPage() {
   const openRisks = (risks as any[]).filter((r: any) => r.status !== "Closed");
   const criticalRisks = (risks as any[]).filter((r: any) => r.likelihood === "High" && r.impact === "High" && r.status !== "Closed");
   const monitored = (risks as any[]).filter((r: any) => r.status === "Monitoring");
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedRisks, totalCount: risksTotalCount } = usePagedRows(risks as any[]);
 
   return (
     <div className="space-y-6">
@@ -191,7 +193,7 @@ function RiskRegisterPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : (risks as any[]).map((r: any) => (
+              ) : pagedRisks.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell>
                     <div className="font-medium">{r.title}</div>
@@ -225,6 +227,15 @@ function RiskRegisterPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {!isLoading && risksTotalCount > 0 && (
+            <ListPagination
+              count={risksTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
       )}
 

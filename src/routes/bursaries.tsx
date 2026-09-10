@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/bursaries")({
   head: () => ({ meta: [{ title: "Bursaries - SRMS" }] }),
@@ -199,6 +200,9 @@ function BursariesPage() {
   const annualValue = awards.filter((a: any) => a.status !== "Closed").reduce((sum: number, a: any) => sum + (Number(a.amount) || 0), 0);
   const reviewQueue = applications.filter((a) => a.status === "Review" || a.status === "Submitted").length;
   const renewalsDue = renewals.filter((r) => r.status !== "Approved").length;
+
+  const { page: awardsPage, setPage: setAwardsPage, pageSize: awardsPageSize, setPageSize: setAwardsPageSize, pagedRows: pagedAwards, totalCount: awardsTotalCount } = usePagedRows(awards);
+  const { page: applicationsPage, setPage: setApplicationsPage, pageSize: applicationsPageSize, setPageSize: setApplicationsPageSize, pagedRows: pagedApplications, totalCount: applicationsTotalCount } = usePagedRows(applications);
 
   return (
     <AccessGuard module="bursaries">
@@ -394,7 +398,7 @@ function BursariesPage() {
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading awards...</TableCell></TableRow>
               ) : awards.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No bursary awards found in the database.</TableCell></TableRow>
-              ) : awards.map((a: any) => (
+              ) : pagedAwards.map((a: any) => (
                 <TableRow key={a.id}>
                   <TableCell>
                     <div className="font-medium">{a.student}</div>
@@ -420,6 +424,15 @@ function BursariesPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {!awardsLoading && awardsTotalCount > 0 && (
+            <ListPagination
+              count={awardsTotalCount}
+              page={awardsPage}
+              pageSize={awardsPageSize}
+              onPageChange={setAwardsPage}
+              onPageSizeChange={setAwardsPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -442,7 +455,7 @@ function BursariesPage() {
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading applications...</TableCell></TableRow>
               ) : applications.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No bursary applications found in the database.</TableCell></TableRow>
-              ) : applications.map((a) => (
+              ) : pagedApplications.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{a.student}</TableCell>
                   <TableCell>K {a.requested.toLocaleString()}</TableCell>
@@ -467,6 +480,15 @@ function BursariesPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {!applicationsLoading && applicationsTotalCount > 0 && (
+            <ListPagination
+              count={applicationsTotalCount}
+              page={applicationsPage}
+              pageSize={applicationsPageSize}
+              onPageChange={setApplicationsPage}
+              onPageSizeChange={setApplicationsPageSize}
+            />
+          )}
         </div>
       )}
 

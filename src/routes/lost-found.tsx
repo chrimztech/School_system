@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, type BadgeTone, downloadCsv } from "@/lib/utils";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/lost-found")({
   head: () => ({ meta: [{ title: "Lost & Found — SRMS" }] }),
@@ -123,6 +124,10 @@ function LostFoundPage() {
       !lq || i.description.toLowerCase().includes(lq) || (i.category ?? "").toLowerCase().includes(lq) || i.location.toLowerCase().includes(lq),
     );
   }, [items, q]);
+
+  const { page: unclaimedPage, setPage: setUnclaimedPage, pageSize: unclaimedPageSize, setPageSize: setUnclaimedPageSize, pagedRows: pagedUnclaimed, totalCount: unclaimedTotalCount } = usePagedRows(unclaimed);
+  const { page: claimedPage, setPage: setClaimedPage, pageSize: claimedPageSize, setPageSize: setClaimedPageSize, pagedRows: pagedClaimed, totalCount: claimedTotalCount } = usePagedRows(claimed);
+  const { page: allItemsPage, setPage: setAllItemsPage, pageSize: allItemsPageSize, setPageSize: setAllItemsPageSize, pagedRows: pagedFiltered, totalCount: allItemsTotalCount } = usePagedRows(filtered);
 
   const logItem = () => {
     if (!logForm.description.trim() || !logForm.foundDate.trim()) { toast.error("Description and found date are required"); return; }
@@ -341,7 +346,7 @@ function LostFoundPage() {
               <TableBody>
                 {unclaimed.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No unclaimed items.</TableCell></TableRow>
-                ) : unclaimed.map((item: any) => (
+                ) : pagedUnclaimed.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium max-w-[160px] truncate" title={item.description}>{item.description}</TableCell>
                     <TableCell><Chip size="small" label={item.category} sx={badgeSx("outline")} /></TableCell>
@@ -367,6 +372,15 @@ function LostFoundPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {unclaimedTotalCount > 0 && (
+              <ListPagination
+                count={unclaimedTotalCount}
+                page={unclaimedPage}
+                pageSize={unclaimedPageSize}
+                onPageChange={setUnclaimedPage}
+                onPageSizeChange={setUnclaimedPageSize}
+              />
+            )}
           </Box>
         )}
 
@@ -383,7 +397,7 @@ function LostFoundPage() {
               <TableBody>
                 {claimed.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No claimed items.</TableCell></TableRow>
-                ) : claimed.map((item: any) => (
+                ) : pagedClaimed.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium max-w-[160px] truncate" title={item.description}>{item.description}</TableCell>
                     <TableCell><Chip size="small" label={item.category} sx={badgeSx("outline")} /></TableCell>
@@ -396,6 +410,15 @@ function LostFoundPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {claimedTotalCount > 0 && (
+              <ListPagination
+                count={claimedTotalCount}
+                page={claimedPage}
+                pageSize={claimedPageSize}
+                onPageChange={setClaimedPage}
+                onPageSizeChange={setClaimedPageSize}
+              />
+            )}
           </Box>
         )}
 
@@ -423,7 +446,7 @@ function LostFoundPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((item: any) => (
+                {pagedFiltered.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium max-w-[160px] truncate" title={item.description}>{item.description}</TableCell>
                     <TableCell><Chip size="small" label={item.category} sx={badgeSx("outline")} /></TableCell>
@@ -439,6 +462,15 @@ function LostFoundPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {allItemsTotalCount > 0 && (
+              <ListPagination
+                count={allItemsTotalCount}
+                page={allItemsPage}
+                pageSize={allItemsPageSize}
+                onPageChange={setAllItemsPage}
+                onPageSizeChange={setAllItemsPageSize}
+              />
+            )}
           </Box>
         )}
         </Box>

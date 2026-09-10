@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 import { AccessGuard } from "@/components/access-guard";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/teachers")({
   head: () => ({ meta: [{ title: "Teachers — SRMS" }] }),
@@ -192,7 +193,12 @@ function TeachersListPage() {
       return `${name} ${t.staffNumber ?? ""} ${t.subject ?? ""}`.toLowerCase().includes(q.toLowerCase());
     }),
     [q, staffList],
+
   );
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedStaff, totalCount: staffTotalCount } = usePagedRows(filtered);
+  const activeStaffList = useMemo(() => staffList.filter((t: any) => (t.status ?? "").toLowerCase() === "active"), [staffList]);
+  const { page: auditPage, setPage: setAuditPage, pageSize: auditPageSize, setPageSize: setAuditPageSize, pagedRows: pagedAuditStaff, totalCount: auditTotalCount } = usePagedRows(activeStaffList);
 
   const activeCount = staffList.filter((t) => (t.status ?? "").toLowerCase() === "active").length;
   const leaveCount = staffList.filter((t) => (t.status ?? "").toLowerCase() === "on_leave").length;
@@ -398,7 +404,7 @@ function TeachersListPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filtered.map((t: any) => (
+                  {pagedStaff.map((t: any) => (
                     <TableRow
                       key={t.id}
                       className="cursor-pointer hover:bg-muted/30"
@@ -468,6 +474,15 @@ function TeachersListPage() {
               </Table>
               </TableContainer>
             )}
+            {staffTotalCount > 0 && (
+              <ListPagination
+                count={staffTotalCount}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            )}
           </div>
         </div>
       )}
@@ -492,7 +507,7 @@ function TeachersListPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {staffList.filter((t: any) => (t.status ?? "").toLowerCase() === "active").map((t: any) => {
+                {pagedAuditStaff.map((t: any) => {
                   const slots = slotsByTeacher[t.id] ?? 0;
                   const assessments = assessmentsByTeacher[t.id] ?? 0;
                   const ok = slots > 0 && assessments > 0;
@@ -531,7 +546,7 @@ function TeachersListPage() {
                     </TableRow>
                   );
                 })}
-                {staffList.filter((t: any) => (t.status ?? "").toLowerCase() === "active").length === 0 && (
+                {activeStaffList.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No active staff found.</TableCell>
                   </TableRow>
@@ -539,6 +554,15 @@ function TeachersListPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {auditTotalCount > 0 && (
+              <ListPagination
+                count={auditTotalCount}
+                page={auditPage}
+                pageSize={auditPageSize}
+                onPageChange={setAuditPage}
+                onPageSizeChange={setAuditPageSize}
+              />
+            )}
           </div>
         </div>
       )}

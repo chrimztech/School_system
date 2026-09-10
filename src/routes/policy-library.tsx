@@ -25,6 +25,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/policy-library")({
   head: () => ({ meta: [{ title: "Policy Library — SRMS" }] }),
@@ -59,6 +60,8 @@ function PolicyLibraryPage() {
     () => (reviewOnly ? docs.filter((doc) => doc.status === "Review") : docs),
     [docs, reviewOnly],
   );
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedDocs, totalCount: docsTotalCount } = usePagedRows(visibleDocs);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.policyDocuments.create(schoolId, data),
@@ -249,7 +252,7 @@ function PolicyLibraryPage() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
-            ) : visibleDocs.map((doc) => (
+            ) : pagedDocs.map((doc) => (
               <TableRow key={doc.id}>
                 <TableCell>
                   <div className="font-medium">{doc.title}</div>
@@ -296,6 +299,15 @@ function PolicyLibraryPage() {
           </TableBody>
         </Table>
         </TableContainer>
+        {!isLoading && docsTotalCount > 0 && (
+          <ListPagination
+            count={docsTotalCount}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
     </div>
   );

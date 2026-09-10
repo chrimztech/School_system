@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { appendApprovalItem, appendExportJob, appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, downloadCsv, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type AuditSeverity = "Info" | "Warning" | "Critical";
 type AuditEvent = {
@@ -47,6 +48,8 @@ function PlatformAuditPage() {
     if (!q) return true;
     return [event.actor, event.tenant, event.area, event.action, event.id].some((value) => value.toLowerCase().includes(q));
   }), [events, query]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedEvents, totalCount: eventsTotalCount } = usePagedRows(filtered);
 
   if (user?.role !== "super_admin") {
     return (
@@ -198,7 +201,7 @@ function PlatformAuditPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((event) => (
+              {pagedEvents.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell>
                     <div>
@@ -227,6 +230,15 @@ function PlatformAuditPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {eventsTotalCount > 0 && (
+            <ListPagination
+              count={eventsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
       )}
 

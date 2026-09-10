@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/ptc")({
   head: () => ({ meta: [{ title: "PTC Committee — SRMS" }] }),
@@ -314,6 +315,9 @@ function PtcPage() {
     .sort((a, b) => (a.meetingDate < b.meetingDate ? -1 : 1))[0];
   const balance = transactions.reduce((sum, t) => sum + (t.type === "EXPENSE" ? -Number(t.amount || 0) : Number(t.amount || 0)), 0);
 
+  const { page: membersPage, setPage: setMembersPage, pageSize: membersPageSize, setPageSize: setMembersPageSize, pagedRows: pagedMembers, totalCount: membersTotalCount } = usePagedRows(members);
+  const { page: txPage, setPage: setTxPage, pageSize: txPageSize, setPageSize: setTxPageSize, pagedRows: pagedTransactions, totalCount: txTotalCount } = usePagedRows(transactions);
+
   return (
     <AccessGuard module="ptc">
       <div className="space-y-6">
@@ -443,7 +447,7 @@ function PtcPage() {
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading committee…</TableCell></TableRow>
                 ) : members.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No committee members recorded yet.</TableCell></TableRow>
-                ) : members.map((m) => (
+                ) : pagedMembers.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell>
                       <div className="font-medium">{m.name}</div>
@@ -470,6 +474,15 @@ function PtcPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {!membersLoading && membersTotalCount > 0 && (
+              <ListPagination
+                count={membersTotalCount}
+                page={membersPage}
+                pageSize={membersPageSize}
+                onPageChange={setMembersPage}
+                onPageSizeChange={setMembersPageSize}
+              />
+            )}
           </Box>
         )}
 
@@ -559,7 +572,7 @@ function PtcPage() {
                       <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading transactions…</TableCell></TableRow>
                     ) : transactions.length === 0 ? (
                       <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No transactions recorded yet.</TableCell></TableRow>
-                    ) : transactions.map((t) => (
+                    ) : pagedTransactions.map((t) => (
                       <TableRow key={t.id}>
                         <TableCell className="text-xs text-muted-foreground">{t.date}</TableCell>
                         <TableCell><Chip size="small" label={t.category} sx={badgeSx("outline")} /></TableCell>
@@ -578,6 +591,15 @@ function PtcPage() {
                   </TableBody>
                 </Table>
                 </TableContainer>
+                {!txLoading && txTotalCount > 0 && (
+                  <ListPagination
+                    count={txTotalCount}
+                    page={txPage}
+                    pageSize={txPageSize}
+                    onPageChange={setTxPage}
+                    onPageSizeChange={setTxPageSize}
+                  />
+                )}
               </div>
           </Box>
         )}

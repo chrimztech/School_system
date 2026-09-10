@@ -27,6 +27,7 @@ import {
   type PlanId, type SubscriptionStatus, type BillingCycle, type TenantFeatureFlags,
 } from "@/lib/tenant";
 import { PLAN_UI, STATUS_UI } from "@/lib/subscription";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/sys-admin")({
   head: () => ({ meta: [{ title: "System Administration — SRMS" }] }),
@@ -157,6 +158,10 @@ function SysAdminPage() {
         t.campuses.some((campus) => campus.name.toLowerCase().includes(lq)),
     );
   }, [tenants, q]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedSchools, totalCount: schoolsTotalCount } = usePagedRows(filtered);
+  const { page: revenuePage, setPage: setRevenuePage, pageSize: revenuePageSize, setPageSize: setRevenuePageSize, pagedRows: pagedRevenueSchools, totalCount: revenueTotalCount } = usePagedRows(tenants);
+  const { page: testimonialsPage, setPage: setTestimonialsPage, pageSize: testimonialsPageSize, setPageSize: setTestimonialsPageSize, pagedRows: pagedTestimonials, totalCount: testimonialsTotalCount } = usePagedRows(testimonials as any[]);
 
   if (user?.role !== "super_admin") {
     return (
@@ -554,7 +559,7 @@ function SysAdminPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((t) => (
+              {pagedSchools.map((t) => (
                 <TableRow key={t.id} className={t.subscription.status === "suspended" ? "opacity-60" : ""}>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -616,6 +621,15 @@ function SysAdminPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {schoolsTotalCount > 0 && (
+            <ListPagination
+              count={schoolsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -772,7 +786,7 @@ function SysAdminPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {tenants.map((t) => {
+                {pagedRevenueSchools.map((t) => {
                   const smsPct = t.subscription.smsQuota > 0 ? Math.round((t.subscription.smsUsed / t.subscription.smsQuota) * 100) : 0;
                   return (
                     <TableRow key={t.id}>
@@ -794,6 +808,15 @@ function SysAdminPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {revenueTotalCount > 0 && (
+              <ListPagination
+                count={revenueTotalCount}
+                page={revenuePage}
+                pageSize={revenuePageSize}
+                onPageChange={setRevenuePage}
+                onPageSizeChange={setRevenuePageSize}
+              />
+            )}
           </div>
         </div>
       )}
@@ -906,7 +929,7 @@ function SysAdminPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(testimonials as any[]).map((t: any) => (
+                {pagedTestimonials.map((t: any) => (
                   <TableRow key={t.id}>
                     <TableCell>
                       <p className="font-medium">{t.authorName}</p>
@@ -949,6 +972,15 @@ function SysAdminPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {testimonialsTotalCount > 0 && (
+              <ListPagination
+                count={testimonialsTotalCount}
+                page={testimonialsPage}
+                pageSize={testimonialsPageSize}
+                onPageChange={setTestimonialsPage}
+                onPageSizeChange={setTestimonialsPageSize}
+              />
+            )}
           </div>
         </div>
       )}

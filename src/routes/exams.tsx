@@ -11,6 +11,7 @@ import { ImportDialog, type ImportResult } from "@/components/import-dialog";
 import { useTenant, gradeFormLabels } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { downloadCsv, badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/exams")({
   head: () => ({ meta: [{ title: "Exams — SRMS" }] }),
@@ -127,6 +128,10 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
 
   const registeredGceIds = new Set((candidates as any[]).filter((c) => c.candidateType === "GCE").map((c) => c.gceCandidateId));
   const availableGce = (gceCandidates as any[]).filter((g) => !registeredGceIds.has(g.id));
+  const {
+    page: candidatesPage, setPage: setCandidatesPage, pageSize: candidatesPageSize, setPageSize: setCandidatesPageSize,
+    pagedRows: pagedCandidates, totalCount: candidatesTotalCount,
+  } = usePagedRows(candidates as any[]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["examCandidates", schoolId, paper?.id] });
@@ -207,7 +212,7 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
                     <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">Loading...</TableCell></TableRow>
                   ) : (candidates as any[]).length === 0 ? (
                     <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">No candidates registered yet.</TableCell></TableRow>
-                  ) : (candidates as any[]).map((c) => (
+                  ) : pagedCandidates.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.candidateName}</TableCell>
                       <TableCell><Chip size="small" label={c.candidateType} sx={{ ...badgeSx(c.candidateType === "GCE" ? "secondary" : "outline"), fontSize: 10 }} /></TableCell>
@@ -222,6 +227,15 @@ function CandidatesDialog({ open, onOpenChange, paper, schoolId }: { open: boole
                 </TableBody>
               </Table>
               </TableContainer>
+              {candidatesTotalCount > 0 && (
+                <ListPagination
+                  count={candidatesTotalCount}
+                  page={candidatesPage}
+                  pageSize={candidatesPageSize}
+                  onPageChange={setCandidatesPage}
+                  onPageSizeChange={setCandidatesPageSize}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -324,6 +338,8 @@ function GceRoster({ schoolId }: { schoolId: string }) {
     onError: () => { toast.error("Failed to remove candidate"); setDeleteTarget(null); },
   });
 
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedGceCandidates, totalCount: gceTotalCount } = usePagedRows(gceCandidates as any[]);
+
   return (
     <div className="mb-6">
       <div className="mb-3 flex items-center justify-between">
@@ -348,7 +364,7 @@ function GceRoster({ schoolId }: { schoolId: string }) {
               <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
             ) : (gceCandidates as any[]).length === 0 ? (
               <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No GCE candidates yet. Add one or import a CSV.</TableCell></TableRow>
-            ) : (gceCandidates as any[]).map((c) => (
+            ) : pagedGceCandidates.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.firstName} {c.lastName}</TableCell>
                 <TableCell className="font-mono text-xs">{c.examNumber || "—"}</TableCell>
@@ -364,6 +380,15 @@ function GceRoster({ schoolId }: { schoolId: string }) {
           </TableBody>
         </Table>
         </TableContainer>
+        {gceTotalCount > 0 && (
+          <ListPagination
+            count={gceTotalCount}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
 
       <GceAddDialog open={addOpen} onOpenChange={setAddOpen} schoolId={schoolId} onDone={invalidate} />
@@ -507,6 +532,15 @@ function ExamsPage() {
     queryKey: ["exams", active.id],
     queryFn: () => api.exams.list(active.id),
   });
+
+  const {
+    page: schedulePage, setPage: setSchedulePage, pageSize: schedulePageSize, setPageSize: setSchedulePageSize,
+    pagedRows: pagedSchedulePapers, totalCount: scheduleTotalCount,
+  } = usePagedRows(papers as any[]);
+  const {
+    page: invigPage, setPage: setInvigPage, pageSize: invigPageSize, setPageSize: setInvigPageSize,
+    pagedRows: pagedInvigPapers, totalCount: invigTotalCount,
+  } = usePagedRows(papers as any[]);
 
   const createMut = useMutation({
     mutationFn: (data: any) => api.exams.create(active.id, data),
@@ -716,7 +750,7 @@ function ExamsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : (papers as any[]).map((p: any) => (
+              ) : pagedSchedulePapers.map((p: any) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-xs">{p.code}</TableCell>
                   <TableCell className="font-medium">{p.subject}</TableCell>
@@ -740,6 +774,15 @@ function ExamsPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {scheduleTotalCount > 0 && (
+            <ListPagination
+              count={scheduleTotalCount}
+              page={schedulePage}
+              pageSize={schedulePageSize}
+              onPageChange={setSchedulePage}
+              onPageSizeChange={setSchedulePageSize}
+            />
+          )}
         </Box>
         )}
 
@@ -773,7 +816,7 @@ function ExamsPage() {
               <TableCell>Assistants</TableCell><TableCell className="text-right">Confirm</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {(papers as any[]).map((p: any) => (
+              {pagedInvigPapers.map((p: any) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.subject}</TableCell>
                   <TableCell>{p.examDate}</TableCell>
@@ -793,6 +836,15 @@ function ExamsPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {invigTotalCount > 0 && (
+            <ListPagination
+              count={invigTotalCount}
+              page={invigPage}
+              pageSize={invigPageSize}
+              onPageChange={setInvigPage}
+              onPageSizeChange={setInvigPageSize}
+            />
+          )}
         </Box>
         )}
 

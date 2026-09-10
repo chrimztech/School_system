@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/auth";
 import { appendExportJob, appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type ApprovalType = "Discount" | "Deletion" | "Plan exception" | "Partner onboarding" | "Contract redline";
 type ApprovalStatus = "Pending" | "Escalated" | "Approved" | "Rejected";
@@ -55,6 +56,8 @@ function ApprovalCenterPage() {
 
   const pending = items.filter((item) => item.status === "Pending" || item.status === "Escalated");
   const completed = items.filter((item) => item.status === "Approved" || item.status === "Rejected");
+  const { page: pendingPage, setPage: setPendingPage, pageSize: pendingPageSize, setPageSize: setPendingPageSize, pagedRows: pagedPending, totalCount: pendingTotalCount } = usePagedRows(pending);
+  const { page: completedPage, setPage: setCompletedPage, pageSize: completedPageSize, setPageSize: setCompletedPageSize, pagedRows: pagedCompleted, totalCount: completedTotalCount } = usePagedRows(completed);
 
   const stats = useMemo(() => ({
     pending: pending.length,
@@ -230,7 +233,7 @@ function ApprovalCenterPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {pending.map((item) => (
+              {pagedPending.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>
@@ -262,6 +265,15 @@ function ApprovalCenterPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {pendingTotalCount > 0 && (
+            <ListPagination
+              count={pendingTotalCount}
+              page={pendingPage}
+              pageSize={pendingPageSize}
+              onPageChange={setPendingPage}
+              onPageSizeChange={setPendingPageSize}
+            />
+          )}
         </Box>
         )
       )}
@@ -304,7 +316,7 @@ function ApprovalCenterPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {completed.map((item) => (
+              {pagedCompleted.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>
@@ -326,6 +338,15 @@ function ApprovalCenterPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {completedTotalCount > 0 && (
+            <ListPagination
+              count={completedTotalCount}
+              page={completedPage}
+              pageSize={completedPageSize}
+              onPageChange={setCompletedPage}
+              onPageSizeChange={setCompletedPageSize}
+            />
+          )}
         </Box>
       )}
       </Box>

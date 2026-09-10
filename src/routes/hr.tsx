@@ -13,6 +13,7 @@ import { PersonCombobox } from "@/components/person-combobox";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/hr")({
   head: () => ({ meta: [{ title: "HR — SRMS" }] }),
@@ -182,6 +183,8 @@ function HRPage() {
     const st = (s.status ?? "").toLowerCase().replace(/[_ ]/g, "");
     return st === "onleave";
   }).length;
+  const { page: staffPage, setPage: setStaffPage, pageSize: staffPageSize, setPageSize: setStaffPageSize, pagedRows: pagedStaff, totalCount: staffTotalCount } = usePagedRows(staff);
+  const { page: leavePage, setPage: setLeavePage, pageSize: leavePageSize, setPageSize: setLeavePageSize, pagedRows: pagedLeaves, totalCount: leaveTotalCount } = usePagedRows(leaves);
 
   return (
     <AccessGuard module="hr">
@@ -347,7 +350,7 @@ function HRPage() {
                 <TableCell align="right">Actions</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {staff.map((s) => {
+                {pagedStaff.map((s) => {
                   const rawStatus = (s.status ?? "active").toLowerCase().replace(/[_ ]/g, "");
                   const isActive = rawStatus === "active";
                   const statusLabel = rawStatus === "onleave" ? "On leave" : isActive ? "Active" : s.status;
@@ -379,6 +382,15 @@ function HRPage() {
             </Table>
             </TableContainer>
           )}
+          {staffTotalCount > 0 && (
+            <ListPagination
+              count={staffTotalCount}
+              page={staffPage}
+              pageSize={staffPageSize}
+              onPageChange={setStaffPage}
+              onPageSizeChange={setStaffPageSize}
+            />
+          )}
         </Box>
       )}
 
@@ -401,7 +413,7 @@ function HRPage() {
                 <TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {leaves.map((l: any) => {
+                {pagedLeaves.map((l: any) => {
                   const isPending = (l.status ?? "").toLowerCase() === "pending";
                   return (
                     <TableRow key={l.id}>
@@ -429,6 +441,15 @@ function HRPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {leaveTotalCount > 0 && (
+            <ListPagination
+              count={leaveTotalCount}
+              page={leavePage}
+              pageSize={leavePageSize}
+              onPageChange={setLeavePage}
+              onPageSizeChange={setLeavePageSize}
+            />
           )}
         </Box>
         </Box>

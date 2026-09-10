@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/incident-management")({
   head: () => ({ meta: [{ title: "Incident Management — SRMS" }] }),
@@ -112,6 +113,9 @@ function IncidentManagementPage() {
 
   const openCount = (incidents as any[]).filter((i: any) => i.status === "Open" || i.status === "In progress").length;
   const resolvedCount = (incidents as any[]).filter((i: any) => i.status === "Resolved").length;
+
+  const incidentList = incidents as any[];
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedIncidents, totalCount } = usePagedRows(incidentList);
 
   return (
     <AccessGuard module="incident-management">
@@ -219,7 +223,7 @@ function IncidentManagementPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : (incidents as any[]).map((incident: any) => (
+              ) : pagedIncidents.map((incident: any) => (
                 <TableRow key={incident.id}>
                   <TableCell>
                     <div className="text-sm font-medium">{incident.title}</div>
@@ -251,6 +255,15 @@ function IncidentManagementPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {!isLoading && totalCount > 0 && (
+            <ListPagination
+              count={totalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">

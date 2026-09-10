@@ -11,6 +11,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, downloadCsv } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/visitor-log")({
   head: () => ({ meta: [{ title: "Visitor Log - SRMS" }] }),
@@ -122,6 +123,9 @@ function VisitorLogPage() {
     );
   }, [visitorList, q]);
 
+  const { page: todayPage, setPage: setTodayPage, pageSize: todayPageSize, setPageSize: setTodayPageSize, pagedRows: pagedTodayVisitors, totalCount: todayTotalCount } = usePagedRows(todayVisitors);
+  const { page: historyPage, setPage: setHistoryPage, pageSize: historyPageSize, setPageSize: setHistoryPageSize, pagedRows: pagedHistory, totalCount: historyTotalCount } = usePagedRows(filtered);
+
   return (
     <AccessGuard module="visitor-log">
       <div className="space-y-6">
@@ -206,7 +210,7 @@ function VisitorLogPage() {
               <TableBody>
                 {todayVisitors.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No visitors recorded today.</TableCell></TableRow>
-                ) : todayVisitors.map((visitor: any) => {
+                ) : pagedTodayVisitors.map((visitor: any) => {
                   const isSignedIn = (visitor.status ?? "").toLowerCase().replace(" ", "_") === "checked_in" || visitor.status === "Signed in";
                   return (
                     <TableRow key={visitor.id}>
@@ -231,6 +235,15 @@ function VisitorLogPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!isLoading && todayTotalCount > 0 && (
+            <ListPagination
+              count={todayTotalCount}
+              page={todayPage}
+              pageSize={todayPageSize}
+              onPageChange={setTodayPage}
+              onPageSizeChange={setTodayPageSize}
+            />
           )}
         </Box>
         )}
@@ -280,7 +293,7 @@ function VisitorLogPage() {
               <TableCell>Host</TableCell><TableCell>Status</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {filtered.map((visitor: any) => {
+              {pagedHistory.map((visitor: any) => {
                 const isSignedIn = (visitor.status ?? "").toLowerCase().replace(" ", "_") === "checked_in";
                 return (
                   <TableRow key={visitor.id}>
@@ -300,6 +313,15 @@ function VisitorLogPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {historyTotalCount > 0 && (
+            <ListPagination
+              count={historyTotalCount}
+              page={historyPage}
+              pageSize={historyPageSize}
+              onPageChange={setHistoryPage}
+              onPageSizeChange={setHistoryPageSize}
+            />
+          )}
         </Box>
         )}
       </Box>

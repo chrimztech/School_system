@@ -23,6 +23,7 @@ import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appe
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type LifecycleStage = "Trial" | "Implementation" | "Go-live" | "Live" | "Recovery" | "Suspended";
 
@@ -85,6 +86,8 @@ function TenantLifecyclePage() {
     const owner = override.owner ?? implementationOwners[index % implementationOwners.length];
     return { tenant, stage, readiness, blocker, owner };
   }), [overrides, tenants]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedLifecycle, totalCount: lifecycleTotalCount } = usePagedRows(lifecycle);
 
   if (user?.role !== "super_admin") {
     return (
@@ -292,7 +295,7 @@ function TenantLifecyclePage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {lifecycle.map((record) => (
+              {pagedLifecycle.map((record) => (
                 <TableRow key={record.tenant.id}>
                   <TableCell>
                     <div>
@@ -336,6 +339,15 @@ function TenantLifecyclePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {lifecycleTotalCount > 0 && (
+            <ListPagination
+              count={lifecycleTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
       )}
 

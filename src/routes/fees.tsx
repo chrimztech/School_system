@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { useNotifications } from "@/lib/notifications";
 import { downloadCsv, badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { PaymentDialog } from "@/components/payment-dialog";
 
@@ -166,6 +167,9 @@ function FeesPage() {
       return true;
     });
   }, [payments, ledgerTermFilter, ledgerFrom, ledgerTo]);
+
+  const { page: debtorsPage, setPage: setDebtorsPage, pageSize: debtorsPageSize, setPageSize: setDebtorsPageSize, pagedRows: pagedDebtors, totalCount: debtorsTotalCount } = usePagedRows(debtors);
+  const { page: paymentsPage, setPage: setPaymentsPage, pageSize: paymentsPageSize, setPageSize: setPaymentsPageSize, pagedRows: pagedPayments, totalCount: paymentsTotalCount } = usePagedRows(filteredPayments);
 
   const individualReminderMessage = (student: any) =>
     `Dear parent/guardian of ${student.firstName} ${student.lastName}, this is a reminder that a fee balance of K ${Number(student.feeBalance).toLocaleString()} is outstanding for Term ${active.currentTerm} ${active.currentYear}. Please settle this balance promptly to avoid disruption to your child's education. Contact the finance office for assistance or payment plans.`;
@@ -730,7 +734,7 @@ function FeesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {debtors.map((s: any) => (
+              {pagedDebtors.map((s: any) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">
                     {s.firstName} {s.lastName}
@@ -772,6 +776,15 @@ function FeesPage() {
             </TableBody>
           </Table>
           </TableContainer>
+        )}
+        {debtorsTotalCount > 0 && (
+          <ListPagination
+            count={debtorsTotalCount}
+            page={debtorsPage}
+            pageSize={debtorsPageSize}
+            onPageChange={setDebtorsPage}
+            onPageSizeChange={setDebtorsPageSize}
+          />
         )}
       </div>
 
@@ -834,7 +847,7 @@ function FeesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredPayments.map((p: any) => {
+              {pagedPayments.map((p: any) => {
                 const status = p.status ?? "completed";
                 return (
                   <TableRow key={p.id}>
@@ -884,6 +897,15 @@ function FeesPage() {
             </TableBody>
           </Table>
           </TableContainer>
+        )}
+        {paymentsTotalCount > 0 && (
+          <ListPagination
+            count={paymentsTotalCount}
+            page={paymentsPage}
+            pageSize={paymentsPageSize}
+            onPageChange={setPaymentsPage}
+            onPageSizeChange={setPaymentsPageSize}
+          />
         )}
       </div>
 

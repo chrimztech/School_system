@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth";
 import { appendDeveloperApiKey, appendDeveloperWebhook, appendPlatformAuditEvent, appendSupportTicket, formatPlatformTimestamp } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type KeyStatus = "Active" | "Rotating" | "Paused";
 type WebhookStatus = "Healthy" | "Retrying" | "Paused";
@@ -99,6 +100,9 @@ function DeveloperConsolePage() {
     readySandboxes: sandboxes.filter((item) => item.status === "Ready").length,
     totalFailures: webhooks.reduce((sum, item) => sum + item.failures, 0),
   }), [keys, sandboxes, webhooks]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedKeys, totalCount: keysTotalCount } = usePagedRows(keys);
+  const { page: webhooksPage, setPage: setWebhooksPage, pageSize: webhooksPageSize, setPageSize: setWebhooksPageSize, pagedRows: pagedWebhooks, totalCount: webhooksTotalCount } = usePagedRows(webhooks);
 
   if (user?.role !== "super_admin") {
     return (
@@ -352,7 +356,7 @@ function DeveloperConsolePage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {keys.map((item) => (
+              {pagedKeys.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>
@@ -379,6 +383,15 @@ function DeveloperConsolePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          )}
+          {keysTotalCount > 0 && (
+            <ListPagination
+              count={keysTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </Box>
       )}
@@ -411,7 +424,7 @@ function DeveloperConsolePage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {webhooks.map((item) => (
+              {pagedWebhooks.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>
@@ -438,6 +451,15 @@ function DeveloperConsolePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          )}
+          {webhooksTotalCount > 0 && (
+            <ListPagination
+              count={webhooksTotalCount}
+              page={webhooksPage}
+              pageSize={webhooksPageSize}
+              onPageChange={setWebhooksPage}
+              onPageSizeChange={setWebhooksPageSize}
+            />
           )}
         </Box>
       )}

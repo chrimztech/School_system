@@ -12,6 +12,7 @@ import { useTenant, gradeFormLabels, gradeLabelToNumber, formatGrade, maxRawGrad
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/fee-structure")({
   head: () => ({ meta: [{ title: "Fee Structure - SRMS" }] }),
@@ -203,6 +204,19 @@ function FeeStructurePage() {
     reminderDays: Number(rule.reminderDays ?? 0),
   }));
   const billingPolicy = (billingRaw as any[])[0] ?? null;
+
+  const {
+    page: leviesPage, setPage: setLeviesPage, pageSize: leviesPageSize, setPageSize: setLeviesPageSize,
+    pagedRows: pagedLevies, totalCount: leviesTotalCount,
+  } = usePagedRows(levies);
+  const {
+    page: discountsPage, setPage: setDiscountsPage, pageSize: discountsPageSize, setPageSize: setDiscountsPageSize,
+    pagedRows: pagedDiscounts, totalCount: discountsTotalCount,
+  } = usePagedRows(discounts);
+  const {
+    page: billingPage, setPage: setBillingPage, pageSize: billingPageSize, setPageSize: setBillingPageSize,
+    pagedRows: pagedBilling, totalCount: billingTotalCount,
+  } = usePagedRows(billing);
 
   const [feeOpen, setFeeOpen] = useState(false);
   const [levyOpen, setLevyOpen] = useState(false);
@@ -770,7 +784,7 @@ function FeeStructurePage() {
               <TableCell>Mandatory</TableCell><TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {levies.map((l) => (
+              {pagedLevies.map((l) => (
                 <TableRow key={l.id}>
                   <TableCell className="font-medium">{l.name}</TableCell>
                   <TableCell>K {l.amount.toLocaleString()}</TableCell>
@@ -787,6 +801,15 @@ function FeeStructurePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {leviesTotalCount > 0 && (
+            <ListPagination
+              count={leviesTotalCount}
+              page={leviesPage}
+              pageSize={leviesPageSize}
+              onPageChange={setLeviesPage}
+              onPageSizeChange={setLeviesPageSize}
+            />
+          )}
         </Box>
       )}
 
@@ -895,7 +918,7 @@ function FeeStructurePage() {
               <TableCell>Condition</TableCell><TableCell>Active</TableCell><TableCell className="text-right">Toggle</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {discounts.map((d) => (
+              {pagedDiscounts.map((d) => (
                 <TableRow key={d.id} className={!d.active ? "opacity-50" : ""}>
                   <TableCell className="font-medium">{d.name}</TableCell>
                   <TableCell><Chip size="small" label={d.type} sx={badgeSx("outline")} /></TableCell>
@@ -912,6 +935,15 @@ function FeeStructurePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {discountsTotalCount > 0 && (
+            <ListPagination
+              count={discountsTotalCount}
+              page={discountsPage}
+              pageSize={discountsPageSize}
+              onPageChange={setDiscountsPage}
+              onPageSizeChange={setDiscountsPageSize}
+            />
+          )}
         </Box>
       )}
 
@@ -1018,7 +1050,7 @@ function FeeStructurePage() {
               <TableCell>Reminder (days before)</TableCell><TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {billing.map((b) => (
+              {pagedBilling.map((b) => (
                 <TableRow key={b.id}>
                   <TableCell className="font-medium">{b.term}</TableCell>
                   <TableCell>{b.dueDate}</TableCell>
@@ -1035,6 +1067,15 @@ function FeeStructurePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {billingTotalCount > 0 && (
+            <ListPagination
+              count={billingTotalCount}
+              page={billingPage}
+              pageSize={billingPageSize}
+              onPageChange={setBillingPage}
+              onPageSizeChange={setBillingPageSize}
+            />
+          )}
           <div className="border-t border-border p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Late fee policy</p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

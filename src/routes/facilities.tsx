@@ -11,6 +11,7 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 const ASSET_CATEGORIES = ["Furniture", "Electronics", "Vehicle", "Appliance", "Equipment", "Other"];
 const ASSET_CONDITIONS = ["Good", "Fair", "Poor", "Under repair", "Decommissioned"];
@@ -148,6 +149,9 @@ function FacilitiesPage() {
   const openOrders = (workOrders as any[]).filter((o: any) => o.status !== "Closed").length;
   const highPriority = (workOrders as any[]).filter((o: any) => o.priority === "High" && o.status !== "Closed").length;
   const preventiveTasks = (workOrders as any[]).filter((o: any) => o.recurring && o.status !== "Closed");
+  const { page: woPage, setPage: setWoPage, pageSize: woPageSize, setPageSize: setWoPageSize, pagedRows: pagedWorkOrders, totalCount: woTotalCount } = usePagedRows(workOrders as any[]);
+  const { page: assetsPage, setPage: setAssetsPage, pageSize: assetsPageSize, setPageSize: setAssetsPageSize, pagedRows: pagedAssets, totalCount: assetsTotalCount } = usePagedRows(assets as any[]);
+  const { page: maintPage, setPage: setMaintPage, pageSize: maintPageSize, setPageSize: setMaintPageSize, pagedRows: pagedPreventiveTasks, totalCount: maintTotalCount } = usePagedRows(preventiveTasks);
 
   return (
     <div className="space-y-6">
@@ -358,7 +362,7 @@ function FacilitiesPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-                ) : (workOrders as any[]).map((o: any) => (
+                ) : pagedWorkOrders.map((o: any) => (
                   <TableRow key={o.id}>
                     <TableCell>
                       <div className="font-medium">{o.title}</div>
@@ -391,6 +395,15 @@ function FacilitiesPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {woTotalCount > 0 && (
+              <ListPagination
+                count={woTotalCount}
+                page={woPage}
+                pageSize={woPageSize}
+                onPageChange={setWoPage}
+                onPageSizeChange={setWoPageSize}
+              />
+            )}
           </div>
         </Box>
       )}
@@ -424,7 +437,7 @@ function FacilitiesPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(assets as any[]).map((a: any) => (
+                  {pagedAssets.map((a: any) => (
                     <TableRow key={a.id}>
                       <TableCell>
                         <div className="font-medium">{a.name}</div>
@@ -447,6 +460,15 @@ function FacilitiesPage() {
                 </TableBody>
               </Table>
               </TableContainer>
+              {assetsTotalCount > 0 && (
+                <ListPagination
+                  count={assetsTotalCount}
+                  page={assetsPage}
+                  pageSize={assetsPageSize}
+                  onPageChange={setAssetsPage}
+                  onPageSizeChange={setAssetsPageSize}
+                />
+              )}
             </div>
           )}
 
@@ -504,7 +526,7 @@ function FacilitiesPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {preventiveTasks.map((o: any) => (
+                  {pagedPreventiveTasks.map((o: any) => (
                     <TableRow key={o.id}>
                       <TableCell>
                         <div className="font-medium">{o.title}</div>
@@ -531,6 +553,15 @@ function FacilitiesPage() {
                 </TableBody>
               </Table>
               </TableContainer>
+              {maintTotalCount > 0 && (
+                <ListPagination
+                  count={maintTotalCount}
+                  page={maintPage}
+                  pageSize={maintPageSize}
+                  onPageChange={setMaintPage}
+                  onPageSizeChange={setMaintPageSize}
+                />
+              )}
             </div>
           )}
         </Box>

@@ -11,6 +11,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/procurement")({
   head: () => ({ meta: [{ title: "Procurement - SRMS" }] }),
@@ -104,6 +105,13 @@ function ProcurementPage() {
 
   const committedSpend = (requests as any[]).reduce((sum: number, request: any) => sum + (Number(request.amount) || 0), 0);
 
+  const committedRequests = (requests as any[]).filter((r) => r.status === "Approved" || r.status === "Ordered");
+  const pendingRequests = (requests as any[]).filter((r) => r.status === "Pending approval");
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedRequests, totalCount: requestsTotalCount } = usePagedRows(requests as any[]);
+  const { page: contractsPage, setPage: setContractsPage, pageSize: contractsPageSize, setPageSize: setContractsPageSize, pagedRows: pagedCommitted, totalCount: committedTotalCount } = usePagedRows(committedRequests);
+  const { page: approvalsPage, setPage: setApprovalsPage, pageSize: approvalsPageSize, setPageSize: setApprovalsPageSize, pagedRows: pagedPending, totalCount: pendingTotalCount } = usePagedRows(pendingRequests);
+
   return (
     <AccessGuard module="procurement">
       <div className="space-y-6">
@@ -176,7 +184,7 @@ function ProcurementPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-                ) : (requests as any[]).map((request: any) => {
+                ) : pagedRequests.map((request: any) => {
                   const details = parseRequisitionItem(request.item);
                   const quantity = request.quantity ?? details.meta.find((line) => line.startsWith("Qty:"))?.replace("Qty:", "").trim();
                   const needBy = request.needByDate ?? details.meta.find((line) => line.startsWith("Need by:"))?.replace("Need by:", "").trim();
@@ -215,15 +223,23 @@ function ProcurementPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {!isLoading && requestsTotalCount > 0 && (
+              <ListPagination
+                count={requestsTotalCount}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            )}
           </div>
         </Box>
       )}
 
       {tab === "contracts" && (() => {
-        const committed = (requests as any[]).filter((r) => r.status === "Approved" || r.status === "Ordered");
         return (
           <Box className="mt-4">
-            {committed.length === 0 ? (
+            {committedRequests.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-sm">
                 No active commitments yet — requisitions become commitments once approved or ordered.
               </div>
@@ -240,7 +256,7 @@ function ProcurementPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {committed.map((request: any) => {
+                      {pagedCommitted.map((request: any) => {
                         const details = parseRequisitionItem(request.item);
                         return (
                           <TableRow key={request.id}>
@@ -257,6 +273,15 @@ function ProcurementPage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+                {committedTotalCount > 0 && (
+                  <ListPagination
+                    count={committedTotalCount}
+                    page={contractsPage}
+                    pageSize={contractsPageSize}
+                    onPageChange={setContractsPage}
+                    onPageSizeChange={setContractsPageSize}
+                  />
+                )}
               </div>
             )}
           </Box>
@@ -264,10 +289,9 @@ function ProcurementPage() {
       })()}
 
       {tab === "approvals" && (() => {
-        const pending = (requests as any[]).filter((r) => r.status === "Pending approval");
         return (
           <Box className="mt-4">
-            {pending.length === 0 ? (
+            {pendingRequests.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-sm">Nothing waiting on approval.</div>
             ) : (
               <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -283,7 +307,7 @@ function ProcurementPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {pending.map((request: any) => {
+                      {pagedPending.map((request: any) => {
                         const details = parseRequisitionItem(request.item);
                         return (
                           <TableRow key={request.id}>
@@ -312,6 +336,15 @@ function ProcurementPage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+                {pendingTotalCount > 0 && (
+                  <ListPagination
+                    count={pendingTotalCount}
+                    page={approvalsPage}
+                    pageSize={approvalsPageSize}
+                    onPageChange={setApprovalsPage}
+                    onPageSizeChange={setApprovalsPageSize}
+                  />
+                )}
               </div>
             )}
           </Box>

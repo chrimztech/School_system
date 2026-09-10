@@ -12,6 +12,7 @@ import { appendApprovalItem, appendDataRequest, appendExportJob, appendPlatformA
 import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, downloadCsv } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type RequestType = "Access" | "Rectification" | "Deletion";
 type RequestStatus = "New" | "Reviewing" | "Approved" | "Completed";
@@ -60,6 +61,7 @@ function DataGovernancePage() {
   const requests = (workspace?.dataRequests ?? []) as DataRequest[];
   const exports = (workspace?.exportJobs ?? []) as ExportJob[];
   const retention = (workspace?.retentionRules ?? []) as RetentionRule[];
+  const { page: requestsPage, setPage: setRequestsPage, pageSize: requestsPageSize, setPageSize: setRequestsPageSize, pagedRows: pagedRequests, totalCount: requestsTotalCount } = usePagedRows(requests);
   const residency = {
     regionLock: false,
     deleteAfterExport: false,
@@ -369,7 +371,7 @@ function DataGovernancePage() {
                   </TableCell>
                 </TableRow>
               )}
-              {requests.map((request) => (
+              {pagedRequests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell>
                     <div>
@@ -397,6 +399,15 @@ function DataGovernancePage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {requestsTotalCount > 0 && (
+            <ListPagination
+              count={requestsTotalCount}
+              page={requestsPage}
+              pageSize={requestsPageSize}
+              onPageChange={setRequestsPage}
+              onPageSizeChange={setRequestsPageSize}
+            />
+          )}
         </Box>
       )}
 

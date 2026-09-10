@@ -27,6 +27,7 @@ import { appendAddOn, appendApprovalItem, appendExportJob, appendPlatformAuditEv
 import { PLAN_CATALOG, type PlanId, type SupportLevel, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type PlanDraft = {
   id: PlanId;
@@ -129,6 +130,8 @@ function PlanCatalogPage() {
     ...plan,
     schools: tenants.filter((tenant) => tenant.subscription.planId === plan.id).length,
   })), [plans, tenants]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedAddOns, totalCount: addOnsTotalCount } = usePagedRows(addOns);
 
   if (user?.role !== "super_admin") {
     return (
@@ -620,7 +623,7 @@ function PlanCatalogPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {addOns.map((addOn) => (
+                  {pagedAddOns.map((addOn) => (
                     <TableRow key={addOn.id}>
                       <TableCell>
                         <div>
@@ -648,6 +651,15 @@ function PlanCatalogPage() {
                 </TableBody>
               </Table>
               </TableContainer>
+            )}
+            {addOnsTotalCount > 0 && (
+              <ListPagination
+                count={addOnsTotalCount}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
             )}
           </Box>
         </Box>

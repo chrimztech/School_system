@@ -28,6 +28,7 @@ import { useTenant } from "@/lib/tenant";
 import { appendPlatformAuditEvent, appendSupportTicket } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 const categories = ["Billing", "Onboarding", "Technical", "Renewal", "Compliance", "General"];
 
@@ -97,6 +98,7 @@ function SupportDeskPage() {
       ticket.tenantName,
     ].some((value) => value.toLowerCase().includes(q));
   }), [query, tickets]);
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedFiltered, totalCount: filteredTotalCount } = usePagedRows(filtered);
 
   if (user?.role !== "super_admin") {
     return (
@@ -310,7 +312,7 @@ function SupportDeskPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((ticket) => (
+              {pagedFiltered.map((ticket) => (
                 <TableRow key={ticket.id}>
                   <TableCell>
                     <div>
@@ -358,6 +360,15 @@ function SupportDeskPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {filteredTotalCount > 0 && (
+            <ListPagination
+              count={filteredTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
       )}
 

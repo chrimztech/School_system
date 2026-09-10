@@ -17,6 +17,7 @@ import {
 import { PLAN_UI, STATUS_UI } from "@/lib/subscription";
 import { api } from "@/lib/api";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/billing")({
   head: () => ({ meta: [{ title: "Billing & Subscription — SRMS" }] }),
@@ -48,6 +49,7 @@ function BillingPage() {
     queryFn: () => api.billingInvoices.list(schoolId),
   });
   const invoices = invoicesData as Invoice[];
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedInvoices, totalCount: invoicesTotalCount } = usePagedRows(invoices);
 
   const markPaidMutation = useMutation({
     mutationFn: (id: string) => api.billingInvoices.markPaid(schoolId, id),
@@ -356,7 +358,7 @@ function BillingPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {invoices.map((inv: any) => (
+                {pagedInvoices.map((inv: any) => (
                   <TableRow key={inv.id}>
                     <TableCell className="font-mono text-xs">{inv.invoiceNumber ?? inv.id}</TableCell>
                     <TableCell className="text-muted-foreground">{(inv.createdAt ?? inv.date ?? "").slice(0, 10)}</TableCell>
@@ -398,6 +400,15 @@ function BillingPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!invoicesLoading && invoicesTotalCount > 0 && (
+            <ListPagination
+              count={invoicesTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </Box>
         )}

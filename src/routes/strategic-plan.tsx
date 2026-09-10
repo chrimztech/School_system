@@ -27,6 +27,7 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/strategic-plan")({
   head: () => ({ meta: [{ title: "Strategic Plan — SRMS" }] }),
@@ -172,6 +173,8 @@ function StrategicPlanPage() {
   const avgProgress = goals.length ? Math.round(goals.reduce((s, g) => s + g.progress, 0) / goals.length) : 0;
 
   const goalActions = useMemo(() => selectedGoal ? actions.filter((a) => a.goalId === selectedGoal.id) : [], [actions, selectedGoal]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedActions, totalCount: actionsTotalCount } = usePagedRows(actions);
 
   const addGoal = () => {
     if (!goalForm.goal.trim() || !goalForm.deadline.trim()) { toast.error("Goal description and deadline are required"); return; }
@@ -538,7 +541,7 @@ function StrategicPlanPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {actions.map((a) => {
+              {pagedActions.map((a) => {
                 const goal = goals.find((g) => g.id === a.goalId);
                 return (
                   <TableRow key={a.id}>
@@ -564,6 +567,15 @@ function StrategicPlanPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {actionsTotalCount > 0 && (
+            <ListPagination
+              count={actionsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
         )}
 

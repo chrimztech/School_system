@@ -20,6 +20,7 @@ import { api } from "@/lib/api";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { EmptyState } from "@/components/empty-state";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/parents")({
   head: () => ({ meta: [{ title: "Parents — SRMS" }] }),
@@ -163,6 +164,7 @@ function ParentsPage() {
     `${p.name} ${p.relationship} ${p.phone} ${p.altPhone} ${p.email} ${p.children.map((c) => `${c.firstName} ${c.lastName}`).join(" ")}`
       .toLowerCase().includes(q.toLowerCase())
   );
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedParents, totalCount: parentsTotalCount } = usePagedRows(filtered);
   const hasPortalLogin = (parent: GuardianRecord) =>
     Boolean(
       (parent.email && userEmails.has(parent.email.toLowerCase())) ||
@@ -390,7 +392,7 @@ function ParentsPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filtered.map((parent) => {
+                  {pagedParents.map((parent) => {
                     const key = guardianKey(parent.children[0]) || parent.name;
                     const canCreateLogin = Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
                     return (
@@ -468,6 +470,17 @@ function ParentsPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+            {parentsTotalCount > 0 && (
+              <div className="hidden md:block">
+                <ListPagination
+                  count={parentsTotalCount}
+                  page={page}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                />
+              </div>
+            )}
           </>
         )}
       </section>
@@ -828,55 +841,18 @@ function ParentPortalSheet({
                 {isLoadingPayments ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
                 ) : childBalances.map(({ child, payments }) => (
-                  <div key={child.id}>
-                    <p className="mb-2 text-sm font-semibold">{child.firstName} {child.lastName}</p>
-                    {payments.length === 0 ? (
-                      <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">No payments recorded yet.</p>
-                    ) : (
-                      <div className="rounded-xl border border-border bg-card overflow-hidden">
-                        <TableContainer>
-                        <Table>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Date</TableCell>
-                              <TableCell>Description</TableCell>
-                              <TableCell>Method</TableCell>
-                              <TableCell className="text-right">Amount</TableCell>
-                              <TableCell>Status</TableCell>
-                              <TableCell></TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {payments.map((p: any) => (
-                              <TableRow key={p.id}>
-                                <TableCell className="text-xs">{p.paymentDate || "—"}</TableCell>
-                                <TableCell className="text-xs">{p.description || "—"}</TableCell>
-                                <TableCell className="text-xs">{p.method || "—"}</TableCell>
-                                <TableCell className="text-right font-semibold tabular-nums text-sm">{fmtK(p.amount)}</TableCell>
-                                <TableCell>
-                                  <Chip size="small" label={p.status} sx={{ ...badgeSx(p.status === "completed" ? "default" : "secondary"), fontSize: 12, textTransform: "capitalize" }} />
-                                </TableCell>
-                                <TableCell>
-                                  {p.status === "completed" && (
-                                    <IconButton size="small" aria-label="View receipt" title="View receipt" onClick={() =>
-                                      setReceiptPayment({
-                                        ...p,
-                                        studentName: `${child.firstName} ${child.lastName}`,
-                                        grade: child.className || child.grade || "",
-                                      })
-                                    }>
-                                      <Receipt className="h-3.5 w-3.5" />
-                                    </IconButton>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        </TableContainer>
-                      </div>
-                    )}
-                  </div>
+                  <ChildPaymentHistory
+                    key={child.id}
+                    child={child}
+                    payments={payments}
+                    onViewReceipt={(p) =>
+                      setReceiptPayment({
+                        ...p,
+                        studentName: `${child.firstName} ${child.lastName}`,
+                        grade: child.className || child.grade || "",
+                      })
+                    }
+                  />
                 ))}
                 </Box>
               )}
@@ -927,6 +903,71 @@ function ParentPortalSheet({
         />
       )}
     </>
+  );
+}
+
+function ChildPaymentHistory({
+  child, payments, onViewReceipt,
+}: {
+  child: any;
+  payments: any[];
+  onViewReceipt: (payment: any) => void;
+}) {
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedPayments, totalCount } = usePagedRows(payments);
+
+  return (
+    <div>
+      <p className="mb-2 text-sm font-semibold">{child.firstName} {child.lastName}</p>
+      {payments.length === 0 ? (
+        <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">No payments recorded yet.</p>
+      ) : (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell>Method</TableCell>
+                <TableCell className="text-right">Amount</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pagedPayments.map((p: any) => (
+                <TableRow key={p.id}>
+                  <TableCell className="text-xs">{p.paymentDate || "—"}</TableCell>
+                  <TableCell className="text-xs">{p.description || "—"}</TableCell>
+                  <TableCell className="text-xs">{p.method || "—"}</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums text-sm">{fmtK(p.amount)}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={p.status} sx={{ ...badgeSx(p.status === "completed" ? "default" : "secondary"), fontSize: 12, textTransform: "capitalize" }} />
+                  </TableCell>
+                  <TableCell>
+                    {p.status === "completed" && (
+                      <IconButton size="small" aria-label="View receipt" title="View receipt" onClick={() => onViewReceipt(p)}>
+                        <Receipt className="h-3.5 w-3.5" />
+                      </IconButton>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          </TableContainer>
+          {totalCount > 0 && (
+            <ListPagination
+              count={totalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

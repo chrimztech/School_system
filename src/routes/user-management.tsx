@@ -47,6 +47,7 @@ import { ROLE_META, type Role, useAuth } from "@/lib/auth";
 import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { AccessGuard } from "@/components/access-guard";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/user-management")({
   head: () => ({ meta: [{ title: "User Management - SRMS" }] }),
@@ -251,6 +252,7 @@ function UserManagementPage() {
       ].some((value) => value.toLowerCase().includes(lowered));
     });
   }, [query, roleFilter, schoolFilter, schoolNameById, users]);
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedUsers, totalCount: usersTotalCount } = usePagedRows(filteredUsers);
 
   if (user?.role === "school_admin") {
     return <Navigate to="/access" replace />;
@@ -518,7 +520,7 @@ function UserManagementPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers.map((record) => {
+              pagedUsers.map((record) => {
                 const role = normaliseRole(record.role);
                 const schoolName = record.schoolId ? schoolNameById[record.schoolId] ?? record.schoolId : "Platform";
                 const active = record.active !== false;
@@ -559,6 +561,15 @@ function UserManagementPage() {
           </TableBody>
         </Table>
         </TableContainer>
+        {usersTotalCount > 0 && (
+          <ListPagination
+            count={usersTotalCount}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
 
       <Menu

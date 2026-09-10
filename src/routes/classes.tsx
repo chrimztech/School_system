@@ -10,6 +10,7 @@ import { badgeSx } from "@/lib/utils";
 import { useTenant, gradeRangeForType, formatGrade, type SchoolType } from "@/lib/tenant";
 import { api, isValidSchoolId } from "@/lib/api";
 import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/classes")({
   head: () => ({ meta: [{ title: "Classes — SRMS" }] }),
@@ -136,6 +137,11 @@ function ClassDetailSheet({
   const enrolments = enrolmentsRaw as any[];
   const classTeachers = classTeachersRaw as any[];
   const enrolledIds = new Set(enrolments.map((e: any) => e.studentId));
+
+  const {
+    page: pupilsPage, setPage: setPupilsPage, pageSize: pupilsPageSize, setPageSize: setPupilsPageSize,
+    pagedRows: pagedEnrolments, totalCount: enrolmentsTotalCount,
+  } = usePagedRows(enrolments);
 
   // Students not yet enrolled in this class
   const availableStudents = useMemo(() => {
@@ -415,7 +421,7 @@ function ClassDetailSheet({
                       <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                         No pupils enrolled yet. Use "Enrol pupils" to add some.
                       </TableCell></TableRow>
-                    ) : enrolments.map((e: any) => (
+                    ) : pagedEnrolments.map((e: any) => (
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.studentName}</TableCell>
                         <TableCell className="text-muted-foreground">{e.grade ? gradeLabel(e.grade, cls.phase, active.type) : "—"}</TableCell>
@@ -437,6 +443,15 @@ function ClassDetailSheet({
                   </TableBody>
                 </Table>
                 </TableContainer>
+              )}
+              {enrolmentsTotalCount > 0 && (
+                <ListPagination
+                  count={enrolmentsTotalCount}
+                  page={pupilsPage}
+                  pageSize={pupilsPageSize}
+                  onPageChange={setPupilsPage}
+                  onPageSizeChange={setPupilsPageSize}
+                />
               )}
             </div>
           </Box>
@@ -626,6 +641,11 @@ function PromoteClassDialog({
     [allClasses, targetYear, cls.id],
   );
 
+  const {
+    page: promotePage, setPage: setPromotePage, pageSize: promotePageSize, setPageSize: setPromotePageSize,
+    pagedRows: pagedActiveEnrolments, totalCount: activeEnrolmentsTotalCount,
+  } = usePagedRows(activeEnrolments);
+
   const updateRow = (id: string, patch: Partial<{ include: boolean; destinationClassId: string; graduate: boolean }>) => {
     setRows((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   };
@@ -681,7 +701,7 @@ function PromoteClassDialog({
                 <TableCell>Destination</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {activeEnrolments.map((e: any) => {
+                {pagedActiveEnrolments.map((e: any) => {
                   const row = rows[e.id] ?? { include: true, destinationClassId: "", graduate: false };
                   return (
                     <TableRow key={e.id}>
@@ -715,6 +735,15 @@ function PromoteClassDialog({
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {activeEnrolmentsTotalCount > 0 && (
+            <ListPagination
+              count={activeEnrolmentsTotalCount}
+              page={promotePage}
+              pageSize={promotePageSize}
+              onPageChange={setPromotePage}
+              onPageSizeChange={setPromotePageSize}
+            />
           )}
         </div>
       </DialogContent>

@@ -27,6 +27,7 @@ import { appendApprovalItem, appendPartner, appendPartnerDeal, appendPlatformAud
 import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type PartnerTier = "Referral" | "Implementation" | "Strategic";
 type PartnerStatus = "Active" | "Probation" | "Paused";
@@ -101,6 +102,9 @@ function PartnerManagementPage() {
     managedTenants: partners.reduce((sum, partner) => sum + partner.managedTenants, 0),
     certifiedUsers: partners.reduce((sum, partner) => sum + partner.certifications, 0),
   }), [partners]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedPartners, totalCount: partnersTotalCount } = usePagedRows(partners);
+  const { page: dealsPage, setPage: setDealsPage, pageSize: dealsPageSize, setPageSize: setDealsPageSize, pagedRows: pagedDeals, totalCount: dealsTotalCount } = usePagedRows(deals);
 
   if (user?.role !== "super_admin") {
     return (
@@ -455,7 +459,7 @@ function PartnerManagementPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {partners.map((partner) => (
+              {pagedPartners.map((partner) => (
                 <TableRow key={partner.id}>
                   <TableCell>
                     <div>
@@ -489,6 +493,15 @@ function PartnerManagementPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {partnersTotalCount > 0 && (
+            <ListPagination
+              count={partnersTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
         )
       )}
@@ -522,7 +535,7 @@ function PartnerManagementPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {deals.map((deal) => (
+                  {pagedDeals.map((deal) => (
                     <TableRow key={deal.id}>
                       <TableCell>
                         <div>
@@ -544,6 +557,15 @@ function PartnerManagementPage() {
                 </TableBody>
               </Table>
               </TableContainer>
+            )}
+            {dealsTotalCount > 0 && (
+              <ListPagination
+                count={dealsTotalCount}
+                page={dealsPage}
+                pageSize={dealsPageSize}
+                onPageChange={setDealsPage}
+                onPageSizeChange={setDealsPageSize}
+              />
             )}
           </Box>
         </Box>

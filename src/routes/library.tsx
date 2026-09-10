@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 function defaultDueDate() {
   const d = new Date();
@@ -235,6 +236,9 @@ function LibraryPage() {
   const totalAvailable = bookList.reduce((s: number, b: any) => s + (b.availableCopies ?? b.available ?? 0), 0);
   const overdueCount = loanList.filter((l: any) => l.overdue || (l.status ?? "").toLowerCase() === "overdue").length;
 
+  const { page: booksPage, setPage: setBooksPage, pageSize: booksPageSize, setPageSize: setBooksPageSize, pagedRows: pagedBooks, totalCount: booksTotalCount } = usePagedRows(filtered);
+  const { page: loansPage, setPage: setLoansPage, pageSize: loansPageSize, setPageSize: setLoansPageSize, pagedRows: pagedLoans, totalCount: loansTotalCount } = usePagedRows(loanList);
+
   return (
     <AccessGuard module="library">
       <div className="space-y-6">
@@ -440,7 +444,7 @@ function LibraryPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((b: any) => {
+              {pagedBooks.map((b: any) => {
                 const available = b.availableCopies ?? b.available ?? 0;
                 return (
                   <TableRow key={b.id}>
@@ -481,6 +485,15 @@ function LibraryPage() {
           </Table>
           </TableContainer>
         )}
+        {!booksLoading && booksTotalCount > 0 && (
+          <ListPagination
+            count={booksTotalCount}
+            page={booksPage}
+            pageSize={booksPageSize}
+            onPageChange={setBooksPage}
+            onPageSizeChange={setBooksPageSize}
+          />
+        )}
       </div>
 
       <div className="rounded-xl border border-border bg-card shadow-sm">
@@ -507,7 +520,7 @@ function LibraryPage() {
               {loanList.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">No active loans.</TableCell></TableRow>
               ) : (
-                loanList.map((l: any) => {
+                pagedLoans.map((l: any) => {
                   const isOverdue = l.overdue || (l.status ?? "").toLowerCase() === "overdue";
                   return (
                     <TableRow key={l.id}>
@@ -534,6 +547,15 @@ function LibraryPage() {
             </TableBody>
           </Table>
           </TableContainer>
+        )}
+        {!loansLoading && loansTotalCount > 0 && (
+          <ListPagination
+            count={loansTotalCount}
+            page={loansPage}
+            pageSize={loansPageSize}
+            onPageChange={setLoansPage}
+            onPageSizeChange={setLoansPageSize}
+          />
         )}
       </div>
 

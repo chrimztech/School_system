@@ -12,6 +12,7 @@ import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/duty-roster")({
   head: () => ({ meta: [{ title: "Duty Roster — SRMS" }] }),
@@ -127,6 +128,10 @@ function DutyRosterPage() {
   const STAFF = [...new Set(normalizedDuties.map((d) => d.staff).filter(Boolean))];
   const todayDuties = normalizedDuties.filter((d) => d.day === today);
   const unassignedSlots = Math.max(0, DAYS.length * 2 - normalizedDuties.filter((d) => ["Gate", "Assembly"].includes(d.type)).length);
+  const byStaffRows = [...new Set(normalizedDuties.map((d) => d.staff))];
+  const { page: byStaffPage, setPage: setByStaffPage, pageSize: byStaffPageSize, setPageSize: setByStaffPageSize, pagedRows: pagedByStaffRows, totalCount: byStaffTotalCount } = usePagedRows(byStaffRows);
+  const fullWeekRows = DAYS.flatMap((day) => normalizedDuties.filter((d) => d.day === day));
+  const { page: weekPage, setPage: setWeekPage, pageSize: weekPageSize, setPageSize: setWeekPageSize, pagedRows: pagedWeekRows, totalCount: weekTotalCount } = usePagedRows(fullWeekRows);
 
   return (
     <AccessGuard module="duty-roster">
@@ -318,7 +323,7 @@ function DutyRosterPage() {
               <TableCell>Duty types</TableCell><TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {[...new Set(normalizedDuties.map((d) => d.staff))].map((staff) => {
+              {pagedByStaffRows.map((staff) => {
                 const staffDuties = normalizedDuties.filter((d) => d.staff === staff);
                 const days = [...new Set(staffDuties.map((d) => d.day))];
                 const types = [...new Set(staffDuties.map((d) => d.type))];
@@ -343,6 +348,15 @@ function DutyRosterPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {byStaffTotalCount > 0 && (
+            <ListPagination
+              count={byStaffTotalCount}
+              page={byStaffPage}
+              pageSize={byStaffPageSize}
+              onPageChange={setByStaffPage}
+              onPageSizeChange={setByStaffPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -391,7 +405,7 @@ function DutyRosterPage() {
             <TableCell>Staff</TableCell><TableCell>Location</TableCell><TableCell className="text-right print:hidden">Actions</TableCell>
           </TableRow></TableHead>
           <TableBody>
-            {DAYS.flatMap((day) => normalizedDuties.filter((d) => d.day === day)).map((d) => (
+            {pagedWeekRows.map((d) => (
               <TableRow key={d.id}>
                 <TableCell className={d.day === today ? "font-semibold text-primary" : ""}>{d.day}</TableCell>
                 <TableCell>
@@ -409,6 +423,15 @@ function DutyRosterPage() {
           </TableBody>
         </Table>
         </TableContainer>
+        {weekTotalCount > 0 && (
+          <ListPagination
+            count={weekTotalCount}
+            page={weekPage}
+            pageSize={weekPageSize}
+            onPageChange={setWeekPage}
+            onPageSizeChange={setWeekPageSize}
+          />
+        )}
       </div>
 
       <Dialog open={!!staffDialog} onClose={() => setStaffDialog(null)} maxWidth="sm" fullWidth>

@@ -20,6 +20,7 @@ import { appendPlatformAuditEvent, appendSupportTicket, appendTenantHandoff } fr
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type HandoffStatus = "Queued" | "In progress" | "Ready";
 type HandoffRecord = {
@@ -53,6 +54,9 @@ function TenantWorkbenchPage() {
     pastDue: tenants.filter((tenant) => tenant.subscription.status === "past_due").length,
     handoffs: handoffs.filter((item) => item.status !== "Ready").length,
   }), [handoffs, tenants]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedTenants, totalCount: tenantsTotalCount } = usePagedRows(tenants);
+  const { page: handoffsPage, setPage: setHandoffsPage, pageSize: handoffsPageSize, setPageSize: setHandoffsPageSize, pagedRows: pagedHandoffs, totalCount: handoffsTotalCount } = usePagedRows(handoffs);
 
   if (user?.role !== "super_admin") {
     return (
@@ -235,7 +239,7 @@ function TenantWorkbenchPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tenants.map((tenant) => (
+              {pagedTenants.map((tenant) => (
                 <TableRow key={tenant.id}>
                   <TableCell>
                     <div>
@@ -259,6 +263,15 @@ function TenantWorkbenchPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {tenantsTotalCount > 0 && (
+            <ListPagination
+              count={tenantsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -287,7 +300,7 @@ function TenantWorkbenchPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {handoffs.map((item) => (
+              {pagedHandoffs.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{item.school}</TableCell>
                   <TableCell>{item.owner}</TableCell>
@@ -309,6 +322,15 @@ function TenantWorkbenchPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {handoffsTotalCount > 0 && (
+            <ListPagination
+              count={handoffsTotalCount}
+              page={handoffsPage}
+              pageSize={handoffsPageSize}
+              onPageChange={setHandoffsPage}
+              onPageSizeChange={setHandoffsPageSize}
+            />
+          )}
         </div>
       )}
 

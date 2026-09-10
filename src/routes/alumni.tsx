@@ -10,6 +10,7 @@ import { Box, Button, Chip, Tab, Tabs, TextField, MenuItem, Dialog, DialogConten
 import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/alumni")({
   head: () => ({ meta: [{ title: "Alumni - SRMS" }] }),
@@ -128,6 +129,7 @@ function AlumniPage() {
     year: alumnus.year ?? alumnus.graduationYear,
   }));
   const donorCount = list.filter((a: any) => a.engagementStatus === "Donor").length;
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedList, totalCount: listTotalCount } = usePagedRows(list);
 
   return (
     <div className="space-y-6">
@@ -227,7 +229,7 @@ function AlumniPage() {
                 <TableCell>Employer</TableCell><TableCell>Location</TableCell><TableCell className="text-right">Connect</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {list.map((a: any) => (
+                {pagedList.map((a: any) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">
                       {a.name} {a.engagementStatus === "Donor" && <Chip size="small" label="Donor" sx={{ ...badgeSx("success"), ml: 1 }} />}
@@ -260,6 +262,15 @@ function AlumniPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {listTotalCount > 0 && (
+            <ListPagination
+              count={listTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </Box>
       )}

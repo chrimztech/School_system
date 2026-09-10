@@ -61,6 +61,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { ImportDialog, type ImportColumn, type ImportResult } from "@/components/import-dialog";
 import { badgeSx, gradeChipSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/assessments")({
   head: () => ({ meta: [{ title: "Results Operations — SRMS" }] }),
@@ -1252,6 +1253,7 @@ function AssessmentsPage() {
     subject: SUBJECTS[0],
     teacherAssigned: loggedInTeacherName,
     term: String(active.currentTerm ?? "1"),
+    academicYear: String(active.currentYear ?? new Date().getFullYear()),
     maxScore: "40",
     weight: "10",
     date: new Date().toISOString().slice(0, 10),
@@ -1314,6 +1316,7 @@ function AssessmentsPage() {
         subject: subjectOptions[0] ?? SUBJECTS[0],
         teacherAssigned: loggedInTeacherName,
         term: String(active.currentTerm ?? "1"),
+        academicYear: String(active.currentYear ?? new Date().getFullYear()),
         maxScore: "40",
         weight: "10",
         date: new Date().toISOString().slice(0, 10),
@@ -1403,7 +1406,7 @@ function AssessmentsPage() {
       subjectName: form.subject,
       teacherAssigned: form.teacherAssigned.trim() || null,
       term: form.term,
-      academicYear: String(active.currentYear ?? new Date().getFullYear()),
+      academicYear: form.academicYear.trim() || String(active.currentYear ?? new Date().getFullYear()),
       maxScore: Number(form.maxScore) || 40,
       weight: Number(form.weight) || 10,
       date: form.date,
@@ -1485,6 +1488,7 @@ function AssessmentsPage() {
   const hasListFilters =
     searchQuery.trim().length > 0 || statusFilter !== "ALL" || cycleFilter !== "ALL";
   const actionQueueIsEmpty = queueView === "ACTION" && !hasListFilters;
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedAssessments, totalCount: assessmentsTotalCount } = usePagedRows(filteredAssessments);
 
   const roleWorkspace = isTeacher
     ? {
@@ -1641,6 +1645,14 @@ function AssessmentsPage() {
                           </MenuItem>
                         ))}
                       </TextField>
+                      <TextField
+                        label="Academic year"
+                        value={form.academicYear}
+                        onChange={(e) => setForm({ ...form, academicYear: e.target.value })}
+                        helperText="Change this to record results for a previous year"
+                        fullWidth
+                        size="small"
+                      />
                       {active.resultPublicationMode === "SEPARATE" && (
                         <TextField
                           select
@@ -2056,7 +2068,7 @@ function AssessmentsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAssessments.map((a: any) => {
+                {pagedAssessments.map((a: any) => {
                   const submitted = a.submittedCount ?? a.submitted ?? 0;
                   const total = a.totalStudents ?? a.total ?? 0;
                   const hasResults = submitted > 0;
@@ -2196,6 +2208,15 @@ function AssessmentsPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {assessmentsTotalCount > 0 && (
+            <ListPagination
+              count={assessmentsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </div>
       </div>

@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx, downloadCsv } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/activities")({
   head: () => ({ meta: [{ title: "Activities & Clubs - SRMS" }] }),
@@ -155,6 +156,9 @@ function ActivitiesPage() {
 
   const activeClubs = clubs.filter((club) => String(club.status).toUpperCase() === "ACTIVE");
   const totalMembers = activeEnrolments.length;
+
+  const { page: clubsPage, setPage: setClubsPage, pageSize: clubsPageSize, setPageSize: setClubsPageSize, pagedRows: pagedClubs, totalCount: clubsTotalCount } = usePagedRows(clubs);
+  const { page: enrolmentsPage, setPage: setEnrolmentsPage, pageSize: enrolmentsPageSize, setPageSize: setEnrolmentsPageSize, pagedRows: pagedActiveEnrolments, totalCount: enrolmentsTotalCount } = usePagedRows(activeEnrolments);
 
   const enrolMutation = useMutation({
     mutationFn: ({ activityId, data }: { activityId: string; data: any }) => api.activities.enrol(schoolId, activityId, data),
@@ -374,7 +378,7 @@ function ActivitiesPage() {
                 <TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {clubs.map((club) => {
+                {pagedClubs.map((club) => {
                   const isActive = String(club.status).toUpperCase() === "ACTIVE";
                   return (
                     <TableRow key={club.id} className={!isActive ? "opacity-60" : ""}>
@@ -422,6 +426,15 @@ function ActivitiesPage() {
             </Table>
             </TableContainer>
           )}
+          {!isLoading && clubsTotalCount > 0 && (
+            <ListPagination
+              count={clubsTotalCount}
+              page={clubsPage}
+              pageSize={clubsPageSize}
+              onPageChange={setClubsPage}
+              onPageSizeChange={setClubsPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -459,7 +472,7 @@ function ActivitiesPage() {
                 <TableCell>Enrolled</TableCell><TableCell className="text-right">Action</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {activeEnrolments.map((e: any) => (
+                {pagedActiveEnrolments.map((e: any) => (
                   <TableRow key={e.id}>
                     <TableCell className="font-medium">{e.studentName}</TableCell>
                     <TableCell>{e.activityName}</TableCell>
@@ -481,6 +494,15 @@ function ActivitiesPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!enrolmentsLoading && enrolmentsTotalCount > 0 && (
+            <ListPagination
+              count={enrolmentsTotalCount}
+              page={enrolmentsPage}
+              pageSize={enrolmentsPageSize}
+              onPageChange={setEnrolmentsPage}
+              onPageSizeChange={setEnrolmentsPageSize}
+            />
           )}
 
           <Dialog open={enrolOpen} onClose={() => setEnrolOpen(false)} maxWidth="sm" fullWidth>

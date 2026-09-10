@@ -12,6 +12,7 @@ import { appendApprovalItem, appendContract, appendExportJob, appendPlatformAudi
 import { useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type ContractStatus = "Draft" | "Awaiting signature" | "Active" | "Renewal due";
 type AgreementType = "MSA" | "Order Form" | "DPA" | "SOW";
@@ -73,6 +74,7 @@ function ContractCenterPage() {
     ])).slice(0, Math.max(6, tenants.length * 2))
   ), [tenants]);
   const contracts = (workspace?.contracts?.length ? workspace.contracts : synthesizedContracts) as ContractRecord[];
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedContracts, totalCount: contractsTotalCount } = usePagedRows(contracts);
 
   const stats = useMemo(() => ({
     active: contracts.filter((contract) => contract.status === "Active").length,
@@ -363,7 +365,7 @@ function ContractCenterPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {contracts.map((contract) => (
+              {pagedContracts.map((contract) => (
                 <TableRow key={contract.id}>
                   <TableCell>{contract.school}</TableCell>
                   <TableCell>{contract.type}</TableCell>
@@ -381,6 +383,15 @@ function ContractCenterPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {contractsTotalCount > 0 && (
+            <ListPagination
+              count={contractsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
         )
       )}

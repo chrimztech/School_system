@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { useNotifications } from "@/lib/notifications";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/payroll")({
   head: () => ({ meta: [{ title: "Payroll — SRMS" }] }),
@@ -112,12 +113,15 @@ function PayrollPage() {
 
   const staff = staffData as any[];
   const runs = runsData as any[];
+  const { page: staffPage, setPage: setStaffPage, pageSize: staffPageSize, setPageSize: setStaffPageSize, pagedRows: pagedStaff, totalCount: staffTotalCount } = usePagedRows(staff);
+  const { page: runsPage, setPage: setRunsPage, pageSize: runsPageSize, setPageSize: setRunsPageSize, pagedRows: pagedRuns, totalCount: runsTotalCount } = usePagedRows(runs);
 
   const normalizeStatus = (status: any) => String(status ?? "Active").toLowerCase().replace(/_/g, " ");
   const activeStaff = staff.filter((s: any) => {
     const status = normalizeStatus(s.status);
     return status !== "on leave" && status !== "inactive" && status !== "terminated" && status !== "suspended";
   });
+  const { page: payslipsPage, setPage: setPayslipsPage, pageSize: payslipsPageSize, setPageSize: setPayslipsPageSize, pagedRows: pagedActiveStaff, totalCount: activeStaffTotalCount } = usePagedRows(activeStaff);
 
   const monthly = useMemo(() => {
     const slips = activeStaff.map((s: any) => {
@@ -334,7 +338,7 @@ function PayrollPage() {
                   <TableCell>Status</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {staff.map((s: any) => {
+                  {pagedStaff.map((s: any) => {
                     const basic = s.basic ?? s.basicSalary ?? s.salary ?? 0;
                     const allow = s.allow ?? s.allowances ?? 0;
                     return (
@@ -357,6 +361,15 @@ function PayrollPage() {
               </Table>
               </TableContainer>
             )}
+            {staffTotalCount > 0 && (
+              <ListPagination
+                count={staffTotalCount}
+                page={staffPage}
+                pageSize={staffPageSize}
+                onPageChange={setStaffPage}
+                onPageSizeChange={setStaffPageSize}
+              />
+            )}
           </div>
         </Box>
       )}
@@ -373,7 +386,7 @@ function PayrollPage() {
                 <TableCell className="text-right">Net pay</TableCell><TableCell></TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {activeStaff.map((s: any) => {
+                {pagedActiveStaff.map((s: any) => {
                   const basic = s.basic ?? s.basicSalary ?? s.salary ?? 0;
                   const allow = s.allow ?? s.allowances ?? 0;
                   const p = payslip(basic, allow);
@@ -404,6 +417,15 @@ function PayrollPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {activeStaffTotalCount > 0 && (
+              <ListPagination
+                count={activeStaffTotalCount}
+                page={payslipsPage}
+                pageSize={payslipsPageSize}
+                onPageChange={setPayslipsPage}
+                onPageSizeChange={setPayslipsPageSize}
+              />
+            )}
           </div>
         </Box>
       )}
@@ -424,7 +446,7 @@ function PayrollPage() {
                   <TableCell className="text-right">Statutory</TableCell><TableCell>Status</TableCell><TableCell>Actions</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {runs.map((r: any) => {
+                  {pagedRuns.map((r: any) => {
                     const period = r.month && r.year ? new Date(r.year, r.month - 1).toLocaleString("en", { month: "long", year: "numeric" }) : "—";
                     const gross = Number(r.totalGross ?? 0);
                     const net = Number(r.totalNet ?? 0);
@@ -462,6 +484,15 @@ function PayrollPage() {
                 </TableBody>
               </Table>
               </TableContainer>
+            )}
+            {runsTotalCount > 0 && (
+              <ListPagination
+                count={runsTotalCount}
+                page={runsPage}
+                pageSize={runsPageSize}
+                onPageChange={setRunsPage}
+                onPageSizeChange={setRunsPageSize}
+              />
             )}
           </div>
         </Box>

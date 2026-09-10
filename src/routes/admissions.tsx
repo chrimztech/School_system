@@ -14,6 +14,7 @@ import {
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/admissions")({
   head: () => ({ meta: [{ title: "Admissions - SRMS" }] }),
@@ -128,6 +129,8 @@ function AdmissionsPage() {
         .filter(Boolean).some((v: string) => String(v).toLowerCase().includes(needle));
     });
 
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedList, totalCount: listTotalCount } = usePagedRows(list);
+
   const counts = {
     total: (applications as any[]).length,
     pending: (applications as any[]).filter((a) => a.status === "PENDING" || a.status === "REVIEWING").length,
@@ -205,7 +208,7 @@ function AdmissionsPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {list.map((a) => (
+                  {pagedList.map((a) => (
                     <TableRow key={a.id} hover>
                       <TableCell className="font-mono text-xs">{a.applicationNumber}</TableCell>
                       <TableCell className="font-medium">{a.firstName} {a.lastName}</TableCell>
@@ -232,6 +235,15 @@ function AdmissionsPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+          {listTotalCount > 0 && (
+            <ListPagination
+              count={listTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           )}
         </div>
 

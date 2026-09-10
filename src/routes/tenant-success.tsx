@@ -12,6 +12,7 @@ import { appendApprovalItem, appendPlatformAuditEvent, appendSupportTicket, appe
 import { FEATURE_ORDER, PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type Risk = "Low" | "Medium" | "High";
 type SuccessOverride = {
@@ -132,6 +133,8 @@ function TenantSuccessPage() {
       PLAN_CATALOG[record.tenant.subscription.planId].name,
     ].some((value) => value.toLowerCase().includes(q));
   }), [overrides, query, tenants]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedPortfolio, totalCount: portfolioTotalCount } = usePagedRows(portfolio);
 
   if (user?.role !== "super_admin") {
     return (
@@ -385,7 +388,7 @@ function TenantSuccessPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {portfolio.map((record) => (
+              {pagedPortfolio.map((record) => (
                 <TableRow key={record.tenant.id}>
                   <TableCell>
                     <div>
@@ -447,6 +450,15 @@ function TenantSuccessPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {portfolioTotalCount > 0 && (
+            <ListPagination
+              count={portfolioTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
       )}
 

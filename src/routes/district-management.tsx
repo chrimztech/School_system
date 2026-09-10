@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Building2, Globe2, Users2 } from "lucide-react";
-import { useState } from "react";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import TableContainer from "@mui/material/TableContainer";
@@ -14,6 +13,7 @@ import TableCell from "@mui/material/TableCell";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/district-management")({
   head: () => ({ meta: [{ title: "District Management — SRMS" }] }),
@@ -22,11 +22,10 @@ export const Route = createFileRoute("/district-management")({
 
 function DistrictManagementPage() {
   const { tenants } = useTenant();
-  const [showAll, setShowAll] = useState(false);
 
   const totalStudents = tenants.reduce((s, t) => s + t.totalStudents, 0);
   const activeCount = tenants.filter((t) => ["active", "trial"].includes(t.subscription.status)).length;
-  const visibleSchools = showAll ? tenants : tenants.slice(0, 4);
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedSchools, totalCount: schoolsTotalCount } = usePagedRows(tenants);
 
   return (
     <div className="space-y-6">
@@ -92,11 +91,6 @@ function DistrictManagementPage() {
             <h2 className="text-sm font-semibold text-foreground">School network overview</h2>
             <p className="text-xs text-muted-foreground">{tenants.length} school{tenants.length !== 1 ? "s" : ""} on the platform.</p>
           </div>
-          {tenants.length > 4 && (
-            <Button variant="outlined" onClick={() => setShowAll((v) => !v)}>
-              {showAll ? "Show fewer" : `View all ${tenants.length}`}
-            </Button>
-          )}
         </div>
         <div className="overflow-hidden rounded-xl border border-border">
           <TableContainer>
@@ -111,7 +105,7 @@ function DistrictManagementPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {visibleSchools.map((t) => (
+              {pagedSchools.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">{t.name}</TableCell>
                   <TableCell>{t.type}</TableCell>
@@ -129,6 +123,15 @@ function DistrictManagementPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {schoolsTotalCount > 0 && (
+            <ListPagination
+              count={schoolsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </div>
       </div>
     </div>

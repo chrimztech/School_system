@@ -75,6 +75,7 @@ import {
   type GradingBand,
   useTenant,
 } from "@/lib/tenant";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings - SRMS" }] }),
@@ -279,6 +280,7 @@ function SettingsPage() {
   const [editingTermId, setEditingTermId] = useState<string | null>(null);
   const [termForm, setTermForm] = useState({ academicYear: String(school.currentYear), term: "1", startDate: "", endDate: "", name: "" });
   const [deleteTermTarget, setDeleteTermTarget] = useState<any | null>(null);
+  const { page: termsPage, setPage: setTermsPage, pageSize: termsPageSize, setPageSize: setTermsPageSize, pagedRows: pagedAcademicTerms, totalCount: academicTermsTotalCount } = usePagedRows(academicTerms as any[]);
 
   const createTermMut = useMutation({
     mutationFn: (data: any) => api.academicTerms.create(school.id, data),
@@ -1220,7 +1222,7 @@ function SettingsPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {(academicTerms as any[]).map((t) => {
+                    {pagedAcademicTerms.map((t) => {
                       const isCurrent = t.startDate <= todayIso && todayIso <= t.endDate;
                       return (
                         <TableRow key={t.id}>
@@ -1252,6 +1254,15 @@ function SettingsPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              {academicTermsTotalCount > 0 && (
+                <ListPagination
+                  count={academicTermsTotalCount}
+                  page={termsPage}
+                  pageSize={termsPageSize}
+                  onPageChange={setTermsPage}
+                  onPageSizeChange={setTermsPageSize}
+                />
+              )}
             </AccordionDetails>
           </Accordion>
 

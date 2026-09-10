@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/staff-development")({
   head: () => ({ meta: [{ title: "Staff Development — SRMS" }] }),
@@ -150,6 +151,10 @@ function StaffDevelopmentPage() {
 
   const totalHours = (trainings as any[]).reduce((sum: number, t: any) => sum + (Number(t.hours) || 0), 0);
   const avgScore = (appraisals as Appraisal[]).filter((a) => a.score !== null).reduce((sum, a) => sum + (a.score ?? 0), 0) / ((appraisals as Appraisal[]).filter((a) => a.score !== null).length || 1);
+  const { page: appraisalsPage, setPage: setAppraisalsPage, pageSize: appraisalsPageSize, setPageSize: setAppraisalsPageSize, pagedRows: pagedAppraisals, totalCount: appraisalsTotalCount } = usePagedRows(appraisals as Appraisal[]);
+  const { page: obsPage, setPage: setObsPage, pageSize: obsPageSize, setPageSize: setObsPageSize, pagedRows: pagedObservations, totalCount: obsTotalCount } = usePagedRows(observations as Observation[]);
+  const { page: trainPage, setPage: setTrainPage, pageSize: trainPageSize, setPageSize: setTrainPageSize, pagedRows: pagedTrainings, totalCount: trainTotalCount } = usePagedRows(trainings as any[]);
+  const { page: pdpPage, setPage: setPdpPage, pageSize: pdpPageSize, setPageSize: setPdpPageSize, pagedRows: pagedPdps, totalCount: pdpTotalCount } = usePagedRows(pdps as PDP[]);
 
   const startAppraisal = () => {
     if (!appraisalForm.staff || !appraisalForm.cycle.trim()) { toast.error("Staff and cycle are required"); return; }
@@ -302,7 +307,7 @@ function StaffDevelopmentPage() {
               <TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {appraisals.map((a) => (
+              {pagedAppraisals.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{a.staff}</TableCell>
                   <TableCell>{a.role}</TableCell>
@@ -355,6 +360,15 @@ function StaffDevelopmentPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {appraisalsTotalCount > 0 && (
+            <ListPagination
+              count={appraisalsTotalCount}
+              page={appraisalsPage}
+              pageSize={appraisalsPageSize}
+              onPageChange={setAppraisalsPage}
+              onPageSizeChange={setAppraisalsPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -439,7 +453,7 @@ function StaffDevelopmentPage() {
               <TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {observations.map((o) => (
+              {pagedObservations.map((o) => (
                 <TableRow key={o.id}>
                   <TableCell className="text-muted-foreground">{o.observer}</TableCell>
                   <TableCell className="font-medium">{o.observee}</TableCell>
@@ -461,6 +475,15 @@ function StaffDevelopmentPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {obsTotalCount > 0 && (
+            <ListPagination
+              count={obsTotalCount}
+              page={obsPage}
+              pageSize={obsPageSize}
+              onPageChange={setObsPage}
+              onPageSizeChange={setObsPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -562,7 +585,7 @@ function StaffDevelopmentPage() {
             <TableBody>
               {trainingsLoading ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : (trainings as any[]).map((t: any) => (
+              ) : pagedTrainings.map((t: any) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">{t.program || t.course}</TableCell>
                   <TableCell className="text-muted-foreground">{t.provider}</TableCell>
@@ -575,6 +598,15 @@ function StaffDevelopmentPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {trainTotalCount > 0 && (
+            <ListPagination
+              count={trainTotalCount}
+              page={trainPage}
+              pageSize={trainPageSize}
+              onPageChange={setTrainPage}
+              onPageSizeChange={setTrainPageSize}
+            />
+          )}
         </div>
       )}
 
@@ -660,7 +692,7 @@ function StaffDevelopmentPage() {
               <TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {pdps.map((p) => (
+              {pagedPdps.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.staff}</TableCell>
                   <TableCell>{p.goals} goals</TableCell>
@@ -676,6 +708,15 @@ function StaffDevelopmentPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {pdpTotalCount > 0 && (
+            <ListPagination
+              count={pdpTotalCount}
+              page={pdpPage}
+              pageSize={pdpPageSize}
+              onPageChange={setPdpPage}
+              onPageSizeChange={setPdpPageSize}
+            />
+          )}
         </div>
       )}
 

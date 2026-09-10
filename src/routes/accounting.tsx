@@ -18,6 +18,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/accounting")({
   head: () => ({ meta: [{ title: "Accounting — SRMS" }] }),
@@ -170,6 +171,15 @@ function AccountingPage() {
   const budgetLines = budgetsRaw as any[];
   const fixedAssets = fixedAssetsRaw as any[];
 
+  const {
+    page: coaPage, setPage: setCoaPage, pageSize: coaPageSize, setPageSize: setCoaPageSize,
+    pagedRows: pagedChartAccounts, totalCount: coaTotalCount,
+  } = usePagedRows(chartAccounts);
+  const {
+    page: assetsPage, setPage: setAssetsPage, pageSize: assetsPageSize, setPageSize: setAssetsPageSize,
+    pagedRows: pagedFixedAssets, totalCount: assetsTotalCount,
+  } = usePagedRows(fixedAssets);
+
   const journal = (journalRaw as any[]).map((je: any) => ({
     id: je.id ?? "",
     date: je.entryDate ?? je.date ?? "",
@@ -191,6 +201,15 @@ function AccountingPage() {
     method: exp.paymentMethod ?? exp.method ?? "",
     status: exp.status === "PAID" ? "Paid" : "Pending",
   }));
+
+  const {
+    page: journalPage, setPage: setJournalPage, pageSize: journalPageSize, setPageSize: setJournalPageSize,
+    pagedRows: pagedJournal, totalCount: journalTotalCount,
+  } = usePagedRows(journal);
+  const {
+    page: expensesPage, setPage: setExpensesPage, pageSize: expensesPageSize, setPageSize: setExpensesPageSize,
+    pagedRows: pagedExpenses, totalCount: expensesTotalCount,
+  } = usePagedRows(expenses);
 
   const collectedFees = Number(feesData?.collected ?? 0);
   const outstandingFees = Number(feesData?.outstanding ?? 0);
@@ -503,7 +522,7 @@ function AccountingPage() {
                   <TableCell className="text-right">Balance</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {chartAccounts.map((a) => (
+                  {pagedChartAccounts.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell className="font-mono text-xs">{a.code}</TableCell>
                       <TableCell className="font-medium">{a.name}</TableCell>
@@ -517,6 +536,15 @@ function AccountingPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+            {coaTotalCount > 0 && (
+              <ListPagination
+                count={coaTotalCount}
+                page={coaPage}
+                pageSize={coaPageSize}
+                onPageChange={setCoaPage}
+                onPageSizeChange={setCoaPageSize}
+              />
+            )}
           </div>
         </Box>
       )}
@@ -534,7 +562,7 @@ function AccountingPage() {
                 <TableCell className="text-right">Credit</TableCell><TableCell>Status</TableCell><TableCell></TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {journal.map((j) => (
+                {pagedJournal.map((j) => (
                   <TableRow key={j.id}>
                     <TableCell className="font-mono text-xs">{j.id}</TableCell>
                     <TableCell>{j.date}</TableCell>
@@ -560,6 +588,15 @@ function AccountingPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {journalTotalCount > 0 && (
+              <ListPagination
+                count={journalTotalCount}
+                page={journalPage}
+                pageSize={journalPageSize}
+                onPageChange={setJournalPage}
+                onPageSizeChange={setJournalPageSize}
+              />
+            )}
           </div>
         </Box>
       )}
@@ -597,7 +634,7 @@ function AccountingPage() {
                 <TableCell>Method</TableCell><TableCell>Status</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {expenses.map((e) => (
+                {pagedExpenses.map((e) => (
                   <TableRow key={e.id}>
                     <TableCell className="font-mono text-xs">{e.id}</TableCell>
                     <TableCell>{e.date}</TableCell>
@@ -618,6 +655,15 @@ function AccountingPage() {
               </TableBody>
             </Table>
             </TableContainer>
+            {expensesTotalCount > 0 && (
+              <ListPagination
+                count={expensesTotalCount}
+                page={expensesPage}
+                pageSize={expensesPageSize}
+                onPageChange={setExpensesPage}
+                onPageSizeChange={setExpensesPageSize}
+              />
+            )}
           </div>
         </Box>
       )}
@@ -708,7 +754,7 @@ function AccountingPage() {
                   <TableCell>Condition</TableCell><TableCell className="text-right">Value</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
-                  {fixedAssets.map((a) => (
+                  {pagedFixedAssets.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell className="font-medium">{a.name}</TableCell>
                       <TableCell>{a.category}</TableCell>
@@ -723,6 +769,15 @@ function AccountingPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+            {assetsTotalCount > 0 && (
+              <ListPagination
+                count={assetsTotalCount}
+                page={assetsPage}
+                pageSize={assetsPageSize}
+                onPageChange={setAssetsPage}
+                onPageSizeChange={setAssetsPageSize}
+              />
+            )}
           </div>
         </Box>
       )}

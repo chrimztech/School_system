@@ -29,6 +29,7 @@ import { appendApprovalItem, appendPlatformAuditEvent, appendRollout, appendSupp
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { PLAN_CATALOG } from "@/lib/tenant";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type RolloutState = "Enabled" | "Pilot" | "Disabled";
 type Rollout = {
@@ -119,6 +120,8 @@ function PlatformConfigPage() {
     digestsEnabled: [comms.releaseDigest, comms.incidentDigest].filter(Boolean).length,
     hardenedPolicies: [security.mfaRequired, security.loginAlerts, security.ipAllowlist].filter(Boolean).length,
   }), [comms.incidentDigest, comms.releaseDigest, rollouts, security.ipAllowlist, security.loginAlerts, security.mfaRequired]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedRollouts, totalCount: rolloutsTotalCount } = usePagedRows(rollouts);
 
   if (user?.role !== "super_admin") {
     return (
@@ -320,7 +323,7 @@ function PlatformConfigPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {rollouts.map((rollout) => (
+              {pagedRollouts.map((rollout) => (
                 <TableRow key={rollout.id}>
                   <TableCell>
                     <div>
@@ -356,6 +359,15 @@ function PlatformConfigPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {rolloutsTotalCount > 0 && (
+            <ListPagination
+              count={rolloutsTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
         )
       )}

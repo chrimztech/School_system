@@ -34,6 +34,7 @@ import { RESULT_APPROVAL_ROLES } from "@/lib/route-access";
 import { useTenant } from "@/lib/tenant";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
 import { ResultsSheet } from "@/routes/assessments";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/results-approvals")({
   head: () => ({ meta: [{ title: "Result Approvals - SRMS" }] }),
@@ -136,6 +137,7 @@ function ResultsApprovalsPage() {
   const actionCount = assessments.filter((assessment) =>
     actionableStatuses.includes(statusOf(assessment.workflowStatus)),
   ).length;
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedVisible, totalCount: visibleTotalCount } = usePagedRows(visible);
   const isLoading = assessmentsQuery.isLoading || classesQuery.isLoading;
   const hasError = assessmentsQuery.isError || classesQuery.isError;
 
@@ -241,7 +243,7 @@ function ResultsApprovalsPage() {
         ) : (
           <>
             <div className="grid gap-3 md:hidden">
-              {visible.map((assessment) => {
+              {pagedVisible.map((assessment) => {
                 const status = statusOf(assessment.workflowStatus);
                 const meta = STATUS_META[status];
                 return (
@@ -287,7 +289,7 @@ function ResultsApprovalsPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {visible.map((assessment) => {
+                    {pagedVisible.map((assessment) => {
                       const status = statusOf(assessment.workflowStatus);
                       const meta = STATUS_META[status];
                       return (
@@ -331,6 +333,15 @@ function ResultsApprovalsPage() {
                 </Table>
               </TableContainer>
             </Box>
+            {visibleTotalCount > 0 && (
+              <ListPagination
+                count={visibleTotalCount}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            )}
           </>
         )}
       </div>

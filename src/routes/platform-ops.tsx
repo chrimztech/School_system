@@ -32,6 +32,7 @@ import {
 } from "@/lib/platform-workspace-actions";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type ServiceStatus = "healthy" | "degraded" | "maintenance";
 type QueueStatus = "normal" | "warning" | "blocked";
@@ -124,6 +125,9 @@ function PlatformOpsPage() {
       uptime,
     };
   }, [incidents, queues, releases, services]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedServices, totalCount: servicesTotalCount } = usePagedRows(services);
+  const { page: incidentsPage, setPage: setIncidentsPage, pageSize: incidentsPageSize, setPageSize: setIncidentsPageSize, pagedRows: pagedIncidents, totalCount: incidentsTotalCount } = usePagedRows(incidents);
 
   if (user?.role !== "super_admin") {
     return (
@@ -470,7 +474,7 @@ function PlatformOpsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {services.map((service) => (
+              {pagedServices.map((service) => (
                 <TableRow key={service.id}>
                   <TableCell>
                     <div>
@@ -503,6 +507,15 @@ function PlatformOpsPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {servicesTotalCount > 0 && (
+            <ListPagination
+              count={servicesTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
         )
       )}
@@ -563,7 +576,7 @@ function PlatformOpsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {incidents.map((incident) => (
+              {pagedIncidents.map((incident) => (
                 <TableRow key={incident.id}>
                   <TableCell>
                     <div>
@@ -593,6 +606,15 @@ function PlatformOpsPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {incidentsTotalCount > 0 && (
+            <ListPagination
+              count={incidentsTotalCount}
+              page={incidentsPage}
+              pageSize={incidentsPageSize}
+              onPageChange={setIncidentsPage}
+              onPageSizeChange={setIncidentsPageSize}
+            />
+          )}
         </Box>
         )
       )}

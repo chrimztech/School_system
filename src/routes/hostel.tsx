@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/hostel")({
   head: () => ({ meta: [{ title: "Hostel & Boarding — SRMS" }] }),
@@ -110,6 +111,10 @@ function HostelPage() {
   const capacity = rooms.reduce((s: number, r: any) => s + (r.capacity ?? 0), 0);
   const occupied = rooms.reduce((s: number, r: any) => s + (r.occupied ?? 0), 0);
   const pendingLeaves = leaves.filter((l: any) => l.status === "PENDING").length;
+
+  const { page: roomsPage, setPage: setRoomsPage, pageSize: roomsPageSize, setPageSize: setRoomsPageSize, pagedRows: pagedRooms, totalCount: roomsTotalCount } = usePagedRows(rooms);
+  const { page: boardersPage, setPage: setBoardersPage, pageSize: boardersPageSize, setPageSize: setBoardersPageSize, pagedRows: pagedBoarders, totalCount: boardersTotalCount } = usePagedRows(boarders);
+  const { page: leavesPage, setPage: setLeavesPage, pageSize: leavesPageSize, setPageSize: setLeavesPageSize, pagedRows: pagedLeaves, totalCount: leavesTotalCount } = usePagedRows(leaves);
 
   // ── Mutations ─────────────────────────────────────────────────
   const createRoomMut = useMutation({
@@ -427,7 +432,7 @@ function HostelPage() {
                       No rooms configured yet. Use <strong>Add room</strong> to create houses and rooms before allocating boarders.
                     </TableCell>
                   </TableRow>
-                ) : rooms.map((r: any) => (
+                ) : pagedRooms.map((r: any) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.house}</TableCell>
                     <TableCell>{r.room}</TableCell>
@@ -449,6 +454,15 @@ function HostelPage() {
             </Table>
             </TableContainer>
           )}
+          {!roomsLoading && roomsTotalCount > 0 && (
+            <ListPagination
+              count={roomsTotalCount}
+              page={roomsPage}
+              pageSize={roomsPageSize}
+              onPageChange={setRoomsPage}
+              onPageSizeChange={setRoomsPageSize}
+            />
+          )}
         </Box>
       )}
 
@@ -469,7 +483,7 @@ function HostelPage() {
               <TableBody>
                 {boarders.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No boarders allocated yet.</TableCell></TableRow>
-                ) : boarders.map((b: any) => (
+                ) : pagedBoarders.map((b: any) => (
                   <TableRow key={b.id}>
                     <TableCell className="font-medium">{b.name}</TableCell>
                     <TableCell>{b.grade}</TableCell>
@@ -506,6 +520,15 @@ function HostelPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!allocLoading && boardersTotalCount > 0 && (
+            <ListPagination
+              count={boardersTotalCount}
+              page={boardersPage}
+              pageSize={boardersPageSize}
+              onPageChange={setBoardersPage}
+              onPageSizeChange={setBoardersPageSize}
+            />
           )}
         </Box>
       )}
@@ -577,7 +600,7 @@ function HostelPage() {
               <TableBody>
                 {leaves.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No leave requests recorded.</TableCell></TableRow>
-                ) : leaves.map((l: any) => (
+                ) : pagedLeaves.map((l: any) => (
                   <TableRow key={l.id}>
                     <TableCell className="font-medium">{l.studentName}</TableCell>
                     <TableCell>{l.leaveType}</TableCell>
@@ -605,6 +628,15 @@ function HostelPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!leavesLoading && leavesTotalCount > 0 && (
+            <ListPagination
+              count={leavesTotalCount}
+              page={leavesPage}
+              pageSize={leavesPageSize}
+              onPageChange={setLeavesPage}
+              onPageSizeChange={setLeavesPageSize}
+            />
           )}
         </Box>
       )}

@@ -12,6 +12,7 @@ import { appendExportJob, appendPlatformAuditEvent, appendRevenueCase, appendSup
 import { PLAN_CATALOG, useTenant } from "@/lib/tenant";
 import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-workspace";
 import { badgeSx, downloadCsv, type BadgeTone } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type CollectionStatus = "Scheduled" | "In progress" | "Promised" | "Resolved";
 type CollectionCase = {
@@ -88,6 +89,9 @@ function RevenueOpsPage() {
     const expansion = tenant.subscription.status === "active" && (campusPct > 80 || learnerPct > 90);
     return { tenant, learnerPct, campusPct, risk, daysToRenewal, expansion };
   }), [tenants]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedPortfolio, totalCount: portfolioTotalCount } = usePagedRows(portfolio);
+  const { page: casesPage, setPage: setCasesPage, pageSize: casesPageSize, setPageSize: setCasesPageSize, pagedRows: pagedCases, totalCount: casesTotalCount } = usePagedRows(cases);
 
   if (user?.role !== "super_admin") {
     return (
@@ -350,7 +354,7 @@ function RevenueOpsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {portfolio.map((record) => (
+              {pagedPortfolio.map((record) => (
                 <TableRow key={record.tenant.id}>
                   <TableCell>
                     <div>
@@ -393,6 +397,15 @@ function RevenueOpsPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {portfolioTotalCount > 0 && (
+            <ListPagination
+              count={portfolioTotalCount}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </Box>
         )
       )}
@@ -472,7 +485,7 @@ function RevenueOpsPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {cases.map((item) => (
+                  {pagedCases.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>
                         <div>
@@ -500,6 +513,15 @@ function RevenueOpsPage() {
                 </TableBody>
               </Table>
               </TableContainer>
+            )}
+            {casesTotalCount > 0 && (
+              <ListPagination
+                count={casesTotalCount}
+                page={casesPage}
+                pageSize={casesPageSize}
+                onPageChange={setCasesPage}
+                onPageSizeChange={setCasesPageSize}
+              />
             )}
           </Box>
         </Box>

@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/compliance")({
   head: () => ({ meta: [{ title: "Compliance — SRMS" }] }),
@@ -62,6 +63,7 @@ function CompliancePage() {
   const compliantCount = (items as any[]).filter((i: any) => i.status === "Compliant").length;
   const totalCount = (items as any[]).length;
   const healthPct = totalCount ? Math.round((compliantCount / totalCount) * 100) : 0;
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedItems, totalCount: itemsPagedTotalCount } = usePagedRows(items as any[]);
 
   return (
     <div className="space-y-6">
@@ -213,7 +215,7 @@ function CompliancePage() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading...</TableCell></TableRow>
-            ) : (items as any[]).map((item: any) => (
+            ) : pagedItems.map((item: any) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.title}</TableCell>
                 <TableCell>{item.category}</TableCell>
@@ -235,6 +237,15 @@ function CompliancePage() {
           </TableBody>
         </Table>
         </TableContainer>
+        {!isLoading && itemsPagedTotalCount > 0 && (
+          <ListPagination
+            count={itemsPagedTotalCount}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
     </div>
   );

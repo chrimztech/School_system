@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/transport")({
   head: () => ({ meta: [{ title: "Transport - SRMS" }] }),
@@ -286,6 +287,10 @@ function TransportPage() {
       sublabel: s.className || s.grade || undefined,
     }));
 
+  const vehicleList = vehicles as any[];
+  const { page: vehiclesPage, setPage: setVehiclesPage, pageSize: vehiclesPageSize, setPageSize: setVehiclesPageSize, pagedRows: pagedVehicles, totalCount: vehiclesTotalCount } = usePagedRows(vehicleList);
+  const { page: ridersPage, setPage: setRidersPage, pageSize: ridersPageSize, setPageSize: setRidersPageSize, pagedRows: pagedRouteEnrolments, totalCount: ridersTotalCount } = usePagedRows(routeEnrolments);
+
   const selectRiderStudent = (option: PersonOption) => {
     const student = (pickerStudents as any[]).find((s: any) => s.id === option.id);
     if (!student) return;
@@ -444,7 +449,7 @@ function TransportPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {(vehicles as any[]).map((v: any) => (
+                    {pagedVehicles.map((v: any) => (
                       <TableRow key={v.id}>
                         <TableCell className="font-medium">{v.plateNumber}</TableCell>
                         <TableCell className="text-muted-foreground">{[v.make, v.model].filter(Boolean).join(" ") || "—"}</TableCell>
@@ -470,6 +475,15 @@ function TransportPage() {
                   </TableBody>
                 </Table>
                 </TableContainer>
+                {vehiclesTotalCount > 0 && (
+                  <ListPagination
+                    count={vehiclesTotalCount}
+                    page={vehiclesPage}
+                    pageSize={vehiclesPageSize}
+                    onPageChange={setVehiclesPage}
+                    onPageSizeChange={setVehiclesPageSize}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -517,7 +531,7 @@ function TransportPage() {
                 <TableCell className="text-right">Actions</TableCell>
               </TableRow></TableHead>
               <TableBody>
-                {routeEnrolments.map((e: any) => (
+                {pagedRouteEnrolments.map((e: any) => (
                   <TableRow key={e.id}>
                     <TableCell className="font-medium">{e.studentName ?? e.student}</TableCell>
                     <TableCell>{e.grade ?? "—"}</TableCell>
@@ -538,6 +552,15 @@ function TransportPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {ridersTotalCount > 0 && (
+            <ListPagination
+              count={ridersTotalCount}
+              page={ridersPage}
+              pageSize={ridersPageSize}
+              onPageChange={setRidersPage}
+              onPageSizeChange={setRidersPageSize}
+            />
           )}
 
           {addRiderOpen ? (

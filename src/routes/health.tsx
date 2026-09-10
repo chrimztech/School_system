@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/health")({
   head: () => ({ meta: [{ title: "Health & Clinic — SRMS" }] }),
@@ -138,6 +139,13 @@ function HealthPage() {
     const d = String(v.date);
     return d.includes("Today") || d.slice(0, 10) === new Date().toISOString().slice(0, 10);
   });
+
+  const immunisationRecords = records.filter((r) => r.vaccinationStatus);
+  const allergyConditionRecords = records.filter((r) => (r.allergies || "").trim() || (r.chronicConditions || "").trim());
+
+  const { page: visitsPage, setPage: setVisitsPage, pageSize: visitsPageSize, setPageSize: setVisitsPageSize, pagedRows: pagedVisits, totalCount: visitsTotalCount } = usePagedRows(visits);
+  const { page: immPage, setPage: setImmPage, pageSize: immPageSize, setPageSize: setImmPageSize, pagedRows: pagedImmunisation, totalCount: immTotalCount } = usePagedRows(immunisationRecords);
+  const { page: allergyPage, setPage: setAllergyPage, pageSize: allergyPageSize, setPageSize: setAllergyPageSize, pagedRows: pagedAllergyRecords, totalCount: allergyTotalCount } = usePagedRows(allergyConditionRecords);
 
   return (
     <AccessGuard module="health">
@@ -357,7 +365,7 @@ function HealthPage() {
               <TableBody>
                 {visits.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No clinic visits recorded.</TableCell></TableRow>
-                ) : visits.map((v: any) => (
+                ) : pagedVisits.map((v: any) => (
                   <TableRow key={v.id}>
                     <TableCell className="text-muted-foreground">{String(v.date).slice(0, 16).replace("T", " ")}</TableCell>
                     <TableCell className="font-medium">{v.student}</TableCell>
@@ -371,6 +379,15 @@ function HealthPage() {
             </Table>
             </TableContainer>
           )}
+          {!isLoading && visitsTotalCount > 0 && (
+            <ListPagination
+              count={visitsTotalCount}
+              page={visitsPage}
+              pageSize={visitsPageSize}
+              onPageChange={setVisitsPage}
+              onPageSizeChange={setVisitsPageSize}
+            />
+          )}
         </Box>
         )}
 
@@ -383,9 +400,9 @@ function HealthPage() {
               <TableCell>Vaccination status</TableCell><TableCell>Last checkup</TableCell><TableCell>Notes</TableCell><TableCell align="right">Actions</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {records.filter((r) => r.vaccinationStatus).length === 0 ? (
+              {immunisationRecords.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No immunisation records on file. Use "Add health record" to add one.</TableCell></TableRow>
-              ) : records.filter((r) => r.vaccinationStatus).map((r: any) => (
+              ) : pagedImmunisation.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.studentName}</TableCell>
                   <TableCell>{r.grade || "—"}</TableCell>
@@ -404,6 +421,15 @@ function HealthPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {immTotalCount > 0 && (
+            <ListPagination
+              count={immTotalCount}
+              page={immPage}
+              pageSize={immPageSize}
+              onPageChange={setImmPage}
+              onPageSizeChange={setImmPageSize}
+            />
+          )}
         </Box>
         )}
 
@@ -416,9 +442,9 @@ function HealthPage() {
               <TableCell>Allergies</TableCell><TableCell>Chronic conditions</TableCell><TableCell>Emergency contact</TableCell><TableCell align="right">Actions</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {allergyRecords.length === 0 && records.filter((r) => r.chronicConditions).length === 0 ? (
+              {allergyConditionRecords.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No allergy or condition records on file.</TableCell></TableRow>
-              ) : records.filter((r) => (r.allergies || "").trim() || (r.chronicConditions || "").trim()).map((r: any) => (
+              ) : pagedAllergyRecords.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.studentName}</TableCell>
                   <TableCell>{r.grade || "—"}</TableCell>
@@ -437,6 +463,15 @@ function HealthPage() {
             </TableBody>
           </Table>
           </TableContainer>
+          {allergyTotalCount > 0 && (
+            <ListPagination
+              count={allergyTotalCount}
+              page={allergyPage}
+              pageSize={allergyPageSize}
+              onPageChange={setAllergyPage}
+              onPageSizeChange={setAllergyPageSize}
+            />
+          )}
         </Box>
         )}
 

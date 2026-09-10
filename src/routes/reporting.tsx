@@ -10,6 +10,7 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 type SavedReport = {
   id: string;
@@ -98,6 +99,7 @@ function ReportingPage() {
   const maxScheduleCount = Math.max(1, ...scheduleBreakdown.map(([, count]) => count));
   const draftReports = reports.length - activeReports;
   const activeRatePct = reports.length > 0 ? Math.round((activeReports / reports.length) * 100) : 0;
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedReports, totalCount: reportsTotalCount } = usePagedRows(reports);
 
   return (
     <div className="space-y-6">
@@ -290,7 +292,7 @@ function ReportingPage() {
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading reports...</TableCell></TableRow>
             ) : reports.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No saved reports found in the database.</TableCell></TableRow>
-            ) : reports.map((report) => (
+            ) : pagedReports.map((report) => (
               <TableRow key={report.id}>
                 <TableCell>{report.name}</TableCell>
                 <TableCell>{report.schedule}</TableCell>
@@ -325,6 +327,15 @@ function ReportingPage() {
           </TableBody>
         </Table>
         </TableContainer>
+        {!isLoading && reportsTotalCount > 0 && (
+          <ListPagination
+            count={reportsTotalCount}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </Paper>
     </div>
   );

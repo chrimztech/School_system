@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 import { badgeSx } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/discipline")({
   head: () => ({ meta: [{ title: "Discipline — SRMS" }] }),
@@ -190,6 +191,8 @@ function DisciplinePage() {
   const suspensions = recs.filter((r) => r.action?.includes("suspension")).length;
   const repeats = recs.filter((r) => (r.repeats ?? r.repeatCount ?? 0) > 1).length;
 
+  const { page, setPage, pageSize, setPageSize, pagedRows: pagedRecs, totalCount } = usePagedRows(recs);
+
   return (
     <AccessGuard module="discipline">
       <div className="space-y-6">
@@ -300,7 +303,7 @@ function DisciplinePage() {
               </TableRow>
             </TableHead>
             <TableBody>
-                {recs.map((d: any) => (
+                {pagedRecs.map((d: any) => (
                   <TableRow key={d.id}>
                     <TableCell className="text-muted-foreground">{(d.date ?? d.incidentDate ?? "").slice(0, 10)}</TableCell>
                     <TableCell className="font-medium">{d.studentName ?? d.student}</TableCell>
@@ -342,6 +345,15 @@ function DisciplinePage() {
             </TableBody>
           </Table>
           </TableContainer>
+        )}
+        {!isLoading && totalCount > 0 && (
+          <ListPagination
+            count={totalCount}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
     </div>

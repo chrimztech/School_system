@@ -11,6 +11,7 @@ import { Button, Chip, IconButton, MenuItem, TextField, Dialog, DialogContent, D
 import { badgeSx } from "@/lib/utils";
 import { useTenant } from "@/lib/tenant";
 import { api, isValidSchoolId } from "@/lib/api";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/subjects")({
   head: () => ({ meta: [{ title: "Subjects - SRMS" }] }),
@@ -254,12 +255,13 @@ function SubjectsPage() {
 
   // ── Grouped table ─────────────────────────────────────────────
   const SubjectTable = ({ list }: { list: any[] }) => {
+    const { page, setPage, pageSize, setPageSize, pagedRows, totalCount } = usePagedRows(list);
     const byDept = deptNames.reduce<Record<string, any[]>>((acc: Record<string, any[]>, d: string) => {
-      const rows = list.filter((s) => (s.department ?? "Other") === d);
+      const rows = pagedRows.filter((s) => (s.department ?? "Other") === d);
       if (rows.length) acc[d] = rows;
       return acc;
     }, {});
-    const others = list.filter((s) => !deptNames.includes(s.department ?? ""));
+    const others = pagedRows.filter((s) => !deptNames.includes(s.department ?? ""));
     if (others.length) byDept["Other"] = others;
 
     if (list.length === 0) {
@@ -273,6 +275,7 @@ function SubjectsPage() {
     }
 
     return (
+      <>
       <TableContainer>
       <Table>
         <TableHead>
@@ -324,6 +327,16 @@ function SubjectsPage() {
         </TableBody>
       </Table>
       </TableContainer>
+      {totalCount > 0 && (
+        <ListPagination
+          count={totalCount}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
+      </>
     );
   };
 

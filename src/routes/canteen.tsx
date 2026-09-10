@@ -13,6 +13,7 @@ import { useTenant } from "@/lib/tenant";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { badgeSx, downloadCsv } from "@/lib/utils";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 const MEAL_PERIODS = ["Breakfast", "Lunch", "Supper", "Snack"] as const;
 
@@ -255,6 +256,10 @@ function CanteenPage() {
 
   const extraSalesTotal = sales.reduce((sum: number, s: any) => sum + s.total, 0);
   const lowStockCount = menu.filter((item: any) => Number.isFinite(item.stock) && item.stock < item.minStock).length;
+
+  const { page: accessPage, setPage: setAccessPage, pageSize: accessPageSize, setPageSize: setAccessPageSize, pagedRows: pagedFilteredAccess, totalCount: accessTotalCount } = usePagedRows(filteredAccess);
+  const { page: salesPage, setPage: setSalesPage, pageSize: salesPageSize, setPageSize: setSalesPageSize, pagedRows: pagedSales, totalCount: salesTotalCount } = usePagedRows(sales);
+  const { page: menuPage, setPage: setMenuPage, pageSize: menuPageSize, setPageSize: setMenuPageSize, pagedRows: pagedMenu, totalCount: menuTotalCount } = usePagedRows(menu);
 
   // ── Mutations ─────────────────────────────────────────────────
   const createOrderMutation = useMutation({
@@ -523,7 +528,7 @@ function CanteenPage() {
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     {accessSearch ? "No pupils match your search." : "No pupils enrolled yet."}
                   </TableCell></TableRow>
-                ) : filteredAccess.map((s: any) => {
+                ) : pagedFilteredAccess.map((s: any) => {
                   const fullName = `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim();
                   const name = s.name ?? (fullName || "—");
                   return (
@@ -578,6 +583,15 @@ function CanteenPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!studentsLoading && accessTotalCount > 0 && (
+            <ListPagination
+              count={accessTotalCount}
+              page={accessPage}
+              pageSize={accessPageSize}
+              onPageChange={setAccessPage}
+              onPageSizeChange={setAccessPageSize}
+            />
           )}
         </Box>
         )}
@@ -721,7 +735,7 @@ function CanteenPage() {
               <TableBody>
                 {sales.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No extra sales recorded yet.</TableCell></TableRow>
-                ) : sales.map((sale: any) => (
+                ) : pagedSales.map((sale: any) => (
                   <TableRow key={sale.id}>
                     <TableCell>
                       <div className="font-medium">{sale.displayItem}</div>
@@ -750,6 +764,15 @@ function CanteenPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!ordersLoading && salesTotalCount > 0 && (
+            <ListPagination
+              count={salesTotalCount}
+              page={salesPage}
+              pageSize={salesPageSize}
+              onPageChange={setSalesPage}
+              onPageSizeChange={setSalesPageSize}
+            />
           )}
         </Box>
         )}
@@ -863,7 +886,7 @@ function CanteenPage() {
               <TableBody>
                 {menu.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No menu items configured yet.</TableCell></TableRow>
-                ) : menu.map((item: any) => {
+                ) : pagedMenu.map((item: any) => {
                   const low = Number.isFinite(item.stock) && item.stock < item.minStock;
                   const available = item.available !== false && (!Number.isFinite(item.stock) || item.stock > 0);
                   return (
@@ -910,6 +933,15 @@ function CanteenPage() {
               </TableBody>
             </Table>
             </TableContainer>
+          )}
+          {!menuLoading && menuTotalCount > 0 && (
+            <ListPagination
+              count={menuTotalCount}
+              page={menuPage}
+              pageSize={menuPageSize}
+              onPageChange={setMenuPage}
+              onPageSizeChange={setMenuPageSize}
+            />
           )}
         </Box>
         )}
