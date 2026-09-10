@@ -131,19 +131,29 @@ function FeesPage() {
     description: "",
   });
 
+  // A parent never sees this component's own JSX (see the early return to ParentFeesView
+  // below) — but React's rules of hooks mean these still run for them regardless, so they're
+  // explicitly disabled rather than left to hit endpoints the backend now correctly (and
+  // loudly, via a failed request) refuses a parent: the full payment ledger and full pupil
+  // roster.
+  const isParent = user?.role === "parent";
+
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["fees-payments", schoolId],
     queryFn: () => api.fees.payments(schoolId),
+    enabled: !isParent,
   });
 
   const { data: summary = { collected: 0, outstanding: 0, collectionRate: 0 } } = useQuery({
     queryKey: ["fees-collected", schoolId],
     queryFn: () => api.fees.collected(schoolId),
+    enabled: !isParent,
   });
 
   const { data: students = [] } = useQuery({
     queryKey: ["students", schoolId],
     queryFn: () => api.students.list(schoolId),
+    enabled: !isParent,
   });
 
   const { data: bursaries = [] } = useQuery({
