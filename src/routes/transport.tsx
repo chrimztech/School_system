@@ -230,7 +230,7 @@ function TransportPage() {
 
   const addRider = () => {
     if (!riderForm.studentId || !ridersRoute) {
-      toast.error("Select a student to add");
+      toast.error("Select a pupil to add");
       return;
     }
     enrolMutation.mutate({
@@ -511,7 +511,7 @@ function TransportPage() {
             <TableContainer>
             <Table>
               <TableHead><TableRow>
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Grade / Form</TableCell>
                 <TableCell>Stop</TableCell>
                 <TableCell className="text-right">Actions</TableCell>
@@ -543,12 +543,12 @@ function TransportPage() {
           {addRiderOpen ? (
             <div className="mt-3 space-y-3 rounded-lg border border-border bg-muted/30 p-3">
               <div>
-                <span className="mb-1 block text-sm font-medium leading-none">Student</span>
+                <span className="mb-1 block text-sm font-medium leading-none">Pupil</span>
                 <div className="mt-1">
                   <PersonCombobox
                     options={studentOptions}
                     loading={pickerStudentsLoading}
-                    placeholder="Search enrolled students…"
+                    placeholder="Search enrolled pupils…"
                     emptyText="No matching students found."
                     onSelect={selectRiderStudent}
                   />

@@ -152,7 +152,7 @@ function BursariesPage() {
 
   const createAward = () => {
     const amount = Number(form.amount);
-    if (!form.student.trim() || !Number.isFinite(amount) || amount <= 0) { toast.error("Student and a valid annual amount are required"); return; }
+    if (!form.student.trim() || !Number.isFinite(amount) || amount <= 0) { toast.error("Pupil and a valid annual amount are required"); return; }
     const data = {
       student: form.student.trim(),
       grade: form.grade,
@@ -219,13 +219,13 @@ function BursariesPage() {
                     <PersonCombobox
                       options={studentOptions}
                       loading={pickerStudentsLoading}
-                      placeholder="Search enrolled students…"
-                      emptyText="No students found."
+                      placeholder="Search enrolled pupils…"
+                      emptyText="No pupils found."
                       onSelect={(option) => setForm((prev) => ({ ...prev, student: option.label }))}
                     />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <TextField label="Student *" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} placeholder="Ruth Zulu" fullWidth size="small" />
+                    <TextField label="Pupil *" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} placeholder="Ruth Zulu" fullWidth size="small" />
                     <TextField
                       select
                       label="Grade"
@@ -381,7 +381,7 @@ function BursariesPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Sponsor</TableCell>
                 <TableCell>Coverage</TableCell>
                 <TableCell>Annual value</TableCell>
@@ -429,7 +429,7 @@ function BursariesPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Requested</TableCell>
                 <TableCell>Household context</TableCell>
                 <TableCell>Reason</TableCell>

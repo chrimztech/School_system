@@ -143,7 +143,7 @@ function DisciplinePage() {
   });
 
   const logIncident = () => {
-    if (!form.studentName.trim() || !form.offense.trim()) { toast.error("Student name and offence are required"); return; }
+    if (!form.studentName.trim() || !form.offense.trim()) { toast.error("Pupil name and offence are required"); return; }
     const data = {
       studentName: form.studentName.trim(),
       grade: form.grade,
@@ -211,13 +211,13 @@ function DisciplinePage() {
                       <PersonCombobox
                         options={studentOptions}
                         loading={pickerStudentsLoading}
-                        placeholder="Search enrolled students…"
-                        emptyText="No students found."
+                        placeholder="Search enrolled pupils…"
+                        emptyText="No pupils found."
                         onSelect={selectStudent}
                       />
                     </div>
                   </div>
-                  <TextField label="Student name *" fullWidth size="small" value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} placeholder="Mwansa Tembo" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField label="Pupil name *" fullWidth size="small" value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} placeholder="Mwansa Tembo" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   <TextField select label="Class / grade" fullWidth size="small" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })}>
                     {classList.length === 0 ? <MenuItem value="" disabled>No classes yet</MenuItem> : classList.map((c: string) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                   </TextField>
@@ -290,7 +290,7 @@ function DisciplinePage() {
             <TableHead>
               <TableRow>
                 <TableCell>Date</TableCell>
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Class</TableCell>
                 <TableCell>Offence</TableCell>
                 <TableCell>Action</TableCell>

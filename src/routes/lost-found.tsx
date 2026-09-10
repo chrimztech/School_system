@@ -21,7 +21,7 @@ type ItemCategory = "Electronics" | "Clothing" | "Stationery" | "Sports" | "Jewe
 
 const CATEGORIES: ItemCategory[] = ["Electronics", "Clothing", "Stationery", "Sports", "Jewellery", "Books", "Other"];
 const LOCATIONS = ["Main gate", "Library", "Canteen", "Assembly hall", "Classroom block A", "Classroom block B", "Sports field", "Hostel", "Staffroom", "Science lab", "Reception"];
-const FOUND_BY_OPTIONS = ["Gate guard", "Canteen staff", "Hostel matron", "Cleaner", "Student (anon)", "Other"];
+const FOUND_BY_OPTIONS = ["Gate guard", "Canteen staff", "Hostel matron", "Cleaner", "Pupil (anon)", "Other"];
 
 function statusBadge(status: string) {
   const map: Record<string, BadgeTone> = {
@@ -241,8 +241,8 @@ function LostFoundPage() {
                     <PersonCombobox
                       options={studentOptions}
                       loading={pickerStudentsLoading}
-                      placeholder="Search students…"
-                      emptyText="No students found."
+                      placeholder="Search pupils…"
+                      emptyText="No pupils found."
                       onSelect={(option) => setLogForm((prev) => ({ ...prev, ownerName: option.label }))}
                     />
                     <TextField value={logForm.ownerName} onChange={(e) => setLogForm({ ...logForm, ownerName: e.target.value })} placeholder="If identifiable" slotProps={{ htmlInput: { maxLength: 100 } }} fullWidth size="small" />
@@ -281,8 +281,8 @@ function LostFoundPage() {
                   <PersonCombobox
                     options={studentOptions}
                     loading={pickerStudentsLoading}
-                    placeholder="Search students…"
-                    emptyText="No students found."
+                    placeholder="Search pupils…"
+                    emptyText="No pupils found."
                     onSelect={(option) => {
                       const student = (pickerStudents as any[]).find((s) => s.id === option.id);
                       const grade = student?.className || student?.grade;

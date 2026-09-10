@@ -173,8 +173,8 @@ function HealthPage() {
                       <PersonCombobox
                         options={studentOptions}
                         loading={pickerStudentsLoading}
-                        placeholder="Search enrolled students…"
-                        emptyText="No students found."
+                        placeholder="Search enrolled pupils…"
+                        emptyText="No pupils found."
                         onSelect={(option) => {
                           const student = findPickerStudent(option.id);
                           if (!student) return;
@@ -183,7 +183,7 @@ function HealthPage() {
                       />
                     </div>
                   </div>
-                  <TextField label="Student name *" fullWidth size="small" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} placeholder="Full name" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField label="Pupil name *" fullWidth size="small" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} placeholder="Full name" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   <TextField label="Class / grade" fullWidth size="small" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="e.g. Form 1A" slotProps={{ htmlInput: { maxLength: 30 } }} />
                   <TextField type="date" label="Visit date" fullWidth size="small" value={form.visitDate} onChange={(e) => setForm({ ...form, visitDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
                   <TextField type="time" label="Visit time" fullWidth size="small" value={form.visitTime} onChange={(e) => setForm({ ...form, visitTime: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
@@ -223,7 +223,7 @@ function HealthPage() {
                 <DialogActions>
                   <Button variant="text" color="inherit" onClick={() => setOpen(false)}>Cancel</Button>
                   <Button onClick={() => {
-                    if (!form.student.trim()) return toast.error("Student name required");
+                    if (!form.student.trim()) return toast.error("Pupil name required");
                     const diagnosisSummary = [
                       form.diagnosis.trim(),
                       form.temperature ? `Temp ${form.temperature}°C` : "",
@@ -258,8 +258,8 @@ function HealthPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Visits today" value={todayVisits.length} accent="primary" icon={<HeartPulse className="h-4 w-4" />} />
         <StatCard label="Immunisations pending" value={immunisationDue.length} hint={immunisationDue.length === 0 ? "All up to date" : "Check immunisation tab"} accent="warning" icon={<Syringe className="h-4 w-4" />} />
-        <StatCard label="Known allergies" value={allergyRecords.length} hint={allergyRecords.length === 0 ? "None on file" : "Students on file"} accent="warning" icon={<Pill className="h-4 w-4" />} />
-        <StatCard label="Health records" value={records.length} hint="Students on file" accent="accent" icon={<ShieldAlert className="h-4 w-4" />} />
+        <StatCard label="Known allergies" value={allergyRecords.length} hint={allergyRecords.length === 0 ? "None on file" : "Pupils on file"} accent="warning" icon={<Pill className="h-4 w-4" />} />
+        <StatCard label="Health records" value={records.length} hint="Pupils on file" accent="accent" icon={<ShieldAlert className="h-4 w-4" />} />
       </div>
 
       <Box>
@@ -286,8 +286,8 @@ function HealthPage() {
                     <PersonCombobox
                       options={studentOptions}
                       loading={pickerStudentsLoading}
-                      placeholder="Search enrolled students…"
-                      emptyText="No students found."
+                      placeholder="Search enrolled pupils…"
+                      emptyText="No pupils found."
                       onSelect={(option) => {
                         const student = findPickerStudent(option.id);
                         if (!student) return;
@@ -296,7 +296,7 @@ function HealthPage() {
                     />
                   </div>
                 </div>
-                <TextField label="Student name *" fullWidth size="small" value={recForm.studentName} onChange={(e) => setRecForm({ ...recForm, studentName: e.target.value })} placeholder="Full name" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                <TextField label="Pupil name *" fullWidth size="small" value={recForm.studentName} onChange={(e) => setRecForm({ ...recForm, studentName: e.target.value })} placeholder="Full name" slotProps={{ htmlInput: { maxLength: 100 } }} />
                 <TextField label="Class / grade" fullWidth size="small" value={recForm.grade} onChange={(e) => setRecForm({ ...recForm, grade: e.target.value })} placeholder="e.g. Form 2A" slotProps={{ htmlInput: { maxLength: 30 } }} />
                 <TextField select label="Blood group" fullWidth size="small" value={recForm.bloodGroup || "__none__"} onChange={(e) => setRecForm({ ...recForm, bloodGroup: e.target.value === "__none__" ? "" : e.target.value })}>
                   <MenuItem value="__none__">Unknown</MenuItem>
@@ -314,7 +314,7 @@ function HealthPage() {
               <DialogActions>
                 <Button variant="text" color="inherit" onClick={() => setRecOpen(false)}>Cancel</Button>
                 <Button onClick={() => {
-                  if (!recForm.studentName.trim()) return toast.error("Student name required");
+                  if (!recForm.studentName.trim()) return toast.error("Pupil name required");
                   const data = {
                     studentName: recForm.studentName.trim(), grade: recForm.grade || "—",
                     bloodGroup: recForm.bloodGroup || null,
@@ -351,7 +351,7 @@ function HealthPage() {
             <TableContainer>
             <Table>
               <TableHead><TableRow>
-                <TableCell>Time</TableCell><TableCell>Student</TableCell><TableCell>Class</TableCell>
+                <TableCell>Time</TableCell><TableCell>Pupil</TableCell><TableCell>Class</TableCell>
                 <TableCell>Complaint</TableCell><TableCell>Treatment</TableCell><TableCell>Nurse</TableCell>
               </TableRow></TableHead>
               <TableBody>
@@ -379,7 +379,7 @@ function HealthPage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell>
+              <TableCell>Pupil</TableCell><TableCell>Grade / Form</TableCell>
               <TableCell>Vaccination status</TableCell><TableCell>Last checkup</TableCell><TableCell>Notes</TableCell><TableCell align="right">Actions</TableCell>
             </TableRow></TableHead>
             <TableBody>
@@ -412,7 +412,7 @@ function HealthPage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell>
+              <TableCell>Pupil</TableCell><TableCell>Grade / Form</TableCell>
               <TableCell>Allergies</TableCell><TableCell>Chronic conditions</TableCell><TableCell>Emergency contact</TableCell><TableCell align="right">Actions</TableCell>
             </TableRow></TableHead>
             <TableBody>

@@ -581,7 +581,7 @@ function ReportCardPage() {
 
           <div className="grid grid-cols-2 gap-5 border-b border-border p-6 text-sm sm:grid-cols-4">
             <div>
-              <p className="text-xs uppercase text-muted-foreground">Student</p>
+              <p className="text-xs uppercase text-muted-foreground">Pupil</p>
               <p className="mt-0.5 font-medium">{studentName || "—"}</p>
             </div>
             <div>

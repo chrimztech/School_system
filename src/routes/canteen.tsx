@@ -418,13 +418,13 @@ function CanteenPage() {
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   <TextField select label="Customer type" fullWidth size="small" value={saleForm.customerType} onChange={(e) => setSaleForm({ ...saleForm, customerType: e.target.value as (typeof CUSTOMER_TYPES)[number] })}>
-                    <MenuItem value="STUDENT">Student</MenuItem>
+                    <MenuItem value="STUDENT">Pupil</MenuItem>
                     <MenuItem value="STAFF">Staff</MenuItem>
                     <MenuItem value="WALK_IN">Walk-in</MenuItem>
                   </TextField>
                   <TextField
                     className="sm:col-span-2"
-                    label={saleForm.customerType === "STUDENT" ? "Student name" : saleForm.customerType === "STAFF" ? "Staff name" : "Walk-in label"}
+                    label={saleForm.customerType === "STUDENT" ? "Pupil name" : saleForm.customerType === "STAFF" ? "Staff name" : "Walk-in label"}
                     fullWidth
                     size="small"
                     value={saleForm.customerType === "WALK_IN" ? "Walk-in" : saleForm.customerName}

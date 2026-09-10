@@ -94,7 +94,7 @@ function LibraryPage() {
   });
 
   const confirmIssue = () => {
-    if (!issueBorrower) { toast.error("Select a student to issue the book to"); return; }
+    if (!issueBorrower) { toast.error("Select a pupil to issue the book to"); return; }
     issueLoanMutation.mutate({
       bookId: issueBook.id,
       bookTitle: issueBook.title,
@@ -496,7 +496,7 @@ function LibraryPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Title</TableCell>
                 <TableCell>Due date</TableCell>
                 <TableCell>Status</TableCell>
@@ -542,12 +542,12 @@ function LibraryPage() {
         <DialogContent>
           <div className="space-y-3 pt-1">
             <div>
-              <p className="mb-1 text-sm font-medium">Student</p>
+              <p className="mb-1 text-sm font-medium">Pupil</p>
               <PersonCombobox
                 options={studentOptions}
                 loading={pickerStudentsLoading}
-                placeholder="Search students…"
-                emptyText="No students found."
+                placeholder="Search pupils…"
+                emptyText="No pupils found."
                 onSelect={setIssueBorrower}
               />
               {issueBorrower && (

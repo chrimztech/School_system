@@ -305,7 +305,7 @@ function CalendarPage() {
                       minRows={4}
                       value={form.description}
                       onChange={(event) => setForm({ ...form, description: event.target.value })}
-                      placeholder="Agenda, dress code, student briefing, parent note, or operational checklist"
+                      placeholder="Agenda, dress code, pupil briefing, parent note, or operational checklist"
                       slotProps={{ htmlInput: { maxLength: 500 } }}
                       fullWidth
                       size="small"

@@ -24,7 +24,7 @@ const ADMIN_ROLES = new Set(["super_admin", "school_admin", "principal", "deputy
 
 type ExportItem = { id: string; scope: string; rows: number; when: string; dataset: string };
 
-const EXPORT_DATASETS = ["Student register", "Fee ledger", "Attendance archive", "Audit log"] as const;
+const EXPORT_DATASETS = ["Pupil register", "Fee ledger", "Attendance archive", "Audit log"] as const;
 
 function exportsStorageKey(schoolId: string) {
   return `srms-backup-exports:${schoolId}`;
@@ -68,7 +68,7 @@ function BackupsPage() {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [queuingExport, setQueuingExport] = useState(false);
-  const [exportForm, setExportForm] = useState({ dataset: "Student register", format: "CSV" });
+  const [exportForm, setExportForm] = useState({ dataset: "Pupil register", format: "CSV" });
 
   // Per-browser convenience list of recent ad-hoc exports — not backend-tracked (each export is
   // just a CSV built on demand from live data), so this is the honest scope: it survives a
@@ -188,7 +188,7 @@ function BackupsPage() {
   // when queuing an export and to build the CSV on download — keeping these on one code path
   // means the count shown can never drift from what actually downloads.
   const fetchDatasetRows = async (dataset: string): Promise<Record<string, unknown>[]> => {
-    if (dataset === "Student register") {
+    if (dataset === "Pupil register") {
       const data = await api.students.list(schoolId);
       return (data as any[]).map((s) => ({
         "ID": s.id, "First Name": s.firstName || "", "Last Name": s.lastName || "",
@@ -202,7 +202,7 @@ function BackupsPage() {
     if (dataset === "Fee ledger") {
       const data = await api.fees.payments(schoolId);
       return (data as any[]).map((p) => ({
-        "ID": p.id, "Student": p.studentName || p.student || "",
+        "ID": p.id, "Pupil": p.studentName || p.student || "",
         "Amount": p.amount || 0, "Type": p.feeType || p.type || "",
         "Date": p.paidDate || p.date || "", "Method": p.paymentMethod || p.method || "",
         "Reference": p.reference || p.receiptNo || "", "Status": p.status || "",
@@ -211,7 +211,7 @@ function BackupsPage() {
     if (dataset === "Attendance archive") {
       const data = await api.attendance.list(schoolId);
       return (data as any[]).map((r) => ({
-        "Date": r.date || "", "Student": r.studentName || r.student || "",
+        "Date": r.date || "", "Pupil": r.studentName || r.student || "",
         "Class": r.className || r.class || "", "Status": r.status || "",
         "Remarks": r.remarks || "",
       }));
@@ -241,7 +241,7 @@ function BackupsPage() {
         ...prev,
       ]);
       toast.success(`${exportForm.dataset} export ready — ${rows.length} records`);
-      setExportForm({ dataset: "Student register", format: "CSV" });
+      setExportForm({ dataset: "Pupil register", format: "CSV" });
       setExportOpen(false);
     } catch {
       toast.error("Could not prepare export — please try again");

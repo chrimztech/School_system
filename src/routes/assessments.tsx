@@ -639,7 +639,7 @@ export function ResultsSheet({
   };
 
   const csvColumns: ImportColumn[] = [
-    { key: "studentName", label: "Student Name", required: true, example: "Mwansa Tembo" },
+    { key: "studentName", label: "Pupil Name", required: true, example: "Mwansa Tembo" },
     { key: "score", label: "Score", example: "78" },
     { key: "absent", label: "Absent", example: "No" },
   ];
@@ -655,9 +655,9 @@ export function ResultsSheet({
     const updates = new Map<string, { score: string; absent: boolean }>();
     csvRows.forEach((row, i) => {
       const rowNum = i + 2;
-      const name = row["Student Name"]?.trim();
+      const name = row["Pupil Name"]?.trim();
       if (!name) {
-        result.errors.push({ row: rowNum, error: "Student Name is required" });
+        result.errors.push({ row: rowNum, error: "Pupil Name is required" });
         return;
       }
       const matches = nameIndex.get(name.toLowerCase());
@@ -889,7 +889,7 @@ export function ResultsSheet({
                 <TableHead>
                   <TableRow>
                     <TableCell className="w-8 text-center">#</TableCell>
-                    <TableCell>Student</TableCell>
+                    <TableCell>Pupil</TableCell>
                     <TableCell className="w-28">Score /{assessment?.maxScore}</TableCell>
                     <TableCell className="w-16 text-center">Grade</TableCell>
                     <TableCell className="w-16 text-center">Absent</TableCell>

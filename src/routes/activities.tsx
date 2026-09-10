@@ -160,12 +160,12 @@ function ActivitiesPage() {
     mutationFn: ({ activityId, data }: { activityId: string; data: any }) => api.activities.enrol(schoolId, activityId, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["activities-enrolments", schoolId] });
-      toast.success("Student enrolled");
+      toast.success("Pupil enrolled");
       setEnrolStudent(null);
       setEnrolClubId("");
       setEnrolOpen(false);
     },
-    onError: () => toast.error("Failed to enrol student"),
+    onError: () => toast.error("Failed to enrol pupil"),
   });
 
   const withdrawMutation = useMutation({
@@ -178,7 +178,7 @@ function ActivitiesPage() {
   });
 
   const submitEnrolment = () => {
-    if (!enrolClubId || !enrolStudent) { toast.error("Select a club and a student"); return; }
+    if (!enrolClubId || !enrolStudent) { toast.error("Select a club and a pupil"); return; }
     const club = clubs.find((c) => c.id === enrolClubId);
     enrolMutation.mutate({
       activityId: enrolClubId,
@@ -455,7 +455,7 @@ function ActivitiesPage() {
             <TableContainer>
             <Table>
               <TableHead><TableRow>
-                <TableCell>Student</TableCell><TableCell>Club</TableCell><TableCell>Grade</TableCell>
+                <TableCell>Pupil</TableCell><TableCell>Club</TableCell><TableCell>Grade</TableCell>
                 <TableCell>Enrolled</TableCell><TableCell className="text-right">Action</TableCell>
               </TableRow></TableHead>
               <TableBody>
@@ -491,12 +491,12 @@ function ActivitiesPage() {
                   {activeClubs.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
                 </TextField>
                 <div>
-                  <p className="mb-1 text-sm font-medium">Student *</p>
+                  <p className="mb-1 text-sm font-medium">Pupil *</p>
                   <PersonCombobox
                     options={studentOptions}
                     loading={studentsLoading}
-                    placeholder="Search students…"
-                    emptyText="No students found."
+                    placeholder="Search pupils…"
+                    emptyText="No pupils found."
                     onSelect={(option) => setEnrolStudent(option)}
                   />
                   {enrolStudent && <p className="mt-1 text-xs text-muted-foreground">Selected: {enrolStudent.label}</p>}

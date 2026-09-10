@@ -297,7 +297,7 @@ function AccountingPage() {
 
   const buildOutstandingFees = (): Record<string, unknown>[] | null => {
     const withBalance = (studentsRaw as any[]).filter((s) => Number(s.feeBalance ?? 0) > 0);
-    if (withBalance.length === 0) { toast.error("No students have an outstanding balance"); return null; }
+    if (withBalance.length === 0) { toast.error("No pupils have an outstanding balance"); return null; }
     return withBalance
       .slice()
       .sort((a, b) => Number(b.feeBalance) - Number(a.feeBalance))
@@ -739,7 +739,7 @@ function AccountingPage() {
             },
             { name: "Cash Flow Statement", icon: ArrowUpRight, desc: "Chronological cash in/out with running balance", action: () => openReport("Cash Flow Statement", `cash-flow-${active.shortCode}`, buildCashFlow()) },
             { name: "General Ledger",      icon: FileText,   desc: "All journal entries with account codes", action: () => openReport("General Ledger", `general-ledger-${active.shortCode}`, buildGeneralLedger()) },
-            { name: "Outstanding Fees",    icon: ArrowDownRight, desc: "Students with a fee balance, highest first", action: () => openReport("Outstanding Fees", `outstanding-fees-${active.shortCode}`, buildOutstandingFees()) },
+            { name: "Outstanding Fees",    icon: ArrowDownRight, desc: "Pupils with a fee balance, highest first", action: () => openReport("Outstanding Fees", `outstanding-fees-${active.shortCode}`, buildOutstandingFees()) },
           ].map((r) => (
             <button
               key={r.name}

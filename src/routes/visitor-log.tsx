@@ -148,7 +148,7 @@ function VisitorLogPage() {
                 <TextField select label="Host type" fullWidth size="small" value={form.hostType} onChange={(e) => setForm({ ...form, hostType: e.target.value as typeof HOST_TYPES[number] })}>
                   <MenuItem value="ADMIN">Admin</MenuItem>
                   <MenuItem value="TEACHER">Teacher</MenuItem>
-                  <MenuItem value="STUDENT">Student</MenuItem>
+                  <MenuItem value="STUDENT">Pupil</MenuItem>
                 </TextField>
                 <TextField label="Badge number" fullWidth size="small" value={form.badgeNumber} onChange={(e) => setForm({ ...form, badgeNumber: e.target.value })} placeholder="VIS-014" slotProps={{ htmlInput: { maxLength: 20 } }} />
                 <TextField type="date" label="Visit date" fullWidth size="small" value={form.visitDate} onChange={(e) => setForm({ ...form, visitDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />

@@ -587,7 +587,7 @@ function DataGovernancePage() {
             </TextField>
             <TextField
               label="Data subject"
-              placeholder="e.g. parent or student name"
+              placeholder="e.g. parent or pupil name"
               value={newRequestForm.subject}
               onChange={(e) => setNewRequestForm({ ...newRequestForm, subject: e.target.value })}
               fullWidth

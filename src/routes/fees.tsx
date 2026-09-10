@@ -227,7 +227,7 @@ function FeesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fees-payments", schoolId] });
       qc.invalidateQueries({ queryKey: ["students", schoolId] });
-      toast.success("Payment reversed — the amount was added back to the student's balance");
+      toast.success("Payment reversed — the amount was added back to the pupil's balance");
       setReversePaymentTarget(null);
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to reverse payment"),
@@ -326,7 +326,7 @@ function FeesPage() {
 
   const recordPayment = () => {
     if (!form.amount || Number(form.amount) <= 0) { toast.error("Enter a valid amount"); return; }
-    if (!form.studentId) { toast.error("Select a student"); return; }
+    if (!form.studentId) { toast.error("Select a pupil"); return; }
     payMutation.mutate({
       studentId: form.studentId,
       studentName: form.studentName,
@@ -385,7 +385,7 @@ function FeesPage() {
                         <Table>
                           <TableHead>
                             <TableRow>
-                              <TableCell>Student</TableCell>
+                              <TableCell>Pupil</TableCell>
                               <TableCell className="text-right">Balance</TableCell>
                             </TableRow>
                           </TableHead>
@@ -461,7 +461,7 @@ function FeesPage() {
                   <div className="col-span-2">
                     <TextField
                       select
-                      label="Student"
+                      label="Pupil"
                       value={form.studentId}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -638,7 +638,7 @@ function FeesPage() {
             <SchoolDocumentHeader title="Official Fee Receipt" subtitle={lastPayment?.termPeriod ?? ""} />
             <div className="grid grid-cols-2 gap-3 p-6">
               <div>
-                <p className="text-xs uppercase text-muted-foreground">Student</p>
+                <p className="text-xs uppercase text-muted-foreground">Pupil</p>
                 <p className="mt-0.5 font-semibold">{lastPayment?.studentName}</p>
               </div>
               <div>
@@ -723,7 +723,7 @@ function FeesPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Class</TableCell>
                 <TableCell className="text-right">Balance due</TableCell>
                 <TableCell></TableCell>
@@ -824,7 +824,7 @@ function FeesPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Class</TableCell>
                 <TableCell>Amount</TableCell>
                 <TableCell>Method</TableCell>

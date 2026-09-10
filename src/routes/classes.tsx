@@ -172,7 +172,7 @@ function ClassDetailSheet({
       void qc.invalidateQueries({ queryKey: ["classes", schoolId] });
       toast.success(`${s.firstName} ${s.lastName} enrolled in ${cls.name}`);
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to enrol student"),
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to enrol pupil"),
   });
 
   const removeEnrolMut = useMutation({
@@ -180,9 +180,9 @@ function ClassDetailSheet({
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["class-enrolments", schoolId, cls.id] });
       void qc.invalidateQueries({ queryKey: ["classes", schoolId] });
-      toast.success("Student removed from class");
+      toast.success("Pupil removed from class");
     },
-    onError: () => toast.error("Failed to remove student"),
+    onError: () => toast.error("Failed to remove pupil"),
   });
 
   const promoteMut = useMutation({
@@ -193,7 +193,7 @@ function ClassDetailSheet({
       toast.success(`${result.promoted} promoted, ${result.graduated} graduated`);
       setPromoteDialog(false);
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to promote students"),
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to promote pupils"),
   });
 
   const assignTeacherMut = useMutation({
@@ -356,7 +356,7 @@ function ClassDetailSheet({
               <Dialog open={enrollDialog} onClose={() => setEnrollDialog(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>
                   Enrol pupils into {cls.name}
-                  <p className="text-sm text-muted-foreground" style={{ fontWeight: 400 }}>Select admitted students to add to this class.</p>
+                  <p className="text-sm text-muted-foreground" style={{ fontWeight: 400 }}>Select admitted pupils to add to this class.</p>
                 </DialogTitle>
                 <DialogContent>
                   <TextField
@@ -370,7 +370,7 @@ function ClassDetailSheet({
                   <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
                     {availableStudents.length === 0 ? (
                       <p className="py-6 text-center text-sm text-muted-foreground">
-                        {enrollSearch ? "No students match your search." : "All admitted students are already in this class."}
+                        {enrollSearch ? "No pupils match your search." : "All admitted pupils are already in this class."}
                       </p>
                     ) : availableStudents.map((s: any) => {
                       const name = `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || s.name || "—";
@@ -404,7 +404,7 @@ function ClassDetailSheet({
                 <TableContainer>
                 <Table>
                   <TableHead><TableRow>
-                    <TableCell>Student</TableCell>
+                    <TableCell>Pupil</TableCell>
                     <TableCell>Grade / Form</TableCell>
                     <TableCell>Year</TableCell>
                     <TableCell>Status</TableCell>
@@ -413,7 +413,7 @@ function ClassDetailSheet({
                   <TableBody>
                     {enrolments.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                        No pupils enrolled yet. Use "Enrol pupils" to add students.
+                        No pupils enrolled yet. Use "Enrol pupils" to add some.
                       </TableCell></TableRow>
                     ) : enrolments.map((e: any) => (
                       <TableRow key={e.id}>
@@ -677,7 +677,7 @@ function PromoteClassDialog({
             <Table>
               <TableHead><TableRow>
                 <TableCell className="w-10" />
-                <TableCell>Student</TableCell>
+                <TableCell>Pupil</TableCell>
                 <TableCell>Destination</TableCell>
               </TableRow></TableHead>
               <TableBody>
@@ -808,7 +808,7 @@ function ClassesPage() {
         toast.success("Nothing to repair — grade data was already correct.");
       } else {
         toast.success(
-          `Repaired ${result.classesFixed} class(es) and ${result.studentsFixed} enrolled student(s). Refresh other pages to see the corrected grades.`,
+          `Repaired ${result.classesFixed} class(es) and ${result.studentsFixed} enrolled pupil(s). Refresh other pages to see the corrected grades.`,
         );
       }
     },
@@ -917,7 +917,7 @@ function ClassesPage() {
                   A past bug could store an O-Level/A-Level class (and its enrolled pupils) at
                   the same raw grade number as a primary class, mislabeling secondary pupils as
                   primary on report cards, fee structures, and elsewhere. This corrects any
-                  affected class and student found for {active.name}. Safe to run more than
+                  affected class and pupil found for {active.name}. Safe to run more than
                   once — classes already correct are left untouched.
                 </p>
               </DialogContent>

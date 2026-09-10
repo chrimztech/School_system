@@ -96,7 +96,7 @@ const PRODUCT_SUITES: ProductSuite[] = [
     tint: "#eaf0ff",
     modules: [
       "Admissions",
-      "Student records",
+      "Pupil records",
       "Classes & subjects",
       "Curriculum",
       "Timetables",
@@ -414,7 +414,7 @@ const PREVIEW_VIEWS: PreviewView[] = [
   {
     id: "students",
     icon: Users,
-    label: "Students",
+    label: "Pupils",
     eyebrow: "Learner records",
     title: "Every learner, one complete story",
     subtitle: "Admissions, profiles, placement, and progression · Sample workspace",
@@ -1017,7 +1017,7 @@ function WelcomePage() {
           <div className="absolute inset-y-0 right-0 h-full w-full overflow-hidden md:w-[64%]">
             <img
               src="/landing-school-community.png"
-              alt="Students and a teacher walking through a school courtyard"
+              alt="Pupils and a teacher walking through a school courtyard"
               className="srms-hero-image h-full w-full object-cover object-[68%_center] opacity-35 md:opacity-100"
               fetchPriority="high"
             />

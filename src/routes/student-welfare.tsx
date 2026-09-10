@@ -13,7 +13,7 @@ import { badgeSx, downloadCsv } from "@/lib/utils";
 import { PersonCombobox, type PersonOption } from "@/components/person-combobox";
 
 export const Route = createFileRoute("/student-welfare")({
-  head: () => ({ meta: [{ title: "Student Welfare — SRMS" }] }),
+  head: () => ({ meta: [{ title: "Pupil Welfare — SRMS" }] }),
   component: StudentWelfarePage,
 });
 
@@ -80,13 +80,13 @@ function StudentWelfarePage() {
   });
 
   const logCase = () => {
-    if (!caseForm.student.trim()) { toast.error("Student name is required"); return; }
+    if (!caseForm.student.trim()) { toast.error("Pupil name is required"); return; }
     createCaseMut.mutate({ student: caseForm.student.trim(), grade: caseForm.grade, type: caseForm.type, assignedTo: caseForm.assignedTo, status: "Open", lastContact: new Date().toISOString().slice(0, 10) });
     setCaseForm({ student: "", grade: gradeOptions[0], type: "Academic", assignedTo: "" });
   };
 
   const logSession = () => {
-    if (!sessionForm.student.trim() || !sessionForm.date.trim()) { toast.error("Student and date are required"); return; }
+    if (!sessionForm.student.trim() || !sessionForm.date.trim()) { toast.error("Pupil and date are required"); return; }
     createSessionMut.mutate({ student: sessionForm.student.trim(), counselor: sessionForm.counselor, sessionDate: sessionForm.date.trim(), sessionType: sessionForm.type, notes: sessionForm.notes.trim() });
     setSessionForm({ student: "", counselor: "", date: "", type: "Individual", notes: "" });
   };
@@ -108,9 +108,9 @@ function StudentWelfarePage() {
     <AccessGuard module="student-welfare">
       <div className="space-y-6">
       <PageHeader
-        title="Student Welfare"
-        description="Pastoral care cases, counseling sessions, and at-risk student monitoring."
-        actions={<Button variant="outlined" onClick={() => { downloadCsv((cases as any[]).map((c: any) => ({ Student: c.student, "Grade / Form": c.grade, Type: c.type, "Assigned To": c.assignedTo, "Last Contact": c.lastContact, Status: c.status })), "welfare-report"); toast.success("Welfare report exported"); }}>Export report</Button>}
+        title="Pupil Welfare"
+        description="Pastoral care cases, counseling sessions, and at-risk pupil monitoring."
+        actions={<Button variant="outlined" onClick={() => { downloadCsv((cases as any[]).map((c: any) => ({ Pupil: c.student, "Grade / Form": c.grade, Type: c.type, "Assigned To": c.assignedTo, "Last Contact": c.lastContact, Status: c.status })), "welfare-report"); toast.success("Welfare report exported"); }}>Export report</Button>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -141,8 +141,8 @@ function StudentWelfarePage() {
                       <PersonCombobox
                         options={studentOptions}
                         loading={pickerStudentsLoading}
-                        placeholder="Search enrolled students…"
-                        emptyText="No students found."
+                        placeholder="Search enrolled pupils…"
+                        emptyText="No pupils found."
                         onSelect={(option) => {
                           const student = findStudent(option.id);
                           if (!student) return;
@@ -155,7 +155,7 @@ function StudentWelfarePage() {
                       />
                     </div>
                   </div>
-                  <TextField label="Student name *" fullWidth size="small" value={caseForm.student} onChange={(e) => setCaseForm({ ...caseForm, student: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField label="Pupil name *" fullWidth size="small" value={caseForm.student} onChange={(e) => setCaseForm({ ...caseForm, student: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   <div className="grid grid-cols-2 gap-3">
                     <TextField select label="Grade" fullWidth size="small" value={caseForm.grade} onChange={(e) => setCaseForm({ ...caseForm, grade: e.target.value })}>
                       {gradeOptions.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
@@ -188,7 +188,7 @@ function StudentWelfarePage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell><TableCell>Type</TableCell>
+              <TableCell>Pupil</TableCell><TableCell>Grade / Form</TableCell><TableCell>Type</TableCell>
               <TableCell>Assigned to</TableCell><TableCell>Last contact</TableCell><TableCell>Status</TableCell>
               <TableCell className="text-right">Action</TableCell>
             </TableRow></TableHead>
@@ -237,8 +237,8 @@ function StudentWelfarePage() {
                         <PersonCombobox
                           options={studentOptions}
                           loading={pickerStudentsLoading}
-                          placeholder="Search students…"
-                          emptyText="No students found."
+                          placeholder="Search pupils…"
+                          emptyText="No pupils found."
                           onSelect={(option) => {
                             const student = findStudent(option.id);
                             if (!student) return;
@@ -261,7 +261,7 @@ function StudentWelfarePage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <TextField label="Student name *" fullWidth size="small" value={sessionForm.student} onChange={(e) => setSessionForm({ ...sessionForm, student: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                    <TextField label="Pupil name *" fullWidth size="small" value={sessionForm.student} onChange={(e) => setSessionForm({ ...sessionForm, student: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
                     <TextField label="Counselor" fullWidth size="small" value={sessionForm.counselor} onChange={(e) => setSessionForm({ ...sessionForm, counselor: e.target.value })} placeholder="Counselor / staff name" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -282,7 +282,7 @@ function StudentWelfarePage() {
           <TableContainer>
           <Table>
             <TableHead><TableRow>
-              <TableCell>Student</TableCell><TableCell>Counselor</TableCell><TableCell>Date</TableCell>
+              <TableCell>Pupil</TableCell><TableCell>Counselor</TableCell><TableCell>Date</TableCell>
               <TableCell>Type</TableCell><TableCell>Notes</TableCell>
             </TableRow></TableHead>
             <TableBody>
@@ -319,7 +319,7 @@ function StudentWelfarePage() {
             <TableContainer>
               <Table>
                 <TableHead><TableRow>
-                  <TableCell>Student</TableCell><TableCell>Grade / Form</TableCell><TableCell>Type</TableCell>
+                  <TableCell>Pupil</TableCell><TableCell>Grade / Form</TableCell><TableCell>Type</TableCell>
                   <TableCell>Assigned to</TableCell><TableCell>Last contact</TableCell>
                   <TableCell className="text-right">Action</TableCell>
                 </TableRow></TableHead>

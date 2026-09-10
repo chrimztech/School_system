@@ -344,8 +344,8 @@ function PtcPage() {
                             <PersonCombobox
                               options={studentOptions}
                               loading={pickerStudentsLoading}
-                              placeholder="Search enrolled students…"
-                              emptyText="No students found."
+                              placeholder="Search enrolled pupils…"
+                              emptyText="No pupils found."
                               onSelect={selectStudentForMember}
                             />
                           ) : memberForm.memberType === "TEACHER" ? (

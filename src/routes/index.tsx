@@ -1404,7 +1404,7 @@ function StaffDashboard() {
               <>
                 {isSchoolLeadershipRole(user?.role) && (
                   <Button variant="contained" component={Link} to="/students" startIcon={<Plus className="h-4 w-4" />}>
-                    Enrol student
+                    Enrol pupil
                   </Button>
                 )}
               </>
@@ -1434,7 +1434,7 @@ function StaffDashboard() {
               <div className="mt-5 flex flex-wrap gap-2 border-t border-border/70 pt-4">
                 {can("students") !== false && (
                   <Link to="/students" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:bg-primary/[0.04]">
-                    Student register <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    Pupil register <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   </Link>
                 )}
                 {can("attendance") !== false && (
@@ -1491,7 +1491,7 @@ function StaffDashboard() {
             className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isTeacher || isHOD ? "lg:grid-cols-2" : "lg:grid-cols-4"}`}
           >
             <StatCard
-              label="Total Students"
+              label="Total Pupils"
               value={school.totalStudents}
               accent="primary"
               icon={<Users className="h-4 w-4" />}
@@ -1842,7 +1842,7 @@ function StaffDashboard() {
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Student welfare</p>
+                  <p className="text-sm font-semibold text-foreground">Pupil welfare</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Coordinate pastoral care, vulnerable learner support, and intervention
                     follow-up.

@@ -230,7 +230,7 @@ function TenantWorkbenchPage() {
                 <TableCell>Plan</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Campuses</TableCell>
-                <TableCell>Students</TableCell>
+                <TableCell>Pupils</TableCell>
                 <TableCell className="text-right">Actions</TableCell>
               </TableRow>
             </TableHead>

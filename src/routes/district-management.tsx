@@ -48,7 +48,7 @@ function DistrictManagementPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Enrollment by school</h2>
-              <p className="text-xs text-muted-foreground">Student headcount across the network.</p>
+              <p className="text-xs text-muted-foreground">Pupil headcount across the network.</p>
             </div>
             <Chip size="small" label="Live" sx={badgeSx("secondary")} />
           </div>
@@ -106,7 +106,7 @@ function DistrictManagementPage() {
                 <TableCell>School</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell>Province</TableCell>
-                <TableCell>Students</TableCell>
+                <TableCell>Pupils</TableCell>
                 <TableCell>Status</TableCell>
               </TableRow>
             </TableHead>

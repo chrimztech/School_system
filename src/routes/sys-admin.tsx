@@ -273,7 +273,7 @@ function SysAdminPage() {
         action: "Queued subscriber school CSV export",
       }),
     });
-    downloadCsv(tenants.map((t) => ({ School: t.name, District: t.district, Province: t.province, Plan: PLAN_CATALOG[t.subscription.planId].name, Status: t.subscription.status, "MRR (K)": t.subscription.amount, "Renewal Date": t.subscription.renewalDate, Students: t.totalStudents, Campuses: t.campuses.length, "Billing Contact": t.subscription.billingContact })), "subscriber-portfolio");
+    downloadCsv(tenants.map((t) => ({ School: t.name, District: t.district, Province: t.province, Plan: PLAN_CATALOG[t.subscription.planId].name, Status: t.subscription.status, "MRR (K)": t.subscription.amount, "Renewal Date": t.subscription.renewalDate, Pupils: t.totalStudents, Campuses: t.campuses.length, "Billing Contact": t.subscription.billingContact })), "subscriber-portfolio");
     toast.success("Portfolio export queued");
   };
 
@@ -546,7 +546,7 @@ function SysAdminPage() {
                 <TableCell>Structure</TableCell>
                 <TableCell>Plan</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Students</TableCell>
+                <TableCell>Pupils</TableCell>
                 <TableCell>Monthly fee</TableCell>
                 <TableCell>Renewal</TableCell>
                 <TableCell>Support</TableCell>
@@ -668,7 +668,7 @@ function SysAdminPage() {
             <div className="space-y-3 text-sm">
               <p>
                 This permanently erases <strong>{deleteTarget?.name}</strong> and every record tied to
-                it — students, teachers, classes, fees, attendance, everything. There is no undo and
+                it — pupils, teachers, classes, fees, attendance, everything. There is no undo and
                 no way for a platform admin to recover it afterwards.
               </p>
               <TextField
@@ -807,7 +807,7 @@ function SysAdminPage() {
               const ui = PLAN_UI[planId];
               const schoolCount = tenants.filter((t) => t.subscription.planId === planId).length;
               const planFeatures: Record<PlanId, string[]> = {
-                core: ["Dashboard & student records", "Attendance & timetable", "Assessments & report cards", "Fees & mobile money", "Parent communication", "Offline mode"],
+                core: ["Dashboard & pupil records", "Attendance & timetable", "Assessments & report cards", "Fees & mobile money", "Parent communication", "Offline mode"],
                 growth: ["Everything in Core", "Library & transport", "Canteen management", "Lost & found", "ECZ integration", "USSD fallback", "Multi-currency"],
                 advanced: ["Everything in Growth", "HR & payroll", "Hostel & boarding", "Procurement & vendors", "Staff development & CPD", "Compliance & risk", "Executive reporting"],
                 enterprise: ["Everything in Advanced", "District-wide oversight", "Custom branding / white-label", "Dedicated support", "Multi-school roll-ups", "50,000 SMS quota"],

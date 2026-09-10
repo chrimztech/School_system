@@ -214,7 +214,7 @@ function ResultsAnalysisPage() {
                 hint={data ? `Pass mark: ${data.passMarkUsed}%` : undefined}
               />
               <StatCard
-                label="Students counted"
+                label="Pupils counted"
                 value={data?.studentCount ?? 0}
                 icon={<Users className="h-5 w-5" />}
               />
@@ -316,7 +316,7 @@ function ResultsAnalysisPage() {
                     <TableHead>
                       <TableRow>
                         <TableCell>Subject</TableCell>
-                        <TableCell className="text-right">Students</TableCell>
+                        <TableCell className="text-right">Pupils</TableCell>
                         <TableCell className="text-right">Average</TableCell>
                         <TableCell className="text-right">Pass rate</TableCell>
                       </TableRow>
@@ -359,7 +359,7 @@ function ResultsAnalysisPage() {
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Student</TableCell>
+                          <TableCell>Pupil</TableCell>
                           <TableCell className="text-right">Average</TableCell>
                         </TableRow>
                       </TableHead>
@@ -384,7 +384,7 @@ function ResultsAnalysisPage() {
                     <Table>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Student</TableCell>
+                          <TableCell>Pupil</TableCell>
                           <TableCell className="text-right">Average</TableCell>
                         </TableRow>
                       </TableHead>

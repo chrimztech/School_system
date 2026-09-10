@@ -227,7 +227,7 @@ function HostelPage() {
 
   const submitAllocation = () => {
     if (!allocForm.name.trim() || !allocForm.grade.trim()) {
-      toast.error("Student name and grade are required"); return;
+      toast.error("Pupil name and grade are required"); return;
     }
     if (!allocForm.roomId) { toast.error("Select a room to allocate"); return; }
     const selectedRoom = rooms.find((r: any) => r.id === allocForm.roomId);
@@ -254,7 +254,7 @@ function HostelPage() {
 
   const submitLeave = () => {
     if (!leaveForm.student.trim() || !leaveForm.from || !leaveForm.to) {
-      toast.error("Student name and dates are required"); return;
+      toast.error("Pupil name and dates are required"); return;
     }
     createLeaveMut.mutate({
       studentName: leaveForm.student.trim(),
@@ -324,8 +324,8 @@ function HostelPage() {
                       <PersonCombobox
                         options={studentOptions}
                         loading={pickerStudentsLoading}
-                        placeholder="Search enrolled students…"
-                        emptyText="No students found."
+                        placeholder="Search enrolled pupils…"
+                        emptyText="No pupils found."
                         onSelect={(option) => {
                           const student = findPickerStudent(option.id);
                           if (!student) return;
@@ -341,7 +341,7 @@ function HostelPage() {
                       />
                     </div>
                   </div>
-                  <TextField label="Student name *" fullWidth size="small" value={allocForm.name} onChange={(e) => setAllocForm({ ...allocForm, name: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField label="Pupil name *" fullWidth size="small" value={allocForm.name} onChange={(e) => setAllocForm({ ...allocForm, name: e.target.value })} placeholder="Chanda Mwape" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   <TextField label="Grade *" fullWidth size="small" value={allocForm.grade} onChange={(e) => setAllocForm({ ...allocForm, grade: e.target.value })} placeholder="Form 3A" slotProps={{ htmlInput: { maxLength: 30 } }} />
                   <TextField
                     select
@@ -525,8 +525,8 @@ function HostelPage() {
                       <PersonCombobox
                         options={studentOptions}
                         loading={pickerStudentsLoading}
-                        placeholder="Search enrolled students…"
-                        emptyText="No students found."
+                        placeholder="Search enrolled pupils…"
+                        emptyText="No pupils found."
                         onSelect={(option) => {
                           const student = findPickerStudent(option.id);
                           if (!student) return;
@@ -539,7 +539,7 @@ function HostelPage() {
                       />
                     </div>
                   </div>
-                  <TextField label="Student name *" fullWidth size="small" value={leaveForm.student} onChange={(e) => setLeaveForm({ ...leaveForm, student: e.target.value })} placeholder="Mwila Chanda" slotProps={{ htmlInput: { maxLength: 100 } }} />
+                  <TextField label="Pupil name *" fullWidth size="small" value={leaveForm.student} onChange={(e) => setLeaveForm({ ...leaveForm, student: e.target.value })} placeholder="Mwila Chanda" slotProps={{ htmlInput: { maxLength: 100 } }} />
                   <TextField select label="Leave type" fullWidth size="small" value={leaveForm.type} onChange={(e) => setLeaveForm({ ...leaveForm, type: e.target.value as typeof LEAVE_TYPES[number] })}>
                     {LEAVE_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                   </TextField>
@@ -570,7 +570,7 @@ function HostelPage() {
             <TableContainer>
             <Table>
               <TableHead><TableRow>
-                <TableCell>Student</TableCell><TableCell>Type</TableCell>
+                <TableCell>Pupil</TableCell><TableCell>Type</TableCell>
                 <TableCell>From</TableCell><TableCell>Return</TableCell>
                 <TableCell>Status</TableCell><TableCell className="text-right">Action</TableCell>
               </TableRow></TableHead>

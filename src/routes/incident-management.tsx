@@ -149,8 +149,8 @@ function IncidentManagementPage() {
                     <PersonCombobox
                       options={studentOptions}
                       loading={pickerStudentsLoading}
-                      placeholder="Search students…"
-                      emptyText="No students found."
+                      placeholder="Search pupils…"
+                      emptyText="No pupils found."
                       disabled={form.injuryOccurred !== "yes"}
                       onSelect={(option) => setForm((prev) => ({ ...prev, injuredParty: option.label }))}
                     />

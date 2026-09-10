@@ -11,6 +11,7 @@ import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { downloadCsv, badgeSx } from "@/lib/utils";
 import { ImportDialog, type ImportResult } from "@/components/import-dialog";
+import { usePagedRows, ListPagination } from "@/components/list-pagination";
 
 export const Route = createFileRoute("/students")({
   head: () => ({ meta: [{ title: "Pupils - SRMS" }] }),
@@ -254,6 +255,8 @@ function StudentsListPage() {
     const matchGrade = gradeFilter === "all" || String(student.grade) === gradeFilter;
     return matchQ && matchStatus && matchGrade;
   }), [students, q, statusFilter, gradeFilter]);
+
+  const { page, setPage, pageSize, setPageSize, pagedRows, totalCount } = usePagedRows(filtered);
 
   return (
     <div className="space-y-6">
@@ -674,7 +677,7 @@ function StudentsListPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((student: any) => (
+              {pagedRows.map((student: any) => (
                 <TableRow
                   key={student.id}
                   className="cursor-pointer hover:bg-muted/30"
@@ -750,6 +753,15 @@ function StudentsListPage() {
             </TableBody>
           </Table>
           </TableContainer>
+        )}
+        {!isLoading && (
+          <ListPagination
+            count={totalCount}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
 

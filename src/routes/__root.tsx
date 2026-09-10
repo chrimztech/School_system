@@ -59,7 +59,7 @@ const SPECIAL_ROUTE_LABELS: Record<string, string> = {
 };
 
 function workspacePageLabel(path: string) {
-  if (/^\/students\/[^/]+$/.test(path)) return "Student profile";
+  if (/^\/students\/[^/]+$/.test(path)) return "Pupil profile";
   if (/^\/teachers\/[^/]+$/.test(path)) return "Staff profile";
   if (SPECIAL_ROUTE_LABELS[path]) return SPECIAL_ROUTE_LABELS[path];
   if (path === "/") return "Dashboard";

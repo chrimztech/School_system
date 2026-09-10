@@ -563,7 +563,7 @@ function ParentPortalSheet({
   });
 
   const submitPayment = () => {
-    if (!payForm.studentId) { toast.error("Select a student"); return; }
+    if (!payForm.studentId) { toast.error("Select a pupil"); return; }
     const amt = parseFloat(payForm.amount);
     if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
     const child = parent.children.find((c) => c.id === payForm.studentId);
@@ -722,7 +722,7 @@ function ParentPortalSheet({
                   <div>
                     <TextField
                       select
-                      label="Student *"
+                      label="Pupil *"
                       value={payForm.studentId}
                       onChange={(e) => setPayForm((f) => ({ ...f, studentId: e.target.value }))}
                       fullWidth
@@ -1044,7 +1044,7 @@ function ReceiptDialog({
               <span className="text-xs font-medium">{parent.name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-xs text-muted-foreground">Student</span>
+              <span className="text-xs text-muted-foreground">Pupil</span>
               <span className="text-xs">{payment.studentName}</span>
             </div>
             <div className="flex justify-between">

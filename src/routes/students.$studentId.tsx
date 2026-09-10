@@ -11,7 +11,7 @@ import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api, isValidSchoolId } from "@/lib/api";
 
 export const Route = createFileRoute("/students/$studentId")({
-  head: () => ({ meta: [{ title: "Student Profile - SRMS" }] }),
+  head: () => ({ meta: [{ title: "Pupil Profile - SRMS" }] }),
   component: StudentProfilePage,
 });
 
@@ -83,10 +83,10 @@ function StudentProfilePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["student", schoolId, studentId] });
       qc.invalidateQueries({ queryKey: ["students", schoolId] });
-      toast.success("Student record updated");
+      toast.success("Pupil record updated");
       setEditOpen(false);
     },
-    onError: () => toast.error("Failed to update student record"),
+    onError: () => toast.error("Failed to update pupil record"),
   });
 
   const enrolMutation = useMutation({
@@ -129,8 +129,8 @@ function StudentProfilePage() {
   if (!student) {
     return (
       <div className="space-y-4">
-        <Button variant="text" color="inherit" size="small" component={Link} to="/students" startIcon={<ArrowLeft className="h-4 w-4" />}>Students</Button>
-        <p className="text-center text-muted-foreground">Student not found.</p>
+        <Button variant="text" color="inherit" size="small" component={Link} to="/students" startIcon={<ArrowLeft className="h-4 w-4" />}>Pupils</Button>
+        <p className="text-center text-muted-foreground">Pupil not found.</p>
       </div>
     );
   }
@@ -226,7 +226,7 @@ function StudentProfilePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <IconButton component={Link} to="/students" aria-label="Back to Students" size="small" sx={{ flexShrink: 0 }}>
+        <IconButton component={Link} to="/students" aria-label="Back to Pupils" size="small" sx={{ flexShrink: 0 }}>
           <ArrowLeft className="h-4 w-4" />
         </IconButton>
         <Breadcrumbs>
@@ -573,8 +573,8 @@ function StudentProfilePage() {
             <div>
               <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Contact &amp; address</p>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                <TextField label="Student phone" value={editForm.studentPhone ?? ""} onChange={(e) => setEditForm({ ...editForm, studentPhone: e.target.value })} size="small" fullWidth />
-                <TextField label="Student email" type="email" value={editForm.studentEmail ?? ""} onChange={(e) => setEditForm({ ...editForm, studentEmail: e.target.value })} size="small" fullWidth />
+                <TextField label="Learner phone" value={editForm.studentPhone ?? ""} onChange={(e) => setEditForm({ ...editForm, studentPhone: e.target.value })} size="small" fullWidth />
+                <TextField label="Learner email" type="email" value={editForm.studentEmail ?? ""} onChange={(e) => setEditForm({ ...editForm, studentEmail: e.target.value })} size="small" fullWidth />
                 <TextField label="Address" value={editForm.address ?? ""} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} size="small" fullWidth />
                 <TextField label="City / town" value={editForm.city ?? ""} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} size="small" fullWidth />
               </div>

@@ -230,7 +230,7 @@ function AttendancePage() {
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 bg-muted/80">
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium">Student</th>
+                          <th className="px-3 py-2 text-left font-medium">Pupil</th>
                           {STATUS_ORDER.map((s) => (
                             <th key={s} className="px-2 py-2 text-center font-medium" title={STATUS_META[s].label}>{STATUS_META[s].short}</th>
                           ))}
