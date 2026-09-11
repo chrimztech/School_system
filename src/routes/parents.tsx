@@ -5,7 +5,7 @@ import {
   Search, Mail, Phone, MessageSquare, CreditCard,
   FileText, Receipt, GraduationCap, Printer, Download,
   AlertCircle, CheckCircle2, ChevronRight, CircleAlert, Loader2,
-  ShieldCheck, Smartphone, UserPlus, UsersRound, X,
+  ShieldCheck, Smartphone, UserPlus, UsersRound, X, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -516,6 +516,10 @@ function ParentsPage() {
             setSelectedParent(null);
             void navigate({ to: "/report-card", search: { studentId } });
           }}
+          onViewStudent={(studentId) => {
+            setSelectedParent(null);
+            void navigate({ to: "/students/$studentId", params: { studentId } });
+          }}
         />
       )}
     </div>
@@ -523,13 +527,14 @@ function ParentsPage() {
 }
 
 function ParentPortalSheet({
-  parent, structures, school, onClose, onViewReportCard,
+  parent, structures, school, onClose, onViewReportCard, onViewStudent,
 }: {
   parent: GuardianRecord;
   structures: any[];
   school: any;
   onClose: () => void;
   onViewReportCard: (studentId: string) => void;
+  onViewStudent: (studentId: string) => void;
 }) {
   const { active } = useTenant();
   const qc = useQueryClient();
@@ -701,11 +706,26 @@ function ParentPortalSheet({
                 ) : childBalances.map(({ child, structure, termFee, paid, outstanding }) => (
                   <div key={child.id} className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold">{child.firstName} {child.lastName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {child.className || child.grade || "—"} · Adm: {child.admissionNumber || child.admissionNo || "—"}
-                        </p>
+                      <div className="flex items-center gap-1.5">
+                        <div>
+                          <p className="font-semibold">{child.firstName} {child.lastName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {child.className || child.grade || "—"} · Adm: {child.admissionNumber || child.admissionNo || "—"}
+                          </p>
+                        </div>
+                        {/* Guardian info is grouped from each pupil's own guardianPhone/Email/name —
+                            if several unrelated pupils were bulk-imported with the same placeholder
+                            contact, they'll wrongly land under one guardian here. Fixing that means
+                            correcting the specific pupil's own guardian details, which live on their
+                            profile, not on this computed view — so jump straight there. */}
+                        <IconButton
+                          size="small"
+                          aria-label={`Edit ${child.firstName} ${child.lastName}'s guardian details`}
+                          title="Edit this pupil's guardian details"
+                          onClick={() => onViewStudent(child.id)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </IconButton>
                       </div>
                       <Chip size="small" label={outstanding > 0 ? "Balance due" : "Paid up"} sx={badgeSx(outstanding > 0 ? "destructive" : "secondary")} />
                     </div>
