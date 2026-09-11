@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Loader2, Smartphone, CheckCircle2, XCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +46,7 @@ export function PaymentDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const qc = useQueryClient();
   const [cardForm, setCardForm] = useState(() => createCardForm(student));
   const [momoForm, setMomoForm] = useState(() => createMomoForm(student));
   const [momoPaymentId, setMomoPaymentId] = useState<string | null>(null);
@@ -105,6 +106,21 @@ export function PaymentDialog({
       return status === "pending" ? 4000 : false;
     },
   });
+
+  // A completed payment changes the pupil's real balance server-side, but nothing here was
+  // ever telling the rest of the app to stop trusting its cached (pre-payment) balance —
+  // the fee status shown elsewhere (pupil directory, pupil profile, debtor lists) could keep
+  // reading stale data indefinitely after a parent successfully paid online.
+  useEffect(() => {
+    if ((momoStatus as any)?.status === "completed") {
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      qc.invalidateQueries({ queryKey: ["student", schoolId, student.id] });
+      qc.invalidateQueries({ queryKey: ["guardian-children", schoolId] });
+      qc.invalidateQueries({ queryKey: ["fees-payments", schoolId] });
+      qc.invalidateQueries({ queryKey: ["fees-collected", schoolId] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(momoStatus as any)?.status]);
 
   const submitCard = () => {
     const amount = Number(cardForm.amount);

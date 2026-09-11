@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 
 import { Button } from "@mui/material";
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/payment-result")({
 
 function PaymentResultPage() {
   const { referenceNo } = Route.useSearch();
+  const qc = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["payment-result", referenceNo],
@@ -25,6 +27,22 @@ function PaymentResultPage() {
   });
 
   const status = (data as any)?.status;
+  const schoolId = (data as any)?.schoolId;
+  const studentId = (data as any)?.studentId;
+
+  // Landing here after a card payment means the balance already changed server-side — without
+  // this, the cached (pre-payment) balance shown elsewhere (pupil directory, pupil profile,
+  // debtor lists) would keep reading stale data until something else happened to refetch it.
+  useEffect(() => {
+    if (status === "completed" && schoolId) {
+      qc.invalidateQueries({ queryKey: ["students", schoolId] });
+      if (studentId) qc.invalidateQueries({ queryKey: ["student", schoolId, studentId] });
+      qc.invalidateQueries({ queryKey: ["guardian-children", schoolId] });
+      qc.invalidateQueries({ queryKey: ["fees-payments", schoolId] });
+      qc.invalidateQueries({ queryKey: ["fees-collected", schoolId] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, schoolId, studentId]);
 
   return (
     <div className="mx-auto max-w-md space-y-6 py-12">
