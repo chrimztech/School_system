@@ -126,8 +126,8 @@ function currentFeatureState(features: Record<FeatureKey, boolean>): FeatureStat
   }, {} as FeatureState);
 }
 
-/** The fixed 9-row ECZ 1-9 band editor — shared between the current Form 1-4 scale and the
- * legacy Grade 7-12 scale below (both are the same shape, just possibly different text). */
+/** The band editor — shared between the current Form 1-6 CBC scale (5 rows) and the legacy
+ * Grade 7-12 scale below (9 rows); both are the same row shape, just a different length. */
 function GradingBandsTable({
   bands,
   onChange,
@@ -449,7 +449,7 @@ function SettingsPage() {
       }
       return ordered;
     };
-    const orderedBands = validateBandCoverage(gradingBands, "Form 1-4");
+    const orderedBands = validateBandCoverage(gradingBands, "Form 1-6");
     if (!orderedBands) return;
     const orderedLegacyBands = validateBandCoverage(legacyGradingBands, "Legacy Grade 7-12");
     if (!orderedLegacyBands) return;
@@ -1031,7 +1031,7 @@ function SettingsPage() {
                       <p className="text-xs text-muted-foreground">
                         Applied automatically to every result; teachers never choose letter grades
                         manually. Legacy Grade 7-12 (pre-2023-curriculum) pupils are graded on
-                        their own separate scale below, distinct from Form 1-4.
+                        their own separate scale below, distinct from Form 1-6.
                       </p>
                     </div>
                   </div>
@@ -1061,18 +1061,18 @@ function SettingsPage() {
                   onChange={(_e, v) => setGradingScaleTab(v)}
                   sx={{ mt: 3, minHeight: 36, "& .MuiTab-root": { minHeight: 36, py: 0.5 } }}
                 >
-                  <Tab value="current" label="Form 1-4 (current)" />
+                  <Tab value="current" label="Form 1-6 (current)" />
                   <Tab value="legacy" label="Legacy Grade 7-12" />
                 </Tabs>
                 {gradingScaleTab === "legacy" && (
                   <p className="mt-2 text-xs text-muted-foreground">
                     Applies only to pupils still on the pre-2023-curriculum Grade 7-12 naming — a
-                    transitional cohort finishes under this scale rather than Form 1-4's.
+                    transitional cohort finishes under this scale rather than Form 1-6's.
                   </p>
                 )}
                 {gradingScaleTab === "current" && (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    ECZ's Competency-Based Curriculum (CBC) scale for Form 1-4 — Outstanding,
+                    ECZ's Competency-Based Curriculum (CBC) scale for Form 1-6 — Outstanding,
                     Advanced, Basic, Satisfactory, and Unsatisfactory, reported as labels 1-5.
                   </p>
                 )}

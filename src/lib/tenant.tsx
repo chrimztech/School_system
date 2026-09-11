@@ -8,14 +8,11 @@ export type SchoolType = "NURSERY" | "PRIMARY" | "SECONDARY" | "COMBINED" | "FUL
 export type ResultPublicationMode = "SEPARATE" | "COMBINED";
 export type GradingBand = BackendGradingBand;
 
-// Matches the backend's GradingScaleService.zambia2023Defaults() — the current ECZ School
-// Certificate scale for Form 1-4, with the official Upper/Lower distinction within each
-// point-pair. Used only as a client-side fallback before a school's real (possibly
-// customized) bands have loaded; the live-typed grade *symbol* during mark entry never
-// actually depends on which of the two scales below is used, since both share the exact
-// same percentage ranges and grade numbers — only the description text differs.
 // Matches the backend's GradingScaleService.zambia2023Defaults() — ECZ's Competency-Based
-// Curriculum (CBC) scale for Form 1-4, introduced with the 2023 curriculum reform.
+// Curriculum (CBC) scale for Form 1-6 (every non-legacy secondary class, O-Level and
+// A-Level alike — see GradingScaleService.getBandsForPhase), introduced with the 2023
+// curriculum reform. Used only as a client-side fallback before a school's real (possibly
+// customized) bands have loaded.
 export const ZAMBIA_2023_GRADING_BANDS: GradingBand[] = [
   { min: 70, max: 100, grade: "1", description: "OUTSTANDING", points: 1 },
   { min: 60, max: 69, grade: "2", description: "ADVANCED", points: 2 },
@@ -25,8 +22,8 @@ export const ZAMBIA_2023_GRADING_BANDS: GradingBand[] = [
 ];
 
 // Matches the backend's GradingScaleService.zambiaLegacyDefaults() — the pre-2023-curriculum
-// scale, with no Upper/Lower split. A transitional-cohort legacy Grade 7-12 student finishes
-// under the scale they started with rather than the newer Form 1-4 wording.
+// nine-point scale. A transitional-cohort legacy Grade 7-12 student finishes under the scale
+// they started with rather than the newer Form 1-6 CBC scale.
 export const ZAMBIA_LEGACY_GRADING_BANDS: GradingBand[] = [
   { min: 75, max: 100, grade: "1", description: "DISTINCTION", points: 1 },
   { min: 70, max: 74, grade: "2", description: "DISTINCTION", points: 2 },
@@ -1242,7 +1239,7 @@ export function formatGrade(grade: number | string | null | undefined, type: Sch
 /**
  * True for a raw grade in the legacy Grade 7-12 range (as opposed to Form 1-6 or primary
  * Grade 1-6) — the same range formatGrade uses to decide "Form" vs "Grade" above. Used to
- * pick between a school's two grading scales (current Form 1-4 vs legacy pre-2023) for any
+ * pick between a school's two grading scales (current Form 1-6 vs legacy pre-2023) for any
  * client-side aggregate that reads active.gradingBands directly, mirroring the backend's
  * GradingScaleService.getBandsForPhase — per-subject grades themselves are always phase-aware
  * already, since the backend computes those server-side.

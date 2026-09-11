@@ -421,7 +421,7 @@ function ReportCardPage() {
   // Per-subject grades/remarks above already come from the backend, which picks the right
   // scale per class — this "overall" figure is a client-side aggregate across all of them, so
   // it needs the same legacy-vs-current pick to avoid showing a legacy Grade 7-12 pupil's
-  // report card an "Upper/Lower" descriptor that only applies to the current Form 1-4 scale.
+  // report card a CBC competency label that only applies to the current Form 1-6 scale.
   const overallBandSource = isLegacySecondaryGrade(backendStudent?.grade, active.type)
     ? active.legacyGradingBands
     : active.gradingBands;
