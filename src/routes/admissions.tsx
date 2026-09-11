@@ -77,6 +77,7 @@ function AdmissionsPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<any | null>(null);
   const [acceptTarget, setAcceptTarget] = useState<any | null>(null);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
@@ -96,6 +97,28 @@ function AdmissionsPage() {
     },
     onError: () => toast.error("Failed to submit application"),
   });
+
+  // Applications had no way to fix a data-entry mistake (wrong grade, mistyped guardian phone)
+  // before a decision — only accept/reject/recreate. Reuses the same form as "New application";
+  // only offered for PENDING/REVIEWING, since ACCEPTED already created a real student record
+  // this wouldn't retroactively update.
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => api.admissions.update(schoolId, editingId as string, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admissions", schoolId] });
+      toast.success("Application updated");
+      setForm(emptyForm());
+      setEditingId(null);
+      setOpen(false);
+    },
+    onError: () => toast.error("Failed to update application"),
+  });
+
+  const openEdit = (a: any) => {
+    setForm({ ...emptyForm(), ...a, applyingForGrade: String(a.applyingForGrade) });
+    setEditingId(a.id);
+    setOpen(true);
+  };
 
   const acceptMutation = useMutation({
     mutationFn: (id: string) => api.admissions.accept(schoolId, id),
@@ -143,7 +166,9 @@ function AdmissionsPage() {
       toast.error("Learner name, guardian name, and guardian phone are required");
       return;
     }
-    createMutation.mutate({ ...form, applyingForGrade: Number(form.applyingForGrade) });
+    const payload = { ...form, applyingForGrade: Number(form.applyingForGrade) };
+    if (editingId) updateMutation.mutate(payload);
+    else createMutation.mutate(payload);
   };
 
   return (
@@ -153,7 +178,7 @@ function AdmissionsPage() {
           title="Admissions"
           description="Applicant intake — review, accept, or reject prospective learners before they're enrolled."
           actions={
-            <Button variant="contained" startIcon={<UserPlus size={16} />} onClick={() => setOpen(true)}>
+            <Button variant="contained" startIcon={<UserPlus size={16} />} onClick={() => { setForm(emptyForm()); setEditingId(null); setOpen(true); }}>
               New application
             </Button>
           }
@@ -224,6 +249,7 @@ function AdmissionsPage() {
                           <Button size="small" variant="text" color="inherit" startIcon={<Eye size={12} />} onClick={() => setViewing(a)}>View</Button>
                           {(a.status === "PENDING" || a.status === "REVIEWING") && (
                             <>
+                              <Button size="small" variant="text" color="inherit" onClick={() => openEdit(a)}>Edit</Button>
                               <Button size="small" variant="outlined" color="success" onClick={() => setAcceptTarget(a)}>Accept</Button>
                               <Button size="small" variant="outlined" color="error" onClick={() => setRejectTarget(a)}>Reject</Button>
                             </>
@@ -247,9 +273,9 @@ function AdmissionsPage() {
           )}
         </div>
 
-        {/* New application */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>New admission application</DialogTitle>
+        {/* New / edit application */}
+        <Dialog open={open} onClose={() => { setOpen(false); setEditingId(null); }} maxWidth="md" fullWidth>
+          <DialogTitle>{editingId ? "Edit admission application" : "New admission application"}</DialogTitle>
           <DialogContent>
             <div className="grid gap-4">
               <div>
@@ -324,9 +350,9 @@ function AdmissionsPage() {
             </div>
           </DialogContent>
           <DialogActions>
-            <Button variant="outlined" color="inherit" disabled={createMutation.isPending} onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="contained" disabled={createMutation.isPending} startIcon={createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined} onClick={submit}>
-              Submit application
+            <Button variant="outlined" color="inherit" disabled={createMutation.isPending || updateMutation.isPending} onClick={() => { setOpen(false); setEditingId(null); }}>Cancel</Button>
+            <Button variant="contained" disabled={createMutation.isPending || updateMutation.isPending} startIcon={(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined} onClick={submit}>
+              {editingId ? "Save changes" : "Submit application"}
             </Button>
           </DialogActions>
         </Dialog>
@@ -359,6 +385,7 @@ function AdmissionsPage() {
               <DialogActions>
                 {(viewing.status === "PENDING" || viewing.status === "REVIEWING") && (
                   <>
+                    <Button color="inherit" variant="text" onClick={() => { openEdit(viewing); setViewing(null); }}>Edit</Button>
                     <Button color="error" variant="outlined" onClick={() => setRejectTarget(viewing)}>Reject</Button>
                     <Button color="success" variant="contained" onClick={() => setAcceptTarget(viewing)}>Accept</Button>
                   </>
