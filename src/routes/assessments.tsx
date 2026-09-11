@@ -57,7 +57,7 @@ import {
   TableCell,
 } from "@mui/material";
 import { gradingBandForPercentage, useTenant, type GradingBand } from "@/lib/tenant";
-import { useAuth } from "@/lib/auth";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
@@ -386,7 +386,13 @@ export function ResultsSheet({
   const [savedFingerprint, setSavedFingerprint] = useState("");
   const workflowStatus = normalizedStatus(assessment?.workflowStatus);
   const canEdit = canManage && (workflowStatus === "DRAFT" || workflowStatus === "REJECTED");
-  const canVerify = user?.role === "hod" && workflowStatus === "SUBMITTED";
+  // Mirrors AssessmentService.requireHodOverDepartment, which already lets leadership
+  // (super_admin/school_admin/principal/deputy_head) verify or return a submission as a
+  // backup approver when the assigned HOD isn't available — this button just never reflected
+  // that, so leadership saw a submitted result with no way to act on it. Publishing has no
+  // such backend override (AssessmentService.publishCycle is CAREER_GUIDANCE-only), so it
+  // isn't extended here.
+  const canVerify = (user?.role === "hod" || isSchoolLeadershipRole(user?.role)) && workflowStatus === "SUBMITTED";
   const canPublish = user?.role === "career_guidance" && workflowStatus === "VERIFIED";
 
   // Assessment.classId is stored as the class's display name (or occasionally its real id) —
