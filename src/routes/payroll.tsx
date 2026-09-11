@@ -62,6 +62,17 @@ function PayrollPage() {
   const [openHire, setOpenHire] = useState(false);
   const [openRun, setOpenRun] = useState(false);
   const [printSlip, setPrintSlip] = useState<any | null>(null);
+  const [viewingRun, setViewingRun] = useState<any | null>(null);
+
+  // A processed run's Actions column was a bare "—" — there was no way to see the actual
+  // payslips that were generated, only the run's aggregate totals. "Payslip preview" (below)
+  // recomputes live from current staff salaries and isn't tied to any run at all, so it can
+  // silently drift from what a specific historical run actually paid out.
+  const { data: viewingPayslips = [], isLoading: viewingPayslipsLoading } = useQuery({
+    queryKey: ["payroll-payslips", schoolId, viewingRun?.id],
+    queryFn: () => api.payroll.payslips(schoolId, viewingRun.id),
+    enabled: !!viewingRun,
+  });
 
   const { data: rawDepts = [] } = useQuery({
     queryKey: ["departments", schoolId],
@@ -472,7 +483,9 @@ function PayrollPage() {
                               Process
                             </Button>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <Button size="small" variant="text" startIcon={<Receipt size={12} />} onClick={() => setViewingRun(r)}>
+                              View payslips
+                            </Button>
                           )}
                         </TableCell>
                       </TableRow>
@@ -525,6 +538,70 @@ function PayrollPage() {
           ))}
         </Box>
       )}
+
+      <Dialog open={!!viewingRun} onClose={() => setViewingRun(null)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Payslips — {viewingRun?.month && viewingRun?.year ? new Date(viewingRun.year, viewingRun.month - 1).toLocaleString("en", { month: "long", year: "numeric" }) : viewingRun?.id}
+        </DialogTitle>
+        <DialogContent>
+          {viewingPayslipsLoading ? (
+            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />Loading payslips…
+            </div>
+          ) : (viewingPayslips as any[]).length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">No payslips recorded for this run.</p>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Staff</TableCell>
+                    <TableCell className="text-right">Gross</TableCell>
+                    <TableCell className="text-right">NAPSA</TableCell>
+                    <TableCell className="text-right">PAYE</TableCell>
+                    <TableCell className="text-right">NHIMA</TableCell>
+                    <TableCell className="text-right">Net</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(viewingPayslips as any[]).map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <p className="font-medium">{p.staffName}</p>
+                        <p className="text-xs text-muted-foreground">{p.position}</p>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">{k(Number(p.grossSalary ?? 0))}</TableCell>
+                      <TableCell className="text-right font-mono">{k(Number(p.napsa ?? 0))}</TableCell>
+                      <TableCell className="text-right font-mono">{k(Number(p.paye ?? 0))}</TableCell>
+                      <TableCell className="text-right font-mono">{k(Number(p.nhima ?? 0))}</TableCell>
+                      <TableCell className="text-right font-mono font-semibold">{k(Number(p.netSalary ?? 0))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="outlined"
+            disabled={(viewingPayslips as any[]).length === 0}
+            onClick={() => downloadCsv((viewingPayslips as any[]).map((p: any) => ({
+              "Staff": p.staffName,
+              "Position": p.position,
+              "Gross (K)": p.grossSalary,
+              "NAPSA (K)": p.napsa,
+              "PAYE (K)": p.paye,
+              "NHIMA (K)": p.nhima,
+              "Net (K)": p.netSalary,
+            })), `payslips-${viewingRun?.id ?? "run"}`)}
+            startIcon={<Download size={14} />}
+          >
+            Export CSV
+          </Button>
+          <Button variant="contained" onClick={() => setViewingRun(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={!!printSlip} onClose={() => setPrintSlip(null)} maxWidth="sm" fullWidth>
         <DialogContent>
