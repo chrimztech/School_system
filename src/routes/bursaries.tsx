@@ -33,6 +33,8 @@ function BursariesPage() {
   const [open, setOpen] = useState(false);
   const [editingAwardId, setEditingAwardId] = useState<string | null>(null);
   const [tab, setTab] = useState("awards");
+  const [appOpen, setAppOpen] = useState(false);
+  const [appForm, setAppForm] = useState({ student: "", household: "", requested: "", reason: "" });
   const [form, setForm] = useState({
     student: "",
     grade: gradeOptions[0],
@@ -56,7 +58,7 @@ function BursariesPage() {
   const { data: pickerStudents = [], isLoading: pickerStudentsLoading } = useQuery({
     queryKey: ["bursary-picker-students", schoolId],
     queryFn: () => api.students.list(schoolId),
-    enabled: open,
+    enabled: open || appOpen,
   });
   const studentOptions: PersonOption[] = (pickerStudents as any[]).map((s) => ({
     id: s.id,
@@ -122,6 +124,23 @@ function BursariesPage() {
       toast.success(`Application moved to ${vars.status}`);
     },
     onError: () => toast.error("Failed to update application"),
+  });
+  // There was no way to get a new application into this workflow at all — Review/Decline/
+  // Approve existed, but nothing ever created the row those act on.
+  const createApplicationMutation = useMutation({
+    mutationFn: () => api.bursaries.createApplication(schoolId, {
+      student: appForm.student.trim(),
+      household: appForm.household.trim(),
+      requested: Number(appForm.requested) || 0,
+      reason: appForm.reason.trim(),
+    }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bursary-applications", schoolId] });
+      toast.success("Application submitted");
+      setAppForm({ student: "", household: "", requested: "", reason: "" });
+      setAppOpen(false);
+    },
+    onError: () => toast.error("Failed to submit application"),
   });
   const updateRenewalMutation = useMutation({
     mutationFn: (id: string) => api.bursaries.updateRenewal(schoolId, id, { status: "Approved" }),
@@ -213,6 +232,38 @@ function BursariesPage() {
         actions={
           <>
             <Button component={Link} to="/fee-structure" variant="outlined">Fee rules</Button>
+            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => setAppOpen(true)}>New application</Button>
+            <Dialog open={appOpen} onClose={() => setAppOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>New bursary application</DialogTitle>
+              <DialogContent>
+                <div className="grid gap-3 pt-2">
+                  <div>
+                    <p className="mb-1 text-sm font-medium">Find student</p>
+                    <PersonCombobox
+                      options={studentOptions}
+                      loading={pickerStudentsLoading}
+                      placeholder="Search enrolled pupils…"
+                      emptyText="No pupils found."
+                      onSelect={(option) => setAppForm((prev) => ({ ...prev, student: option.label }))}
+                    />
+                  </div>
+                  <TextField label="Pupil *" value={appForm.student} onChange={(e) => setAppForm({ ...appForm, student: e.target.value })} placeholder="Ruth Zulu" fullWidth size="small" />
+                  <TextField label="Household context" value={appForm.household} onChange={(e) => setAppForm({ ...appForm, household: e.target.value })} placeholder="e.g. Single-parent household, 4 dependents" fullWidth size="small" />
+                  <TextField label="Amount requested (K) *" type="number" value={appForm.requested} onChange={(e) => setAppForm({ ...appForm, requested: e.target.value })} fullWidth size="small" />
+                  <TextField label="Reason" value={appForm.reason} onChange={(e) => setAppForm({ ...appForm, reason: e.target.value })} multiline minRows={3} fullWidth size="small" />
+                </div>
+              </DialogContent>
+              <DialogActions>
+                <Button variant="outlined" color="inherit" onClick={() => setAppOpen(false)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  disabled={!appForm.student.trim() || !appForm.requested || createApplicationMutation.isPending}
+                  onClick={() => createApplicationMutation.mutate()}
+                >
+                  Submit application
+                </Button>
+              </DialogActions>
+            </Dialog>
             <Button startIcon={<Plus size={16} />} onClick={() => { setEditingAwardId(null); setOpen(true); }}>Create award</Button>
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle>{editingAwardId ? "Edit bursary award" : "Create bursary award"}</DialogTitle>
