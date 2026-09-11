@@ -63,6 +63,7 @@ function PayrollPage() {
   const [openRun, setOpenRun] = useState(false);
   const [printSlip, setPrintSlip] = useState<any | null>(null);
   const [viewingRun, setViewingRun] = useState<any | null>(null);
+  const [editingStaff, setEditingStaff] = useState<any | null>(null);
 
   // A processed run's Actions column was a bare "—" — there was no way to see the actual
   // payslips that were generated, only the run's aggregate totals. "Payslip preview" (below)
@@ -120,6 +121,20 @@ function PayrollPage() {
       setOpenHire(false);
     },
     onError: () => toast.error("Failed to add employee"),
+  });
+
+  // Only covers the fields PayrollStaffView (getUnifiedStaff) actually exposes — contractType,
+  // hireDate, gender, qualifications, and emergency contacts aren't in that view, so a separate
+  // dialog (rather than reusing the create form, which defaults those fields) avoids silently
+  // resetting them on save; HrService.updateStaff only touches fields present in the payload.
+  const updateStaffMutation = useMutation({
+    mutationFn: (data: any) => api.hr.updateStaff(schoolId, editingStaff.id, data),
+    onSuccess: (s: any) => {
+      qc.invalidateQueries({ queryKey: ["payroll-staff", schoolId] });
+      toast.success(`${s.name ?? ""} updated`);
+      setEditingStaff(null);
+    },
+    onError: () => toast.error("Failed to update employee"),
   });
 
   const staff = staffData as any[];
@@ -346,7 +361,7 @@ function PayrollPage() {
                   <TableCell>Name</TableCell><TableCell>Role</TableCell><TableCell>Dept</TableCell>
                   <TableCell>NRC</TableCell><TableCell>Bank</TableCell>
                   <TableCell className="text-right">Basic</TableCell><TableCell className="text-right">Allow</TableCell>
-                  <TableCell>Status</TableCell>
+                  <TableCell>Status</TableCell><TableCell align="right">Actions</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
                   {pagedStaff.map((s: any) => {
@@ -362,11 +377,18 @@ function PayrollPage() {
                         <TableCell className="text-right font-mono">{k(basic)}</TableCell>
                         <TableCell className="text-right font-mono">{k(allow)}</TableCell>
                         <TableCell><Chip size="small" label={s.status ?? "Active"} sx={badgeSx(normalizeStatus(s.status) === "active" ? "secondary" : "outline")} /></TableCell>
+                        <TableCell align="right">
+                          {/* Teaching staff (source: "TEACHER") are edited on the Teachers
+                              page, same as the create form's own guidance says. */}
+                          {s.source === "STAFF" && (
+                            <Button size="small" variant="text" color="inherit" onClick={() => setEditingStaff(s)}>Edit</Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {staff.length === 0 && (
-                    <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">No employees on payroll.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">No employees on payroll.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -538,6 +560,76 @@ function PayrollPage() {
           ))}
         </Box>
       )}
+
+      <Dialog open={!!editingStaff} onClose={() => setEditingStaff(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit employee</DialogTitle>
+        <DialogContent>
+          {editingStaff && (
+            <form
+              key={editingStaff.id}
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                updateStaffMutation.mutate({
+                  name: String(fd.get("name") || ""),
+                  position: String(fd.get("role") || ""),
+                  department: String(fd.get("dept") || ""),
+                  salary: Number(fd.get("basic") || 0),
+                  nationalId: String(fd.get("nrc") || ""),
+                  tpin: String(fd.get("tpin") || ""),
+                  bankName: String(fd.get("bank") || ""),
+                  accountNumber: String(fd.get("accountNumber") || ""),
+                  paymentMethod: String(fd.get("paymentMethod") || "Bank transfer"),
+                  napsaEnrolled: String(fd.get("napsaEnrolled") || "yes") === "yes",
+                  status: String(fd.get("status") || "ACTIVE"),
+                });
+              }}
+              className="grid grid-cols-2 gap-3 pt-2"
+            >
+              <TextField name="name" label="Full name *" required defaultValue={editingStaff.name} fullWidth size="small" />
+              <TextField name="role" label="Role / position *" required defaultValue={editingStaff.position} fullWidth size="small" />
+              <TextField
+                select
+                name="dept"
+                label="Department"
+                defaultValue={deptNames.includes(editingStaff.department) ? editingStaff.department : (deptNames[0] ?? "")}
+                fullWidth
+                size="small"
+              >
+                {deptNames.length === 0
+                  ? <MenuItem value="__none__" disabled>No departments — add on Departments page</MenuItem>
+                  : deptNames.map((d: string) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+              </TextField>
+              <TextField select name="status" label="Status" defaultValue={editingStaff.status ?? "ACTIVE"} fullWidth size="small">
+                {["ACTIVE", "ON_LEAVE", "INACTIVE", "TERMINATED"].map((st) => (
+                  <MenuItem key={st} value={st}>{st.replace("_", " ")}</MenuItem>
+                ))}
+              </TextField>
+              <TextField name="nrc" label="NRC number" defaultValue={editingStaff.nationalId} fullWidth size="small" />
+              <TextField name="tpin" label="ZRA TPIN" defaultValue={editingStaff.tpin} slotProps={{ htmlInput: { maxLength: 12 } }} fullWidth size="small" />
+              <TextField name="basic" type="number" label="Basic salary (K) *" required defaultValue={editingStaff.salary ?? 0} fullWidth size="small" />
+              <TextField select name="paymentMethod" label="Payment method" defaultValue={editingStaff.paymentMethod ?? "Bank transfer"} fullWidth size="small">
+                {["Bank transfer", "Mobile money (Airtel)", "Mobile money (MTN)", "Cash"].map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+              </TextField>
+              <TextField select name="napsaEnrolled" label="NAPSA enrolled" defaultValue={editingStaff.napsaEnrolled ? "yes" : "no"} fullWidth size="small">
+                <MenuItem value="yes">Yes — enrolled</MenuItem>
+                <MenuItem value="no">No — exempt / pending</MenuItem>
+              </TextField>
+              <TextField name="bank" label="Bank name" defaultValue={editingStaff.bankName} fullWidth size="small" />
+              <TextField name="accountNumber" label="Account number" defaultValue={editingStaff.accountNumber} fullWidth size="small" />
+              <div className="col-span-2">
+                <DialogActions sx={{ px: 0 }}>
+                  <Button variant="outlined" color="inherit" type="button" onClick={() => setEditingStaff(null)}>Cancel</Button>
+                  <Button type="submit" disabled={updateStaffMutation.isPending}>
+                    {updateStaffMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save changes
+                  </Button>
+                </DialogActions>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!viewingRun} onClose={() => setViewingRun(null)} maxWidth="md" fullWidth>
         <DialogTitle>

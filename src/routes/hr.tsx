@@ -368,9 +368,21 @@ function HRPage() {
                         <Chip size="small" label={statusLabel} sx={badgeSx(isActive ? "success" : "warning")} />
                       </TableCell>
                       <TableCell align="right">
-                        <Button size="small" variant="text" color="inherit" component={Link as any} to="/teachers/$staffId" params={{ staffId: s.id }}>
-                          Edit
-                        </Button>
+                        {/* This list merges Teacher rows with AppUser accounts that have no
+                            matching Teacher record (non-teaching staff — admins, finance,
+                            etc. — see the staffData merge above). Edit unconditionally linked
+                            to the teacher profile route regardless of _source, so clicking it
+                            for a non-teaching staff member 404'd on a teacher id that was
+                            actually their user id. */}
+                        {s._source === "teacher" ? (
+                          <Button size="small" variant="text" color="inherit" component={Link as any} to="/teachers/$staffId" params={{ staffId: s.id }}>
+                            Edit
+                          </Button>
+                        ) : (
+                          <Button size="small" variant="text" color="inherit" component={Link as any} to="/access" title="Non-teaching staff are managed from Users & Roles">
+                            Manage account
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
