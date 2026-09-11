@@ -40,7 +40,6 @@ function TeachersListPage() {
     lastName: "",
     subjects: "",
     department: "",
-    classCoverage: "",
     qualification: QUALIFICATIONS[0],
     gender: GENDERS[0],
     nationalId: "",
@@ -135,7 +134,6 @@ function TeachersListPage() {
         lastName: "",
         subjects: "",
         department: deptNames[0] ?? "",
-        classCoverage: "",
         qualification: QUALIFICATIONS[0],
         gender: GENDERS[0],
         nationalId: "",
@@ -169,7 +167,7 @@ function TeachersListPage() {
       email: form.email,
       phone: form.phone,
       qualification: form.qualification,
-      department: form.classCoverage.trim() ? `${form.department} · ${form.classCoverage.trim()}` : form.department,
+      department: form.department,
       status: form.status === "leave" ? "on_leave" : form.status,
       dateJoined: form.dateJoined,
       salary: Number(form.salary) || 0,
@@ -282,7 +280,6 @@ function TeachersListPage() {
                     ? <MenuItem value="__none__" disabled>No departments — add on Departments page</MenuItem>
                     : deptNames.map((d: string) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                 </TextField>
-                <TextField label="Class coverage" value={form.classCoverage} onChange={(e) => setForm({ ...form, classCoverage: e.target.value })} placeholder="Form 1-6" fullWidth size="small" />
                 <TextField
                   select
                   label="Qualification"

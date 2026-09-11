@@ -128,6 +128,7 @@ function DepartmentsPage() {
   const [form, setForm] = useState(emptyForm);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [reassigning, setReassigning] = useState<{ subject: any; targetDept: string } | null>(null);
+  const [movingTeacher, setMovingTeacher] = useState<{ teacher: any; targetDept: string } | null>(null);
   const [assigningTeacher, setAssigningTeacher] = useState<{ teacher: any; deptSubjects: any[]; selectedSubject: string } | null>(null);
   const [assigningClass, setAssigningClass] = useState<{ teacher: any; deptSubjects: any[]; selectedClassId: string; selectedSubject: string } | null>(null);
 
@@ -274,6 +275,17 @@ function DepartmentsPage() {
       setReassigning(null);
     },
     onError: () => toast.error("Failed to move subject"),
+  });
+
+  const moveTeacherMut = useMutation({
+    mutationFn: ({ id, dept }: { id: string; dept: string }) =>
+      api.teachers.update(schoolId, id, { department: dept }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["teachers", schoolId] });
+      toast.success("Teacher assigned to department");
+      setMovingTeacher(null);
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to assign teacher"),
   });
 
   const assignSubjectMut = useMutation({
@@ -528,6 +540,42 @@ function DepartmentsPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Assign/move teacher's home department */}
+      <Dialog open={!!movingTeacher} onClose={() => setMovingTeacher(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{movingTeacher?.targetDept ? "Move teacher" : "Assign to department"}</DialogTitle>
+        <DialogContent>
+          <div className="space-y-3 text-sm">
+            <p>
+              Set <strong>{movingTeacher?.teacher?.firstName} {movingTeacher?.teacher?.lastName}</strong>'s home
+              department. This is separate from which subjects they're assigned to teach.
+            </p>
+            <TextField
+              select
+              label="Department"
+              value={movingTeacher?.targetDept ?? ""}
+              onChange={(e) => setMovingTeacher((m) => m ? { ...m, targetDept: e.target.value } : m)}
+              fullWidth
+              size="small"
+            >
+              {depts.map((d: any) => (
+                <MenuItem key={d.id} value={d.name}>{d.name}</MenuItem>
+              ))}
+            </TextField>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setMovingTeacher(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={moveTeacherMut.isPending || !movingTeacher?.targetDept}
+            onClick={() => movingTeacher && moveTeacherMut.mutate({ id: movingTeacher.teacher.id, dept: movingTeacher.targetDept })}
+          >
+            {moveTeacherMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /><span>Loading…</span>
@@ -647,6 +695,18 @@ function DepartmentsPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {!isHOD && home && (
+                                <Button
+                                  variant="text"
+                                  color="inherit"
+                                  size="small"
+                                  startIcon={<ArrowRightLeft size={12} />}
+                                  sx={{ height: 28, fontSize: 12 }}
+                                  onClick={() => setMovingTeacher({ teacher: t, targetDept: d.name })}
+                                >
+                                  Move
+                                </Button>
+                              )}
                               {!isHOD && (
                                 <Button
                                   variant="text"
@@ -751,10 +811,24 @@ function DepartmentsPage() {
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Teachers</span>
                       </div>
                       {unassignedTeachers.map((t: any) => (
-                        <div key={t.id} className="flex items-center gap-3 px-4 py-2 border-t border-border/50 bg-muted/10">
-                          <UserCog className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-sm font-medium">{t.firstName} {t.lastName}</span>
-                          <span className="text-xs text-muted-foreground">{t.staffNumber}</span>
+                        <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-2 border-t border-border/50 bg-muted/10">
+                          <div className="flex items-center gap-3">
+                            <UserCog className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm font-medium">{t.firstName} {t.lastName}</span>
+                            <span className="text-xs text-muted-foreground">{t.staffNumber}</span>
+                          </div>
+                          {!isHOD && (
+                            <Button
+                              variant="text"
+                              color="inherit"
+                              size="small"
+                              startIcon={<ArrowRightLeft size={12} />}
+                              sx={{ height: 28, fontSize: 12 }}
+                              onClick={() => setMovingTeacher({ teacher: t, targetDept: "" })}
+                            >
+                              Assign
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </>
