@@ -60,6 +60,16 @@ function StudentProfilePage() {
     enabled: hasValidSchool && !!studentId,
   });
 
+  // Same live computation the Parents page already uses (termFee - completed payments),
+  // rather than trusting Student.feeBalance — that field is a snapshot only recomputed on
+  // specific triggers (creation, a fee-structure change, "Recalculate balances"), so it can
+  // sit stale and show "Cleared" for a pupil this page's own payments data proves is owing.
+  const { data: feeStructures = [] } = useQuery({
+    queryKey: ["fee-structures", schoolId],
+    queryFn: () => api.fees.structures(schoolId),
+    enabled: hasValidSchool,
+  });
+
   const { data: enrolments = [] } = useQuery({
     queryKey: ["transport-enrolments", schoolId],
     queryFn: () => api.transport.enrolments(schoolId),
@@ -136,7 +146,19 @@ function StudentProfilePage() {
   }
 
   const s = student as any;
-  const feeBalance = s.feeBalance ?? 0;
+  const gradeNum = (grade: any): number => {
+    if (typeof grade === "number") return grade;
+    const m = String(grade ?? "").match(/\d+/);
+    return m ? parseInt(m[0]) : 0;
+  };
+  const matchedStructure = (feeStructures as any[]).find(
+    (fs: any) => fs.active && fs.gradeFrom <= gradeNum(s.className || s.grade) && gradeNum(s.className || s.grade) <= fs.gradeTo,
+  ) ?? null;
+  const termFee = matchedStructure?.termFee ?? 0;
+  const totalPaid = (feePayments as any[])
+    .filter((p: any) => p.status === "completed")
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
+  const feeBalance = Math.max(termFee - totalPaid, 0);
   const fullName = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(" ");
 
   const currentEnrolment = (enrolments as any[]).find((e: any) => e.studentId === studentId && e.status !== "INACTIVE");
