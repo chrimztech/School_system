@@ -17,6 +17,7 @@ import {
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
 import { api } from "@/lib/api";
+import { isSchoolLeadershipRole, useAuth } from "@/lib/auth";
 import { badgeSx, downloadCsv } from "@/lib/utils";
 import { SchoolDocumentHeader } from "@/components/school-document-header";
 import { EmptyState } from "@/components/empty-state";
@@ -99,10 +100,19 @@ function guardianKey(student: any): string {
 
 function ParentsPage() {
   const { active } = useTenant();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [selectedParent, setSelectedParent] = useState<GuardianRecord | null>(null);
+
+  // GUARDIAN_DIRECTORY_ROLES (route-access.ts) lets FINANCE view this page, but FINANCE has no
+  // "access" (Users & Roles) module permission — GET /schools/{id}/users and POST .../users
+  // both 403 for them server-side. Without this, a finance user saw every guardian's portal
+  // status as a misleading "Not created"/"Contact needed" (the 403'd query just came back
+  // empty) and a "Create login" button that failed every time with a confusing "email or phone
+  // may already be registered" error that had nothing to do with the real (permission) cause.
+  const canManageAccounts = isSchoolLeadershipRole(user?.role);
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ["students", active.id],
@@ -112,6 +122,7 @@ function ParentsPage() {
   const { data: appUsers = [] } = useQuery({
     queryKey: ["school-users", active.id],
     queryFn: () => api.users.list(active.id),
+    enabled: canManageAccounts,
   });
   const userEmails = new Set((appUsers as any[]).map((u: any) => (u.email ?? "").toLowerCase()));
   const userPhones = new Set((appUsers as any[]).map((u: any) => normalizeZmPhone(u.phone ?? "")));
@@ -189,6 +200,16 @@ function ParentsPage() {
   };
 
   const portalStatus = (parent: GuardianRecord) => {
+    // appUsers is only fetched for canManageAccounts (see its query above) — without that
+    // gate, this would otherwise show every guardian as "Not created" for a role (e.g.
+    // finance) that simply never gets to see real login status at all.
+    if (!canManageAccounts) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+          Not visible to your role
+        </span>
+      );
+    }
     if (hasPortalLogin(parent)) {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
@@ -313,7 +334,7 @@ function ParentsPage() {
             <div className="divide-y divide-border md:hidden">
               {filtered.map((parent) => {
                 const key = guardianKey(parent.children[0]) || parent.name;
-                const canCreateLogin = Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
+                const canCreateLogin = canManageAccounts && Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
                 return (
                   <article
                     key={key}
@@ -394,7 +415,7 @@ function ParentsPage() {
                 <TableBody>
                   {pagedParents.map((parent) => {
                     const key = guardianKey(parent.children[0]) || parent.name;
-                    const canCreateLogin = Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
+                    const canCreateLogin = canManageAccounts && Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
                     return (
                       <TableRow
                         key={key}

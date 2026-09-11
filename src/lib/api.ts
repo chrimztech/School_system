@@ -346,6 +346,11 @@ export const api = {
     me: () => unwrap<BackendAppUser>(apiClient.get("/api/auth/me")),
     changePassword: (currentPassword: string, newPassword: string) =>
       unwrap<void>(apiClient.post("/api/auth/change-password", { currentPassword, newPassword })),
+    // Self-service — any authenticated user can edit their own phone/notification prefs, no
+    // "manage other accounts" permission required. Distinct from users.update/updateForSchool,
+    // which are admin-tier endpoints for editing someone *else's* account.
+    updateMe: (data: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }) =>
+      unwrap<BackendAppUser>(apiClient.patch("/api/auth/me", data)),
   },
 
   // Platform workspace

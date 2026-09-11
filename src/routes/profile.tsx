@@ -18,7 +18,7 @@ export const Route = createFileRoute("/profile")({
 });
 
 function ProfilePage() {
-  const { user, isSystemAdmin } = useAuth();
+  const { user } = useAuth();
   const { active, activePlan } = useTenant();
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [emailNotif, setEmailNotif] = useState(true);
@@ -41,25 +41,18 @@ function ProfilePage() {
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to change password"),
   });
 
+  // Editing your own contact details/notification prefs is self-service — it must never
+  // depend on the "manage other accounts" permission that users.update/updateForSchool
+  // require, which every non-leadership role (teacher, hod, finance, career_guidance, parent)
+  // lacks and would 403 on for editing even their own profile.
   const updatePhoneMutation = useMutation({
-    mutationFn: () => {
-      if (!user) throw new Error("Not logged in");
-      return isSystemAdmin
-        ? api.users.update(user.id, { phone: phone.trim() || undefined })
-        : api.users.updateForSchool(user.tenantId ?? active.id, user.id, { phone: phone.trim() || undefined });
-    },
+    mutationFn: () => api.auth.updateMe({ phone: phone.trim() || undefined }),
     onSuccess: () => toast.success("Profile updated"),
     onError: () => toast.error("Failed to save profile"),
   });
 
   const saveNotifMutation = useMutation({
-    mutationFn: () => {
-      if (!user) throw new Error("Not logged in");
-      const payload = { notifyEmail: String(emailNotif), notifySms: String(smsNotif) };
-      return isSystemAdmin
-        ? api.users.update(user.id, payload as any)
-        : api.users.updateForSchool(user.tenantId ?? active.id, user.id, payload as any);
-    },
+    mutationFn: () => api.auth.updateMe({ notifyEmail: emailNotif, notifySms: smsNotif }),
     onSuccess: () => toast.success("Notification preferences saved"),
     onError: () => toast.error("Failed to save preferences"),
   });
