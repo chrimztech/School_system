@@ -14,6 +14,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Tab,
+  Tabs,
 } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
@@ -127,6 +129,11 @@ function DepartmentsPage() {
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // "Assign" is a flat, one-click-per-row alternative to expanding each department's accordion
+  // and opening a dialog per subject/teacher — faster for sweeping through a large unassigned
+  // backlog. Cross-department bulk editing doesn't apply to a HOD (they only manage their own
+  // department already), so this tab only exists for leadership.
+  const [view, setView] = useState<"departments" | "assign">("departments");
   const [reassigning, setReassigning] = useState<{ subject: any; targetDept: string } | null>(null);
   const [movingTeacher, setMovingTeacher] = useState<{ teacher: any; targetDept: string } | null>(null);
   const [assigningTeacher, setAssigningTeacher] = useState<{ teacher: any; deptSubjects: any[]; selectedSubject: string } | null>(null);
@@ -367,6 +374,13 @@ function DepartmentsPage() {
         {!isHOD && <StatCard label="Unassigned" value={unassigned.length + unassignedTeachers.length} accent="warning" hint="Subjects + teachers" />}
       </div>
 
+      {!isHOD && (
+        <Tabs value={view} onChange={(_e, v) => setView(v)} sx={{ minHeight: 36, "& .MuiTab-root": { minHeight: 36, py: 0.5 } }}>
+          <Tab value="departments" label="Departments" />
+          <Tab value="assign" label="Assign subjects & teachers" />
+        </Tabs>
+      )}
+
       <DeptDialog
         open={addOpen || !!editTarget}
         onClose={() => { setAddOpen(false); setEditTarget(null); setForm(emptyForm()); }}
@@ -576,7 +590,7 @@ function DepartmentsPage() {
         </DialogActions>
       </Dialog>
 
-      {isLoading ? (
+      {(isHOD || view === "departments") && (isLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /><span>Loading…</span>
         </div>
@@ -847,6 +861,74 @@ function DepartmentsPage() {
               )}
             </div>
           )}
+        </div>
+      ))}
+
+      {!isHOD && view === "assign" && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="border-b border-border px-4 py-3">
+              <p className="text-sm font-semibold">Subjects ({subjects.length})</p>
+              <p className="text-xs text-muted-foreground">Pick a department for each — saves immediately.</p>
+            </div>
+            <div className="max-h-[560px] overflow-y-auto">
+              {subjects.length === 0 ? (
+                <p className="px-4 py-6 text-center text-sm text-muted-foreground">No subjects yet.</p>
+              ) : (
+                subjects.map((s: any) => (
+                  <div key={s.id} className="flex items-center gap-3 border-t border-border/50 px-4 py-2 first:border-t-0 hover:bg-muted/30">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{s.name}</p>
+                      <p className="text-xs text-muted-foreground">{s.code}{s.phase ? ` · ${PHASE_LABEL[s.phase] ?? s.phase}` : ""}</p>
+                    </div>
+                    <TextField
+                      select
+                      size="small"
+                      value={deptNames.includes(s.department) ? s.department : ""}
+                      onChange={(e) => reassignMut.mutate({ id: s.id, dept: e.target.value })}
+                      disabled={reassignMut.isPending}
+                      sx={{ minWidth: 180 }}
+                    >
+                      <MenuItem value="" disabled>Unassigned</MenuItem>
+                      {deptNames.map((name: string) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+                    </TextField>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="border-b border-border px-4 py-3">
+              <p className="text-sm font-semibold">Teachers ({teachers.length})</p>
+              <p className="text-xs text-muted-foreground">Sets each teacher's home department — saves immediately.</p>
+            </div>
+            <div className="max-h-[560px] overflow-y-auto">
+              {teachers.length === 0 ? (
+                <p className="px-4 py-6 text-center text-sm text-muted-foreground">No teachers yet.</p>
+              ) : (
+                teachers.map((t: any) => (
+                  <div key={t.id} className="flex items-center gap-3 border-t border-border/50 px-4 py-2 first:border-t-0 hover:bg-muted/30">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{t.firstName} {t.lastName}</p>
+                      <p className="text-xs text-muted-foreground">{t.staffNumber}{t.subject ? ` · ${t.subject}` : ""}</p>
+                    </div>
+                    <TextField
+                      select
+                      size="small"
+                      value={deptNames.includes(t.department) ? t.department : ""}
+                      onChange={(e) => moveTeacherMut.mutate({ id: t.id, dept: e.target.value })}
+                      disabled={moveTeacherMut.isPending}
+                      sx={{ minWidth: 180 }}
+                    >
+                      <MenuItem value="" disabled>Unassigned</MenuItem>
+                      {deptNames.map((name: string) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+                    </TextField>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
