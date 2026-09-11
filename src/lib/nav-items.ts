@@ -152,6 +152,7 @@ export const schoolAdmin: NavItem[] = [
   { title: "Users & Roles", url: "/access", icon: KeyRound, module: "access" },
   { title: "Audit Log", url: "/audit", icon: History, module: "settings" },
   { title: "Backups & Data", url: "/backups", icon: HardDrive, module: "settings" },
+  { title: "Integrations", url: "/integrations", icon: Plug, module: "settings" },
   { title: "My Children", url: "/my-children", icon: GraduationCap, module: "my-children" },
   { title: "Knowledge Base", url: "/knowledge-base", icon: BookText, module: "dashboard" },
   { title: "Help & Support", url: "/help", icon: LifeBuoy, module: "dashboard" },
