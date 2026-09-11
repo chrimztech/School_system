@@ -105,6 +105,9 @@ function ParentsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [selectedParent, setSelectedParent] = useState<GuardianRecord | null>(null);
+  const [messageTarget, setMessageTarget] = useState<GuardianRecord | null>(null);
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
 
   // GUARDIAN_DIRECTORY_ROLES (route-access.ts) lets FINANCE view this page, but FINANCE has no
   // "access" (Users & Roles) module permission — GET /schools/{id}/users and POST .../users
@@ -142,6 +145,30 @@ function ParentsPage() {
       );
     },
     onError: () => toast.error("Could not create login — email or phone may already be registered"),
+  });
+
+  // The message icon used to just navigate to the general Communication inbox with no
+  // recipient at all — it looked like it would message this specific guardian but actually
+  // opened the shared, unfiltered messages tab. This actually sends to them.
+  const sendMessageMutation = useMutation({
+    mutationFn: () =>
+      api.communication.createMessage(active.id, {
+        senderEmail: user?.email,
+        senderName: user?.name,
+        recipientEmail: messageTarget?.email || undefined,
+        studentId: messageTarget?.children[0]?.id,
+        studentName: messageTarget ? `${messageTarget.children[0]?.firstName ?? ""} ${messageTarget.children[0]?.lastName ?? ""}`.trim() : undefined,
+        subject: messageSubject.trim(),
+        body: messageBody.trim(),
+        status: "OPEN",
+      }),
+    onSuccess: () => {
+      toast.success(`Message sent to ${messageTarget?.name}`);
+      setMessageTarget(null);
+      setMessageSubject("");
+      setMessageBody("");
+    },
+    onError: () => toast.error("Failed to send message"),
   });
 
   const { data: structures = [] } = useQuery({
@@ -469,9 +496,10 @@ function ParentsPage() {
                             )}
                             <IconButton
                               size="small"
-                              aria-label={`Open messages for ${parent.name}`}
-                              title="Open messages"
-                              onClick={() => navigate({ to: "/communication", hash: "messages" })}
+                              aria-label={`Message ${parent.name}`}
+                              title={parent.email ? "Send a message" : "No email on file for this guardian"}
+                              disabled={!parent.email}
+                              onClick={() => { setMessageTarget(parent); setMessageSubject(""); setMessageBody(""); }}
                             >
                               <MessageSquare className="h-4 w-4" />
                             </IconButton>
@@ -522,6 +550,43 @@ function ParentsPage() {
           }}
         />
       )}
+
+      <Dialog open={!!messageTarget} onClose={() => setMessageTarget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Message {messageTarget?.name}</DialogTitle>
+        <DialogContent className="space-y-3 pt-2">
+          <TextField
+            label="Subject *"
+            value={messageSubject}
+            onChange={(e) => setMessageSubject(e.target.value)}
+            fullWidth
+            size="small"
+          />
+          <TextField
+            label="Message *"
+            value={messageBody}
+            onChange={(e) => setMessageBody(e.target.value)}
+            multiline
+            minRows={4}
+            fullWidth
+            size="small"
+            sx={{ mt: 2 }}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Sends to {messageTarget?.email || "—"}. {messageTarget?.name} will see your reply in
+            their own message list.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setMessageTarget(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!messageSubject.trim() || !messageBody.trim() || sendMessageMutation.isPending}
+            onClick={() => sendMessageMutation.mutate()}
+          >
+            {sendMessageMutation.isPending ? "Sending…" : "Send"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
