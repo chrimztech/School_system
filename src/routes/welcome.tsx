@@ -92,7 +92,7 @@ const PRODUCT_SUITES: ProductSuite[] = [
     description:
       "Give academic teams one dependable place to plan teaching, capture attendance, manage marks, approve results, and move learners forward.",
     icon: GraduationCap,
-    accent: "#215ce8",
+    accent: "#2447B8",
     tint: "#eaf0ff",
     modules: [
       "Admissions",
@@ -386,7 +386,7 @@ const PREVIEW_VIEWS: PreviewView[] = [
     eyebrow: "School command centre",
     title: "Good morning, Administrator",
     subtitle: "Today across the whole school · Sample workspace",
-    accent: "#215ce8",
+    accent: "#2447B8",
     tint: "#eaf0ff",
     chartTitle: "Attendance trend",
     chartCaption: "Whole-school daily view",
@@ -400,7 +400,7 @@ const PREVIEW_VIEWS: PreviewView[] = [
     ],
     chartLabels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
     metrics: [
-      { label: "Learners", value: "1,248", note: "+32 this term", color: "#215ce8" },
+      { label: "Learners", value: "1,248", note: "+32 this term", color: "#2447B8" },
       { label: "Attendance", value: "94.6%", note: "Today", color: "#087f62" },
       { label: "Fees collected", value: "82%", note: "Term target", color: "#b9690d" },
       { label: "Results review", value: "12", note: "Awaiting action", color: "#6d46c7" },
@@ -418,7 +418,7 @@ const PREVIEW_VIEWS: PreviewView[] = [
     eyebrow: "Learner records",
     title: "Every learner, one complete story",
     subtitle: "Admissions, profiles, placement, and progression · Sample workspace",
-    accent: "#215ce8",
+    accent: "#2447B8",
     tint: "#eaf0ff",
     chartTitle: "Enrolment movement",
     chartCaption: "Active learners this academic year",
@@ -432,13 +432,13 @@ const PREVIEW_VIEWS: PreviewView[] = [
     ],
     chartLabels: ["Jan", "Mar", "May", "Jul", "Sep"],
     metrics: [
-      { label: "Active learners", value: "1,248", note: "Across 34 classes", color: "#215ce8" },
+      { label: "Active learners", value: "1,248", note: "Across 34 classes", color: "#2447B8" },
       { label: "New admissions", value: "38", note: "This term", color: "#087f62" },
       { label: "Complete records", value: "96%", note: "Verified profiles", color: "#6d46c7" },
       { label: "Transfers", value: "6", note: "In progress", color: "#b9690d" },
     ],
     tasks: [
-      { icon: FileText, label: "New applications", count: "18", color: "#215ce8" },
+      { icon: FileText, label: "New applications", count: "18", color: "#2447B8" },
       { icon: UserRoundCheck, label: "Profile follow-up", count: "9", color: "#b9690d" },
       { icon: School, label: "Class placements", count: "6", color: "#087f62" },
     ],
@@ -467,11 +467,11 @@ const PREVIEW_VIEWS: PreviewView[] = [
       { label: "Present", value: "1,181", note: "94.6% today", color: "#087f62" },
       { label: "Late", value: "21", note: "Checked in", color: "#b9690d" },
       { label: "Absent", value: "34", note: "Guardians notified", color: "#dc3f45" },
-      { label: "Registers", value: "98%", note: "Completed", color: "#215ce8" },
+      { label: "Registers", value: "98%", note: "Completed", color: "#2447B8" },
     ],
     tasks: [
       { icon: ClipboardCheck, label: "Registers outstanding", count: "4", color: "#b9690d" },
-      { icon: MessageSquare, label: "Guardian follow-up", count: "11", color: "#215ce8" },
+      { icon: MessageSquare, label: "Guardian follow-up", count: "11", color: "#2447B8" },
       { icon: HeartPulse, label: "Health-linked absences", count: "3", color: "#087f62" },
     ],
   },
@@ -498,7 +498,7 @@ const PREVIEW_VIEWS: PreviewView[] = [
     metrics: [
       { label: "Collected", value: "K1.82m", note: "This term", color: "#087f62" },
       { label: "Outstanding", value: "K392k", note: "Across accounts", color: "#dc3f45" },
-      { label: "Receipts", value: "167", note: "This week", color: "#215ce8" },
+      { label: "Receipts", value: "167", note: "This week", color: "#2447B8" },
       { label: "Collection rate", value: "82%", note: "Of term target", color: "#b9690d" },
     ],
     tasks: [
@@ -528,7 +528,7 @@ const PREVIEW_VIEWS: PreviewView[] = [
     ],
     chartLabels: ["Math", "Eng", "Sci", "ICT", "Soc"],
     metrics: [
-      { label: "Average", value: "68%", note: "Current term", color: "#215ce8" },
+      { label: "Average", value: "68%", note: "Current term", color: "#2447B8" },
       { label: "Ready", value: "14", note: "Classes reviewed", color: "#087f62" },
       { label: "Awaiting", value: "12", note: "Approval actions", color: "#b9690d" },
       { label: "Published", value: "8", note: "Class reports", color: "#6d46c7" },
@@ -923,7 +923,7 @@ function WelcomePage() {
 
       <div className="fixed inset-x-0 top-0 z-50 h-[3px] bg-transparent">
         <div
-          className="h-full bg-gradient-to-r from-[#215ce8] to-[#55d6a9] transition-[width] duration-150 ease-out"
+          className="h-full bg-gradient-to-r from-[#2447B8] to-[#55d6a9] transition-[width] duration-150 ease-out"
           style={{ width: `${scrollProgress * 100}%` }}
         />
       </div>
@@ -945,7 +945,7 @@ function WelcomePage() {
                 >
                   {link.label}
                   <span
-                    className={`absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-[#215ce8] transition-transform duration-300 ${isActive ? "scale-x-100" : "scale-x-0"}`}
+                    className={`absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-[#2447B8] transition-transform duration-300 ${isActive ? "scale-x-100" : "scale-x-0"}`}
                   />
                 </a>
               );
@@ -957,7 +957,7 @@ function WelcomePage() {
               >
                 Stories
                 <span
-                  className={`absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-[#215ce8] transition-transform duration-300 ${activeSection === "stories" ? "scale-x-100" : "scale-x-0"}`}
+                  className={`absolute inset-x-0 -bottom-[1px] h-[2px] rounded-full bg-[#2447B8] transition-transform duration-300 ${activeSection === "stories" ? "scale-x-100" : "scale-x-0"}`}
                 />
               </a>
             )}
@@ -967,7 +967,7 @@ function WelcomePage() {
             {rememberedSchool && (
               <a
                 href={`/s/${rememberedSchool.slug}`}
-                className="hidden items-center gap-1.5 rounded-full border border-[#215ce8]/20 bg-[#eaf0ff] px-3 py-1.5 text-xs font-bold text-[#215ce8] transition-colors hover:bg-[#dbe6ff] sm:inline-flex"
+                className="hidden items-center gap-1.5 rounded-full border border-[#2447B8]/20 bg-[#eaf0ff] px-3 py-1.5 text-xs font-bold text-[#2447B8] transition-colors hover:bg-[#dbe6ff] sm:inline-flex"
               >
                 Continue to {rememberedSchool.name}
                 <ArrowRight className="h-3 w-3" />
@@ -988,14 +988,14 @@ function WelcomePage() {
               onClick={openDemo}
               endIcon={<ArrowRight className="h-3.5 w-3.5" />}
               sx={{
-                bgcolor: "#1649bd",
+                bgcolor: "#2447B8",
                 px: { xs: 1.5, sm: 2.25 },
-                boxShadow: "0 8px 22px rgba(22,73,189,.18)",
+                boxShadow: "0 8px 22px rgba(36,71,184,.18)",
                 transition: "transform 160ms ease, box-shadow 160ms ease",
                 "&:hover": {
-                  bgcolor: "#103c9d",
+                  bgcolor: "#1F3C9C",
                   transform: "translateY(-1px)",
-                  boxShadow: "0 12px 28px rgba(22,73,189,.26)",
+                  boxShadow: "0 12px 28px rgba(36,71,184,.26)",
                 },
               }}
             >
@@ -1140,7 +1140,7 @@ function WelcomePage() {
                   key={item.label}
                   className="flex items-center gap-2 text-sm font-bold text-slate-600"
                 >
-                  <item.icon className="h-4 w-4 text-[#215ce8]" />
+                  <item.icon className="h-4 w-4 text-[#2447B8]" />
                   {item.label}
                 </span>
               ))}
@@ -1170,7 +1170,7 @@ function WelcomePage() {
           <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
             <Reveal className="grid gap-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
               <div className="max-w-2xl">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#215ce8]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2447B8]">
                   Inside the platform
                 </p>
                 <h2 className="mt-4 font-['Poppins'] text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-5xl">
@@ -1361,7 +1361,7 @@ function WelcomePage() {
           <section id="stories" className="scroll-mt-24 bg-white py-24 sm:py-28">
             <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
               <Reveal className="mx-auto max-w-2xl text-center">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#215ce8]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2447B8]">
                   School stories
                 </p>
                 <h2 className="mt-4 font-['Poppins'] text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -1373,7 +1373,7 @@ function WelcomePage() {
                   const rating = testimonial.rating;
                   return (
                     <Reveal key={testimonial.id ?? index} delayMs={index * 90}>
-                      <article className="flex h-full flex-col border-t-2 border-[#215ce8] bg-[#f6f8fb] p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                      <article className="flex h-full flex-col border-t-2 border-[#2447B8] bg-[#f6f8fb] p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                         {typeof rating === "number" && (
                           <div className="mb-5 flex gap-1">
                             {Array.from({ length: 5 }).map((_, starIndex) => (
@@ -1407,7 +1407,7 @@ function WelcomePage() {
         <section id="faq" className="scroll-mt-24 bg-[#f6f8fb] py-24 sm:py-28">
           <div className="mx-auto max-w-[880px] px-5 sm:px-8">
             <Reveal className="text-center">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#215ce8]">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2447B8]">
                 Questions worth asking
               </p>
               <h2 className="mt-4 font-['Poppins'] text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -1444,7 +1444,7 @@ function WelcomePage() {
 
         <section className="bg-white px-5 py-20 sm:px-8 sm:py-24">
           <Reveal>
-            <div className="mx-auto grid max-w-[1160px] overflow-hidden bg-[#1649bd] text-white shadow-[0_30px_80px_rgba(22,73,189,.2)] lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="mx-auto grid max-w-[1160px] overflow-hidden bg-[#2447B8] text-white shadow-[0_30px_80px_rgba(36,71,184,.2)] lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="p-8 sm:p-12 lg:p-14">
                 <p className="text-xs font-black uppercase tracking-[0.17em] text-white/55">
                   A clearer way to run your school
@@ -1467,7 +1467,7 @@ function WelcomePage() {
                     minHeight: 54,
                     whiteSpace: "nowrap",
                     bgcolor: "#fff",
-                    color: "#123b9b",
+                    color: "#2447B8",
                     px: 3.5,
                     transition: "transform 160ms ease",
                     "&:hover": { bgcolor: "#f5f7fb", transform: "translateY(-2px)" },
@@ -1580,7 +1580,7 @@ function WelcomePage() {
               <a
                 href={`/s/${rememberedSchool.slug}`}
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-[#215ce8]/20 bg-[#eaf0ff] px-4 py-2.5 text-sm font-bold text-[#215ce8]"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-[#2447B8]/20 bg-[#eaf0ff] px-4 py-2.5 text-sm font-bold text-[#2447B8]"
               >
                 Continue to {rememberedSchool.name}
                 <ArrowRight className="h-3.5 w-3.5" />

@@ -45,10 +45,10 @@ import { buildTheme } from "@/theme";
 
 // Default brand color for the unbranded/generic view (bare platform domain, or a school
 // that hasn't set a color yet). School-specific branding still takes precedence.
-const DEFAULT_BRAND = "#1F5FBF";
+const DEFAULT_BRAND = "#2447B8";
 const TEXT_PRIMARY = "#172033";
 const TEXT_SECONDARY = "#667085";
-const PAGE_BG = "#F4F7FB";
+const PAGE_BG = "#F7F9FC";
 // Roughly matches "collapse to a single card below ~1000-1100px" — MUI's built-in `lg`
 // breakpoint (1200px) sits noticeably above that, so this page uses its own threshold
 // instead of the theme default.
@@ -414,7 +414,7 @@ function LoginPage() {
               )}
             </Stack>
             {schoolBranding && (
-              <Typography sx={{ fontSize: 12, color: "rgba(255,255,255,0.65)", mt: 0.25 }}>
+              <Typography sx={{ fontSize: 12, color: "rgba(255,255,255,0.8)", mt: 0.25 }}>
                 {[schoolBranding.district, schoolBranding.province].filter(Boolean).join(" · ")}
               </Typography>
             )}
@@ -451,7 +451,7 @@ function LoginPage() {
                 {schoolBranding.name}
               </Typography>
               {schoolBranding.motto && (
-                <Typography sx={{ fontSize: 16, color: "rgba(255,255,255,0.75)", fontStyle: "italic", lineHeight: 1.6 }}>
+                <Typography sx={{ fontSize: 16, color: "rgba(255,255,255,0.85)", fontStyle: "italic", lineHeight: 1.6 }}>
                   "{schoolBranding.motto}"
                 </Typography>
               )}
@@ -462,7 +462,7 @@ function LoginPage() {
             </Typography>
           )}
 
-          <Typography sx={{ fontSize: 16, color: "rgba(255,255,255,0.78)", lineHeight: 1.6, mb: 4, ...reveal(0.15) }}>
+          <Typography sx={{ fontSize: 16, color: "rgba(255,255,255,0.88)", lineHeight: 1.6, mb: 4, ...reveal(0.15) }}>
             Admissions through graduation — attendance, assessments, fees, and reporting, unified in
             one secure system of record.
           </Typography>
@@ -486,12 +486,12 @@ function LoginPage() {
                 }}
               >
                 <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
-                  <Icon size={16} color="rgba(255,255,255,0.85)" />
-                  <Typography sx={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.55)" }}>
+                  <Icon size={16} color="rgba(255,255,255,0.92)" />
+                  <Typography sx={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.72)" }}>
                     {hint}
                   </Typography>
                 </Stack>
-                <Typography sx={{ mt: 1, fontSize: 12.5, lineHeight: 1.4, color: "rgba(255,255,255,0.85)" }}>
+                <Typography sx={{ mt: 1, fontSize: 12.5, lineHeight: 1.4, color: "rgba(255,255,255,0.92)" }}>
                   {label}
                 </Typography>
               </Box>
@@ -518,7 +518,7 @@ function LoginPage() {
                   <Typography sx={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>
                     {testimonials[testimonialIndex]?.authorName}
                   </Typography>
-                  <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+                  <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.78)" }}>
                     {[testimonials[testimonialIndex]?.authorRole, testimonials[testimonialIndex]?.schoolName].filter(Boolean).join(" · ")}
                   </Typography>
                 </Box>
@@ -556,7 +556,7 @@ function LoginPage() {
             ...reveal(0.35),
           }}
         >
-          <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+          <Typography sx={{ fontSize: 11, color: "rgba(255,255,255,0.78)" }}>
             © {new Date().getFullYear()} School Records Management System
           </Typography>
         </Stack>
@@ -946,7 +946,7 @@ function LoginPage() {
               </Box>
 
               <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY, textAlign: "center", mt: 3, lineHeight: 1.6, ...reveal(0.18) }}>
-                Secured by SRMS · ECZ aligned
+                Protected with TLS encryption · ECZ aligned
               </Typography>
 
               <Typography sx={{ fontSize: 12.5, color: TEXT_SECONDARY, textAlign: "center", mt: 2, lineHeight: 1.6, ...reveal(0.18) }}>
