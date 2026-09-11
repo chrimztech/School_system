@@ -14,16 +14,14 @@ export type GradingBand = BackendGradingBand;
 // customized) bands have loaded; the live-typed grade *symbol* during mark entry never
 // actually depends on which of the two scales below is used, since both share the exact
 // same percentage ranges and grade numbers — only the description text differs.
+// Matches the backend's GradingScaleService.zambia2023Defaults() — ECZ's Competency-Based
+// Curriculum (CBC) scale for Form 1-4, introduced with the 2023 curriculum reform.
 export const ZAMBIA_2023_GRADING_BANDS: GradingBand[] = [
-  { min: 75, max: 100, grade: "1", description: "UPPER DISTINCTION", points: 1 },
-  { min: 70, max: 74, grade: "2", description: "LOWER DISTINCTION", points: 2 },
-  { min: 65, max: 69, grade: "3", description: "UPPER MERIT", points: 3 },
-  { min: 60, max: 64, grade: "4", description: "LOWER MERIT", points: 4 },
-  { min: 55, max: 59, grade: "5", description: "UPPER CREDIT", points: 5 },
-  { min: 50, max: 54, grade: "6", description: "LOWER CREDIT", points: 6 },
-  { min: 45, max: 49, grade: "7", description: "UPPER SATISFACTORY", points: 7 },
-  { min: 40, max: 44, grade: "8", description: "LOWER SATISFACTORY", points: 8 },
-  { min: 0, max: 39, grade: "9", description: "UNSATISFACTORY", points: 9 },
+  { min: 70, max: 100, grade: "1", description: "OUTSTANDING", points: 1 },
+  { min: 60, max: 69, grade: "2", description: "ADVANCED", points: 2 },
+  { min: 50, max: 59, grade: "3", description: "BASIC", points: 3 },
+  { min: 40, max: 49, grade: "4", description: "SATISFACTORY", points: 4 },
+  { min: 0, max: 39, grade: "5", description: "UNSATISFACTORY", points: 5 },
 ];
 
 // Matches the backend's GradingScaleService.zambiaLegacyDefaults() — the pre-2023-curriculum
