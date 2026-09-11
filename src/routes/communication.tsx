@@ -50,6 +50,28 @@ function audiencesForType(type: any): string[] {
   ];
 }
 
+// The broadcast recipients list used to be a fixed "Form 1 parents" .. "Form 6 parents" list
+// regardless of what the school actually has — a Form 1-4 school saw two grades that don't
+// exist, and a primary/combined school had no way to target a specific grade's parents at all
+// (only the all-or-nothing "All primary parents"). This mirrors audiencesForType's own
+// school-type/grade-list logic so the dropdown always matches this school's real structure.
+function broadcastAudiencesForType(type: any): string[] {
+  const showPrimary = ["PRIMARY", "COMBINED", "FULL", "NURSERY"].includes(type);
+  const showSecondary = ["SECONDARY", "COMBINED", "FULL"].includes(type);
+  const grades = gradeFormLabels(type);
+  return [
+    "All parents",
+    ...(showSecondary
+      ? ["All secondary parents", ...grades.filter((g) => g.startsWith("Form") || !isPrimaryGradeLabel(g)).map((g) => `${g} parents`)]
+      : []),
+    ...(showPrimary
+      ? ["All primary parents", ...grades.filter(isPrimaryGradeLabel).map((g) => `${g} parents`)]
+      : []),
+    "All staff",
+    "All alumni",
+  ];
+}
+
 function statusVariant(status: string) {
   const s = status?.toUpperCase();
   if (s === "OPEN") return "destructive";
@@ -618,7 +640,7 @@ function CommunicationPage() {
                   fullWidth
                   size="small"
                 >
-                  {["All parents", "Form 1 parents", "Form 2 parents", "Form 3 parents", "Form 4 parents", "Form 5 parents", "Form 6 parents", "All primary parents", "All staff", "All alumni"].map((r) => (
+                  {broadcastAudiencesForType(active.type).map((r) => (
                     <MenuItem key={r} value={r}>{r}</MenuItem>
                   ))}
                 </TextField>
