@@ -13,6 +13,7 @@ import {
   Chip, Divider, Button, IconButton, InputAdornment, MenuItem, TextField,
   Drawer, Box, Dialog, DialogContent, DialogActions, DialogTitle,
   Tabs, Tab, TableContainer, Table, TableHead, TableBody, TableRow, TableCell,
+  Checkbox,
 } from "@mui/material";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { useTenant } from "@/lib/tenant";
@@ -35,6 +36,13 @@ type GuardianRecord = {
   altPhone: string;
   email: string;
   children: any[];
+};
+
+type CredentialResult = {
+  parent: GuardianRecord;
+  identifier: string;
+  password?: string;
+  error?: string;
 };
 
 type ChildBalance = {
@@ -108,6 +116,9 @@ function ParentsPage() {
   const [messageTarget, setMessageTarget] = useState<GuardianRecord | null>(null);
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activating, setActivating] = useState(false);
+  const [credentialResults, setCredentialResults] = useState<CredentialResult[] | null>(null);
 
   // GUARDIAN_DIRECTORY_ROLES (route-access.ts) lets FINANCE view this page, but FINANCE has no
   // "access" (Users & Roles) module permission — GET /schools/{id}/users and POST .../users
@@ -130,22 +141,34 @@ function ParentsPage() {
   const userEmails = new Set((appUsers as any[]).map((u: any) => (u.email ?? "").toLowerCase()));
   const userPhones = new Set((appUsers as any[]).map((u: any) => normalizeZmPhone(u.phone ?? "")));
 
-  const createLoginMutation = useMutation({
-    mutationFn: ({ name, email, phone }: { name: string; email?: string; phone?: string }) =>
-      api.users.create(active.id, { name, ...(email ? { email } : { phone: phone! }), role: "PARENT" }),
-    onSuccess: (created, vars) => {
-      void qc.invalidateQueries({ queryKey: ["school-users", active.id] });
-      // No password supplied above -> the backend generates a random one-time password
-      // (returned as temporaryPassword) rather than the old hardcoded "password123", which
-      // no longer actually works and must never be shown as if it does.
-      toast.success(
-        created.temporaryPassword
-          ? `Login created — ${vars.email ?? vars.phone} / ${created.temporaryPassword}`
-          : `Login created — ${vars.email ?? vars.phone}`,
-      );
-    },
-    onError: () => toast.error("Could not create login — email or phone may already be registered"),
-  });
+  // Replaces the old one-at-a-time flow, which handed back the one-time password inside a
+  // toast — it vanished in a few seconds with no way to recover it, and there was no way to
+  // activate more than one guardian without repeating the click-and-copy dance for each. This
+  // activates any number of guardians (one API call each, since there's no bulk endpoint) and
+  // hands every result — successes and failures alike — to a printable credentials dialog the
+  // admin can hand out or save as a PDF, instead of a password that's gone the moment it's read.
+  const activateParents = async (targets: GuardianRecord[]) => {
+    if (targets.length === 0) return;
+    setActivating(true);
+    const results: CredentialResult[] = [];
+    for (const parent of targets) {
+      const identifier = parent.email || parent.phone;
+      try {
+        const created = await api.users.create(active.id, {
+          name: parent.name,
+          ...(parent.email ? { email: parent.email } : { phone: parent.phone! }),
+          role: "PARENT",
+        });
+        results.push({ parent, identifier, password: created.temporaryPassword ?? undefined });
+      } catch {
+        results.push({ parent, identifier, error: "Could not activate — contact may already be registered" });
+      }
+    }
+    setActivating(false);
+    void qc.invalidateQueries({ queryKey: ["school-users", active.id] });
+    setSelectedIds(new Set());
+    setCredentialResults(results);
+  };
 
   // The message icon used to just navigate to the general Communication inbox with no
   // recipient at all — it looked like it would message this specific guardian but actually
@@ -218,12 +241,29 @@ function ParentsPage() {
   }).length;
   const reachabilityPercent = parents.length > 0 ? Math.round((reachableCount / parents.length) * 100) : 0;
 
-  const createParentLogin = (parent: GuardianRecord) => {
-    createLoginMutation.mutate(
-      parent.email
-        ? { name: parent.name, email: parent.email }
-        : { name: parent.name, phone: parent.phone },
-    );
+  const parentKey = (parent: GuardianRecord) => guardianKey(parent.children[0]) || parent.name;
+  const canCreateLoginFor = (parent: GuardianRecord) =>
+    canManageAccounts && Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
+  const eligibleFiltered = filtered.filter(canCreateLoginFor);
+  const eligibleKeys = eligibleFiltered.map(parentKey);
+  const allEligibleSelected = eligibleKeys.length > 0 && eligibleKeys.every((k) => selectedIds.has(k));
+  const someEligibleSelected = eligibleKeys.some((k) => selectedIds.has(k));
+  const selectedParents = eligibleFiltered.filter((p) => selectedIds.has(parentKey(p)));
+
+  const toggleSelected = (key: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allEligibleSelected) eligibleKeys.forEach((k) => next.delete(k));
+      else eligibleKeys.forEach((k) => next.add(k));
+      return next;
+    });
   };
 
   const portalStatus = (parent: GuardianRecord) => {
@@ -346,6 +386,33 @@ function ParentsPage() {
           </div>
         </div>
 
+        {canManageAccounts && someEligibleSelected && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/25 bg-primary/[0.06] px-4 py-3 sm:px-5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                {selectedParents.length} guardian{selectedParents.length === 1 ? "" : "s"} ready for portal activation
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="small" color="inherit" onClick={() => setSelectedIds(new Set())} disabled={activating}>
+                Clear
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={activating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                disabled={activating}
+                onClick={() => void activateParents(selectedParents)}
+              >
+                {activating ? "Activating…" : `Activate ${selectedParents.length} account${selectedParents.length === 1 ? "" : "s"}`}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" /> Loading guardian records…
@@ -360,8 +427,8 @@ function ParentsPage() {
           <>
             <div className="divide-y divide-border md:hidden">
               {filtered.map((parent) => {
-                const key = guardianKey(parent.children[0]) || parent.name;
-                const canCreateLogin = canManageAccounts && Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
+                const key = parentKey(parent);
+                const canCreateLogin = canCreateLoginFor(parent);
                 return (
                   <article
                     key={key}
@@ -377,6 +444,16 @@ function ParentsPage() {
                     }}
                   >
                     <div className="flex items-start gap-3">
+                      {canManageAccounts && (
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.has(key)}
+                          disabled={!canCreateLogin}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={() => toggleSelected(key)}
+                          sx={{ mt: -1, ml: -1 }}
+                        />
+                      )}
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
                         {initials(parent.name)}
                       </div>
@@ -413,8 +490,8 @@ function ParentsPage() {
                           variant="outlined"
                           size="small"
                           startIcon={<UserPlus className="h-4 w-4" />}
-                          disabled={createLoginMutation.isPending}
-                          onClick={() => createParentLogin(parent)}
+                          disabled={activating}
+                          onClick={() => void activateParents([parent])}
                         >
                           Create login
                         </Button>
@@ -432,6 +509,18 @@ function ParentsPage() {
               <Table sx={{ minWidth: 880 }}>
                 <TableHead>
                   <TableRow>
+                    {canManageAccounts && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          size="small"
+                          checked={allEligibleSelected}
+                          indeterminate={someEligibleSelected && !allEligibleSelected}
+                          onChange={toggleSelectAll}
+                          disabled={eligibleKeys.length === 0}
+                          title="Select every guardian eligible for portal activation"
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>Guardian</TableCell>
                     <TableCell>Linked learners</TableCell>
                     <TableCell>Contact details</TableCell>
@@ -441,14 +530,24 @@ function ParentsPage() {
                 </TableHead>
                 <TableBody>
                   {pagedParents.map((parent) => {
-                    const key = guardianKey(parent.children[0]) || parent.name;
-                    const canCreateLogin = canManageAccounts && Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
+                    const key = parentKey(parent);
+                    const canCreateLogin = canCreateLoginFor(parent);
                     return (
                       <TableRow
                         key={key}
                         className="cursor-pointer transition-colors hover:bg-muted/30"
                         onClick={() => setSelectedParent(parent)}
                       >
+                        {canManageAccounts && (
+                          <TableCell padding="checkbox" onClick={(event) => event.stopPropagation()}>
+                            <Checkbox
+                              size="small"
+                              checked={selectedIds.has(key)}
+                              disabled={!canCreateLogin}
+                              onChange={() => toggleSelected(key)}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
@@ -488,8 +587,8 @@ function ParentsPage() {
                                 variant="outlined"
                                 size="small"
                                 startIcon={<UserPlus className="h-4 w-4" />}
-                                disabled={createLoginMutation.isPending}
-                                onClick={() => createParentLogin(parent)}
+                                disabled={activating}
+                                onClick={() => void activateParents([parent])}
                               >
                                 Create login
                               </Button>
@@ -587,7 +686,97 @@ function ParentsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {credentialResults && (
+        <LoginCredentialsDialog results={credentialResults} onClose={() => setCredentialResults(null)} />
+      )}
     </div>
+  );
+}
+
+// A printable "welcome pack" of parent-portal credentials — one slip per guardian — that
+// replaces the old single-account toast. The toast showed the one-time password for a few
+// seconds with no way to recover it and no way to hand it to a parent who isn't standing at
+// the admin's screen; this can be handed out on paper or saved as a PDF instead, and works the
+// same whether one guardian or fifty were just activated.
+function LoginCredentialsDialog({ results, onClose }: { results: CredentialResult[]; onClose: () => void }) {
+  const succeeded = results.filter((r) => r.password);
+  const failed = results.filter((r) => r.error);
+  const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/login` : "";
+  const generatedOn = new Date().toLocaleDateString("en-ZM", { day: "2-digit", month: "long", year: "numeric" });
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle className="print:hidden">Parent portal — login credentials</DialogTitle>
+      <DialogContent>
+        {failed.length > 0 && (
+          <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-800 dark:text-amber-300 print:hidden">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">{failed.length} account{failed.length === 1 ? "" : "s"} could not be activated</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {failed.map((f) => (
+                  <li key={f.parent.name + f.identifier}>{f.parent.name} ({f.identifier}) — {f.error}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {succeeded.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground print:hidden">No accounts were activated.</p>
+        ) : (
+          <div className="print-area">
+            <SchoolDocumentHeader title="Parent Portal — Login Credentials" subtitle={`Generated ${generatedOn}`} />
+            <div className="p-6">
+              <p className="mb-4 text-xs text-muted-foreground print:text-black">
+                Hand one slip to each guardian below. They sign in at{" "}
+                <span className="font-medium text-foreground print:text-black">{portalUrl}</span> and are
+                prompted to set their own password on first login.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {succeeded.map((r) => (
+                  <div
+                    key={r.parent.name + r.identifier}
+                    className="rounded-xl border border-border bg-muted/20 p-4 print:border-gray-300 print:bg-transparent"
+                    style={{ breakInside: "avoid" }}
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Parent portal access
+                    </p>
+                    <p className="mt-1 text-base font-bold text-foreground">{r.parent.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {r.parent.children.map((c: any) => `${c.firstName} ${c.lastName}`).join(", ")}
+                    </p>
+                    <div className="mt-3 space-y-2 text-sm">
+                      <div className="flex items-center justify-between rounded-lg bg-card px-3 py-1.5 print:bg-gray-100">
+                        <span className="text-xs text-muted-foreground">Login ID</span>
+                        <span className="font-mono font-medium">{r.identifier}</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg bg-card px-3 py-1.5 print:bg-gray-100">
+                        <span className="text-xs text-muted-foreground">Temporary password</span>
+                        <span className="font-mono font-semibold tracking-wide">{r.password}</span>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+                      Keep this slip confidential — you'll set your own password on first sign-in.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+      <DialogActions className="print:hidden">
+        <Button variant="outlined" color="inherit" onClick={onClose}>Close</Button>
+        {succeeded.length > 0 && (
+          <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => window.print()}>
+            Print / Save as PDF
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
   );
 }
 
