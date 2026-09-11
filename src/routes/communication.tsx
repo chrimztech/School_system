@@ -74,6 +74,10 @@ function CommunicationPage() {
   // teachers, HODs, parents, finance, and career guidance (all of whom can read/reply to
   // messages) can't also mass-broadcast to the whole school.
   const canCreateAnnouncements = isSchoolLeadershipRole(user?.role);
+  // Replying/closing a ticket is the school's side of the conversation — the backend now
+  // rejects both for a parent regardless of whose thread it is, so hide the (otherwise
+  // dead-on-click) buttons for them rather than let them fail silently.
+  const isParent = user?.role === "parent";
   const qc = useQueryClient();
   const { push } = useNotifications();
 
@@ -402,7 +406,7 @@ function CommunicationPage() {
                     )}
 
                     <div className="mt-3 flex items-center gap-2">
-                      {!isClosed && (
+                      {!isClosed && !isParent && (
                         <>
                           <Button size="small" variant="outlined" onClick={() => openReply(msg)}>
                             Reply
