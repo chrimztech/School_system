@@ -431,6 +431,10 @@ export const api = {
   teachers: {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "teachers"))),
     get: (schoolId: string, id: string) => unwrap<any>(apiClient.get(schoolPath(schoolId, `teachers/${id}`))),
+    // Resolves the caller's own staff record server-side (by matching their account email
+    // against Teacher.email) — never trust a client-supplied id for "my own" data.
+    getMyProfile: (schoolId: string) => unwrap<any>(apiClient.get(schoolPath(schoolId, "teachers/me"))),
+    updateMyProfile: (schoolId: string, data: Record<string, string>) => unwrap<any>(apiClient.put(schoolPath(schoolId, "teachers/me"), data)),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "teachers"), data)),
     bulkCreate: (schoolId: string, data: any[]) => unwrap<{ imported: number; errors: { row: number; error: string }[] }>(apiClient.post(schoolPath(schoolId, "teachers/bulk"), data)),
     update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `teachers/${id}`), data)),
@@ -544,6 +548,16 @@ export const api = {
   termGrades: {
     compute: (schoolId: string, data: { classId: string; subjectName: string; term: string; academicYear: string }) =>
       unwrap<any[]>(apiClient.post(schoolPath(schoolId, "term-grades/compute"), data)),
+    // Records already-known results for a past term/year directly — a transfer pupil's grades
+    // from a previous school, or a paper report card being digitized — bypassing the live
+    // capture/verify/publish pipeline (which can't produce these; see the backend javadoc on
+    // TermGradeService.backfillResult). Admin/leadership only.
+    backfill: (schoolId: string, rows: Array<{
+      studentId: string; subjectName: string; term: string; academicYear: string;
+      reportingPeriod?: "MIDTERM" | "END_TERM" | "COMBINED";
+      weightedTotal: number; letterGrade?: string; gradeDescription?: string; gradePoints?: number;
+      classPhase?: string;
+    }>) => unwrap<any[]>(apiClient.post(schoolPath(schoolId, "term-grades/backfill"), rows)),
     history: (schoolId: string, studentId: string, academicYear: string) =>
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades"), { params: { studentId, academicYear } })),
     publishedHistory: (schoolId: string, studentId: string, academicYear: string, reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED") =>

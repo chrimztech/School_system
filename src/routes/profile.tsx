@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Shield, Smartphone, Key, Loader2, Eye, EyeOff } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { Shield, Smartphone, Key, Loader2, Eye, EyeOff, Upload, ImageIcon, PenTool } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Switch from "@mui/material/Switch";
 import { Button, Chip, IconButton, InputAdornment, TextField, Tooltip, Dialog, DialogContent, DialogActions, DialogTitle } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
@@ -57,6 +57,42 @@ function ProfilePage() {
     onError: () => toast.error("Failed to save preferences"),
   });
 
+  // Only roles that plausibly have a linked Teacher (staff) record — resolved server-side by
+  // matching this account's email, never trusted from the client. Parents and platform admins
+  // never have one, so there's no point even asking.
+  const STAFF_ROLES = new Set(["teacher", "hod", "principal", "deputy_head", "school_admin", "career_guidance"]);
+  const canHaveStaffProfile = !!user && STAFF_ROLES.has(user.role);
+  const { data: myTeacherProfile } = useQuery({
+    queryKey: ["my-teacher-profile", active.id, user?.email],
+    queryFn: () => api.teachers.getMyProfile(active.id),
+    enabled: canHaveStaffProfile && !!active.id,
+    retry: false,
+  });
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [signatureUrl, setSignatureUrl] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (myTeacherProfile) {
+      setPhotoUrl(myTeacherProfile.photoUrl ?? "");
+      setSignatureUrl(myTeacherProfile.signatureUrl ?? "");
+    }
+  }, [myTeacherProfile]);
+
+  const saveStaffProfileMutation = useMutation({
+    mutationFn: (fields: Record<string, string>) => api.teachers.updateMyProfile(active.id, fields),
+    onSuccess: () => toast.success("Staff profile updated"),
+    onError: () => toast.error("Failed to update staff profile"),
+  });
+
+  const readAsDataUrl = (file: File, setter: (value: string) => void) => {
+    if (file.size > 10_000_000) { toast.error("File too large. Max 10MB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setter(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   if (!user) return null;
 
   return (
@@ -99,6 +135,72 @@ function ProfilePage() {
           </Button>
         </div>
       </section>
+
+      {canHaveStaffProfile && myTeacherProfile && (
+        <section className="rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-1 text-base font-semibold">Staff profile</h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Your portrait and signature appear on report cards, ID cards, and other official documents.
+          </p>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <p className="mb-2 text-sm font-medium">Portrait</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted/40">
+                  {photoUrl ? (
+                    <img src={photoUrl} alt="My portrait" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) readAsDataUrl(f, setPhotoUrl); }}
+                />
+                <Button variant="outlined" size="small" startIcon={<Upload className="h-4 w-4" />} onClick={() => photoInputRef.current?.click()}>
+                  {photoUrl ? "Change" : "Upload"}
+                </Button>
+                {photoUrl && <Button variant="text" color="inherit" size="small" onClick={() => setPhotoUrl("")}>Remove</Button>}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium">Signature</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-16 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/40">
+                  {signatureUrl ? (
+                    <img src={signatureUrl} alt="My signature" className="h-full w-full object-contain" />
+                  ) : (
+                    <PenTool className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <input
+                  ref={signatureInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) readAsDataUrl(f, setSignatureUrl); }}
+                />
+                <Button variant="outlined" size="small" startIcon={<Upload className="h-4 w-4" />} onClick={() => signatureInputRef.current?.click()}>
+                  {signatureUrl ? "Change" : "Upload"}
+                </Button>
+                {signatureUrl && <Button variant="text" color="inherit" size="small" onClick={() => setSignatureUrl("")}>Remove</Button>}
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button
+              onClick={() => saveStaffProfileMutation.mutate({ photoUrl, signatureUrl })}
+              disabled={saveStaffProfileMutation.isPending}
+              startIcon={saveStaffProfileMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+            >
+              Save changes
+            </Button>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-base font-semibold"><Shield className="h-4 w-4" />Security</h2>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Phone, BookOpen, Wallet, CalendarCheck, ShieldAlert, Loader2, Mail, MapPin, Bus, Pencil } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Phone, BookOpen, Wallet, CalendarCheck, ShieldAlert, Loader2, Mail, MapPin, Bus, Pencil, Upload, ImageIcon, Plus, Trash2, History } from "lucide-react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -31,6 +31,7 @@ function StudentProfilePage() {
   const [transportOpen, setTransportOpen] = useState(false);
   const [transportForm, setTransportForm] = useState({ routeId: "", pickupStop: "" });
   const [editOpen, setEditOpen] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
 
   const { data: student, isLoading } = useQuery({
@@ -47,6 +48,56 @@ function StudentProfilePage() {
     queryFn: () => api.termGrades.publishedHistory(schoolId, studentId, year, reportingPeriod),
     enabled: hasValidSchool && !!studentId,
   });
+
+  // Backfilling a past term/year's results — a transfer pupil's grades from a previous school,
+  // or a paper report card being digitized — bypasses the live capture/verify/publish pipeline
+  // entirely (it can't produce these rows at all; see the backend's TermGradeService javadoc).
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyTerm, setHistoryTerm] = useState("1");
+  const [historyYear, setHistoryYear] = useState(String(Number(year) - 1));
+  const [historyPeriod, setHistoryPeriod] = useState<"MIDTERM" | "END_TERM" | "COMBINED">("END_TERM");
+  const [historyRows, setHistoryRows] = useState<{ subjectName: string; total: string }[]>([{ subjectName: "", total: "" }]);
+
+  const openHistoryDialog = () => {
+    setHistoryTerm("1");
+    setHistoryYear(String(Number(year) - 1));
+    setHistoryPeriod("END_TERM");
+    setHistoryRows([{ subjectName: "", total: "" }]);
+    setHistoryOpen(true);
+  };
+
+  const backfillMutation = useMutation({
+    mutationFn: (rows: any[]) => api.termGrades.backfill(schoolId, rows),
+    onSuccess: () => {
+      // The pupil's history could span any year, not just the one currently displayed on this
+      // page — invalidate every published-term-grades query regardless of year so the report
+      // card and this profile both pick up the new rows next time they're viewed.
+      void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "published-term-grades" });
+      toast.success("Historical results saved");
+      setHistoryOpen(false);
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to save historical results"),
+  });
+
+  const saveHistoricalResults = () => {
+    if (!historyYear.trim()) { toast.error("Academic year is required"); return; }
+    const rows = historyRows
+      .filter((r) => r.subjectName.trim() && r.total.trim())
+      .map((r) => ({
+        studentId,
+        subjectName: r.subjectName.trim(),
+        term: historyTerm,
+        academicYear: historyYear.trim(),
+        reportingPeriod: historyPeriod,
+        weightedTotal: Number(r.total),
+      }));
+    if (rows.length === 0) { toast.error("Add at least one subject with a score"); return; }
+    if (rows.some((r) => Number.isNaN(r.weightedTotal) || r.weightedTotal < 0 || r.weightedTotal > 100)) {
+      toast.error("Scores must be between 0 and 100");
+      return;
+    }
+    backfillMutation.mutate(rows);
+  };
 
   const termGrades = (termGradeHistory as any[]).filter((g) => g.term === term);
   const subjectAverage =
@@ -205,6 +256,7 @@ function StudentProfilePage() {
       emergencyContactName: s.emergencyContactName ?? "", emergencyContactRelationship: s.emergencyContactRelationship ?? "",
       emergencyContactPhone: s.emergencyContactPhone ?? "",
       boardingStatus: s.boardingStatus ?? "", needsTransport: !!s.needsTransport,
+      photoUrl: s.photoUrl ?? "",
     });
     setEditOpen(true);
   };
@@ -262,9 +314,13 @@ function StudentProfilePage() {
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm" style={{ background: `linear-gradient(135deg, ${active.primaryColor}08, transparent)` }}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-bold text-white" style={{ backgroundColor: active.primaryColor }}>
-              {s.firstName?.[0]}{s.lastName?.[0]}
-            </div>
+            {s.photoUrl ? (
+              <img src={s.photoUrl} alt={fullName} className="h-16 w-16 shrink-0 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-bold text-white" style={{ backgroundColor: active.primaryColor }}>
+                {s.firstName?.[0]}{s.lastName?.[0]}
+              </div>
+            )}
             <div>
               <h1 className="text-xl font-semibold">{fullName}</h1>
               <p className="font-mono text-sm text-muted-foreground">{s.admissionNumber}</p>
@@ -440,7 +496,14 @@ function StudentProfilePage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold">Academic performance · Term {term}</h2>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Academic performance · Term {term}</h2>
+            {canManage && (
+              <Button size="small" variant="outlined" startIcon={<History className="h-3.5 w-3.5" />} onClick={openHistoryDialog}>
+                Add historical result
+              </Button>
+            )}
+          </div>
           {termGrades.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">
               Results for this reporting cycle have not been published yet.
@@ -562,6 +625,40 @@ function StudentProfilePage() {
         <DialogContent>
           <div className="grid gap-4">
             <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Portrait</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted/40">
+                  {editForm.photoUrl ? (
+                    <img src={editForm.photoUrl} alt="Pupil portrait" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 10_000_000) { toast.error("File too large. Max 10MB."); return; }
+                    const reader = new FileReader();
+                    reader.onload = () => setEditForm((f: any) => ({ ...f, photoUrl: reader.result as string }));
+                    reader.readAsDataURL(file);
+                  }}
+                />
+                <Button variant="outlined" size="small" startIcon={<Upload className="h-4 w-4" />} onClick={() => photoInputRef.current?.click()}>
+                  {editForm.photoUrl ? "Change photo" : "Upload photo"}
+                </Button>
+                {editForm.photoUrl && (
+                  <Button variant="text" color="inherit" size="small" onClick={() => setEditForm((f: any) => ({ ...f, photoUrl: "" }))}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div>
               <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Learner profile</p>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <TextField label="First name *" value={editForm.firstName ?? ""} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} size="small" fullWidth />
@@ -646,6 +743,76 @@ function StudentProfilePage() {
             onClick={saveEdit}
           >
             Save changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add historical result</DialogTitle>
+        <DialogContent>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Record a result already known from elsewhere — a transfer pupil's grades from a
+            previous school, or a paper report card being digitized. This is published
+            immediately and shows up on the report card straight away.
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <TextField select label="Term" value={historyTerm} onChange={(e) => setHistoryTerm(e.target.value)} size="small" fullWidth>
+              <MenuItem value="1">Term 1</MenuItem>
+              <MenuItem value="2">Term 2</MenuItem>
+              <MenuItem value="3">Term 3</MenuItem>
+            </TextField>
+            <TextField label="Academic year" value={historyYear} onChange={(e) => setHistoryYear(e.target.value)} size="small" fullWidth placeholder="2025" />
+            <TextField select label="Reporting period" value={historyPeriod} onChange={(e) => setHistoryPeriod(e.target.value as any)} size="small" fullWidth>
+              <MenuItem value="MIDTERM">Mid-term</MenuItem>
+              <MenuItem value="END_TERM">End-of-term</MenuItem>
+              <MenuItem value="COMBINED">Combined</MenuItem>
+            </TextField>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Subjects</p>
+            {historyRows.map((row, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <TextField
+                  label="Subject"
+                  value={row.subjectName}
+                  onChange={(e) => setHistoryRows((rows) => rows.map((r, idx) => idx === i ? { ...r, subjectName: e.target.value } : r))}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="Score %"
+                  type="number"
+                  value={row.total}
+                  onChange={(e) => setHistoryRows((rows) => rows.map((r, idx) => idx === i ? { ...r, total: e.target.value } : r))}
+                  size="small"
+                  sx={{ width: 110 }}
+                  slotProps={{ htmlInput: { min: 0, max: 100 } }}
+                />
+                <IconButton
+                  size="small"
+                  aria-label="Remove subject row"
+                  disabled={historyRows.length === 1}
+                  onClick={() => setHistoryRows((rows) => rows.filter((_, idx) => idx !== i))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </IconButton>
+              </div>
+            ))}
+            <Button size="small" variant="text" startIcon={<Plus className="h-4 w-4" />} onClick={() => setHistoryRows((rows) => [...rows, { subjectName: "", total: "" }])}>
+              Add subject
+            </Button>
+          </div>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" color="inherit" onClick={() => setHistoryOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={backfillMutation.isPending}
+            onClick={saveHistoricalResults}
+            startIcon={backfillMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            Save results
           </Button>
         </DialogActions>
       </Dialog>
