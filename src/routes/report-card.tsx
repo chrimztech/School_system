@@ -32,6 +32,7 @@ import {
   TableCell,
 } from "@mui/material";
 import { formatGrade, gradingBandForPercentage, isLegacySecondaryGrade, useTenant } from "@/lib/tenant";
+import { generatePerformanceComment, type CommentAudience, type CommentGenerationInput } from "@/lib/report-comment-templates";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { AccessGuard } from "@/components/access-guard";
@@ -136,6 +137,7 @@ function CommentSection({
   classTeacherSignatureUrl,
   headTeacherSignatureUrl,
   schoolStampUrl,
+  performanceInput,
 }: {
   teacherComment: string;
   headComment: string;
@@ -146,6 +148,9 @@ function CommentSection({
   classTeacherSignatureUrl?: string | null;
   headTeacherSignatureUrl?: string | null;
   schoolStampUrl?: string | null;
+  /** Present only when there's actual performance data to draw from — omit the "Suggest"
+   * button entirely rather than generating a comment with nothing behind it. */
+  performanceInput?: CommentGenerationInput | null;
 }) {
   const [tc, setTc] = useState(teacherComment);
   const [hc, setHc] = useState(headComment);
@@ -174,6 +179,13 @@ function CommentSection({
     onSave(nextTc, nextHc);
   };
 
+  const suggest = (audience: CommentAudience) => {
+    if (!performanceInput) return;
+    const suggestion = generatePerformanceComment(performanceInput, audience);
+    if (audience === "teacher") { setTc(suggestion); setEditingTc(true); }
+    else { setHc(suggestion); setEditingHc(true); }
+  };
+
   return (
     <div className="space-y-4 border-t border-border p-6 text-sm">
       {/* Class teacher */}
@@ -182,24 +194,36 @@ function CommentSection({
           <p className="text-xs font-semibold uppercase text-muted-foreground">
             Class teacher's comment
           </p>
-          {!canEditTeacher ? null : !editingTc ? (
-            <button
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setEditingTc(true)}
-            >
-              <Pencil className="h-3 w-3" />
-              Edit
-            </button>
-          ) : (
-            <button
-              className="flex items-center gap-1 text-xs text-primary"
-              onClick={() => save(tc, hc)}
-              disabled={saving}
-            >
-              <Check className="h-3 w-3" />
-              {saving ? "Saving…" : "Save"}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {canEditTeacher && performanceInput && (
+              <button
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => suggest("teacher")}
+                title={editingTc ? "Try another suggestion" : "Suggest a comment based on this term's results"}
+              >
+                <Sparkles className="h-3 w-3" />
+                {editingTc && tc ? "Regenerate" : "Suggest"}
+              </button>
+            )}
+            {!canEditTeacher ? null : !editingTc ? (
+              <button
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setEditingTc(true)}
+              >
+                <Pencil className="h-3 w-3" />
+                Edit
+              </button>
+            ) : (
+              <button
+                className="flex items-center gap-1 text-xs text-primary"
+                onClick={() => save(tc, hc)}
+                disabled={saving}
+              >
+                <Check className="h-3 w-3" />
+                {saving ? "Saving…" : "Save"}
+              </button>
+            )}
+          </div>
         </div>
         {canEditTeacher && editingTc ? (
           <TextField
@@ -231,24 +255,36 @@ function CommentSection({
           <p className="text-xs font-semibold uppercase text-muted-foreground">
             Head teacher's comment
           </p>
-          {!canEditHead ? null : !editingHc ? (
-            <button
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setEditingHc(true)}
-            >
-              <Pencil className="h-3 w-3" />
-              Edit
-            </button>
-          ) : (
-            <button
-              className="flex items-center gap-1 text-xs text-primary"
-              onClick={() => save(tc, hc)}
-              disabled={saving}
-            >
-              <Check className="h-3 w-3" />
-              {saving ? "Saving…" : "Save"}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {canEditHead && performanceInput && (
+              <button
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => suggest("head")}
+                title={editingHc ? "Try another suggestion" : "Suggest a comment based on this term's results"}
+              >
+                <Sparkles className="h-3 w-3" />
+                {editingHc && hc ? "Regenerate" : "Suggest"}
+              </button>
+            )}
+            {!canEditHead ? null : !editingHc ? (
+              <button
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setEditingHc(true)}
+              >
+                <Pencil className="h-3 w-3" />
+                Edit
+              </button>
+            ) : (
+              <button
+                className="flex items-center gap-1 text-xs text-primary"
+                onClick={() => save(tc, hc)}
+                disabled={saving}
+              >
+                <Check className="h-3 w-3" />
+                {saving ? "Saving…" : "Save"}
+              </button>
+            )}
+          </div>
         </div>
         {canEditHead && editingHc ? (
           <TextField
@@ -426,6 +462,27 @@ function ReportCardPage() {
     ? active.legacyGradingBands
     : active.gradingBands;
   const overallBand = gradingBandForPercentage(overallBandSource, averageValue);
+
+  // Reuses the full multi-term history already fetched above (no extra request) to give the
+  // comment generator a trend to compare against — "an improvement on last term's X%" reads
+  // very differently from a bare score, and costs nothing extra to compute here.
+  const previousAverageValue = useMemo(() => {
+    const priorTerm = String(Number(selectedTerm) - 1);
+    const priorGrades = (termGradeHistory as any[]).filter((g) => g.term === priorTerm);
+    if (priorGrades.length === 0) return null;
+    return priorGrades.reduce((sum, g) => sum + (g.weightedTotal ?? 0), 0) / priorGrades.length;
+  }, [termGradeHistory, selectedTerm]);
+
+  const performanceInput: CommentGenerationInput | null = subjects.length > 0
+    ? {
+        studentFirstName: backendStudent?.firstName ?? studentName,
+        subjects: subjects.map((s) => ({ name: s.name, total: s.total })),
+        averageValue,
+        overallBandDescription: overallBand?.description,
+        previousAverageValue,
+      }
+    : null;
+
   const reportLabel =
     reportingPeriod === "MIDTERM"
       ? "Mid-term"
@@ -728,6 +785,7 @@ function ReportCardPage() {
               classTeacherSignatureUrl={classTeacherSignature}
               headTeacherSignatureUrl={brandingAssets?.headTeacherSignatureUrl}
               schoolStampUrl={brandingAssets?.schoolStampUrl}
+              performanceInput={performanceInput}
             />
           )}
         </div>
