@@ -335,6 +335,9 @@ export const api = {
       ),
     submitDemoRequest: (data: { tenantName: string; reporterName: string; reporterEmail: string; message?: string }) =>
       unwrap<void>(apiClient.post("/api/public/demo-requests", data)),
+    // Empty clientId means this school hasn't connected Google Workspace SSO — the login page
+    // simply doesn't render the "Sign in with Google" button in that case.
+    googleClientId: () => unwrap<{ clientId: string }>(apiClient.get("/api/public/sso/google-client-id")),
   },
 
   // Auth
@@ -351,6 +354,11 @@ export const api = {
     // which are admin-tier endpoints for editing someone *else's* account.
     updateMe: (data: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }) =>
       unwrap<BackendAppUser>(apiClient.patch("/api/auth/me", data)),
+    // Real Google Workspace SSO — verifies the ID token server-side against Google and this
+    // school's connected Client ID (see Integrations page). Only works for a pre-existing,
+    // active SRMS account on this school's subdomain; not a signup path.
+    loginWithGoogle: (idToken: string) =>
+      unwrap<BackendAuthSession>(apiClient.post("/api/auth/google", { idToken })),
   },
 
   // Platform workspace
@@ -359,6 +367,13 @@ export const api = {
     updateWorkspace: (data: Partial<BackendPlatformWorkspace>) =>
       unwrap<BackendPlatformWorkspace>(apiClient.put("/api/platform/workspace", data)),
     zynlepayBalance: () => unwrap<any>(apiClient.get("/api/platform/payments/zynlepay/balance")),
+    // Platform-wide integration credentials (payment gateway, bulk-SMS) — configured here
+    // instead of an environment-variable redeploy. apiKey on a read is always a masked hint
+    // ("••••1234") or null, never the real secret; only send apiKey on a write when the admin
+    // actually typed a new one.
+    listIntegrations: () => unwrap<any[]>(apiClient.get("/api/platform/integrations")),
+    updateIntegration: (provider: string, data: Record<string, any>) =>
+      unwrap<any>(apiClient.put(`/api/platform/integrations/${provider}`, data)),
   },
 
   // Testimonials (login page + platform admin management)
@@ -1047,5 +1062,34 @@ export const api = {
     list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "integrations"))),
     create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "integrations"), data)),
     update: (schoolId: string, code: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `integrations/${code}`), data)),
+    // Real, live actions — each makes an actual outbound call to the provider using the saved
+    // credentials, distinct from the CRUD above which only ever stores them.
+    test: (schoolId: string, code: string) => unwrap<any>(apiClient.post(schoolPath(schoolId, `integrations/${code}/test`))),
+    createZoomMeeting: (schoolId: string, topic: string, startTime?: string) =>
+      unwrap<{ joinUrl: string }>(apiClient.post(schoolPath(schoolId, "integrations/zoom/create-meeting"), { topic, startTime })),
+    publishToPowerBi: (schoolId: string) => unwrap<void>(apiClient.post(schoolPath(schoolId, "integrations/powerbi/publish"))),
+    syncEcz: (schoolId: string) => unwrap<string>(apiClient.post(schoolPath(schoolId, "integrations/ecz/sync"))),
+  },
+
+  // Whole-system backup/restore — every school plus every platform-wide table in one operation.
+  // Restoring one individual school from the set still goes through the existing per-school
+  // api.backup.restore(schoolId, id) above; this only ever creates/lists/downloads/deletes
+  // across every school at once, and restores the one platform-tables entry.
+  platformBackup: {
+    list: () => unwrap<any[]>(apiClient.get("/api/platform/backups")),
+    createFull: () => unwrap<any[]>(apiClient.post("/api/platform/backups/full")),
+    restorePlatformTables: (id: string) => unwrap<void>(apiClient.post(`/api/platform/backups/${id}/restore-platform-tables`)),
+    remove: (id: string) => unwrap<void>(apiClient.delete(`/api/platform/backups/${id}`)),
+    download: async (id: string, fileName: string) => {
+      const res = await apiClient.get(`/api/platform/backups/${id}/download`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
   },
 };

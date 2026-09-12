@@ -19,6 +19,7 @@ import { Route as TenantWorkbenchRouteImport } from './routes/tenant-workbench'
 import { Route as TenantSuccessRouteImport } from './routes/tenant-success'
 import { Route as TenantLifecycleRouteImport } from './routes/tenant-lifecycle'
 import { Route as TeachersRouteImport } from './routes/teachers'
+import { Route as SystemBackupRouteImport } from './routes/system-backup'
 import { Route as SysAdminRouteImport } from './routes/sys-admin'
 import { Route as SupportDeskRouteImport } from './routes/support-desk'
 import { Route as SubjectsRouteImport } from './routes/subjects'
@@ -146,6 +147,11 @@ const TenantLifecycleRoute = TenantLifecycleRouteImport.update({
 const TeachersRoute = TeachersRouteImport.update({
   id: '/teachers',
   path: '/teachers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SystemBackupRoute = SystemBackupRouteImport.update({
+  id: '/system-backup',
+  path: '/system-backup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SysAdminRoute = SysAdminRouteImport.update({
@@ -615,6 +621,7 @@ export interface FileRoutesByFullPath {
   '/subjects': typeof SubjectsRoute
   '/support-desk': typeof SupportDeskRoute
   '/sys-admin': typeof SysAdminRoute
+  '/system-backup': typeof SystemBackupRoute
   '/teachers': typeof TeachersRouteWithChildren
   '/tenant-lifecycle': typeof TenantLifecycleRoute
   '/tenant-success': typeof TenantSuccessRoute
@@ -705,6 +712,7 @@ export interface FileRoutesByTo {
   '/subjects': typeof SubjectsRoute
   '/support-desk': typeof SupportDeskRoute
   '/sys-admin': typeof SysAdminRoute
+  '/system-backup': typeof SystemBackupRoute
   '/teachers': typeof TeachersRouteWithChildren
   '/tenant-lifecycle': typeof TenantLifecycleRoute
   '/tenant-success': typeof TenantSuccessRoute
@@ -796,6 +804,7 @@ export interface FileRoutesById {
   '/subjects': typeof SubjectsRoute
   '/support-desk': typeof SupportDeskRoute
   '/sys-admin': typeof SysAdminRoute
+  '/system-backup': typeof SystemBackupRoute
   '/teachers': typeof TeachersRouteWithChildren
   '/tenant-lifecycle': typeof TenantLifecycleRoute
   '/tenant-success': typeof TenantSuccessRoute
@@ -888,6 +897,7 @@ export interface FileRouteTypes {
     | '/subjects'
     | '/support-desk'
     | '/sys-admin'
+    | '/system-backup'
     | '/teachers'
     | '/tenant-lifecycle'
     | '/tenant-success'
@@ -978,6 +988,7 @@ export interface FileRouteTypes {
     | '/subjects'
     | '/support-desk'
     | '/sys-admin'
+    | '/system-backup'
     | '/teachers'
     | '/tenant-lifecycle'
     | '/tenant-success'
@@ -1068,6 +1079,7 @@ export interface FileRouteTypes {
     | '/subjects'
     | '/support-desk'
     | '/sys-admin'
+    | '/system-backup'
     | '/teachers'
     | '/tenant-lifecycle'
     | '/tenant-success'
@@ -1159,6 +1171,7 @@ export interface RootRouteChildren {
   SubjectsRoute: typeof SubjectsRoute
   SupportDeskRoute: typeof SupportDeskRoute
   SysAdminRoute: typeof SysAdminRoute
+  SystemBackupRoute: typeof SystemBackupRoute
   TeachersRoute: typeof TeachersRouteWithChildren
   TenantLifecycleRoute: typeof TenantLifecycleRoute
   TenantSuccessRoute: typeof TenantSuccessRoute
@@ -1242,6 +1255,13 @@ declare module '@tanstack/react-router' {
       path: '/teachers'
       fullPath: '/teachers'
       preLoaderRoute: typeof TeachersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/system-backup': {
+      id: '/system-backup'
+      path: '/system-backup'
+      fullPath: '/system-backup'
+      preLoaderRoute: typeof SystemBackupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sys-admin': {
@@ -1893,6 +1913,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubjectsRoute: SubjectsRoute,
   SupportDeskRoute: SupportDeskRoute,
   SysAdminRoute: SysAdminRoute,
+  SystemBackupRoute: SystemBackupRoute,
   TeachersRoute: TeachersRouteWithChildren,
   TenantLifecycleRoute: TenantLifecycleRoute,
   TenantSuccessRoute: TenantSuccessRoute,

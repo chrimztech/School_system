@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plug, CheckCircle2, AlertCircle, ShieldAlert, KeyRound, Settings2 } from "lucide-react";
+import { Plug, CheckCircle2, AlertCircle, ShieldAlert, KeyRound, Settings2, Zap, Loader2, Video, BarChart3, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
@@ -30,6 +30,7 @@ type Integration = {
   apiKeyMasked?: string | null;
   hasApiSecret?: boolean;
   apiSecretMasked?: string | null;
+  lastTestMessage?: string | null;
 };
 
 type MarketplaceItem = {
@@ -37,6 +38,19 @@ type MarketplaceItem = {
   name: string;
   category: Integration["category"];
   description: string;
+};
+
+// Field labels for the Configure dialog's generic accountId/baseUrl/apiKey/apiSecret columns —
+// each provider's real backend client (see IntegrationActionsController et al.) reads these same
+// four columns but expects different real-world credentials in them.
+const FIELD_HINTS: Record<string, { accountId: string; accountIdPlaceholder?: string; baseUrl: string; baseUrlPlaceholder?: string; apiKey: string; apiSecret?: string }> = {
+  momo: { accountId: "API User ID", baseUrl: "API base URL", baseUrlPlaceholder: "https://sandbox.momodeveloper.mtn.com", apiKey: "API Key", apiSecret: "Ocp-Apim-Subscription-Key (Collections product key)" },
+  airtel: { accountId: "Client ID", baseUrl: "API base URL", baseUrlPlaceholder: "https://openapiuat.airtel.africa", apiKey: "Client Secret" },
+  sms: { accountId: "Africa's Talking username", baseUrl: "API base URL (leave blank for production)", baseUrlPlaceholder: "https://api.sandbox.africastalking.com", apiKey: "API key" },
+  powerbi: { accountId: "Azure AD Tenant ID", baseUrl: "App Client ID | Dataset ID", baseUrlPlaceholder: "11111111-... | 22222222-...", apiKey: "Client secret" },
+  zoom: { accountId: "Zoom Account ID", baseUrl: "Client ID", apiKey: "Client Secret" },
+  google: { accountId: "OAuth 2.0 Client ID", baseUrl: "Not used", apiKey: "Not used" },
+  ecz: { accountId: "Examination center number", baseUrl: "ECZ endpoint URL", apiKey: "Bearer token" },
 };
 
 const marketplace: MarketplaceItem[] = [
@@ -83,6 +97,42 @@ function IntegrationsPage() {
       void qc.invalidateQueries({ queryKey: ["integrations", schoolId] });
     },
   });
+  const [testingCode, setTestingCode] = useState<string | null>(null);
+  const testMutation = useMutation({
+    mutationFn: (code: string) => api.integrations.test(schoolId, code),
+    onMutate: (code) => setTestingCode(code),
+    onSuccess: (_data, code) => {
+      toast.success(`${items.find((i) => i.code === code)?.name ?? code}: connection is healthy`);
+      void qc.invalidateQueries({ queryKey: ["integrations", schoolId] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Test failed"),
+    onSettled: () => setTestingCode(null),
+  });
+  const [actingCode, setActingCode] = useState<string | null>(null);
+  const zoomMeetingMutation = useMutation({
+    mutationFn: () => api.integrations.createZoomMeeting(schoolId, "SRMS meeting"),
+    onMutate: () => setActingCode("zoom"),
+    onSuccess: (res) => {
+      toast.success("Zoom meeting created");
+      window.open(res.joinUrl, "_blank", "noopener,noreferrer");
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not create the Zoom meeting"),
+    onSettled: () => setActingCode(null),
+  });
+  const powerBiPublishMutation = useMutation({
+    mutationFn: () => api.integrations.publishToPowerBi(schoolId),
+    onMutate: () => setActingCode("powerbi"),
+    onSuccess: () => toast.success("Snapshot published to Power BI"),
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not publish to Power BI"),
+    onSettled: () => setActingCode(null),
+  });
+  const eczSyncMutation = useMutation({
+    mutationFn: () => api.integrations.syncEcz(schoolId),
+    onMutate: () => setActingCode("ecz"),
+    onSuccess: () => toast.success("ECZ sync request sent"),
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "ECZ sync failed"),
+    onSettled: () => setActingCode(null),
+  });
 
   if (user?.role !== "super_admin") {
     return (
@@ -112,6 +162,7 @@ function IntegrationsPage() {
     apiKeyMasked: item.apiKeyMasked ?? null,
     hasApiSecret: item.hasApiSecret === true,
     apiSecretMasked: item.apiSecretMasked ?? null,
+    lastTestMessage: item.lastTestMessage ?? null,
   }));
 
   const selected = items.find((item) => item.code === selectedCode) ?? null;
@@ -276,8 +327,50 @@ function IntegrationsPage() {
                       <Switch checked={item.connected} onChange={() => toggle(item)} />
                     </div>
                     {item.connected && (
-                      <div className="mt-4 flex gap-2 border-t border-border pt-3">
+                      <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
                         <Button variant="outlined" size="small" onClick={() => openConfigure(item)}>Configure</Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={testingCode === item.code ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                          disabled={testMutation.isPending}
+                          onClick={() => testMutation.mutate(item.code)}
+                        >
+                          Test connection
+                        </Button>
+                        {item.code === "zoom" && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={actingCode === "zoom" ? <Loader2 size={12} className="animate-spin" /> : <Video size={12} />}
+                            disabled={zoomMeetingMutation.isPending}
+                            onClick={() => zoomMeetingMutation.mutate()}
+                          >
+                            Create meeting
+                          </Button>
+                        )}
+                        {item.code === "powerbi" && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={actingCode === "powerbi" ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
+                            disabled={powerBiPublishMutation.isPending}
+                            onClick={() => powerBiPublishMutation.mutate()}
+                          >
+                            Publish snapshot
+                          </Button>
+                        )}
+                        {item.code === "ecz" && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={actingCode === "ecz" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                            disabled={eczSyncMutation.isPending}
+                            onClick={() => eczSyncMutation.mutate()}
+                          >
+                            Sync now
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -341,6 +434,9 @@ function IntegrationsPage() {
                 <span>API key: {item.hasApiKey ? item.apiKeyMasked : "Not configured"}</span>
                 <span>API secret: {item.hasApiSecret ? item.apiSecretMasked : "Not configured"}</span>
               </div>
+              {item.lastTestMessage && (
+                <p className="mt-2 text-xs text-muted-foreground">Last test: {item.lastTestMessage}</p>
+              )}
             </div>
           ))}
         </Box>
@@ -376,18 +472,18 @@ function IntegrationsPage() {
                   <MenuItem value="production">Production / live</MenuItem>
                 </TextField>
                 <TextField
-                  label="Account / merchant ID"
+                  label={selected?.code ? (FIELD_HINTS[selected.code]?.accountId ?? "Account / merchant ID") : "Account / merchant ID"}
                   value={config.accountId}
                   onChange={(event) => setConfig({ ...config, accountId: event.target.value })}
-                  placeholder="As shown on the provider's dashboard"
+                  placeholder={(selected?.code && FIELD_HINTS[selected.code]?.accountIdPlaceholder) || "As shown on the provider's dashboard"}
                   fullWidth
                   size="small"
                 />
                 <TextField
-                  label="API base URL"
+                  label={selected?.code ? (FIELD_HINTS[selected.code]?.baseUrl ?? "API base URL") : "API base URL"}
                   value={config.baseUrl}
                   onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })}
-                  placeholder="https://api.provider.com"
+                  placeholder={(selected?.code && FIELD_HINTS[selected.code]?.baseUrlPlaceholder) || "https://api.provider.com"}
                   fullWidth
                   size="small"
                 />
@@ -410,7 +506,7 @@ function IntegrationsPage() {
               <div className="grid gap-3">
                 <TextField
                   type="password"
-                  label="API key"
+                  label={selected?.code ? (FIELD_HINTS[selected.code]?.apiKey ?? "API key") : "API key"}
                   value={config.apiKey}
                   onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
                   placeholder={selected?.hasApiKey ? `Currently set (${selected.apiKeyMasked}) — leave blank to keep it` : "Not set — paste the key from the provider"}
@@ -419,7 +515,7 @@ function IntegrationsPage() {
                 />
                 <TextField
                   type="password"
-                  label="API secret / client secret"
+                  label={(selected?.code && FIELD_HINTS[selected.code]?.apiSecret) || "API secret / client secret"}
                   value={config.apiSecret}
                   onChange={(event) => setConfig({ ...config, apiSecret: event.target.value })}
                   placeholder={selected?.hasApiSecret ? `Currently set (${selected.apiSecretMasked}) — leave blank to keep it` : "Not set — paste the secret from the provider"}

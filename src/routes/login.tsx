@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { keyframes } from "@emotion/react";
 import {
@@ -158,6 +158,8 @@ function LoginPage() {
   const [schoolBranding, setSchoolBranding] = useState<SchoolBranding | null>(null);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [googleClientId, setGoogleClientId] = useState("");
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
 
   const { data: testimonials = [] } = useQuery({
     queryKey: ["public-testimonials"],
@@ -195,6 +197,62 @@ function LoginPage() {
   }, []);
 
   useFavicon(schoolBranding?.faviconUrl);
+
+  // Only rendered when this school has connected Google Workspace SSO on its Integrations page
+  // (empty clientId otherwise) — a school that hasn't touched that page never sees this button.
+  useEffect(() => {
+    api.public
+      .googleClientId()
+      .then((res) => setGoogleClientId(res.clientId || ""))
+      .catch(() => setGoogleClientId(""));
+  }, []);
+
+  const handleGoogleCredential = async (idToken: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const auth = await api.auth.loginWithGoogle(idToken);
+      completeSignIn(auth);
+      setSuccess(true);
+      toast.success(`Welcome back, ${auth.name}!`);
+    } catch (err: unknown) {
+      const response = (err as { response?: { data?: { message?: string; error?: string } } })?.response;
+      setError(response ? (response.data?.message ?? response.data?.error ?? "Google sign-in failed.") : "Can't reach the server — check your connection and try again.");
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!googleClientId) return;
+    const scriptId = "google-identity-services";
+    const render = () => {
+      const google = (window as any).google;
+      if (!google?.accounts?.id || !googleButtonRef.current) return;
+      google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (response: { credential: string }) => void handleGoogleCredential(response.credential),
+      });
+      google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: 396,
+        text: "signin_with",
+      });
+    };
+    if ((window as any).google?.accounts?.id) {
+      render();
+      return;
+    }
+    if (document.getElementById(scriptId)) return;
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = render;
+    document.head.appendChild(script);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleClientId]);
 
   // Static "Sign in — SRMS" would be identical across every open school tab — set it per
   // school so someone juggling multiple schools' logins can tell tabs apart at a glance,
@@ -944,6 +1002,17 @@ function LoginPage() {
                   </Button>
                 </Stack>
               </Box>
+
+              {googleClientId && (
+                <Box sx={{ mt: 2.5, ...reveal(0.16) }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 2 }}>
+                    <Box sx={{ flex: 1, height: "1px", bgcolor: "divider" }} />
+                    <Typography sx={{ fontSize: 11.5, color: TEXT_SECONDARY }}>or</Typography>
+                    <Box sx={{ flex: 1, height: "1px", bgcolor: "divider" }} />
+                  </Stack>
+                  <Box ref={googleButtonRef} sx={{ display: "flex", justifyContent: "center", "& > div": { width: "100% !important" } }} />
+                </Box>
+              )}
 
               <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY, textAlign: "center", mt: 3, lineHeight: 1.6, ...reveal(0.18) }}>
                 Protected with TLS encryption · ECZ aligned

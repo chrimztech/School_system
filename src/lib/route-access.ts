@@ -112,6 +112,7 @@ export const ROUTE_ACCESS_BY_SEGMENT: Readonly<Record<string, RouteAccessRule>> 
   subjects: { module: "assessments", allowedRoles: ACADEMIC_OPERATIONS_ROLES },
   "support-desk": { module: "support-desk" },
   "sys-admin": { module: "platform-ops", allowedRoles: ["super_admin"] },
+  "system-backup": { module: "system-backup", allowedRoles: ["super_admin"] },
   teachers: { module: "teachers" },
   "tenant-lifecycle": { module: "tenant-lifecycle" },
   "tenant-success": { module: "tenant-success" },
