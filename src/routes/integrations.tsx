@@ -1,119 +1,75 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plug, CheckCircle2, AlertCircle, ShieldAlert, KeyRound, Settings2, Zap, Loader2, Video, BarChart3, RefreshCw } from "lucide-react";
+import {
+  Plug, CheckCircle2, AlertCircle, ShieldAlert, Zap, Loader2, Video, BarChart3, RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { EmptyState } from "@/components/empty-state";
-import { LoadingState } from "@/components/loading-state";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { Box, Button, Chip, Switch, TextField, MenuItem, Dialog, DialogContent, DialogActions, DialogTitle, Tabs, Tab } from "@mui/material";
+import { Button, Chip } from "@mui/material";
 import { badgeSx } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
-
-type Integration = {
-  id: string;
-  code: string;
-  name: string;
-  category: "Payments" | "Messaging" | "Government" | "Identity" | "Analytics" | "Productivity";
-  description: string;
-  connected: boolean;
-  status?: "healthy" | "degraded";
-  owner?: string;
-  webhook?: string;
-  accountId?: string;
-  baseUrl?: string;
-  secondaryUrl?: string;
-  environment?: "sandbox" | "production";
-  hasApiKey?: boolean;
-  apiKeyMasked?: string | null;
-  hasApiSecret?: boolean;
-  apiSecretMasked?: string | null;
-  lastTestMessage?: string | null;
-};
-
-type MarketplaceItem = {
-  code: string;
-  name: string;
-  category: Integration["category"];
-  description: string;
-};
-
-// Field labels for the Configure dialog's generic accountId/baseUrl/secondaryUrl/apiKey/apiSecret
-// columns — each provider's real backend client (see IntegrationActionsController, ZynlePayClient
-// et al.) reads these same columns but expects different real-world credentials in them.
-const FIELD_HINTS: Record<string, { accountId: string; accountIdPlaceholder?: string; baseUrl: string; baseUrlPlaceholder?: string; secondaryUrl?: string; secondaryUrlPlaceholder?: string; apiKey: string; apiSecret?: string }> = {
-  zynlepay: { accountId: "Merchant ID", baseUrl: "Deposit/collection URL", secondaryUrl: "Payment status URL", apiKey: "API Key", apiSecret: "API ID" },
-  momo: { accountId: "API User ID", baseUrl: "API base URL", baseUrlPlaceholder: "https://sandbox.momodeveloper.mtn.com", apiKey: "API Key", apiSecret: "Ocp-Apim-Subscription-Key (Collections product key)" },
-  airtel: { accountId: "Client ID", baseUrl: "API base URL", baseUrlPlaceholder: "https://openapiuat.airtel.africa", apiKey: "Client Secret" },
-  sms: { accountId: "Africa's Talking username", baseUrl: "API base URL (leave blank for production)", baseUrlPlaceholder: "https://api.sandbox.africastalking.com", apiKey: "API key" },
-  powerbi: { accountId: "Azure AD Tenant ID", baseUrl: "App Client ID | Dataset ID", baseUrlPlaceholder: "11111111-... | 22222222-...", apiKey: "Client secret" },
-  zoom: { accountId: "Zoom Account ID", baseUrl: "Client ID", apiKey: "Client Secret" },
-  google: { accountId: "OAuth 2.0 Client ID", baseUrl: "Not used", apiKey: "Not used" },
-  ecz: { accountId: "Examination center number", baseUrl: "ECZ endpoint URL", apiKey: "Bearer token" },
-};
-
-const marketplace: MarketplaceItem[] = [
-  { code: "zynlepay", name: "ZynlePay", category: "Payments", description: "Collect fees by card and mobile money via your own ZynlePay merchant account." },
-  { code: "momo", name: "MTN Mobile Money", category: "Payments", description: "Collect tuition via MoMo Collect API." },
-  { code: "airtel", name: "Airtel Money", category: "Payments", description: "Collect fees through Airtel Money Merchant." },
-  { code: "ecz", name: "ECZ Sync", category: "Government", description: "Candidate registration and results download." },
-  { code: "sms", name: "Africa's Talking SMS", category: "Messaging", description: "Bulk SMS to parents and guardians." },
-  { code: "powerbi", name: "Power BI", category: "Analytics", description: "Publish curated dashboards for district and board reporting." },
-  { code: "google", name: "Google Workspace", category: "Identity", description: "Single sign-on for staff accounts." },
-  { code: "zoom", name: "Zoom Education", category: "Productivity", description: "Sync virtual classes, webinars, and staff meetings." },
-];
+import { PROVIDER_SCHEMAS } from "@/lib/integration-providers";
+import { IntegrationConfigDialog } from "@/components/integration-config-dialog";
 
 export const Route = createFileRoute("/integrations")({
   head: () => ({ meta: [{ title: "Integrations - SRMS" }] }),
   component: IntegrationsPage,
 });
 
+function statusChip(status: string | undefined) {
+  if (status === "HEALTHY") return <Chip size="small" icon={<CheckCircle2 size={12} />} label="Healthy" sx={badgeSx("success")} />;
+  if (status === "DEGRADED") return <Chip size="small" icon={<AlertCircle size={12} />} label="Degraded" sx={badgeSx("destructive")} />;
+  return <Chip size="small" label="Not configured" sx={badgeSx("outline")} />;
+}
+
 function IntegrationsPage() {
   const { user } = useAuth();
   const { active } = useTenant();
   const schoolId = active.id;
-
   const qc = useQueryClient();
-  const [tab, setTab] = useState("installed");
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [config, setConfig] = useState({
-    owner: "", webhook: "", accountId: "", baseUrl: "", secondaryUrl: "", environment: "sandbox",
-    apiKey: "", apiSecret: "",
+
+  const [openCode, setOpenCode] = useState<string | null>(null);
+  const [actingCode, setActingCode] = useState<string | null>(null);
+  const [testingCode, setTestingCode] = useState<string | null>(null);
+
+  const { data: configs = [], isLoading } = useQuery({
+    queryKey: ["integration-configs", schoolId],
+    queryFn: () => api.integrationConfigs.listForSchool(schoolId),
+    enabled: user?.role === "super_admin" && !!schoolId,
   });
 
-  const { data: itemsRaw = [], isLoading } = useQuery({
-    queryKey: ["integrations", schoolId],
-    queryFn: () => api.integrations.list(schoolId),
-  });
-  const createIntegrationMutation = useMutation({
-    mutationFn: (data: any) => api.integrations.create(schoolId, data),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["integrations", schoolId] });
+  const configFor = (code: string) => (configs as any[]).find((c) => c.providerCode === code) ?? null;
+
+  const saveMutation = useMutation({
+    mutationFn: ({ code, data }: { code: string; data: any }) => api.integrationConfigs.saveForSchool(schoolId, code, data),
+    onSuccess: (_res, { code }) => {
+      toast.success(`${PROVIDER_SCHEMAS.find((p) => p.code === code)?.name ?? code} settings saved`);
+      void qc.invalidateQueries({ queryKey: ["integration-configs", schoolId] });
+      setOpenCode(null);
     },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to save settings"),
   });
-  const updateIntegrationMutation = useMutation({
-    mutationFn: ({ code, data }: { code: string; data: any }) => api.integrations.update(schoolId, code, data),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["integrations", schoolId] });
-    },
-  });
-  const [testingCode, setTestingCode] = useState<string | null>(null);
+
   const testMutation = useMutation({
-    mutationFn: (code: string) => api.integrations.test(schoolId, code),
+    mutationFn: (code: string) => api.integrationConfigs.test(schoolId, code),
     onMutate: (code) => setTestingCode(code),
     onSuccess: (_data, code) => {
-      toast.success(`${items.find((i) => i.code === code)?.name ?? code}: connection is healthy`);
-      void qc.invalidateQueries({ queryKey: ["integrations", schoolId] });
+      toast.success(`${PROVIDER_SCHEMAS.find((p) => p.code === code)?.name ?? code}: connection is healthy`);
+      void qc.invalidateQueries({ queryKey: ["integration-configs", schoolId] });
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Test failed"),
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Test failed");
+      void qc.invalidateQueries({ queryKey: ["integration-configs", schoolId] });
+    },
     onSettled: () => setTestingCode(null),
   });
-  const [actingCode, setActingCode] = useState<string | null>(null);
+
   const zoomMeetingMutation = useMutation({
-    mutationFn: () => api.integrations.createZoomMeeting(schoolId, "SRMS meeting"),
+    mutationFn: () => api.integrationConfigs.createZoomMeeting(schoolId, "SRMS meeting"),
     onMutate: () => setActingCode("zoom"),
     onSuccess: (res) => {
       toast.success("Zoom meeting created");
@@ -123,14 +79,14 @@ function IntegrationsPage() {
     onSettled: () => setActingCode(null),
   });
   const powerBiPublishMutation = useMutation({
-    mutationFn: () => api.integrations.publishToPowerBi(schoolId),
+    mutationFn: () => api.integrationConfigs.publishToPowerBi(schoolId),
     onMutate: () => setActingCode("powerbi"),
     onSuccess: () => toast.success("Snapshot published to Power BI"),
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not publish to Power BI"),
     onSettled: () => setActingCode(null),
   });
   const eczSyncMutation = useMutation({
-    mutationFn: () => api.integrations.syncEcz(schoolId),
+    mutationFn: () => api.integrationConfigs.syncEcz(schoolId),
     onMutate: () => setActingCode("ecz"),
     onSuccess: () => toast.success("ECZ sync request sent"),
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "ECZ sync failed"),
@@ -148,408 +104,88 @@ function IntegrationsPage() {
     );
   }
 
-  const items: Integration[] = (itemsRaw as any[]).map((item) => ({
-    id: item.id,
-    code: item.code ?? item.id,
-    name: item.name ?? "Unnamed integration",
-    category: (item.category ?? "Productivity") as Integration["category"],
-    description: item.description ?? "",
-    connected: item.connected === true,
-    status: (item.status ?? undefined) as Integration["status"],
-    owner: item.owner ?? "",
-    webhook: item.webhook ?? "",
-    accountId: item.accountId ?? "",
-    baseUrl: item.baseUrl ?? "",
-    secondaryUrl: item.secondaryUrl ?? "",
-    environment: (item.environment ?? "sandbox") as Integration["environment"],
-    hasApiKey: item.hasApiKey === true,
-    apiKeyMasked: item.apiKeyMasked ?? null,
-    hasApiSecret: item.hasApiSecret === true,
-    apiSecretMasked: item.apiSecretMasked ?? null,
-    lastTestMessage: item.lastTestMessage ?? null,
-  }));
-
-  const selected = items.find((item) => item.code === selectedCode) ?? null;
-  const connected = items.filter((item) => item.connected);
-  const categories = Array.from(new Set(items.map((item) => item.category)));
-
-  const toggle = (item: Integration) => {
-    updateIntegrationMutation.mutate(
-      {
-        code: item.code,
-        data: {
-          connected: !item.connected,
-          status: !item.connected ? item.status ?? "healthy" : "degraded",
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${item.name} ${item.connected ? "disconnected" : "connected"}`);
-        },
-        onError: () => toast.error(`Failed to update ${item.name}`),
-      },
-    );
-  };
-
-  const openConfigure = (item: Integration) => {
-    setSelectedCode(item.code);
-    setConfig({
-      owner: item.owner || "",
-      webhook: item.webhook || `/integrations/${item.code}/events`,
-      accountId: item.accountId || "",
-      baseUrl: item.baseUrl || "",
-      secondaryUrl: item.secondaryUrl || "",
-      environment: item.environment || "sandbox",
-      apiKey: "",
-      apiSecret: "",
-    });
-  };
-
-  const saveConfig = () => {
-    if (!selected) return;
-    updateIntegrationMutation.mutate(
-      {
-        code: selected.code,
-        data: {
-          owner: config.owner.trim() || null,
-          webhook: config.webhook.trim() || null,
-          accountId: config.accountId.trim() || null,
-          baseUrl: config.baseUrl.trim() || null,
-          secondaryUrl: config.secondaryUrl.trim() || null,
-          environment: config.environment || null,
-          // Left blank means "don't change" — the backend never overwrites a saved
-          // key/secret when the field is absent, so there's no way to accidentally wipe
-          // a credential just by reopening this dialog and saving other fields.
-          apiKey: config.apiKey.trim() || undefined,
-          apiSecret: config.apiSecret.trim() || undefined,
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${selected.name} settings saved`);
-          setSelectedCode(null);
-        },
-        onError: () => toast.error("Failed to save settings"),
-      },
-    );
-  };
-
-  const installMarketplaceItem = (candidate: MarketplaceItem) => {
-    const existing = items.find((item) => item.code === candidate.code);
-    if (existing) {
-      updateIntegrationMutation.mutate(
-        {
-          code: candidate.code,
-          data: { connected: true, status: existing.status ?? "healthy" },
-        },
-        {
-          onSuccess: () => {
-            setTab("installed");
-            toast.success(`${candidate.name} connected`);
-          },
-          onError: () => toast.error(`Failed to connect ${candidate.name}`),
-        },
-      );
-      return;
-    }
-
-    createIntegrationMutation.mutate(
-      {
-        code: candidate.code,
-        name: candidate.name,
-        category: candidate.category,
-        description: candidate.description,
-        connected: true,
-        status: "healthy",
-      },
-      {
-        onSuccess: () => {
-          setTab("installed");
-          toast.success(`${candidate.name} added to your integration stack`);
-        },
-        onError: () => toast.error(`Failed to add ${candidate.name}`),
-      },
-    );
-  };
+  const enabledCount = (configs as any[]).filter((c) => c.enabled).length;
+  const healthyCount = (configs as any[]).filter((c) => c.connectionStatus === "HEALTHY").length;
+  const degradedCount = (configs as any[]).filter((c) => c.connectionStatus === "DEGRADED").length;
+  const categories = Array.from(new Set(PROVIDER_SCHEMAS.map((p) => p.category)));
+  const openSchema = openCode ? PROVIDER_SCHEMAS.find((p) => p.code === openCode) ?? null : null;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Integrations"
-        description="Connect payment, messaging, identity, and government services to extend the platform."
-        actions={<Button onClick={() => setTab("marketplace")} startIcon={<Plug className="h-4 w-4" />}>Browse marketplace</Button>}
+        description="Connect payment, messaging, government, analytics, identity, and productivity services — configuration is visible only to System Administrators, and every credential is encrypted at rest."
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Connected" value={connected.length} accent="primary" icon={<Plug className="h-4 w-4" />} />
-        <StatCard
-          label="Healthy"
-          value={connected.filter((i) => i.status !== "degraded").length}
-          accent="success"
-          icon={<CheckCircle2 className="h-4 w-4" />}
-        />
-        <StatCard
-          label="Needs attention"
-          value={connected.filter((i) => i.status === "degraded").length}
-          accent={connected.some((i) => i.status === "degraded") ? "warning" : "success"}
-          icon={<AlertCircle className="h-4 w-4" />}
-        />
-        <StatCard label="Available in marketplace" value={marketplace.length} accent="accent" icon={<Settings2 className="h-4 w-4" />} />
+        <StatCard label="Enabled" value={enabledCount} accent="primary" icon={<Plug className="h-4 w-4" />} />
+        <StatCard label="Healthy" value={healthyCount} accent="success" icon={<CheckCircle2 className="h-4 w-4" />} />
+        <StatCard label="Needs attention" value={degradedCount} accent={degradedCount > 0 ? "warning" : "success"} icon={<AlertCircle className="h-4 w-4" />} />
+        <StatCard label="Available providers" value={PROVIDER_SCHEMAS.length} accent="accent" icon={<Zap className="h-4 w-4" />} />
       </div>
 
-      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab value="installed" label="Installed" />
-        <Tab value="marketplace" label="Marketplace" />
-        <Tab value="health" label="Connection health" />
-      </Tabs>
-
-      {tab === "installed" && (
-        <Box className="space-y-6">
-          {isLoading ? (
-            <div className="rounded-xl border border-border bg-card"><LoadingState label="Loading integrations…" /></div>
-          ) : items.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card">
-              <EmptyState icon={Plug} title="No integrations connected yet" description="Browse the marketplace to connect payment, messaging, identity, and government services." />
-            </div>
-          ) : categories.map((category) => (
-            <section key={category} className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{category}</h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {items.filter((item) => item.category === category).map((item) => (
-                  <div key={item.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{item.name}</h3>
-                          {item.connected && item.status === "healthy" && (
-                            <Chip size="small" icon={<CheckCircle2 size={12} className="text-success" />} label="Live" sx={badgeSx("secondary")} />
-                          )}
-                          {item.connected && item.status === "degraded" && (
-                            <Chip size="small" icon={<AlertCircle size={12} className="text-warning" />} label="Degraded" sx={badgeSx("secondary")} />
-                          )}
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
-                      </div>
-                      <Switch checked={item.connected} onChange={() => toggle(item)} />
+      {isLoading ? (
+        <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">Loading integrations…</div>
+      ) : categories.map((category) => (
+        <section key={category} className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{category}</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {PROVIDER_SCHEMAS.filter((p) => p.category === category).map((schema) => {
+              const cfg = configFor(schema.code);
+              return (
+                <div key={schema.code} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold">{schema.name}</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">{schema.description}</p>
                     </div>
-                    {item.connected && (
-                      <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
-                        <Button variant="outlined" size="small" onClick={() => openConfigure(item)}>Configure</Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={testingCode === item.code ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-                          disabled={testMutation.isPending}
-                          onClick={() => testMutation.mutate(item.code)}
-                        >
-                          Test connection
-                        </Button>
-                        {item.code === "zoom" && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={actingCode === "zoom" ? <Loader2 size={12} className="animate-spin" /> : <Video size={12} />}
-                            disabled={zoomMeetingMutation.isPending}
-                            onClick={() => zoomMeetingMutation.mutate()}
-                          >
-                            Create meeting
-                          </Button>
-                        )}
-                        {item.code === "powerbi" && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={actingCode === "powerbi" ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
-                            disabled={powerBiPublishMutation.isPending}
-                            onClick={() => powerBiPublishMutation.mutate()}
-                          >
-                            Publish snapshot
-                          </Button>
-                        )}
-                        {item.code === "ecz" && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={actingCode === "ecz" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                            disabled={eczSyncMutation.isPending}
-                            onClick={() => eczSyncMutation.mutate()}
-                          >
-                            Sync now
-                          </Button>
-                        )}
-                      </div>
+                  </div>
+                  <div className="mt-3">{statusChip(cfg?.connectionStatus)}</div>
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
+                    <Button variant="outlined" size="small" onClick={() => setOpenCode(schema.code)}>Configure</Button>
+                    {cfg?.enabled && schema.actions.includes("test") && (
+                      <Button
+                        variant="outlined" size="small"
+                        startIcon={testingCode === schema.code ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                        disabled={testMutation.isPending}
+                        onClick={() => testMutation.mutate(schema.code)}
+                      >
+                        Test connection
+                      </Button>
+                    )}
+                    {cfg?.enabled && schema.code === "zoom" && (
+                      <Button variant="outlined" size="small" startIcon={actingCode === "zoom" ? <Loader2 size={12} className="animate-spin" /> : <Video size={12} />} disabled={zoomMeetingMutation.isPending} onClick={() => zoomMeetingMutation.mutate()}>
+                        Create meeting
+                      </Button>
+                    )}
+                    {cfg?.enabled && schema.code === "powerbi" && (
+                      <Button variant="outlined" size="small" startIcon={actingCode === "powerbi" ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />} disabled={powerBiPublishMutation.isPending} onClick={() => powerBiPublishMutation.mutate()}>
+                        Publish snapshot
+                      </Button>
+                    )}
+                    {cfg?.enabled && schema.code === "ecz" && (
+                      <Button variant="outlined" size="small" startIcon={actingCode === "ecz" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} disabled={eczSyncMutation.isPending} onClick={() => eczSyncMutation.mutate()}>
+                        Sync now
+                      </Button>
                     )}
                   </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </Box>
-      )}
-
-      {tab === "marketplace" && (
-        <Box className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {marketplace.map((candidate) => {
-            const installed = items.some((item) => item.code === candidate.code && item.connected);
-            return (
-              <div key={candidate.code} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-foreground">{candidate.name}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{candidate.description}</p>
-                  </div>
-                  <Chip size="small" label={candidate.category} sx={badgeSx("outline")} />
                 </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{installed ? "Already connected" : "Ready to add"}</span>
-                  <Button
-                    size="small"
-                    variant={installed ? "outlined" : "contained"}
-                    disabled={installed || createIntegrationMutation.isPending}
-                    onClick={() => installMarketplaceItem(candidate)}
-                  >
-                    {installed ? "Connected" : "Add integration"}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </Box>
-      )}
-
-      {tab === "health" && (
-        <Box className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {connected.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card lg:col-span-2">
-              <EmptyState icon={ShieldAlert} title="No connected integrations to monitor" description="Connection health for active integrations will appear here." />
-            </div>
-          ) : connected.map((item) => (
-            <div key={item.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-foreground">{item.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
-                </div>
-                <Chip size="small" label={item.status === "degraded" ? "Attention" : "Healthy"} sx={badgeSx(item.status === "degraded" ? "warning" : "secondary")} />
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-lg bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                <span>Owner: {item.owner || "Not configured"}</span>
-                <span>Environment: {item.environment ?? "sandbox"}</span>
-                <span className="truncate">Webhook: {item.webhook || "Not configured"}</span>
-                <span className="truncate">Base URL: {item.baseUrl || "Not configured"}</span>
-                <span>API key: {item.hasApiKey ? item.apiKeyMasked : "Not configured"}</span>
-                <span>API secret: {item.hasApiSecret ? item.apiSecretMasked : "Not configured"}</span>
-              </div>
-              {item.lastTestMessage && (
-                <p className="mt-2 text-xs text-muted-foreground">Last test: {item.lastTestMessage}</p>
-              )}
-            </div>
-          ))}
-        </Box>
-      )}
-
-      <Dialog open={selectedCode !== null} onClose={() => setSelectedCode(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Configure {selected?.name ?? "integration"}</DialogTitle>
-        <DialogContent>
-          <div className="space-y-5">
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <Settings2 className="h-4 w-4 text-muted-foreground" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Connection details</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <TextField
-                  label="Integration owner"
-                  value={config.owner}
-                  onChange={(event) => setConfig({ ...config, owner: event.target.value })}
-                  placeholder="e.g. IT Team"
-                  fullWidth
-                  size="small"
-                />
-                <TextField
-                  select
-                  label="Environment"
-                  value={config.environment}
-                  onChange={(event) => setConfig({ ...config, environment: event.target.value })}
-                  fullWidth
-                  size="small"
-                >
-                  <MenuItem value="sandbox">Sandbox / test</MenuItem>
-                  <MenuItem value="production">Production / live</MenuItem>
-                </TextField>
-                <TextField
-                  label={selected?.code ? (FIELD_HINTS[selected.code]?.accountId ?? "Account / merchant ID") : "Account / merchant ID"}
-                  value={config.accountId}
-                  onChange={(event) => setConfig({ ...config, accountId: event.target.value })}
-                  placeholder={(selected?.code && FIELD_HINTS[selected.code]?.accountIdPlaceholder) || "As shown on the provider's dashboard"}
-                  fullWidth
-                  size="small"
-                />
-                <TextField
-                  label={selected?.code ? (FIELD_HINTS[selected.code]?.baseUrl ?? "API base URL") : "API base URL"}
-                  value={config.baseUrl}
-                  onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })}
-                  placeholder={(selected?.code && FIELD_HINTS[selected.code]?.baseUrlPlaceholder) || "https://api.provider.com"}
-                  fullWidth
-                  size="small"
-                />
-                {selected?.code && FIELD_HINTS[selected.code]?.secondaryUrl && (
-                  <TextField
-                    label={FIELD_HINTS[selected.code]!.secondaryUrl}
-                    value={config.secondaryUrl}
-                    onChange={(event) => setConfig({ ...config, secondaryUrl: event.target.value })}
-                    placeholder={FIELD_HINTS[selected.code]?.secondaryUrlPlaceholder || "https://api.provider.com/status"}
-                    fullWidth
-                    size="small"
-                  />
-                )}
-                <TextField
-                  className="sm:col-span-2"
-                  label="Webhook endpoint"
-                  value={config.webhook}
-                  onChange={(event) => setConfig({ ...config, webhook: event.target.value })}
-                  fullWidth
-                  size="small"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <KeyRound className="h-4 w-4 text-muted-foreground" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Credentials</p>
-              </div>
-              <div className="grid gap-3">
-                <TextField
-                  type="password"
-                  label={selected?.code ? (FIELD_HINTS[selected.code]?.apiKey ?? "API key") : "API key"}
-                  value={config.apiKey}
-                  onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
-                  placeholder={selected?.hasApiKey ? `Currently set (${selected.apiKeyMasked}) — leave blank to keep it` : "Not set — paste the key from the provider"}
-                  fullWidth
-                  size="small"
-                />
-                <TextField
-                  type="password"
-                  label={(selected?.code && FIELD_HINTS[selected.code]?.apiSecret) || "API secret / client secret"}
-                  value={config.apiSecret}
-                  onChange={(event) => setConfig({ ...config, apiSecret: event.target.value })}
-                  placeholder={selected?.hasApiSecret ? `Currently set (${selected.apiSecretMasked}) — leave blank to keep it` : "Not set — paste the secret from the provider"}
-                  fullWidth
-                  size="small"
-                />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Stored encrypted. Never shown again in full after saving — only the last 4 characters, so you can confirm which key is on file.
-              </p>
-            </div>
+              );
+            })}
           </div>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" color="inherit" onClick={() => setSelectedCode(null)}>Cancel</Button>
-          <Button onClick={saveConfig} disabled={!selected || updateIntegrationMutation.isPending}>Save settings</Button>
-        </DialogActions>
-      </Dialog>
+        </section>
+      ))}
+
+      {openSchema && (
+        <IntegrationConfigDialog
+          open={!!openCode}
+          onClose={() => setOpenCode(null)}
+          schema={openSchema}
+          current={configFor(openSchema.code)}
+          saving={saveMutation.isPending}
+          onSave={(payload) => saveMutation.mutate({ code: openSchema.code, data: payload })}
+        />
+      )}
     </div>
   );
 }

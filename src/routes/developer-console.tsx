@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Activity, Copy, CreditCard, KeyRound, Plug, Plus, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
 import { toast } from "sonner";
@@ -29,55 +29,30 @@ import { usePlatformWorkspace, useSavePlatformWorkspace } from "@/lib/platform-w
 import { api } from "@/lib/api";
 import { badgeSx } from "@/lib/utils";
 import { usePagedRows, ListPagination } from "@/components/list-pagination";
+import { PROVIDER_SCHEMAS } from "@/lib/integration-providers";
+import { IntegrationConfigDialog } from "@/components/integration-config-dialog";
 
 // Zamtel BulkSMS is deliberately not included here — it already has working credentials
-// configured via environment variables in the live deployment; only ZynlePay (which had none)
-// gets a Developer Console override path for now.
-const GATEWAY_META: Record<string, { label: string; icon: typeof CreditCard; fields: { key: "baseUrl" | "secondaryUrl" | "accountId" | "clientId"; label: string; placeholder?: string }[] }> = {
-  ZYNLEPAY: {
-    label: "ZynlePay (payment gateway)",
-    icon: CreditCard,
-    fields: [
-      { key: "accountId", label: "Merchant ID" },
-      { key: "clientId", label: "API ID" },
-      { key: "baseUrl", label: "Base URL", placeholder: "https://sandbox.zynlepay.com/zynlepay/jsonapi" },
-      { key: "secondaryUrl", label: "Payment status URL", placeholder: "https://sandbox.zynlepay.com/zynlepay/jsonapi/paymentstatus" },
-    ],
-  },
-};
-
-function GatewayConfigCard({ provider }: { provider: keyof typeof GATEWAY_META }) {
-  const meta = GATEWAY_META[provider];
-  const Icon = meta.icon;
+// configured via environment variables in the live deployment; every other provider lists here
+// as a platform-wide fallback/default, used when a school hasn't connected its own account (see
+// each school's own Integrations page for the per-school path, which every provider also has).
+function PlatformIntegrationCard({ schema }: { schema: (typeof PROVIDER_SCHEMAS)[number] }) {
   const qc = useQueryClient();
-  const { data: configs } = useQuery({
-    queryKey: ["platform-integrations"],
-    queryFn: () => api.platform.listIntegrations(),
+  const { data: configs = [] } = useQuery({
+    queryKey: ["platform-integration-configs"],
+    queryFn: () => api.integrationConfigs.listPlatform(),
   });
-  const config = (configs ?? []).find((c: any) => c.provider === provider);
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [enabled, setEnabled] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState("");
-
-  useEffect(() => {
-    if (!config) return;
-    setEnabled(!!config.enabled);
-    setForm({
-      baseUrl: config.baseUrl ?? "",
-      secondaryUrl: config.secondaryUrl ?? "",
-      accountId: config.accountId ?? "",
-      clientId: config.clientId ?? "",
-    });
-  }, [config]);
+  const config = (configs as any[]).find((c) => c.providerCode === schema.code) ?? null;
+  const [open, setOpen] = useState(false);
 
   const saveMutation = useMutation({
-    mutationFn: () => api.platform.updateIntegration(provider, { ...form, enabled, apiKey: apiKeyInput.trim() || undefined }),
+    mutationFn: (payload: any) => api.integrationConfigs.savePlatform(schema.code, payload),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["platform-integrations"] });
-      toast.success(`${meta.label} settings saved`);
-      setApiKeyInput("");
+      void qc.invalidateQueries({ queryKey: ["platform-integration-configs"] });
+      toast.success(`${schema.name} settings saved`);
+      setOpen(false);
     },
-    onError: () => toast.error("Failed to save integration settings"),
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to save integration settings"),
   });
 
   return (
@@ -85,50 +60,30 @@ function GatewayConfigCard({ provider }: { provider: keyof typeof GATEWAY_META }
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon className="h-4 w-4" />
+            <CreditCard className="h-4 w-4" />
           </div>
           <div>
-            <p className="font-semibold">{meta.label}</p>
+            <p className="font-semibold">{schema.name}</p>
             <p className="text-xs text-muted-foreground">
-              This is the platform's own merchant account — used as the fallback for a school
-              that hasn't connected its own ZynlePay account yet (see that school's Integrations
-              page), and for the platform's own billing. {enabled ? "Currently enabled." : "Currently disabled."}
+              Platform's own account — the fallback for a school that hasn't connected its own (see that school's Integrations page).
             </p>
           </div>
         </div>
-        <Chip size="small" label={enabled ? "Enabled" : "Disabled"} sx={badgeSx(enabled ? "success" : "secondary")} />
+        <Chip size="small" label={config?.enabled ? "Enabled" : "Disabled"} sx={badgeSx(config?.enabled ? "success" : "secondary")} />
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {meta.fields.map((f) => (
-          <TextField
-            key={f.key}
-            label={f.label}
-            placeholder={f.placeholder}
-            value={form[f.key] ?? ""}
-            onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-            size="small"
-            fullWidth
-          />
-        ))}
-        <TextField
-          label="API key / secret"
-          placeholder={config?.apiKeySet ? config.apiKey : "Not set"}
-          value={apiKeyInput}
-          onChange={(e) => setApiKeyInput(e.target.value)}
-          size="small"
-          fullWidth
-          type="password"
-          helperText={config?.apiKeySet ? "Leave blank to keep the current key" : "No key stored yet"}
+      <div className="mt-4">
+        <Button size="small" variant="outlined" onClick={() => setOpen(true)}>Configure</Button>
+      </div>
+      {open && (
+        <IntegrationConfigDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          schema={schema}
+          current={config}
+          saving={saveMutation.isPending}
+          onSave={(payload) => saveMutation.mutate(payload)}
         />
-      </div>
-      <div className="mt-4 flex items-center justify-between">
-        <Button size="small" variant={enabled ? "outlined" : "contained"} onClick={() => setEnabled((v) => !v)}>
-          {enabled ? "Disable override" : "Enable override"}
-        </Button>
-        <Button size="small" variant="contained" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          Save
-        </Button>
-      </div>
+      )}
     </div>
   );
 }
@@ -601,10 +556,13 @@ function DeveloperConsolePage() {
       {tab === "gateways" && (
         <Box className="grid gap-4 lg:grid-cols-2">
           <p className="col-span-full text-sm text-muted-foreground">
-            Configure the platform's shared payment gateway credentials here instead of redeploying
-            with different environment variables. This applies to every school on the platform.
+            Configure the platform's own account for each provider here instead of redeploying with
+            different environment variables. Each row is a fallback default — a school that connects
+            its own account on its Integrations page always takes priority over this one.
           </p>
-          <GatewayConfigCard provider="ZYNLEPAY" />
+          {PROVIDER_SCHEMAS.map((schema) => (
+            <PlatformIntegrationCard key={schema.code} schema={schema} />
+          ))}
         </Box>
       )}
       </Box>

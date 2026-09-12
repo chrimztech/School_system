@@ -367,13 +367,29 @@ export const api = {
     updateWorkspace: (data: Partial<BackendPlatformWorkspace>) =>
       unwrap<BackendPlatformWorkspace>(apiClient.put("/api/platform/workspace", data)),
     zynlepayBalance: () => unwrap<any>(apiClient.get("/api/platform/payments/zynlepay/balance")),
-    // Platform-wide integration credentials (payment gateway, bulk-SMS) — configured here
-    // instead of an environment-variable redeploy. apiKey on a read is always a masked hint
-    // ("••••1234") or null, never the real secret; only send apiKey on a write when the admin
-    // actually typed a new one.
-    listIntegrations: () => unwrap<any[]>(apiClient.get("/api/platform/integrations")),
-    updateIntegration: (provider: string, data: Record<string, any>) =>
-      unwrap<any>(apiClient.put(`/api/platform/integrations/${provider}`, data)),
+  },
+
+  // Third-party integration configuration — MTN Mobile Money, Airtel Money, ZynlePay, Africa's
+  // Talking SMS, ECZ Sync, Power BI, Google Workspace, Zoom. Every credential is encrypted at
+  // rest and masked on every read; blank/absent on a save means "keep the existing value", never
+  // a way to accidentally wipe a secret. Super-admin only, both scopes (see RoleGuard checks on
+  // IntegrationConfigController).
+  integrationConfigs: {
+    listPlatform: () => unwrap<any[]>(apiClient.get("/api/platform/integration-configs")),
+    savePlatform: (providerCode: string, data: any) =>
+      unwrap<any>(apiClient.put(`/api/platform/integration-configs/${providerCode}`, data)),
+    listForSchool: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "integration-configs"))),
+    saveForSchool: (schoolId: string, providerCode: string, data: any) =>
+      unwrap<any>(apiClient.put(schoolPath(schoolId, `integration-configs/${providerCode}`), data)),
+    // Real, live actions — each makes an actual outbound call to the provider using the saved
+    // credentials. School-scoped only for now; the platform scope's live checks are limited to
+    // the existing zynlepayBalance() above.
+    test: (schoolId: string, providerCode: string) =>
+      unwrap<any>(apiClient.post(schoolPath(schoolId, `integration-configs/${providerCode}/test`))),
+    createZoomMeeting: (schoolId: string, topic: string, startTime?: string) =>
+      unwrap<{ joinUrl: string }>(apiClient.post(schoolPath(schoolId, "integration-configs/zoom/create-meeting"), { topic, startTime })),
+    publishToPowerBi: (schoolId: string) => unwrap<void>(apiClient.post(schoolPath(schoolId, "integration-configs/powerbi/publish"))),
+    syncEcz: (schoolId: string) => unwrap<string>(apiClient.post(schoolPath(schoolId, "integration-configs/ecz/sync"))),
   },
 
   // Testimonials (login page + platform admin management)
@@ -1057,19 +1073,6 @@ export const api = {
     markPaid: (schoolId: string, id: string) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `billing/invoices/${id}/pay`), null)),
   },
 
-  // Integrations
-  integrations: {
-    list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "integrations"))),
-    create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "integrations"), data)),
-    update: (schoolId: string, code: string, data: any) => unwrap<any>(apiClient.patch(schoolPath(schoolId, `integrations/${code}`), data)),
-    // Real, live actions — each makes an actual outbound call to the provider using the saved
-    // credentials, distinct from the CRUD above which only ever stores them.
-    test: (schoolId: string, code: string) => unwrap<any>(apiClient.post(schoolPath(schoolId, `integrations/${code}/test`))),
-    createZoomMeeting: (schoolId: string, topic: string, startTime?: string) =>
-      unwrap<{ joinUrl: string }>(apiClient.post(schoolPath(schoolId, "integrations/zoom/create-meeting"), { topic, startTime })),
-    publishToPowerBi: (schoolId: string) => unwrap<void>(apiClient.post(schoolPath(schoolId, "integrations/powerbi/publish"))),
-    syncEcz: (schoolId: string) => unwrap<string>(apiClient.post(schoolPath(schoolId, "integrations/ecz/sync"))),
-  },
 
   // Whole-system backup/restore — every school plus every platform-wide table in one operation.
   // Restoring one individual school from the set still goes through the existing per-school
