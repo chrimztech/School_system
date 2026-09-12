@@ -302,6 +302,42 @@ export const PLAN_CATALOG: Record<PlanId, PlanDefinition> = {
   },
 };
 
+// Billing is deliberately not live-editable yet (explicit product decision, 2026-09) — Plan
+// Catalog's "Edit draft"/"Save draft" only records a proposal for internal review; PLAN_CATALOG
+// above stays the sole source of truth for pricing, limits, and feature gating everywhere else
+// in the app. The sketch below is what wiring it up for real would look like, kept here
+// (inactive) so it doesn't need to be re-derived when billing is ready to go live. Do not
+// uncomment without also: (1) deciding how existing tenants already on a plan are migrated if
+// its shape changes, (2) adding validation server-side so a bad edit can't zero out a limit or
+// break a currently-paying school, (3) test coverage per plan/tenant combination.
+//
+// import { usePlatformWorkspace } from "@/lib/platform-workspace";
+//
+// /** Merges a live override (from workspace.plans, as edited on the Plan Catalog page) onto
+//  *  the compiled-in PLAN_CATALOG defaults — an override only replaces the fields it actually
+//  *  sets, so a partially-filled draft can't null out the rest of a plan's definition. */
+// function mergePlanOverrides(
+//   base: Record<PlanId, PlanDefinition>,
+//   overrides: Partial<Record<PlanId, Partial<PlanDefinition>>> | undefined,
+// ): Record<PlanId, PlanDefinition> {
+//   if (!overrides) return base;
+//   const merged = { ...base };
+//   for (const id of Object.keys(overrides) as PlanId[]) {
+//     if (merged[id] && overrides[id]) merged[id] = { ...merged[id], ...overrides[id] };
+//   }
+//   return merged;
+// }
+//
+// /** Live-plan-catalog hook — every current PLAN_CATALOG[planId] call site (this file's
+//  *  changePlan/createTenantSubscription/useTenant, plus plan-catalog.tsx's display) would
+//  *  need to switch from importing the constant directly to calling this hook instead, which
+//  *  is the real reason this is a bigger change than just adding a fetch: PLAN_CATALOG is used
+//  *  as a plain synchronous object in several non-component call sites today. */
+// export function useLivePlanCatalog(): Record<PlanId, PlanDefinition> {
+//   const { data } = usePlatformWorkspace();
+//   return useMemo(() => mergePlanOverrides(PLAN_CATALOG, data?.plans as any), [data?.plans]);
+// }
+
 export const MODULE_FEATURE_MAP: Partial<Record<string, FeatureKey>> = {
   library: "library",
   transport: "transport",

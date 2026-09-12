@@ -384,6 +384,15 @@ function PlanCatalogPage() {
       >
         <DialogTitle>Edit plan draft</DialogTitle>
         <DialogContent>
+          <div className="mb-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-warning-foreground">
+            <p className="font-medium">This does not change real billing yet.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Saving records a proposed change here for internal review. Live pricing, campus/learner
+              limits, and feature access are still governed by the plan definitions shipped in the
+              codebase until that reconciliation work is done — see the code comment above
+              defaultPlanDraftsFromCatalog() for what's needed to make this page authoritative.
+            </p>
+          </div>
           {editForm && (
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-3">
