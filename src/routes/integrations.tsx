@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Plug, CheckCircle2, AlertCircle, ShieldAlert, Zap, Loader2, Video, BarChart3, RefreshCw,
+  Plug, CheckCircle2, AlertCircle, ShieldAlert, Zap, Loader2, Video, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,12 +13,17 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTenant } from "@/lib/tenant";
 import { PROVIDER_SCHEMAS } from "@/lib/integration-providers";
-import { IntegrationConfigDialog } from "@/components/integration-config-dialog";
+import { IntegrationConfigDialog, type PowerBiReportInput } from "@/components/integration-config-dialog";
 
 export const Route = createFileRoute("/integrations")({
   head: () => ({ meta: [{ title: "Integrations - SRMS" }] }),
   component: IntegrationsPage,
 });
+
+// Matches the backend's RoleGuard.requireSchoolAccountManager — a school's own admin tier
+// manages that school's integrations; only the platform-wide fallback (Developer Console) is
+// super-admin only.
+const ADMIN_ROLES = new Set(["super_admin", "school_admin", "principal", "deputy_head"]);
 
 function statusChip(status: string | undefined) {
   if (status === "HEALTHY") return <Chip size="small" icon={<CheckCircle2 size={12} />} label="Healthy" sx={badgeSx("success")} />;
@@ -35,11 +40,25 @@ function IntegrationsPage() {
   const [openCode, setOpenCode] = useState<string | null>(null);
   const [actingCode, setActingCode] = useState<string | null>(null);
   const [testingCode, setTestingCode] = useState<string | null>(null);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [publishingReportId, setPublishingReportId] = useState<string | null>(null);
 
   const { data: configs = [], isLoading } = useQuery({
     queryKey: ["integration-configs", schoolId],
     queryFn: () => api.integrationConfigs.listForSchool(schoolId),
-    enabled: user?.role === "super_admin" && !!schoolId,
+    enabled: !!user && ADMIN_ROLES.has(user.role) && !!schoolId,
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["integration-events", schoolId, openCode],
+    queryFn: () => api.integrationConfigs.events(schoolId, openCode as string),
+    enabled: !!user && ADMIN_ROLES.has(user.role) && !!schoolId && !!openCode,
+  });
+
+  const { data: reports = [] } = useQuery({
+    queryKey: ["powerbi-reports", schoolId],
+    queryFn: () => api.powerBiReports.list(schoolId),
+    enabled: !!user && ADMIN_ROLES.has(user.role) && !!schoolId && openCode === "powerbi",
   });
 
   const configFor = (code: string) => (configs as any[]).find((c) => c.providerCode === code) ?? null;
@@ -54,16 +73,30 @@ function IntegrationsPage() {
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to save settings"),
   });
 
+  const uploadFileMutation = useMutation({
+    mutationFn: ({ fieldKey, file }: { fieldKey: string; file: File }) =>
+      api.integrationConfigs.uploadCredentialFile(schoolId, openCode as string, fieldKey, file),
+    onMutate: ({ fieldKey }) => setUploadingField(fieldKey),
+    onSuccess: () => {
+      toast.success("File uploaded");
+      void qc.invalidateQueries({ queryKey: ["integration-configs", schoolId] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Upload failed"),
+    onSettled: () => setUploadingField(null),
+  });
+
   const testMutation = useMutation({
     mutationFn: (code: string) => api.integrationConfigs.test(schoolId, code),
     onMutate: (code) => setTestingCode(code),
     onSuccess: (_data, code) => {
       toast.success(`${PROVIDER_SCHEMAS.find((p) => p.code === code)?.name ?? code}: connection is healthy`);
       void qc.invalidateQueries({ queryKey: ["integration-configs", schoolId] });
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, code] });
     },
-    onError: (err: any) => {
+    onError: (err: any, code) => {
       toast.error(err?.response?.data?.message ?? "Test failed");
       void qc.invalidateQueries({ queryKey: ["integration-configs", schoolId] });
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, code] });
     },
     onSettled: () => setTestingCode(null),
   });
@@ -73,27 +106,62 @@ function IntegrationsPage() {
     onMutate: () => setActingCode("zoom"),
     onSuccess: (res) => {
       toast.success("Zoom meeting created");
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, "zoom"] });
       window.open(res.joinUrl, "_blank", "noopener,noreferrer");
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not create the Zoom meeting"),
-    onSettled: () => setActingCode(null),
-  });
-  const powerBiPublishMutation = useMutation({
-    mutationFn: () => api.integrationConfigs.publishToPowerBi(schoolId),
-    onMutate: () => setActingCode("powerbi"),
-    onSuccess: () => toast.success("Snapshot published to Power BI"),
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not publish to Power BI"),
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Could not create the Zoom meeting");
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, "zoom"] });
+    },
     onSettled: () => setActingCode(null),
   });
   const eczSyncMutation = useMutation({
     mutationFn: () => api.integrationConfigs.syncEcz(schoolId),
     onMutate: () => setActingCode("ecz"),
-    onSuccess: () => toast.success("ECZ sync request sent"),
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? "ECZ sync failed"),
+    onSuccess: () => {
+      toast.success("ECZ sync request sent");
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, "ecz"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "ECZ sync failed");
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, "ecz"] });
+    },
     onSettled: () => setActingCode(null),
   });
 
-  if (user?.role !== "super_admin") {
+  const saveReportMutation = useMutation({
+    mutationFn: (report: PowerBiReportInput) =>
+      report.id ? api.powerBiReports.update(schoolId, report.id, report) : api.powerBiReports.create(schoolId, report),
+    onSuccess: () => {
+      toast.success("Report saved");
+      void qc.invalidateQueries({ queryKey: ["powerbi-reports", schoolId] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not save report"),
+  });
+  const deleteReportMutation = useMutation({
+    mutationFn: (id: string) => api.powerBiReports.remove(schoolId, id),
+    onSuccess: () => {
+      toast.success("Report removed");
+      void qc.invalidateQueries({ queryKey: ["powerbi-reports", schoolId] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not remove report"),
+  });
+  const publishReportMutation = useMutation({
+    mutationFn: (id: string) => api.integrationConfigs.publishToPowerBi(schoolId, id),
+    onMutate: (id) => setPublishingReportId(id),
+    onSuccess: () => {
+      toast.success("Snapshot published to Power BI");
+      void qc.invalidateQueries({ queryKey: ["powerbi-reports", schoolId] });
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, "powerbi"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Could not publish to Power BI");
+      void qc.invalidateQueries({ queryKey: ["integration-events", schoolId, "powerbi"] });
+    },
+    onSettled: () => setPublishingReportId(null),
+  });
+
+  if (!user || !ADMIN_ROLES.has(user.role)) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
         <ShieldAlert className="h-10 w-10 text-destructive" />
@@ -158,11 +226,6 @@ function IntegrationsPage() {
                         Create meeting
                       </Button>
                     )}
-                    {cfg?.enabled && schema.code === "powerbi" && (
-                      <Button variant="outlined" size="small" startIcon={actingCode === "powerbi" ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />} disabled={powerBiPublishMutation.isPending} onClick={() => powerBiPublishMutation.mutate()}>
-                        Publish snapshot
-                      </Button>
-                    )}
                     {cfg?.enabled && schema.code === "ecz" && (
                       <Button variant="outlined" size="small" startIcon={actingCode === "ecz" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} disabled={eczSyncMutation.isPending} onClick={() => eczSyncMutation.mutate()}>
                         Sync now
@@ -184,6 +247,15 @@ function IntegrationsPage() {
           current={configFor(openSchema.code)}
           saving={saveMutation.isPending}
           onSave={(payload) => saveMutation.mutate({ code: openSchema.code, data: payload })}
+          events={events}
+          onUploadFile={(fieldKey, file) => uploadFileMutation.mutate({ fieldKey, file })}
+          uploadingField={uploadingField}
+          reports={openSchema.hasReports ? (reports as PowerBiReportInput[]) : undefined}
+          onSaveReport={(report) => saveReportMutation.mutate(report)}
+          onDeleteReport={(id) => deleteReportMutation.mutate(id)}
+          onPublishReport={(id) => publishReportMutation.mutate(id)}
+          savingReport={saveReportMutation.isPending}
+          publishingReportId={publishingReportId}
         />
       )}
     </div>

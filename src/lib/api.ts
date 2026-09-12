@@ -388,8 +388,44 @@ export const api = {
       unwrap<any>(apiClient.post(schoolPath(schoolId, `integration-configs/${providerCode}/test`))),
     createZoomMeeting: (schoolId: string, topic: string, startTime?: string) =>
       unwrap<{ joinUrl: string }>(apiClient.post(schoolPath(schoolId, "integration-configs/zoom/create-meeting"), { topic, startTime })),
-    publishToPowerBi: (schoolId: string) => unwrap<void>(apiClient.post(schoolPath(schoolId, "integration-configs/powerbi/publish"))),
+    publishToPowerBi: (schoolId: string, reportId: string) =>
+      unwrap<void>(apiClient.post(schoolPath(schoolId, "integration-configs/powerbi/publish"), { id: reportId })),
     syncEcz: (schoolId: string) => unwrap<string>(apiClient.post(schoolPath(schoolId, "integration-configs/ecz/sync"))),
+    // Recent activity feed (tests, live actions, webhooks) — the "transaction/synchronisation
+    // history" and part of the audit trail on each integration's setup screen.
+    events: (schoolId: string, providerCode: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, `integration-configs/${providerCode}/events`))),
+    // Real file upload for certificate-type credentials (Power BI, ECZ) — the file's bytes are
+    // base64-encoded server-side and stored in the same encrypted credentials blob as every
+    // other secret.
+    uploadCredentialFile: (schoolId: string, providerCode: string, fieldKey: string, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return unwrap<any>(apiClient.post(
+        schoolPath(schoolId, `integration-configs/${providerCode}/credential-file?fieldKey=${encodeURIComponent(fieldKey)}`),
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      ));
+    },
+    uploadCredentialFilePlatform: (providerCode: string, fieldKey: string, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return unwrap<any>(apiClient.post(
+        `/api/platform/integration-configs/${providerCode}/credential-file?fieldKey=${encodeURIComponent(fieldKey)}`,
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      ));
+    },
+  },
+
+  // Power BI reports — a school (or the platform) may publish more than one dashboard, each with
+  // its own workspace/report/dataset; the Azure AD credentials that authenticate to Power BI live
+  // on the "powerbi" integration config above and are shared across every report.
+  powerBiReports: {
+    list: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "powerbi-reports"))),
+    create: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "powerbi-reports"), data)),
+    update: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `powerbi-reports/${id}`), data)),
+    remove: (schoolId: string, id: string) => unwrap<void>(apiClient.delete(schoolPath(schoolId, `powerbi-reports/${id}`))),
   },
 
   // Testimonials (login page + platform admin management)

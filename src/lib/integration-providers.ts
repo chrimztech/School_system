@@ -12,7 +12,8 @@ export type IntegrationFieldType =
   | "multiselect"
   | "url"
   | "number"
-  | "textarea";
+  | "textarea"
+  | "file";
 
 export type IntegrationField = {
   key: string;
@@ -37,6 +38,9 @@ export type ProviderSchema = {
   fields: IntegrationField[];
   credentialFields: IntegrationField[];
   actions: IntegrationAction[];
+  /** True only for Power BI — renders the per-report management list (add/edit/delete) below the
+   * connection-level fields, since a school may publish more than one report. */
+  hasReports?: boolean;
 };
 
 const ENV_SANDBOX_PROD: IntegrationField["options"] = [
@@ -172,7 +176,7 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
       { key: "clientIdOrUsername", label: "Client ID/API username", type: "secret", required: true },
       { key: "clientSecretOrPassword", label: "Client secret/API password", type: "secret", required: true },
       { key: "apiKeyOrToken", label: "API key or access token", type: "secret", hint: "As issued by ECZ" },
-      { key: "certificatePrivateKey", label: "Certificate/private key (PEM)", type: "textarea", hint: "Paste PEM content if ECZ requires certificate auth" },
+      { key: "certificatePrivateKey", label: "Certificate/private key", type: "file", hint: "Upload the PEM file if ECZ requires certificate auth" },
     ],
     actions: ["test", "ecz-sync"],
   },
@@ -180,36 +184,19 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
     code: "powerbi",
     name: "Power BI",
     category: "Analytics",
-    description: "Publish curated dashboards for district and board reporting.",
+    description: "Publish curated dashboards for district and board reporting. Manage individual reports below, after saving these connection-level credentials.",
     hasCallbackUrl: false,
     fields: [
       { key: "tenantId", label: "Microsoft tenant ID", type: "text", required: true },
       { key: "applicationClientId", label: "Application/client ID", type: "text", required: true },
-      { key: "workspaceId", label: "Power BI workspace ID", type: "text", required: true },
-      { key: "reportId", label: "Report ID", type: "text", required: true },
-      { key: "datasetId", label: "Semantic model/dataset ID", type: "text", required: true },
-      { key: "capacityId", label: "Capacity ID", type: "text", hint: "For production embedding" },
-      { key: "reportDisplayName", label: "Report display name", type: "text", required: true },
-      {
-        key: "reportType", label: "Report type", type: "select", required: true,
-        options: [{ value: "embedded", label: "Embedded" }, { value: "published", label: "Published" }],
-      },
-      { key: "rowLevelSecurityRole", label: "Row-level security role", type: "text", hint: "Recommended" },
-      {
-        key: "refreshSchedule", label: "Refresh schedule", type: "select", required: true,
-        options: [
-          { value: "manual", label: "Manual only" },
-          { value: "daily", label: "Daily" },
-          { value: "hourly", label: "Hourly" },
-        ],
-      },
     ],
     credentialFields: [
       { key: "clientSecret", label: "Client secret", type: "secret", hint: "Required if not using a certificate" },
-      { key: "certificate", label: "Certificate (PEM)", type: "textarea", hint: "Preferred for production" },
+      { key: "certificate", label: "Certificate", type: "file", hint: "Preferred for production — upload the PEM/PFX file" },
       { key: "certificatePassword", label: "Certificate password", type: "secret", hint: "If the certificate is password-protected" },
     ],
     actions: ["test", "powerbi-publish"],
+    hasReports: true,
   },
   {
     code: "google",

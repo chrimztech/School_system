@@ -44,6 +44,7 @@ function PlatformIntegrationCard({ schema }: { schema: (typeof PROVIDER_SCHEMAS)
   });
   const config = (configs as any[]).find((c) => c.providerCode === schema.code) ?? null;
   const [open, setOpen] = useState(false);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
 
   const saveMutation = useMutation({
     mutationFn: (payload: any) => api.integrationConfigs.savePlatform(schema.code, payload),
@@ -53,6 +54,18 @@ function PlatformIntegrationCard({ schema }: { schema: (typeof PROVIDER_SCHEMAS)
       setOpen(false);
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to save integration settings"),
+  });
+
+  const uploadFileMutation = useMutation({
+    mutationFn: ({ fieldKey, file }: { fieldKey: string; file: File }) =>
+      api.integrationConfigs.uploadCredentialFilePlatform(schema.code, fieldKey, file),
+    onMutate: ({ fieldKey }) => setUploadingField(fieldKey),
+    onSuccess: () => {
+      toast.success("File uploaded");
+      void qc.invalidateQueries({ queryKey: ["platform-integration-configs"] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Upload failed"),
+    onSettled: () => setUploadingField(null),
   });
 
   return (
@@ -82,6 +95,8 @@ function PlatformIntegrationCard({ schema }: { schema: (typeof PROVIDER_SCHEMAS)
           current={config}
           saving={saveMutation.isPending}
           onSave={(payload) => saveMutation.mutate(payload)}
+          onUploadFile={(fieldKey, file) => uploadFileMutation.mutate({ fieldKey, file })}
+          uploadingField={uploadingField}
         />
       )}
     </div>
