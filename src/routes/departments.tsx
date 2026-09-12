@@ -41,6 +41,22 @@ const PHASE_LABEL: Record<string, string> = {
 
 type DeptForm = ReturnType<typeof emptyForm>;
 
+// Groups a flat subject list into department-labelled sections, sorted by department name (any
+// subject with no department, or one whose department no longer exists, falls into "Other" at
+// the end) — used to render the cross-department subject picker with a clear section per
+// department instead of one long undifferentiated list.
+function groupSubjectsByDepartment(subjectList: any[]): { department: string; subjects: any[] }[] {
+  const buckets = new Map<string, any[]>();
+  for (const s of subjectList) {
+    const dept = s.department?.trim() || "Other";
+    if (!buckets.has(dept)) buckets.set(dept, []);
+    buckets.get(dept)!.push(s);
+  }
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => (a === "Other" ? 1 : b === "Other" ? -1 : a.localeCompare(b)))
+    .map(([department, subjects]) => ({ department, subjects }));
+}
+
 function SubjectRow({
   s, currentDept, onMove,
 }: {
@@ -137,7 +153,11 @@ function DepartmentsPage() {
   const [reassigning, setReassigning] = useState<{ subject: any; targetDept: string } | null>(null);
   const [movingTeacher, setMovingTeacher] = useState<{ teacher: any; targetDept: string } | null>(null);
   const [assigningTeacher, setAssigningTeacher] = useState<{ teacher: any; deptSubjects: any[]; selectedSubject: string } | null>(null);
-  const [assigningClass, setAssigningClass] = useState<{ teacher: any; deptSubjects: any[]; selectedClassId: string; selectedSubject: string } | null>(null);
+  // subjectOptions holds every subject a leadership user may choose from when assigning a
+  // teacher to a class — every department's subjects, not just the one the teacher was clicked
+  // from — so one teacher can pick up subjects across departments in a single flow. An HOD stays
+  // scoped to just their own department's subjects here, same as everywhere else on this page.
+  const [assigningClass, setAssigningClass] = useState<{ teacher: any; subjectOptions: any[]; selectedClassId: string; selectedSubject: string } | null>(null);
 
   const { data: rawDepts = [], isLoading: deptsLoading } = useQuery({
     queryKey: ["departments", schoolId],
@@ -475,7 +495,7 @@ function DepartmentsPage() {
               )}
             </div>
             <div>
-              {assigningClass?.deptSubjects && assigningClass.deptSubjects.length > 0 ? (
+              {assigningClass?.subjectOptions && assigningClass.subjectOptions.length > 0 ? (
                 <TextField
                   select
                   label="Subject to teach in this class"
@@ -484,15 +504,25 @@ function DepartmentsPage() {
                   fullWidth
                   size="small"
                 >
-                  {assigningClass.deptSubjects.map((s: any) => (
-                    <MenuItem key={s.id} value={s.name}>{s.name}{s.code ? ` (${s.code})` : ""}</MenuItem>
-                  ))}
+                  {groupSubjectsByDepartment(assigningClass.subjectOptions).flatMap(({ department, subjects: deptSubjects }) => [
+                    <MenuItem key={`__dept_${department}`} disabled divider sx={{ opacity: "1 !important", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "text.secondary" }}>
+                      {department}
+                    </MenuItem>,
+                    ...deptSubjects.map((s: any) => (
+                      <MenuItem key={s.id} value={s.name} sx={{ pl: 3 }}>{s.name}{s.code ? ` (${s.code})` : ""}</MenuItem>
+                    )),
+                  ])}
                 </TextField>
               ) : (
                 <>
                   <p className="text-sm font-medium">Subject to teach in this class</p>
-                  <p className="mt-1 text-xs text-muted-foreground">No subjects in this department yet.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">No subjects yet — add one on the Subjects page first.</p>
                 </>
+              )}
+              {!isHOD && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Pick a subject from any department — a teacher can carry subjects across more than one.
+                </p>
               )}
             </div>
           </div>
@@ -753,7 +783,16 @@ function DepartmentsPage() {
                                 size="small"
                                 startIcon={<School size={12} />}
                                 sx={{ height: 28, fontSize: 12 }}
-                                onClick={() => setAssigningClass({ teacher: t, deptSubjects, selectedClassId: "", selectedSubject: t.subject ?? "" })}
+                                onClick={() => setAssigningClass({
+                                  teacher: t,
+                                  // Leadership can pick a subject from any department here — the
+                                  // permission that makes cross-department subjects possible; an
+                                  // HOD stays confined to the department they're viewing, same as
+                                  // every other action available to them on this page.
+                                  subjectOptions: isHOD ? deptSubjects : subjects,
+                                  selectedClassId: "",
+                                  selectedSubject: t.subject ?? "",
+                                })}
                               >
                                 Class
                               </Button>
