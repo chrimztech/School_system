@@ -90,20 +90,40 @@ function normalizeZmPhone(phone: string): string {
   return digits;
 }
 
-// A guardian's real identity is their phone or email, not their name — two unrelated
-// families can easily share a common name (or a blank/generic one from a bulk import), and
-// keying the grouping below by name alone was silently merging their children into one
-// "parent" card with one blended balance. Falls back to name only when there's truly no
-// phone or email to go on.
+const PLACEHOLDER_GUARDIAN_NAMES = new Set([
+  "", "not provided", "not available", "n/a", "na", "unknown", "unavailable",
+  "tbd", "none", "-", "pending", "guardian", "parent",
+]);
+
+// A bulk import that couldn't capture a real guardian name for a pupil often still writes a
+// placeholder like "Not Provided", paired with a fallback contact (a front-office number, or a
+// blank re-keyed to the same default) rather than a real one. That's fundamentally different
+// from a genuine parent's own details.
+function isPlaceholderGuardianName(name: string): boolean {
+  return PLACEHOLDER_GUARDIAN_NAMES.has(name.trim().toLowerCase());
+}
+
+// A guardian's real identity is their phone or email, not their name — two unrelated families
+// can easily share a common name from a bulk import, and keying the grouping below by name
+// alone was silently merging their children into one "parent" card with one blended balance.
+// Falls back to name only when there's truly no phone or email to go on.
+//
+// The reverse failure is worse: when the guardian NAME itself is a placeholder (never actually
+// captured), a shared phone/email can't be trusted as proof of a real family either — it's just
+// as likely to be a fallback value reused across dozens of otherwise-unrelated pupils. Trusting
+// it merged 26 different families into one "guardian" whose portal login, once created, would
+// see every one of those children's records and one combined (and wildly wrong) fee balance.
+// Key each placeholder-named pupil to themselves instead of trusting any shared contact detail.
 function guardianKey(student: any): string {
+  const rawName = (student.guardian || student.guardianName || "").trim();
+  if (isPlaceholderGuardianName(rawName)) return student.id ? `student:${student.id}` : "";
   const email = (student.guardianEmail || "").trim().toLowerCase();
   if (email) return `email:${email}`;
   const phone = normalizeZmPhone(student.guardianPhone || "");
   if (phone) return `phone:${phone}`;
   const altPhone = normalizeZmPhone(student.guardianAltPhone || "");
   if (altPhone) return `phone:${altPhone}`;
-  const name = (student.guardian || student.guardianName || "").trim().toLowerCase();
-  return name ? `name:${name}` : "";
+  return rawName ? `name:${rawName.toLowerCase()}` : "";
 }
 
 function ParentsPage() {
@@ -235,9 +255,9 @@ function ParentsPage() {
   const portalAccessCount = parents.filter(hasPortalLogin).length;
   const studentLinks = parents.reduce((total, parent) => total + parent.children.length, 0);
   const recordsToReview = (students as any[]).filter((student) => {
-    const name = student.guardian || student.guardianName;
+    const name = student.guardian || student.guardianName || "";
     const contact = student.guardianPhone || student.guardianAltPhone || student.guardianEmail;
-    return !name || !contact;
+    return isPlaceholderGuardianName(name) || !contact;
   }).length;
   const reachabilityPercent = parents.length > 0 ? Math.round((reachableCount / parents.length) * 100) : 0;
 
@@ -355,7 +375,7 @@ function ParentsPage() {
         <StatCard
           label="Records to review"
           value={recordsToReview}
-          hint="Missing a guardian name or contact method"
+          hint="Missing a contact method, or guardian name was never captured"
           accent={recordsToReview > 0 ? "warning" : "success"}
           icon={recordsToReview > 0 ? <CircleAlert className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
         />
