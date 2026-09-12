@@ -90,7 +90,9 @@ function GatewayConfigCard({ provider }: { provider: keyof typeof GATEWAY_META }
           <div>
             <p className="font-semibold">{meta.label}</p>
             <p className="text-xs text-muted-foreground">
-              {enabled ? "Overriding the platform's default credentials" : "Using the platform's default (env var) credentials"}
+              This is the platform's own merchant account — used as the fallback for a school
+              that hasn't connected its own ZynlePay account yet (see that school's Integrations
+              page), and for the platform's own billing. {enabled ? "Currently enabled." : "Currently disabled."}
             </p>
           </div>
         </div>

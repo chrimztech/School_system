@@ -25,6 +25,7 @@ type Integration = {
   webhook?: string;
   accountId?: string;
   baseUrl?: string;
+  secondaryUrl?: string;
   environment?: "sandbox" | "production";
   hasApiKey?: boolean;
   apiKeyMasked?: string | null;
@@ -40,10 +41,11 @@ type MarketplaceItem = {
   description: string;
 };
 
-// Field labels for the Configure dialog's generic accountId/baseUrl/apiKey/apiSecret columns —
-// each provider's real backend client (see IntegrationActionsController et al.) reads these same
-// four columns but expects different real-world credentials in them.
-const FIELD_HINTS: Record<string, { accountId: string; accountIdPlaceholder?: string; baseUrl: string; baseUrlPlaceholder?: string; apiKey: string; apiSecret?: string }> = {
+// Field labels for the Configure dialog's generic accountId/baseUrl/secondaryUrl/apiKey/apiSecret
+// columns — each provider's real backend client (see IntegrationActionsController, ZynlePayClient
+// et al.) reads these same columns but expects different real-world credentials in them.
+const FIELD_HINTS: Record<string, { accountId: string; accountIdPlaceholder?: string; baseUrl: string; baseUrlPlaceholder?: string; secondaryUrl?: string; secondaryUrlPlaceholder?: string; apiKey: string; apiSecret?: string }> = {
+  zynlepay: { accountId: "Merchant ID", baseUrl: "Deposit/collection URL", secondaryUrl: "Payment status URL", apiKey: "API Key", apiSecret: "API ID" },
   momo: { accountId: "API User ID", baseUrl: "API base URL", baseUrlPlaceholder: "https://sandbox.momodeveloper.mtn.com", apiKey: "API Key", apiSecret: "Ocp-Apim-Subscription-Key (Collections product key)" },
   airtel: { accountId: "Client ID", baseUrl: "API base URL", baseUrlPlaceholder: "https://openapiuat.airtel.africa", apiKey: "Client Secret" },
   sms: { accountId: "Africa's Talking username", baseUrl: "API base URL (leave blank for production)", baseUrlPlaceholder: "https://api.sandbox.africastalking.com", apiKey: "API key" },
@@ -54,6 +56,7 @@ const FIELD_HINTS: Record<string, { accountId: string; accountIdPlaceholder?: st
 };
 
 const marketplace: MarketplaceItem[] = [
+  { code: "zynlepay", name: "ZynlePay", category: "Payments", description: "Collect fees by card and mobile money via your own ZynlePay merchant account." },
   { code: "momo", name: "MTN Mobile Money", category: "Payments", description: "Collect tuition via MoMo Collect API." },
   { code: "airtel", name: "Airtel Money", category: "Payments", description: "Collect fees through Airtel Money Merchant." },
   { code: "ecz", name: "ECZ Sync", category: "Government", description: "Candidate registration and results download." },
@@ -77,7 +80,7 @@ function IntegrationsPage() {
   const [tab, setTab] = useState("installed");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [config, setConfig] = useState({
-    owner: "", webhook: "", accountId: "", baseUrl: "", environment: "sandbox",
+    owner: "", webhook: "", accountId: "", baseUrl: "", secondaryUrl: "", environment: "sandbox",
     apiKey: "", apiSecret: "",
   });
 
@@ -157,6 +160,7 @@ function IntegrationsPage() {
     webhook: item.webhook ?? "",
     accountId: item.accountId ?? "",
     baseUrl: item.baseUrl ?? "",
+    secondaryUrl: item.secondaryUrl ?? "",
     environment: (item.environment ?? "sandbox") as Integration["environment"],
     hasApiKey: item.hasApiKey === true,
     apiKeyMasked: item.apiKeyMasked ?? null,
@@ -194,6 +198,7 @@ function IntegrationsPage() {
       webhook: item.webhook || `/integrations/${item.code}/events`,
       accountId: item.accountId || "",
       baseUrl: item.baseUrl || "",
+      secondaryUrl: item.secondaryUrl || "",
       environment: item.environment || "sandbox",
       apiKey: "",
       apiSecret: "",
@@ -210,6 +215,7 @@ function IntegrationsPage() {
           webhook: config.webhook.trim() || null,
           accountId: config.accountId.trim() || null,
           baseUrl: config.baseUrl.trim() || null,
+          secondaryUrl: config.secondaryUrl.trim() || null,
           environment: config.environment || null,
           // Left blank means "don't change" — the backend never overwrites a saved
           // key/secret when the field is absent, so there's no way to accidentally wipe
@@ -487,6 +493,16 @@ function IntegrationsPage() {
                   fullWidth
                   size="small"
                 />
+                {selected?.code && FIELD_HINTS[selected.code]?.secondaryUrl && (
+                  <TextField
+                    label={FIELD_HINTS[selected.code]!.secondaryUrl}
+                    value={config.secondaryUrl}
+                    onChange={(event) => setConfig({ ...config, secondaryUrl: event.target.value })}
+                    placeholder={FIELD_HINTS[selected.code]?.secondaryUrlPlaceholder || "https://api.provider.com/status"}
+                    fullWidth
+                    size="small"
+                  />
+                )}
                 <TextField
                   className="sm:col-span-2"
                   label="Webhook endpoint"
