@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Pencil, Trash2, Loader2, Building2, ChevronDown, ChevronRight, BookMarked, ArrowRightLeft, UserCog, School, Crown } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Building2, ChevronDown, ChevronRight, BookMarked, ArrowRightLeft, UserCog, School, Crown, X } from "lucide-react";
 import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +14,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Drawer,
+  Box,
   Tab,
   Tabs,
 } from "@mui/material";
@@ -145,6 +147,12 @@ function DepartmentsPage() {
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // The department a user has clicked into — opens a detail drawer with everything about that
+  // one department (teachers, subjects, and every action on them) instead of the old inline
+  // accordion, which buried actions inside an ever-taller expanding list. Stored as an id (not
+  // the department object itself) so the drawer always reflects the latest data after a
+  // mutation invalidates the departments query, rather than showing a stale snapshot.
+  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   // "Assign" is a flat, one-click-per-row alternative to expanding each department's accordion
   // and opening a dialog per subject/teacher — faster for sweeping through a large unassigned
   // backlog. Cross-department bulk editing doesn't apply to a HOD (they only manage their own
@@ -249,15 +257,13 @@ function DepartmentsPage() {
     ? depts.filter((d: any) => myTeacherRecord && d.headTeacherId === myTeacherRecord.id)
     : depts;
   const visibleDeptNames = visibleDepts.map((d: any) => d.name);
+  const selectedDept = depts.find((d: any) => d.id === selectedDeptId) ?? null;
 
-  // Auto-expand the HOD's own department so they land straight on their teacher list.
+  // Auto-open the HOD's own department detail so they land straight on their teacher list,
+  // instead of an empty department list they'd have to click into themselves.
   useEffect(() => {
     if (!isHOD || visibleDepts.length === 0) return;
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      visibleDepts.forEach((d: any) => next.add(d.id));
-      return next;
-    });
+    setSelectedDeptId((prev) => prev ?? visibleDepts[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHOD, visibleDepts.map((d: any) => d.id).join(",")]);
 
@@ -647,177 +653,55 @@ function DepartmentsPage() {
           {visibleDepts.map((d: any, idx: number) => {
             const deptSubjects: any[] = subjectsByDept[d.name] ?? [];
             const deptTeachers: any[] = teachersByDept[d.name] ?? [];
-            const isOpen = expanded.has(d.id);
+            const head = d.headTeacherId ? teachers.find((t: any) => t.id === d.headTeacherId) : null;
             return (
-              <div key={d.id} className={idx > 0 ? "border-t border-border" : ""}>
-                {/* Department header row */}
-                <div
-                  className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
-                  onClick={() => toggleExpand(d.id)}
-                >
-                  <button
-                    type="button"
-                    className="text-muted-foreground shrink-0"
-                    aria-label={`${isOpen ? "Collapse" : "Expand"} ${d.name}`}
-                    aria-expanded={isOpen}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleExpand(d.id);
-                    }}
-                  >
-                    {isOpen
-                      ? <ChevronDown className="h-4 w-4" />
-                      : <ChevronRight className="h-4 w-4" />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{d.name}</span>
-                      {d.code && <Chip size="small" label={d.code} sx={{ ...badgeSx("secondary"), fontFamily: "monospace", fontSize: 12 }} />}
-                      <Chip
-                        size="small"
-                        label={`${deptSubjects.length} subject${deptSubjects.length !== 1 ? "s" : ""}`}
-                        sx={{ ...badgeSx((deptSubjects.length + deptTeachers.length) > 0 ? "outline" : "secondary"), fontSize: 12 }}
-                      />
-                      <Chip
-                        size="small"
-                        label={`${deptTeachers.length} teacher${deptTeachers.length !== 1 ? "s" : ""}`}
-                        sx={{ ...badgeSx(deptTeachers.length > 0 ? "outline" : "secondary"), fontSize: 12 }}
-                      />
-                    </div>
-                    {d.headTeacherId && (() => {
-                      const head = teachers.find((t: any) => t.id === d.headTeacherId);
-                      return head ? <p className="text-xs text-muted-foreground mt-0.5">HOD: {head.firstName} {head.lastName}</p> : null;
-                    })()}
-                  </div>
-                  {!isHOD && (
-                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <IconButton size="small" aria-label={`Edit ${d.name}`} onClick={() => openEdit(d)}>
-                        <Pencil size={14} />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        aria-label={`Delete ${d.name}`}
-                        sx={{ color: "error.main" }}
-                        disabled={deleteMut.isPending}
-                        onClick={() => deleteMut.mutate(d.id)}
-                      >
-                        <Trash2 size={14} />
-                      </IconButton>
-                    </div>
-                  )}
+              <div
+                key={d.id}
+                role="button"
+                tabIndex={0}
+                className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none ${idx > 0 ? "border-t border-border" : ""}`}
+                onClick={() => setSelectedDeptId(d.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedDeptId(d.id); }
+                }}
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Building2 className="h-4 w-4" />
                 </div>
-
-                {/* Expanded: teachers then subjects */}
-                {isOpen && (
-                  <div>
-                    {/* Teachers */}
-                    {deptTeachers.length > 0 && (
-                      <>
-                        <div className="border-t border-border/50 bg-muted/10 px-10 py-1.5">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Teachers ({deptTeachers.length})</span>
-                        </div>
-                        {deptTeachers.map(({ teacher: t, home, subjectNames }) => (
-                          <div key={t.id} className="flex items-center justify-between px-4 py-2 border-t border-border/50 bg-muted/10 hover:bg-muted/30 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <UserCog className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <div>
-                                <span className="text-sm font-medium">{t.firstName} {t.lastName}</span>
-                                <span className="ml-2 text-xs text-muted-foreground">{t.staffNumber}</span>
-                              </div>
-                              {home ? (
-                                <Chip
-                                  size="small"
-                                  label={t.subject ? `Home · ${t.subject}` : "Home"}
-                                  sx={{ ...badgeSx("secondary"), fontSize: 12 }}
-                                />
-                              ) : (
-                                <Chip
-                                  size="small"
-                                  label={`Teaches here${subjectNames.length ? ` · ${subjectNames.join(", ")}` : ""}`}
-                                  sx={{ ...badgeSx("outline"), fontSize: 12 }}
-                                />
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {!isHOD && home && (
-                                <Button
-                                  variant="text"
-                                  color="inherit"
-                                  size="small"
-                                  startIcon={<ArrowRightLeft size={12} />}
-                                  sx={{ height: 28, fontSize: 12 }}
-                                  onClick={() => setMovingTeacher({ teacher: t, targetDept: d.name })}
-                                >
-                                  Move
-                                </Button>
-                              )}
-                              {!isHOD && (
-                                <Button
-                                  variant="text"
-                                  color={d.headTeacherId === t.id ? "warning" : "inherit"}
-                                  size="small"
-                                  startIcon={<Crown size={12} />}
-                                  sx={{ height: 28, fontSize: 12 }}
-                                  disabled={updateMut.isPending}
-                                  onClick={() => updateMut.mutate({
-                                    id: d.id,
-                                    data: { headTeacherId: d.headTeacherId === t.id ? "" : t.id },
-                                  })}
-                                >
-                                  {d.headTeacherId === t.id ? "Remove HOD" : "Make HOD"}
-                                </Button>
-                              )}
-                              <Button
-                                variant="text"
-                                color="inherit"
-                                size="small"
-                                startIcon={<Pencil size={12} />}
-                                sx={{ height: 28, fontSize: 12 }}
-                                onClick={() => setAssigningTeacher({ teacher: t, deptSubjects, selectedSubject: t.subject ?? "" })}
-                              >
-                                Subject
-                              </Button>
-                              <Button
-                                variant="text"
-                                color="inherit"
-                                size="small"
-                                startIcon={<School size={12} />}
-                                sx={{ height: 28, fontSize: 12 }}
-                                onClick={() => setAssigningClass({
-                                  teacher: t,
-                                  // Leadership can pick a subject from any department here — the
-                                  // permission that makes cross-department subjects possible; an
-                                  // HOD stays confined to the department they're viewing, same as
-                                  // every other action available to them on this page.
-                                  subjectOptions: isHOD ? deptSubjects : subjects,
-                                  selectedClassId: "",
-                                  selectedSubject: t.subject ?? "",
-                                })}
-                              >
-                                Class
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                    {/* Subjects */}
-                    {deptSubjects.length > 0 && (
-                      <div className="border-t border-border/50 bg-muted/10 px-10 py-1.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Subjects ({deptSubjects.length})</span>
-                      </div>
-                    )}
-                    {deptSubjects.length === 0 && deptTeachers.length === 0 ? (
-                      <div className="px-10 py-4 text-xs text-muted-foreground italic border-t border-border/50 bg-muted/10">
-                        No subjects or teachers assigned yet.
-                      </div>
-                    ) : (
-                      deptSubjects.map((s: any) => (
-                        <SubjectRow key={s.id} s={s} currentDept={d.name} onMove={handleMove} />
-                      ))
-                    )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{d.name}</span>
+                    {d.code && <Chip size="small" label={d.code} sx={{ ...badgeSx("secondary"), fontFamily: "monospace", fontSize: 12 }} />}
+                    <Chip
+                      size="small"
+                      label={`${deptSubjects.length} subject${deptSubjects.length !== 1 ? "s" : ""}`}
+                      sx={{ ...badgeSx((deptSubjects.length + deptTeachers.length) > 0 ? "outline" : "secondary"), fontSize: 12 }}
+                    />
+                    <Chip
+                      size="small"
+                      label={`${deptTeachers.length} teacher${deptTeachers.length !== 1 ? "s" : ""}`}
+                      sx={{ ...badgeSx(deptTeachers.length > 0 ? "outline" : "secondary"), fontSize: 12 }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{head ? `HOD: ${head.firstName} ${head.lastName}` : "No head of department set"}</p>
+                </div>
+                {!isHOD && (
+                  <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <IconButton size="small" aria-label={`Edit ${d.name}`} onClick={() => openEdit(d)}>
+                      <Pencil size={14} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      aria-label={`Delete ${d.name}`}
+                      sx={{ color: "error.main" }}
+                      disabled={deleteMut.isPending}
+                      onClick={() => deleteMut.mutate(d.id)}
+                    >
+                      <Trash2 size={14} />
+                    </IconButton>
                   </div>
                 )}
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </div>
             );
           })}
@@ -970,6 +854,192 @@ function DepartmentsPage() {
           </div>
         </div>
       )}
+
+      {selectedDept && (
+        <DepartmentDetailDrawer
+          dept={selectedDept}
+          subjects={subjectsByDept[selectedDept.name] ?? []}
+          teacherEntries={teachersByDept[selectedDept.name] ?? []}
+          allTeachers={teachers}
+          allSubjects={subjects}
+          isHOD={isHOD}
+          onClose={() => setSelectedDeptId(null)}
+          onEdit={() => openEdit(selectedDept)}
+          onDelete={() => { deleteMut.mutate(selectedDept.id); setSelectedDeptId(null); }}
+          deletePending={deleteMut.isPending}
+          onMoveSubject={handleMove}
+          onMoveTeacher={(teacher) => setMovingTeacher({ teacher, targetDept: selectedDept.name })}
+          onToggleHod={(teacherId) => updateMut.mutate({
+            id: selectedDept.id,
+            data: { headTeacherId: selectedDept.headTeacherId === teacherId ? "" : teacherId },
+          })}
+          hodTogglePending={updateMut.isPending}
+          onAssignSubject={(teacher, deptSubjects) => setAssigningTeacher({ teacher, deptSubjects, selectedSubject: teacher.subject ?? "" })}
+          onAssignClass={(teacher, subjectOptions) => setAssigningClass({ teacher, subjectOptions, selectedClassId: "", selectedSubject: teacher.subject ?? "" })}
+        />
+      )}
     </div>
+  );
+}
+
+// Everything about one department — its own teachers, its own subjects, and every action on
+// them — in a single focused view, replacing the old inline accordion that made a school with
+// several departments scroll into a long, hard-to-scan list of nested rows.
+function DepartmentDetailDrawer({
+  dept, subjects, teacherEntries, allTeachers, allSubjects, isHOD,
+  onClose, onEdit, onDelete, deletePending,
+  onMoveSubject, onMoveTeacher, onToggleHod, hodTogglePending, onAssignSubject, onAssignClass,
+}: {
+  dept: any;
+  subjects: any[];
+  teacherEntries: { teacher: any; home: boolean; subjectNames: string[] }[];
+  allTeachers: any[];
+  allSubjects: any[];
+  isHOD: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  deletePending: boolean;
+  onMoveSubject: (subject: any, dept: string) => void;
+  onMoveTeacher: (teacher: any) => void;
+  onToggleHod: (teacherId: string) => void;
+  hodTogglePending: boolean;
+  onAssignSubject: (teacher: any, deptSubjects: any[]) => void;
+  onAssignClass: (teacher: any, subjectOptions: any[]) => void;
+}) {
+  const head = dept.headTeacherId ? allTeachers.find((t: any) => t.id === dept.headTeacherId) : null;
+
+  return (
+    <Drawer anchor="right" open onClose={onClose}>
+      <Box sx={{ width: { xs: "100vw", sm: 520 } }} className="flex h-full flex-col overflow-hidden bg-background">
+        <Box className="relative shrink-0 overflow-hidden border-b border-border bg-gradient-to-br from-primary/[0.10] via-card to-accent/[0.09] px-4 py-5 sm:px-6">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-card text-primary shadow-sm">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Department</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-xl font-semibold tracking-tight text-foreground">{dept.name}</h2>
+                {dept.code && <Chip size="small" label={dept.code} sx={{ ...badgeSx("secondary"), fontFamily: "monospace" }} />}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">{head ? `HOD: ${head.firstName} ${head.lastName}` : "No head of department set"}</p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {!isHOD && (
+                <>
+                  <IconButton size="small" aria-label={`Edit ${dept.name}`} onClick={onEdit}>
+                    <Pencil className="h-4 w-4" />
+                  </IconButton>
+                  <IconButton size="small" aria-label={`Delete ${dept.name}`} sx={{ color: "error.main" }} disabled={deletePending} onClick={onDelete}>
+                    <Trash2 className="h-4 w-4" />
+                  </IconButton>
+                </>
+              )}
+              <IconButton size="small" aria-label="Close department" onClick={onClose}>
+                <X className="h-5 w-5" />
+              </IconButton>
+            </div>
+          </div>
+          {dept.description && <p className="mt-3 text-sm text-muted-foreground">{dept.description}</p>}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border bg-card/90 px-4 py-2.5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Subjects</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{subjects.length}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card/90 px-4 py-2.5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Teachers</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{teacherEntries.length}</p>
+            </div>
+          </div>
+        </Box>
+
+        <div className="flex-1 overflow-y-auto">
+          {teacherEntries.length === 0 && subjects.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-16 text-center">
+              <UserCog className="h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">No subjects or teachers assigned yet.</p>
+            </div>
+          ) : (
+            <>
+              {teacherEntries.length > 0 && (
+                <section>
+                  <div className="border-b border-border bg-muted/20 px-4 py-2 sm:px-6">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Teachers ({teacherEntries.length})</span>
+                  </div>
+                  {teacherEntries.map(({ teacher: t, home, subjectNames }) => (
+                    <div key={t.id} className="flex flex-col gap-2 border-b border-border/50 px-4 py-3 hover:bg-muted/20 transition-colors sm:px-6">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <UserCog className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm font-medium">{t.firstName} {t.lastName}</span>
+                        <span className="text-xs text-muted-foreground">{t.staffNumber}</span>
+                        {home ? (
+                          <Chip size="small" label={t.subject ? `Home · ${t.subject}` : "Home"} sx={{ ...badgeSx("secondary"), fontSize: 12 }} />
+                        ) : (
+                          <Chip size="small" label={`Teaches here${subjectNames.length ? ` · ${subjectNames.join(", ")}` : ""}`} sx={{ ...badgeSx("outline"), fontSize: 12 }} />
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {!isHOD && home && (
+                          <Button variant="text" color="inherit" size="small" startIcon={<ArrowRightLeft size={12} />} sx={{ height: 28, fontSize: 12 }} onClick={() => onMoveTeacher(t)}>
+                            Move
+                          </Button>
+                        )}
+                        {!isHOD && (
+                          <Button
+                            variant="text"
+                            color={dept.headTeacherId === t.id ? "warning" : "inherit"}
+                            size="small"
+                            startIcon={<Crown size={12} />}
+                            sx={{ height: 28, fontSize: 12 }}
+                            disabled={hodTogglePending}
+                            onClick={() => onToggleHod(t.id)}
+                          >
+                            {dept.headTeacherId === t.id ? "Remove HOD" : "Make HOD"}
+                          </Button>
+                        )}
+                        <Button variant="text" color="inherit" size="small" startIcon={<Pencil size={12} />} sx={{ height: 28, fontSize: 12 }} onClick={() => onAssignSubject(t, subjects)}>
+                          Subject
+                        </Button>
+                        <Button
+                          variant="text"
+                          color="inherit"
+                          size="small"
+                          startIcon={<School size={12} />}
+                          sx={{ height: 28, fontSize: 12 }}
+                          onClick={() => onAssignClass(t, isHOD ? subjects : allSubjects)}
+                        >
+                          Class
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
+              {subjects.length > 0 && (
+                <section>
+                  <div className="border-b border-border bg-muted/20 px-4 py-2 sm:px-6">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subjects ({subjects.length})</span>
+                  </div>
+                  {subjects.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-2.5 hover:bg-muted/20 transition-colors sm:px-6">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">{s.code}</span>
+                        <span className="truncate text-sm font-medium">{s.name}</span>
+                        {s.phase && <Chip size="small" label={PHASE_LABEL[s.phase] ?? s.phase} sx={{ ...badgeSx("outline"), fontSize: 12 }} />}
+                        {(s.compulsory ?? s.isCore) && <Chip size="small" label="Core" sx={{ ...badgeSx("default"), fontSize: 12 }} />}
+                      </div>
+                      <Button variant="text" color="inherit" size="small" startIcon={<ArrowRightLeft size={12} />} sx={{ height: 28, fontSize: 12, flexShrink: 0 }} onClick={() => onMoveSubject(s, dept.name)}>
+                        Move
+                      </Button>
+                    </div>
+                  ))}
+                </section>
+              )}
+            </>
+          )}
+        </div>
+      </Box>
+    </Drawer>
   );
 }
