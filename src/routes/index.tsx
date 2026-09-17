@@ -910,8 +910,13 @@ export function ParentDashboard() {
           <GraduationCap className="mx-auto h-10 w-10 text-muted-foreground" />
           <p className="mt-4 text-sm font-medium">No learners linked to your account</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Contact the school office to link your email address ({user?.email}) to your child's
-            admission record.
+            {user?.email || user?.phone
+              ? <>Contact the school office to link your {user?.email ? "email address" : "phone number"} ({user?.email || user?.phone}) to your child's admission record.</>
+              : "Contact the school office to link a phone number or email address to your child's admission record."}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            If the office says it's already linked, the pupil's guardian name on file may still be a
+            placeholder (e.g. "Not Provided") — ask them to set it to your real name.
           </p>
         </div>
       </div>
