@@ -262,15 +262,12 @@ function ParentsPage() {
   const reachabilityPercent = parents.length > 0 ? Math.round((reachableCount / parents.length) * 100) : 0;
 
   const parentKey = (parent: GuardianRecord) => guardianKey(parent.children[0]) || parent.name;
-  // A login created for a placeholder guardian name (e.g. "Not Provided" from a bulk import)
-  // will never actually see any children in the Parent Portal — the backend deliberately
-  // excludes placeholder-named guardians from the email/phone match used there, precisely
-  // because a shared fallback contact must never let one login see another family's records
-  // (see GuardianNames.isPlaceholder on the backend). Block "Create login" here rather than
-  // letting an admin hand out credentials that quietly don't work.
+  // A guardian name is NOT required for portal access to work — the backend matches purely on
+  // the guardian's own email/phone being attached to the pupil (product decision: this must
+  // work even when a real guardian name was never captured, e.g. from a bulk import, as long as
+  // the contact detail itself is correct).
   const canCreateLoginFor = (parent: GuardianRecord) =>
-    canManageAccounts && Boolean(parent.email || parent.phone) && !hasPortalLogin(parent)
-    && !isPlaceholderGuardianName(parent.name);
+    canManageAccounts && Boolean(parent.email || parent.phone) && !hasPortalLogin(parent);
   const eligibleFiltered = filtered.filter(canCreateLoginFor);
   const eligibleKeys = eligibleFiltered.map(parentKey);
   const allEligibleSelected = eligibleKeys.length > 0 && eligibleKeys.every((k) => selectedIds.has(k));
@@ -301,21 +298,6 @@ function ParentsPage() {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
           Not visible to your role
-        </span>
-      );
-    }
-    // Checked before the "Active" branch below — an existing login for a placeholder-named
-    // guardian still shows here as created, but it can never actually see any children in the
-    // Parent Portal (see canCreateLoginFor's comment), so "Active" would be misleading.
-    if (isPlaceholderGuardianName(parent.name)) {
-      return (
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
-          title={hasPortalLogin(parent)
-            ? "This login can't see any children yet — the guardian's name on the pupil's record is still a placeholder. Edit the pupil's record to add the real guardian name."
-            : "Add the guardian's real name to the pupil's record before creating a login — a placeholder name like \"Not Provided\" can't be linked to a child."}
-        >
-          <CircleAlert className="h-3.5 w-3.5" /> {hasPortalLogin(parent) ? "Login won't work yet" : "Needs a real name"}
         </span>
       );
     }
@@ -537,16 +519,6 @@ function ParentsPage() {
                         >
                           Create login
                         </Button>
-                      ) : isPlaceholderGuardianName(parent.name) ? (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          color="warning"
-                          startIcon={<Pencil className="h-4 w-4" />}
-                          onClick={() => void navigate({ to: "/students/$studentId", params: { studentId: parent.children[0].id } })}
-                        >
-                          Fix guardian name
-                        </Button>
                       ) : <span />}
                       <Button size="small" endIcon={<ChevronRight className="h-4 w-4" />} onClick={() => setSelectedParent(parent)}>
                         View record
@@ -643,17 +615,6 @@ function ParentsPage() {
                                 onClick={() => void activateParents([parent])}
                               >
                                 Create login
-                              </Button>
-                            )}
-                            {!canCreateLogin && isPlaceholderGuardianName(parent.name) && (
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                color="warning"
-                                startIcon={<Pencil className="h-4 w-4" />}
-                                onClick={() => void navigate({ to: "/students/$studentId", params: { studentId: parent.children[0].id } })}
-                              >
-                                Fix name
                               </Button>
                             )}
                             <IconButton
