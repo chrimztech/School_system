@@ -261,6 +261,36 @@ function ParentsPage() {
   }).length;
   const reachabilityPercent = parents.length > 0 ? Math.round((reachableCount / parents.length) * 100) : 0;
 
+  // A parent portal login is now granted purely on a matching phone/email, with no guardian
+  // name required (see StudentService.findByGuardianPhone/Email on the backend) — the one
+  // remaining risk is a contact reused across an implausibly large, entirely placeholder-named
+  // pool of pupils (the signature of a bulk import that fell back to one shared number/email
+  // instead of capturing real guardians): that shared login would see all of them. The backend
+  // already refuses to trust a match that large; this surfaces the same clusters here so an
+  // admin can proactively give each pupil their own real guardian instead of just hitting a wall
+  // if that contact is ever used to create a login.
+  const SHARED_CONTACT_REVIEW_THRESHOLD = 6;
+  const sharedFallbackClusters = (() => {
+    const groups = new Map<string, { type: "phone" | "email"; contact: string; students: any[] }>();
+    for (const student of students as any[]) {
+      const name = student.guardian || student.guardianName || "";
+      if (!isPlaceholderGuardianName(name)) continue;
+      const phone = normalizeZmPhone(student.guardianPhone || "");
+      const email = (student.guardianEmail || "").trim().toLowerCase();
+      if (phone) {
+        const key = `phone:${phone}`;
+        if (!groups.has(key)) groups.set(key, { type: "phone", contact: student.guardianPhone, students: [] });
+        groups.get(key)!.students.push(student);
+      }
+      if (email) {
+        const key = `email:${email}`;
+        if (!groups.has(key)) groups.set(key, { type: "email", contact: email, students: [] });
+        groups.get(key)!.students.push(student);
+      }
+    }
+    return Array.from(groups.values()).filter((g) => g.students.length > SHARED_CONTACT_REVIEW_THRESHOLD);
+  })();
+
   const parentKey = (parent: GuardianRecord) => guardianKey(parent.children[0]) || parent.name;
   // A guardian name is NOT required for portal access to work — the backend matches purely on
   // the guardian's own email/phone being attached to the pupil (product decision: this must
@@ -384,6 +414,48 @@ function ParentsPage() {
           icon={recordsToReview > 0 ? <CircleAlert className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
         />
       </div>
+
+      {sharedFallbackClusters.length > 0 && (
+        <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <CircleAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold text-foreground">
+                {sharedFallbackClusters.length} shared contact{sharedFallbackClusters.length === 1 ? "" : "s"} need{sharedFallbackClusters.length === 1 ? "s" : ""} review
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Each contact below is attached to more than {SHARED_CONTACT_REVIEW_THRESHOLD} pupils, none of whom has a real
+                guardian name captured — almost always a leftover fallback number or email from a bulk import, not one real
+                family. A parent portal login can no longer be linked through these until each pupil gets their own real
+                guardian name.
+              </p>
+              <div className="mt-3 space-y-2">
+                {sharedFallbackClusters.map((cluster) => (
+                  <div key={`${cluster.type}:${cluster.contact}`} className="rounded-lg border border-amber-500/20 bg-card p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {cluster.type === "phone" ? <Phone className="h-3.5 w-3.5 text-muted-foreground" /> : <Mail className="h-3.5 w-3.5 text-muted-foreground" />}
+                      <span className="font-medium text-foreground">{cluster.contact}</span>
+                      <Chip size="small" label={`${cluster.students.length} pupils`} sx={badgeSx("warning")} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {cluster.students.map((s) => (
+                        <Button
+                          key={s.id}
+                          size="small"
+                          variant="outlined"
+                          onClick={() => void navigate({ to: "/students/$studentId", params: { studentId: s.id } })}
+                        >
+                          {s.firstName} {s.lastName}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="border-b border-border bg-gradient-to-r from-primary/[0.07] via-card to-accent/[0.08] px-4 py-5 sm:px-5">
