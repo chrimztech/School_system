@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Alert, Box, Button, Paper, Stack, TextField, Typography, InputAdornment } from "@mui/material";
 
 import { useAuth } from "@/lib/auth";
+import { parentProfileNeedsCompletion } from "@/lib/auth-navigation";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/change-password")({
@@ -42,7 +43,7 @@ function ChangePasswordPage() {
       setCurrent("");
       setNext("");
       setConfirm("");
-      void navigate({ to: "/" });
+      void navigate(parentProfileNeedsCompletion(user) ? { to: "/set-bio" } : { to: "/" });
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { message?: string } } })?.response?.data;
       setError(data?.message ?? "Failed to change password");

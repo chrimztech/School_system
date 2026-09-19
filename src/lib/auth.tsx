@@ -41,6 +41,7 @@ export type AppUser = {
   phone?: string;
   active?: boolean;
   mustChangePassword?: boolean;
+  bio?: string | null;
 };
 
 const TOKEN_STORAGE_KEY = "srms_token";
@@ -132,6 +133,7 @@ type AuthContextValue = {
   signIn: (email: string) => boolean;
   completeSignIn: (session: BackendAuthSession | BackendAppUser) => void;
   markPasswordChanged: () => void;
+  markProfileCompleted: (name: string, bio?: string | null) => void;
   signOut: () => void;
   switchRole: (role: Role) => void;
   can: (module: string) => Access;
@@ -208,17 +210,19 @@ function readStoredUser(): AppUser | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<AppUser>;
-    if (!parsed.id || !parsed.name || !parsed.email || !parsed.role) return null;
+    if (!parsed.id || !parsed.role || (!parsed.email && !parsed.phone)) return null;
+    const name = typeof parsed.name === "string" ? parsed.name : "";
     return {
       id: parsed.id,
-      name: parsed.name,
+      name,
       email: parsed.email,
       role: normaliseRole(parsed.role),
-      initials: parsed.initials || initialsFor(parsed.name),
+      initials: parsed.initials || initialsFor(name),
       tenantId: parsed.tenantId,
       phone: parsed.phone,
       active: parsed.active,
       mustChangePassword: parsed.mustChangePassword,
+      bio: parsed.bio,
     };
   } catch {
     return null;
@@ -247,6 +251,7 @@ function toAppUser(session: BackendAuthSession | BackendAppUser): AppUser {
     phone: "phone" in session ? session.phone ?? undefined : undefined,
     active: "active" in session ? session.active ?? undefined : undefined,
     mustChangePassword: session.mustChangePassword ?? undefined,
+    bio: "bio" in session ? session.bio ?? undefined : undefined,
   };
 }
 
@@ -437,6 +442,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser((current) => {
           if (!current) return current;
           const next = { ...current, mustChangePassword: false };
+          persistUser(next);
+          return next;
+        });
+      },
+      markProfileCompleted: (name, bio) => {
+        setUser((current) => {
+          if (!current) return current;
+          const next = { ...current, name, initials: initialsFor(name), bio };
           persistUser(next);
           return next;
         });

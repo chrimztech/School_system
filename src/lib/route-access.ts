@@ -104,6 +104,7 @@ export const ROUTE_ACCESS_BY_SEGMENT: Readonly<Record<string, RouteAccessRule>> 
   s: {},
   security: { module: "security" },
   settings: { module: "settings" },
+  "set-bio": {},
   "staff-development": { module: "staff-development" },
   "status-center": { module: "status-center" },
   "strategic-plan": { module: "strategic-plan" },

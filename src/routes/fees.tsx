@@ -76,9 +76,15 @@ function ParentFeesView({ schoolId }: { schoolId: string }) {
                   )}
                 </div>
                 {balance > 0 && (
-                  <Button size="small" variant="contained" fullWidth startIcon={<CreditCard size={16} />} onClick={() => setPayFor(child)}>
-                    Pay now
-                  </Button>
+                  <div className="space-y-2">
+                    <Button size="small" variant="contained" fullWidth startIcon={<CreditCard size={16} />} onClick={() => setPayFor(child)}>
+                      Pay now
+                    </Button>
+                    <p className="flex items-start gap-1.5 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span><strong>Pilot notice:</strong> This balance is test data and may not reflect what you actually owe. Please confirm the correct amount with the school before paying.</span>
+                    </p>
+                  </div>
                 )}
               </div>
             );

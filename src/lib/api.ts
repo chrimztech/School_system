@@ -10,6 +10,7 @@ export type BackendAuthSession = {
   schoolId?: string | null;
   initials?: string | null;
   mustChangePassword?: boolean;
+  bio?: string | null;
 };
 
 export type SubjectBreakdown = {
@@ -48,6 +49,7 @@ export type BackendAppUser = {
   phone?: string | null;
   active?: boolean;
   mustChangePassword?: boolean;
+  bio?: string | null;
   // Only present on the response to a create-user call made with no password — a freshly
   // generated one-time value the caller must show the admin immediately, since it is never
   // returned again by any later list/get call.
@@ -352,7 +354,7 @@ export const api = {
     // Self-service — any authenticated user can edit their own phone/notification prefs, no
     // "manage other accounts" permission required. Distinct from users.update/updateForSchool,
     // which are admin-tier endpoints for editing someone *else's* account.
-    updateMe: (data: { phone?: string; notifyEmail?: boolean; notifySms?: boolean }) =>
+    updateMe: (data: { name?: string; phone?: string; notifyEmail?: boolean; notifySms?: boolean; bio?: string }) =>
       unwrap<BackendAppUser>(apiClient.patch("/api/auth/me", data)),
     // Real Google Workspace SSO — verifies the ID token server-side against Google and this
     // school's connected Client ID (see Integrations page). Only works for a pre-existing,

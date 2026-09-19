@@ -16,7 +16,7 @@ import appCss from "../styles.css?url";
 import { theme, buildTheme, contrastFor, isValidHexColor, fontStack } from "@/theme";
 import { TenantProvider, useTenant, type Tenant } from "@/lib/tenant";
 import { AuthProvider, useAuth, ROLE_META } from "@/lib/auth";
-import { authRedirectFor } from "@/lib/auth-navigation";
+import { authRedirectFor, parentProfileNeedsCompletion } from "@/lib/auth-navigation";
 import { NotificationProvider } from "@/lib/notifications";
 import { useFavicon } from "@/hooks/use-favicon";
 import { NotificationBell } from "@/components/notification-bell";
@@ -460,11 +460,31 @@ function AppShell() {
     );
   }
 
+  // Parents imported without a real name must complete their profile after setting their
+  // password and before any dashboard content is rendered.
+  if (parentProfileNeedsCompletion(user) && path !== "/set-bio") {
+    return (
+      <ThemeProvider theme={muiTheme}>
+        <div className="min-h-screen w-full bg-background" />
+      </ThemeProvider>
+    );
+  }
+
   if (path === "/change-password") {
     return (
       <ThemeProvider theme={muiTheme}>
         <div className="min-h-screen w-full bg-background">
           <Outlet />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  if (path === "/set-bio") {
+    return (
+      <ThemeProvider theme={muiTheme}>
+        <div className="min-h-screen w-full bg-background">
+          {parentProfileNeedsCompletion(user) ? <Outlet /> : null}
         </div>
       </ThemeProvider>
     );

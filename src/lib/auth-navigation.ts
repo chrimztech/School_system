@@ -1,6 +1,29 @@
 export type AuthRedirectUser = {
   mustChangePassword?: boolean;
+  name?: string | null;
+  role?: string;
 };
+
+const MISSING_PARENT_NAMES = new Set([
+  "",
+  "not provided",
+  "not available",
+  "n/a",
+  "na",
+  "unknown",
+  "unavailable",
+  "tbd",
+  "none",
+  "-",
+  "pending",
+  "guardian",
+  "parent",
+]);
+
+export function parentProfileNeedsCompletion(user: AuthRedirectUser | null): boolean {
+  if (user?.role?.toLowerCase() !== "parent") return false;
+  return MISSING_PARENT_NAMES.has(user.name?.trim().toLowerCase() ?? "");
+}
 
 export function authRedirectFor({
   clientReady,
@@ -12,7 +35,7 @@ export function authRedirectFor({
   loadingSession: boolean;
   user: AuthRedirectUser | null;
   path: string;
-}): "/" | "/login" | "/welcome" | "/change-password" | null {
+}): "/" | "/login" | "/welcome" | "/change-password" | "/set-bio" | null {
   if (!clientReady || loadingSession) return null;
 
   if (!user) {
@@ -25,6 +48,12 @@ export function authRedirectFor({
   if (user.mustChangePassword) {
     return path === "/change-password" ? null : "/change-password";
   }
+
+  if (parentProfileNeedsCompletion(user)) {
+    return path === "/set-bio" ? null : "/set-bio";
+  }
+
+  if (path === "/set-bio") return "/";
 
   return path === "/login" || path === "/welcome" ? "/" : null;
 }

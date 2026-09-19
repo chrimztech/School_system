@@ -29,6 +29,7 @@ import { Route as StrategicPlanRouteImport } from './routes/strategic-plan'
 import { Route as StatusCenterRouteImport } from './routes/status-center'
 import { Route as StaffDevelopmentRouteImport } from './routes/staff-development'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SetBioRouteImport } from './routes/set-bio'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as RiskRegisterRouteImport } from './routes/risk-register'
 import { Route as RevenueOpsRouteImport } from './routes/revenue-ops'
@@ -197,6 +198,11 @@ const StaffDevelopmentRoute = StaffDevelopmentRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetBioRoute = SetBioRouteImport.update({
+  id: '/set-bio',
+  path: '/set-bio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SecurityRoute = SecurityRouteImport.update({
@@ -612,6 +618,7 @@ export interface FileRoutesByFullPath {
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
+  '/set-bio': typeof SetBioRoute
   '/settings': typeof SettingsRoute
   '/staff-development': typeof StaffDevelopmentRoute
   '/status-center': typeof StatusCenterRoute
@@ -703,6 +710,7 @@ export interface FileRoutesByTo {
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
+  '/set-bio': typeof SetBioRoute
   '/settings': typeof SettingsRoute
   '/staff-development': typeof StaffDevelopmentRoute
   '/status-center': typeof StatusCenterRoute
@@ -795,6 +803,7 @@ export interface FileRoutesById {
   '/revenue-ops': typeof RevenueOpsRoute
   '/risk-register': typeof RiskRegisterRoute
   '/security': typeof SecurityRoute
+  '/set-bio': typeof SetBioRoute
   '/settings': typeof SettingsRoute
   '/staff-development': typeof StaffDevelopmentRoute
   '/status-center': typeof StatusCenterRoute
@@ -888,6 +897,7 @@ export interface FileRouteTypes {
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
+    | '/set-bio'
     | '/settings'
     | '/staff-development'
     | '/status-center'
@@ -979,6 +989,7 @@ export interface FileRouteTypes {
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
+    | '/set-bio'
     | '/settings'
     | '/staff-development'
     | '/status-center'
@@ -1070,6 +1081,7 @@ export interface FileRouteTypes {
     | '/revenue-ops'
     | '/risk-register'
     | '/security'
+    | '/set-bio'
     | '/settings'
     | '/staff-development'
     | '/status-center'
@@ -1162,6 +1174,7 @@ export interface RootRouteChildren {
   RevenueOpsRoute: typeof RevenueOpsRoute
   RiskRegisterRoute: typeof RiskRegisterRoute
   SecurityRoute: typeof SecurityRoute
+  SetBioRoute: typeof SetBioRoute
   SettingsRoute: typeof SettingsRoute
   StaffDevelopmentRoute: typeof StaffDevelopmentRoute
   StatusCenterRoute: typeof StatusCenterRoute
@@ -1325,6 +1338,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/set-bio': {
+      id: '/set-bio'
+      path: '/set-bio'
+      fullPath: '/set-bio'
+      preLoaderRoute: typeof SetBioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/security': {
@@ -1904,6 +1924,7 @@ const rootRouteChildren: RootRouteChildren = {
   RevenueOpsRoute: RevenueOpsRoute,
   RiskRegisterRoute: RiskRegisterRoute,
   SecurityRoute: SecurityRoute,
+  SetBioRoute: SetBioRoute,
   SettingsRoute: SettingsRoute,
   StaffDevelopmentRoute: StaffDevelopmentRoute,
   StatusCenterRoute: StatusCenterRoute,
