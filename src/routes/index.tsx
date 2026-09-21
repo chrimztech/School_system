@@ -169,29 +169,20 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
   });
 
   const { data: rawTermGrades = [] } = useQuery({
-    queryKey: [
-      "parent-published-term-grades",
-      schoolId,
-      child.id,
-      academicYear,
-      active.resultPublicationMode,
-    ],
+    queryKey: ["parent-published-term-grades", schoolId, child.id, active.resultPublicationMode],
+    // Every year, not just the current one, so results entered for past years (a transfer
+    // pupil's earlier school, digitized report cards) are visible alongside the current year.
     queryFn: async () => {
+      const all = await api.termGrades.publishedAll(schoolId, child.id);
       if (active.resultPublicationMode === "COMBINED") {
-        return api.termGrades.publishedHistory(schoolId, child.id, academicYear, "COMBINED");
+        return all.filter((g: any) => g.reportingPeriod === "COMBINED");
       }
-      const [midterm, endTerm] = await Promise.all([
-        api.termGrades.publishedHistory(schoolId, child.id, academicYear, "MIDTERM"),
-        api.termGrades.publishedHistory(schoolId, child.id, academicYear, "END_TERM"),
-      ]);
-      const latestByTermAndSubject = new Map<string, any>();
-      midterm.forEach((grade: any) =>
-        latestByTermAndSubject.set(`${grade.term}::${grade.subjectName}`, grade),
-      );
-      endTerm.forEach((grade: any) =>
-        latestByTermAndSubject.set(`${grade.term}::${grade.subjectName}`, grade),
-      );
-      return Array.from(latestByTermAndSubject.values());
+      // Within a year/term/subject an end-of-term result supersedes its mid-term one.
+      const latest = new Map<string, any>();
+      const keyOf = (g: any) => `${g.academicYear}::${g.term}::${g.subjectName}`;
+      all.filter((g: any) => g.reportingPeriod === "MIDTERM").forEach((g: any) => latest.set(keyOf(g), g));
+      all.filter((g: any) => g.reportingPeriod === "END_TERM").forEach((g: any) => latest.set(keyOf(g), g));
+      return Array.from(latest.values());
     },
   });
 
@@ -208,8 +199,13 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
   const results = rawResults as any[];
   const termGrades = (rawTermGrades as any[])
     .slice()
-    .sort((a, b) => Number(b.term) - Number(a.term));
-  const currentTermGrades = termGrades.filter((g) => g.term === currentTerm);
+    .sort(
+      (a, b) =>
+        Number(b.academicYear) - Number(a.academicYear) || Number(b.term) - Number(a.term),
+    );
+  const currentTermGrades = termGrades.filter(
+    (g) => String(g.academicYear) === academicYear && g.term === currentTerm,
+  );
   const disciplineCases = rawDiscipline as any[];
   const attendanceHistory = rawAttendance as any[];
 
@@ -512,7 +508,7 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
               <div className="border-b border-border px-4 py-3">
                 <p className="text-sm font-semibold">Term grades</p>
                 <p className="text-xs text-muted-foreground">
-                  Weighted CA, mid-term and exam results by term — current and previous terms.
+                  Weighted CA, mid-term and exam results by term — current and previous terms and years.
                 </p>
               </div>
               <TableContainer>
@@ -531,7 +527,10 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
                 <TableBody>
                   {termGrades.map((g: any, i: number) => (
                     <TableRow key={g.id} className={i % 2 === 1 ? "bg-muted/30" : undefined}>
-                      <TableCell className="text-xs text-muted-foreground">Term {g.term}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        Term {g.term}
+                        {g.academicYear ? ` · ${g.academicYear}` : ""}
+                      </TableCell>
                       <TableCell className="font-medium">{g.subjectName}</TableCell>
                       <TableCell className="text-right tabular-nums">
                         {g.caPercent != null ? Math.round(g.caPercent) : "—"}

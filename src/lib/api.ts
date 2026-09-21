@@ -631,6 +631,10 @@ export const api = {
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades"), { params: { studentId, academicYear } })),
     publishedHistory: (schoolId: string, studentId: string, academicYear: string, reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED") =>
       unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades/published"), { params: { studentId, academicYear, reportingPeriod } })),
+    // Every published grade for a pupil across all years and reporting periods — used to find
+    // which academic years have results and to show past years to parents.
+    publishedAll: (schoolId: string, studentId: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "term-grades/published"), { params: { studentId } })),
     classStats: (schoolId: string, params: { classId: string; subjectName: string; term: string; academicYear: string; reportingPeriod: "MIDTERM" | "END_TERM" | "COMBINED" }) =>
       unwrap<{ average: number | null; distribution: Record<string, number> }>(
         apiClient.get(schoolPath(schoolId, "term-grades/class-stats"), { params }),

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, Outlet, useChildMatches } from "@tanstack/react-router";
-import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check, Trash2, UserX, Upload } from "lucide-react";
+import { Plus, Filter, Download, Search, X, Loader2, ChevronRight, ChevronLeft, Check, Trash2, UserX, Upload, History } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -115,6 +115,7 @@ function StudentsListPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [resultsImportOpen, setResultsImportOpen] = useState(false);
   const [step, setStep] = useState(1);
   // Most learners live with their guardian, so retyping the same address as a separate
   // "residential address" field is pure duplicate data entry for the common case — default
@@ -309,6 +310,11 @@ function StudentsListPage() {
             {canManage && (
               <Button variant="outlined" startIcon={<Upload className="h-4 w-4" />} onClick={() => setImportOpen(true)}>
                 Import
+              </Button>
+            )}
+            {canManage && (
+              <Button variant="outlined" startIcon={<History className="h-4 w-4" />} onClick={() => setResultsImportOpen(true)}>
+                Import past results
               </Button>
             )}
             {canManage && <>
@@ -847,6 +853,92 @@ function StudentsListPage() {
           )}
         </DialogActions>
       </Dialog>
+
+      <ImportDialog
+        open={resultsImportOpen}
+        onOpenChange={setResultsImportOpen}
+        title="Import past results"
+        entityName="result"
+        columns={[
+          { key: "admissionNumber", label: "Admission Number", required: true, example: "ADM-2024-001" },
+          { key: "subject", label: "Subject", required: true, example: "Mathematics" },
+          { key: "term", label: "Term", required: true, example: "2" },
+          { key: "academicYear", label: "Academic Year", required: true, example: "2024" },
+          { key: "score", label: "Score", required: true, example: "78" },
+          { key: "reportingPeriod", label: "Reporting Period", example: "End-of-term" },
+        ]}
+        onDone={() => void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "published-term-grades" })}
+        onImport={async (rows) => {
+          const result: ImportResult = { imported: 0, errors: [] };
+          const defaultPeriod = active.resultPublicationMode === "COMBINED" ? "COMBINED" : "END_TERM";
+          const byAdmission = new Map<string, any>();
+          (students as any[]).forEach((s) => {
+            if (s.admissionNumber) byAdmission.set(String(s.admissionNumber).trim().toLowerCase(), s);
+          });
+          const parsePeriod = (raw: string): "MIDTERM" | "END_TERM" | "COMBINED" | null => {
+            const v = raw.trim().toLowerCase().replace(/[\s_-]+/g, "");
+            if (!v) return defaultPeriod;
+            if (["midterm", "mid"].includes(v)) return "MIDTERM";
+            if (["endterm", "endofterm", "end", "final"].includes(v)) return "END_TERM";
+            if (v === "combined") return "COMBINED";
+            return null;
+          };
+
+          const valid: { row: number; dto: any }[] = [];
+          const seen = new Map<string, number>();
+          rows.forEach((row, i) => {
+            const rowNum = i + 2;
+            const fail = (error: string) => result.errors.push({ row: rowNum, error });
+            const admission = row["Admission Number"]?.trim() ?? "";
+            const subject = row["Subject"]?.trim() ?? "";
+            const term = (row["Term"] ?? "").trim().replace(/^term\s*/i, "");
+            const year = (row["Academic Year"] ?? "").trim();
+            const scoreRaw = (row["Score"] ?? "").trim().replace(/%$/, "");
+            if (!admission || !subject || !term || !year || !scoreRaw) {
+              return fail("Admission Number, Subject, Term, Academic Year and Score are all required");
+            }
+            const pupil = byAdmission.get(admission.toLowerCase());
+            if (!pupil) return fail(`No pupil with admission number "${admission}"`);
+            if (!["1", "2", "3"].includes(term)) return fail("Term must be 1, 2 or 3");
+            if (!/^\d{4}$/.test(year)) return fail("Academic Year must be a 4-digit year, e.g. 2024");
+            const score = Number(scoreRaw);
+            if (!Number.isFinite(score) || score < 0 || score > 100) return fail("Score must be a percentage from 0 to 100");
+            const period = parsePeriod(row["Reporting Period"] ?? "");
+            if (!period) return fail("Reporting Period must be Mid-term, End-of-term or Combined");
+            // Parents only see results filed under the school's own publication mode, so a
+            // mismatched period would save successfully yet never appear on any report card.
+            if (active.resultPublicationMode === "COMBINED" && period !== "COMBINED") {
+              return fail("This school publishes one combined result per term — use Combined (or leave Reporting Period blank)");
+            }
+            if (active.resultPublicationMode !== "COMBINED" && period === "COMBINED") {
+              return fail("This school publishes mid-term and end-of-term results separately — use Mid-term or End-of-term");
+            }
+            const key = `${pupil.id}::${subject.toLowerCase()}::${term}::${year}::${period}`;
+            const firstSeen = seen.get(key);
+            if (firstSeen != null) return fail(`Duplicate of row ${firstSeen}`);
+            seen.set(key, rowNum);
+            valid.push({
+              row: rowNum,
+              dto: { studentId: pupil.id, subjectName: subject, term, academicYear: year, reportingPeriod: period, weightedTotal: score },
+            });
+          });
+
+          // Each request is saved all-or-nothing on the server, so a failed batch is reported as
+          // a whole and nothing from it is half-saved.
+          const CHUNK = 200;
+          for (let i = 0; i < valid.length; i += CHUNK) {
+            const chunk = valid.slice(i, i + CHUNK);
+            try {
+              await api.termGrades.backfill(schoolId, chunk.map((c) => c.dto));
+              result.imported += chunk.length;
+            } catch (e: any) {
+              const message = e?.response?.data?.message ?? "Could not save this batch — nothing from it was saved";
+              chunk.forEach((c) => result.errors.push({ row: c.row, error: message }));
+            }
+          }
+          return result;
+        }}
+      />
 
       <ImportDialog
         open={importOpen}

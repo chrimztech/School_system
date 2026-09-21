@@ -344,7 +344,8 @@ function ReportCardPage() {
     active.resultPublicationMode === "COMBINED" ? "COMBINED" : "END_TERM",
   );
   const term = selectedTerm;
-  const year = String(active.currentYear ?? new Date().getFullYear());
+  const currentYear = String(active.currentYear ?? new Date().getFullYear());
+  const [year, setYear] = useState(currentYear);
 
   // Parents only ever see their own children — never the school's full roster.
   const { data: students = [], isLoading } = useQuery({
@@ -363,6 +364,20 @@ function ReportCardPage() {
     queryFn: () => api.termGrades.publishedHistory(active.id, selectedId, year, reportingPeriod),
     enabled: !!active.id && !!selectedId,
   });
+
+  // Years that have published results for this pupil (e.g. results entered from a previous
+  // school or a paper report card), so past years can be picked alongside the current one.
+  // Shares the "published-term-grades" key prefix so saving historical results refreshes it.
+  const { data: allPublished = [] } = useQuery({
+    queryKey: ["published-term-grades", active.id, selectedId, "all-years"],
+    queryFn: () => api.termGrades.publishedAll(active.id, selectedId),
+    enabled: !!active.id && !!selectedId,
+  });
+  const yearOptions = useMemo(() => {
+    const years = new Set<string>([currentYear, year]);
+    (allPublished as any[]).forEach((g) => g.academicYear && years.add(String(g.academicYear)));
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [allPublished, currentYear, year]);
 
   const { data: savedComment } = useQuery({
     queryKey: ["report-comment", active.id, selectedId, term, year],
@@ -571,6 +586,35 @@ function ReportCardPage() {
                 {TERM_OPTIONS.map((t) => (
                   <MenuItem key={t.value} value={t.value}>
                     {t.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Academic year"
+                value={year}
+                onChange={(e) => {
+                  const nextYear = e.target.value;
+                  setYear(nextYear);
+                  // A past year's results usually sit in a different term than the one on screen;
+                  // jump to the latest term that actually has results so it doesn't look empty.
+                  const termsWithResults = Array.from(
+                    new Set(
+                      (allPublished as any[])
+                        .filter((g) => String(g.academicYear) === nextYear)
+                        .map((g) => String(g.term)),
+                    ),
+                  ).sort();
+                  if (termsWithResults.length > 0 && !termsWithResults.includes(selectedTerm)) {
+                    setSelectedTerm(termsWithResults[termsWithResults.length - 1]);
+                  }
+                }}
+                size="small"
+                className="w-full bg-background sm:w-36"
+              >
+                {yearOptions.map((y) => (
+                  <MenuItem key={y} value={y}>
+                    {y}
                   </MenuItem>
                 ))}
               </TextField>

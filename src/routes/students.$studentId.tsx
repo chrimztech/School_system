@@ -55,13 +55,16 @@ function StudentProfilePage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyTerm, setHistoryTerm] = useState("1");
   const [historyYear, setHistoryYear] = useState(String(Number(year) - 1));
-  const [historyPeriod, setHistoryPeriod] = useState<"MIDTERM" | "END_TERM" | "COMBINED">("END_TERM");
+  // Parents only see results filed under the school's own publication mode, so a historical
+  // result must default to it or it would be saved but invisible to them.
+  const defaultHistoryPeriod = active.resultPublicationMode === "COMBINED" ? "COMBINED" : "END_TERM";
+  const [historyPeriod, setHistoryPeriod] = useState<"MIDTERM" | "END_TERM" | "COMBINED">(defaultHistoryPeriod);
   const [historyRows, setHistoryRows] = useState<{ subjectName: string; total: string }[]>([{ subjectName: "", total: "" }]);
 
   const openHistoryDialog = () => {
     setHistoryTerm("1");
     setHistoryYear(String(Number(year) - 1));
-    setHistoryPeriod("END_TERM");
+    setHistoryPeriod(defaultHistoryPeriod);
     setHistoryRows([{ subjectName: "", total: "" }]);
     setHistoryOpen(true);
   };
@@ -753,7 +756,8 @@ function StudentProfilePage() {
           <p className="mb-3 text-xs text-muted-foreground">
             Record a result already known from elsewhere — a transfer pupil's grades from a
             previous school, or a paper report card being digitized. This is published
-            immediately and shows up on the report card straight away.
+            immediately: parents see it on their report card by choosing the academic year.
+            To enter many pupils at once, use Import past results on the Pupils page.
           </p>
           <div className="grid grid-cols-3 gap-3">
             <TextField select label="Term" value={historyTerm} onChange={(e) => setHistoryTerm(e.target.value)} size="small" fullWidth>
