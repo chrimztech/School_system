@@ -75,10 +75,10 @@ function CalendarPage() {
   const qc = useQueryClient();
   const isParent = user?.role === "parent";
   const today = new Date();
-  const [year, setYear] = useState(2026);
-  const [month, setMonth] = useState(4);
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(() => createForm(2026, 4));
+  const [form, setForm] = useState(() => createForm(today.getFullYear(), today.getMonth()));
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   const { data: events = [] } = useQuery({
