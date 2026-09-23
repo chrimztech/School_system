@@ -131,11 +131,11 @@ function HelpPage() {
           </div>
         </a>
 
-        <a href="mailto:chrishentmatakala@yahoo.com" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
+        <a href="mailto:info@school.edu.zm" className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition hover:border-primary">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><Mail className="h-5 w-5" /></div>
           <div>
             <p className="font-semibold">Email support</p>
-            <p className="text-xs text-muted-foreground">chrishentmatakala@yahoo.com</p>
+            <p className="text-xs text-muted-foreground">info@school.edu.zm</p>
           </div>
         </a>
 

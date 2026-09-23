@@ -1021,7 +1021,7 @@ function LoginPage() {
               <Typography sx={{ fontSize: 12.5, color: TEXT_SECONDARY, textAlign: "center", mt: 2, lineHeight: 1.6, ...reveal(0.18) }}>
                 Need access? Contact your school administrator or{" "}
                 <Box component="span" sx={{ color: TEXT_PRIMARY, fontWeight: 500 }}>
-                  chrishentmatakala@yahoo.com
+                  info@school.edu.zm
                 </Box>
                 .
               </Typography>

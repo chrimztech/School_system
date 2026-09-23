@@ -1519,11 +1519,11 @@ function WelcomePage() {
                     +260 976 911 338
                   </a>
                   <a
-                    href="mailto:chrishentmatakala@yahoo.com"
+                    href="mailto:info@school.edu.zm"
                     className="flex items-center gap-2 transition-colors hover:text-slate-900"
                   >
                     <Mail className="h-4 w-4" />
-                    chrishentmatakala@yahoo.com
+                    info@school.edu.zm
                   </a>
                 </div>
               </div>
