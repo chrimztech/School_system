@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Activity, Copy, CreditCard, KeyRound, Plug, Plus, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
+import { Activity, Building2, Copy, CreditCard, KeyRound, Plug, Plus, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
@@ -99,6 +99,85 @@ function PlatformIntegrationCard({ schema }: { schema: (typeof PROVIDER_SCHEMAS)
           uploadingField={uploadingField}
         />
       )}
+    </div>
+  );
+}
+
+// Recommended model (see the ZynlePay card above): each school settles parent fee payments
+// through its own merchant account, so money lands directly in that school's own bank account
+// rather than the platform holding and redistributing it. The platform account above exists as
+// a stopgap for a school still onboarding, and separately for the platform's own future
+// school-pays-platform subscription billing — not as the long-term way schools collect fees.
+// This table is how the platform team sees who's still relying on that stopgap.
+function PaymentSetupOverview() {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["platform-payment-setup"],
+    queryFn: () => api.integrationConfigs.paymentSetup(),
+  });
+  const list = rows as Array<{ schoolId: string; schoolName: string; status: string; connectionStatus: string; lastTestedAt: string | null }>;
+  const onOwnAccount = list.filter((r) => r.status === "OWN_ACCOUNT").length;
+  const onFallback = list.filter((r) => r.status === "PLATFORM_FALLBACK").length;
+  const notSetUp = list.filter((r) => r.status === "NOT_CONFIGURED").length;
+
+  const statusChip = (status: string) => {
+    if (status === "OWN_ACCOUNT") return <Chip size="small" label="Own account" sx={badgeSx("success")} />;
+    if (status === "PLATFORM_FALLBACK") return <Chip size="small" label="Platform fallback" sx={badgeSx("warning")} />;
+    return <Chip size="small" label="Not set up" sx={badgeSx("destructive")} />;
+  };
+
+  return (
+    <div className="col-span-full rounded-xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Building2 className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="font-semibold">ZynlePay setup by school</p>
+          <p className="text-xs text-muted-foreground">
+            Who's collecting fees through their own merchant account vs. still riding the platform's shared one.
+          </p>
+        </div>
+      </div>
+      {!isLoading && list.length > 0 && (
+        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-xs">
+          <div className="rounded-lg border border-border p-2"><p className="text-lg font-semibold">{onOwnAccount}</p><p className="text-muted-foreground">Own account</p></div>
+          <div className="rounded-lg border border-border p-2"><p className="text-lg font-semibold">{onFallback}</p><p className="text-muted-foreground">On fallback</p></div>
+          <div className="rounded-lg border border-border p-2"><p className="text-lg font-semibold">{notSetUp}</p><p className="text-muted-foreground">Not set up</p></div>
+        </div>
+      )}
+      <div className="mt-4">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : list.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No active schools yet.</p>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>School</TableCell>
+                  <TableCell>Payment setup</TableCell>
+                  <TableCell>Last tested</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {list
+                  .slice()
+                  .sort((a, b) => (a.status === b.status ? a.schoolName.localeCompare(b.schoolName) : a.status === "OWN_ACCOUNT" ? 1 : b.status === "OWN_ACCOUNT" ? -1 : 0))
+                  .map((row) => (
+                    <TableRow key={row.schoolId}>
+                      <TableCell>{row.schoolName}</TableCell>
+                      <TableCell>{statusChip(row.status)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {row.lastTestedAt ? new Date(row.lastTestedAt).toLocaleString() : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </div>
     </div>
   );
 }
@@ -575,6 +654,7 @@ function DeveloperConsolePage() {
             different environment variables. Each row is a fallback default — a school that connects
             its own account on its Integrations page always takes priority over this one.
           </p>
+          <PaymentSetupOverview />
           {PROVIDER_SCHEMAS.map((schema) => (
             <PlatformIntegrationCard key={schema.code} schema={schema} />
           ))}

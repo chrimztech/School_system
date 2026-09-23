@@ -209,6 +209,13 @@ function IntegrationsPage() {
                     </div>
                   </div>
                   <div className="mt-3">{statusChip(cfg?.connectionStatus)}</div>
+                  {schema.code === "zynlepay" && !cfg?.enabled && (
+                    <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400">
+                      Connect your own ZynlePay merchant account so parent fee payments settle
+                      directly into your school's own bank account, instead of relying on a
+                      shared fallback account.
+                    </p>
+                  )}
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
                     <Button variant="outlined" size="small" onClick={() => setOpenCode(schema.code)}>Configure</Button>
                     {cfg?.enabled && schema.actions.includes("test") && (

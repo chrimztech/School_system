@@ -380,6 +380,12 @@ export const api = {
     listPlatform: () => unwrap<any[]>(apiClient.get("/api/platform/integration-configs")),
     savePlatform: (providerCode: string, data: any) =>
       unwrap<any>(apiClient.put(`/api/platform/integration-configs/${providerCode}`, data)),
+    // Per-school breakdown of who's on their own ZynlePay merchant account vs. the platform's
+    // shared fallback vs. not set up at all — see IntegrationConfigService.paymentSetupOverview.
+    paymentSetup: () =>
+      unwrap<Array<{ schoolId: string; schoolName: string; status: "OWN_ACCOUNT" | "PLATFORM_FALLBACK" | "NOT_CONFIGURED"; connectionStatus: string; lastTestedAt: string | null }>>(
+        apiClient.get("/api/platform/payment-setup"),
+      ),
     listForSchool: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "integration-configs"))),
     saveForSchool: (schoolId: string, providerCode: string, data: any) =>
       unwrap<any>(apiClient.put(schoolPath(schoolId, `integration-configs/${providerCode}`), data)),
