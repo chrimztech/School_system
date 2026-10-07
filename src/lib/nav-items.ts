@@ -92,6 +92,7 @@ export const schoolOverview: NavItem[] = [
     module: "assessments",
     roles: ["super_admin", "school_admin", "principal", "deputy_head", "hod", "career_guidance"],
   },
+  { title: "Schemes & Lessons", url: "/curriculum-planning", icon: Library, module: "assessments" },
   { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
   { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
   { title: "Results Analysis", url: "/results-analysis", icon: BarChart3, module: "report-card" },

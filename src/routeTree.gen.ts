@@ -75,6 +75,7 @@ import { Route as DisciplineRouteImport } from './routes/discipline'
 import { Route as DeveloperConsoleRouteImport } from './routes/developer-console'
 import { Route as DepartmentsRouteImport } from './routes/departments'
 import { Route as DataGovernanceRouteImport } from './routes/data-governance'
+import { Route as CurriculumPlanningRouteImport } from './routes/curriculum-planning'
 import { Route as CurriculumRouteImport } from './routes/curriculum'
 import { Route as ContractCenterRouteImport } from './routes/contract-center'
 import { Route as ComplianceRouteImport } from './routes/compliance'
@@ -430,6 +431,11 @@ const DataGovernanceRoute = DataGovernanceRouteImport.update({
   path: '/data-governance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CurriculumPlanningRoute = CurriculumPlanningRouteImport.update({
+  id: '/curriculum-planning',
+  path: '/curriculum-planning',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CurriculumRoute = CurriculumRouteImport.update({
   id: '/curriculum',
   path: '/curriculum',
@@ -573,6 +579,7 @@ export interface FileRoutesByFullPath {
   '/compliance': typeof ComplianceRoute
   '/contract-center': typeof ContractCenterRoute
   '/curriculum': typeof CurriculumRoute
+  '/curriculum-planning': typeof CurriculumPlanningRoute
   '/data-governance': typeof DataGovernanceRoute
   '/departments': typeof DepartmentsRoute
   '/developer-console': typeof DeveloperConsoleRoute
@@ -665,6 +672,7 @@ export interface FileRoutesByTo {
   '/compliance': typeof ComplianceRoute
   '/contract-center': typeof ContractCenterRoute
   '/curriculum': typeof CurriculumRoute
+  '/curriculum-planning': typeof CurriculumPlanningRoute
   '/data-governance': typeof DataGovernanceRoute
   '/departments': typeof DepartmentsRoute
   '/developer-console': typeof DeveloperConsoleRoute
@@ -758,6 +766,7 @@ export interface FileRoutesById {
   '/compliance': typeof ComplianceRoute
   '/contract-center': typeof ContractCenterRoute
   '/curriculum': typeof CurriculumRoute
+  '/curriculum-planning': typeof CurriculumPlanningRoute
   '/data-governance': typeof DataGovernanceRoute
   '/departments': typeof DepartmentsRoute
   '/developer-console': typeof DeveloperConsoleRoute
@@ -852,6 +861,7 @@ export interface FileRouteTypes {
     | '/compliance'
     | '/contract-center'
     | '/curriculum'
+    | '/curriculum-planning'
     | '/data-governance'
     | '/departments'
     | '/developer-console'
@@ -944,6 +954,7 @@ export interface FileRouteTypes {
     | '/compliance'
     | '/contract-center'
     | '/curriculum'
+    | '/curriculum-planning'
     | '/data-governance'
     | '/departments'
     | '/developer-console'
@@ -1036,6 +1047,7 @@ export interface FileRouteTypes {
     | '/compliance'
     | '/contract-center'
     | '/curriculum'
+    | '/curriculum-planning'
     | '/data-governance'
     | '/departments'
     | '/developer-console'
@@ -1129,6 +1141,7 @@ export interface RootRouteChildren {
   ComplianceRoute: typeof ComplianceRoute
   ContractCenterRoute: typeof ContractCenterRoute
   CurriculumRoute: typeof CurriculumRoute
+  CurriculumPlanningRoute: typeof CurriculumPlanningRoute
   DataGovernanceRoute: typeof DataGovernanceRoute
   DepartmentsRoute: typeof DepartmentsRoute
   DeveloperConsoleRoute: typeof DeveloperConsoleRoute
@@ -1662,6 +1675,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataGovernanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/curriculum-planning': {
+      id: '/curriculum-planning'
+      path: '/curriculum-planning'
+      fullPath: '/curriculum-planning'
+      preLoaderRoute: typeof CurriculumPlanningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/curriculum': {
       id: '/curriculum'
       path: '/curriculum'
@@ -1879,6 +1899,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComplianceRoute: ComplianceRoute,
   ContractCenterRoute: ContractCenterRoute,
   CurriculumRoute: CurriculumRoute,
+  CurriculumPlanningRoute: CurriculumPlanningRoute,
   DataGovernanceRoute: DataGovernanceRoute,
   DepartmentsRoute: DepartmentsRoute,
   DeveloperConsoleRoute: DeveloperConsoleRoute,

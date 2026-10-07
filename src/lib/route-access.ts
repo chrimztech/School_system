@@ -52,6 +52,7 @@ export const ROUTE_ACCESS_BY_SEGMENT: Readonly<Record<string, RouteAccessRule>> 
   compliance: { module: "compliance" },
   "contract-center": { module: "contract-center" },
   curriculum: { module: "assessments", allowedRoles: ACADEMIC_OPERATIONS_ROLES },
+  "curriculum-planning": { module: "assessments", allowedRoles: ACADEMIC_OPERATIONS_ROLES },
   "data-governance": { module: "data-governance" },
   departments: { module: "assessments", allowedRoles: ACADEMIC_OPERATIONS_ROLES },
   "developer-console": { module: "developer-console" },

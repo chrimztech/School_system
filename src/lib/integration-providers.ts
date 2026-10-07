@@ -269,6 +269,21 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
     ],
     actions: ["test", "zoom-meeting"],
   },
+  {
+    code: "llm",
+    name: "AI Lesson Drafting (Anthropic)",
+    category: "AI",
+    description: "Draft lesson plans from approved schemes of work using your own Anthropic account. Every draft is reviewed by the teacher before use.",
+    hasCallbackUrl: false,
+    fields: [
+      { key: "model", label: "Model", type: "text", required: true, defaultValue: "claude-sonnet-5", hint: "The Anthropic model used for drafting" },
+      { key: "apiBaseUrl", label: "API base URL", type: "url", required: true, defaultValue: "https://api.anthropic.com" },
+    ],
+    credentialFields: [
+      { key: "apiKey", label: "Anthropic API key", type: "secret", required: true, hint: "Create one in the Anthropic console; it is stored encrypted" },
+    ],
+    actions: ["test"],
+  },
 ];
 
 export function providerSchema(code: string): ProviderSchema | undefined {

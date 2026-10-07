@@ -376,6 +376,51 @@ export const api = {
   // rest and masked on every read; blank/absent on a save means "keep the existing value", never
   // a way to accidentally wipe a secret. Super-admin only, both scopes (see RoleGuard checks on
   // IntegrationConfigController).
+  // Curriculum planning: syllabus files, topics per subject/grade/term, schemes of work with a
+  // review workflow, and lesson plans (template-generated or AI-drafted from a scheme week).
+  curriculum: {
+    documents: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "curriculum/documents"))),
+    uploadDocument: (schoolId: string, data: { subjectName: string; grade: number; academicYear: string; file: File }) => {
+      const form = new FormData();
+      form.append("subjectName", data.subjectName);
+      form.append("grade", String(data.grade));
+      form.append("academicYear", data.academicYear);
+      form.append("file", data.file);
+      return unwrap<any>(apiClient.post(schoolPath(schoolId, "curriculum/documents"), form, { headers: { "Content-Type": "multipart/form-data" } }));
+    },
+    deleteDocument: (schoolId: string, id: string) => unwrap<any>(apiClient.delete(schoolPath(schoolId, `curriculum/documents/${id}`))),
+    downloadDocument: async (schoolId: string, id: string, fileName: string) => {
+      const res = await apiClient.get(schoolPath(schoolId, `curriculum/documents/${id}/download`), { responseType: "blob" });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    topics: (schoolId: string, subjectName: string, grade: number, term: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "curriculum/topics"), { params: { subjectName, grade, term } })),
+    saveTopics: (schoolId: string, data: { subjectName: string; grade: number; term: string; topics: any[] }) =>
+      unwrap<any[]>(apiClient.put(schoolPath(schoolId, "curriculum/topics"), data)),
+    schemes: (schoolId: string) => unwrap<any[]>(apiClient.get(schoolPath(schoolId, "schemes-of-work"))),
+    createScheme: (schoolId: string, data: { classId: string; subjectName: string; term: string; academicYear: string }) =>
+      unwrap<any>(apiClient.post(schoolPath(schoolId, "schemes-of-work"), data)),
+    scheme: (schoolId: string, id: string) => unwrap<{ scheme: any; weeks: any[] }>(apiClient.get(schoolPath(schoolId, `schemes-of-work/${id}`))),
+    saveWeeks: (schoolId: string, id: string, weeks: any[]) =>
+      unwrap<any[]>(apiClient.put(schoolPath(schoolId, `schemes-of-work/${id}/weeks`), { weeks })),
+    populateScheme: (schoolId: string, id: string) => unwrap<any[]>(apiClient.post(schoolPath(schoolId, `schemes-of-work/${id}/populate`))),
+    submitScheme: (schoolId: string, id: string) => unwrap<any>(apiClient.post(schoolPath(schoolId, `schemes-of-work/${id}/submit`))),
+    reviewScheme: (schoolId: string, id: string, data: { approve: boolean; note?: string }) =>
+      unwrap<any>(apiClient.post(schoolPath(schoolId, `schemes-of-work/${id}/review`), data)),
+    lessonPlans: (schoolId: string, classId?: string) =>
+      unwrap<any[]>(apiClient.get(schoolPath(schoolId, "lesson-plans"), { params: classId ? { classId } : undefined })),
+    createLessonPlan: (schoolId: string, data: any) => unwrap<any>(apiClient.post(schoolPath(schoolId, "lesson-plans"), data)),
+    generateLessonPlan: (schoolId: string, data: { schemeId: string; schemeWeekId: string; lessonDate: string; durationMinutes: number; mode: "TEMPLATE" | "AI" }) =>
+      unwrap<any>(apiClient.post(schoolPath(schoolId, "lesson-plans/generate"), data)),
+    updateLessonPlan: (schoolId: string, id: string, data: any) => unwrap<any>(apiClient.put(schoolPath(schoolId, `lesson-plans/${id}`), data)),
+    deleteLessonPlan: (schoolId: string, id: string) => unwrap<any>(apiClient.delete(schoolPath(schoolId, `lesson-plans/${id}`))),
+  },
+
   integrationConfigs: {
     listPlatform: () => unwrap<any[]>(apiClient.get("/api/platform/integration-configs")),
     savePlatform: (providerCode: string, data: any) =>

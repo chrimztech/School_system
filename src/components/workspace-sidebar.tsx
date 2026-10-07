@@ -636,6 +636,7 @@ export function WorkspaceSidebar() {
                 { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
                 { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
                 { title: "Result Approvals", url: "/results-approvals", icon: ClipboardCheck, module: "assessments" },
+                { title: "Schemes & Lessons", url: "/curriculum-planning", icon: BookOpen, module: "assessments" },
                 { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
                 { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
               ]}
@@ -678,6 +679,7 @@ export function WorkspaceSidebar() {
                 { title: "Timetable", url: "/timetable", icon: CalendarDays, module: "timetable" },
                 { title: "Attendance", url: "/attendance", icon: CalendarCheck, module: "attendance" },
                 { title: "Assessments", url: "/assessments", icon: ClipboardList, module: "assessments" },
+                { title: "Schemes & Lessons", url: "/curriculum-planning", icon: BookOpen, module: "assessments" },
                 { title: "Examinations", url: "/exams", icon: ClipboardCheck, module: "assessments" },
                 { title: "Report Cards", url: "/report-card", icon: FileText, module: "report-card" },
                 { title: "Calendar", url: "/calendar", icon: Calendar, module: "calendar" },
