@@ -271,9 +271,9 @@ export const PROVIDER_SCHEMAS: ProviderSchema[] = [
   },
   {
     code: "llm",
-    name: "AI Lesson Drafting (Anthropic)",
+    name: "AI Assistant (Anthropic)",
     category: "AI",
-    description: "Draft lesson plans from approved schemes of work using your own Anthropic account. Every draft is reviewed by the teacher before use.",
+    description: "Powers AI lesson drafting and parent-facing performance explanations using your own Anthropic account. Every AI output is reviewed by a person before use.",
     hasCallbackUrl: false,
     fields: [
       { key: "model", label: "Model", type: "text", required: true, defaultValue: "claude-sonnet-5", hint: "The Anthropic model used for drafting" },

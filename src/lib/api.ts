@@ -421,6 +421,21 @@ export const api = {
     deleteLessonPlan: (schoolId: string, id: string) => unwrap<any>(apiClient.delete(schoolPath(schoolId, `lesson-plans/${id}`))),
   },
 
+  // Platform-wide tuition centre directory (super-admin managed) and the school-scoped,
+  // parent-facing performance insight that matches a pupil's weak subjects to nearby centres.
+  tuitionCenters: {
+    listPlatform: () => unwrap<any[]>(apiClient.get("/api/platform/tuition-centers")),
+    create: (data: any) => unwrap<any>(apiClient.post("/api/platform/tuition-centers", data)),
+    update: (id: string, data: any) => unwrap<any>(apiClient.put(`/api/platform/tuition-centers/${id}`, data)),
+    delete: (id: string) => unwrap<any>(apiClient.delete(`/api/platform/tuition-centers/${id}`)),
+  },
+  performanceInsight: {
+    get: (schoolId: string, studentId: string, academicYear?: string) =>
+      unwrap<any>(apiClient.get(schoolPath(schoolId, `students/${studentId}/performance-insight`), { params: academicYear ? { academicYear } : undefined })),
+    narrative: (schoolId: string, studentId: string, academicYear?: string) =>
+      unwrap<{ narrative: string }>(apiClient.post(schoolPath(schoolId, `students/${studentId}/performance-insight/narrative`), null, { params: academicYear ? { academicYear } : undefined })),
+  },
+
   integrationConfigs: {
     listPlatform: () => unwrap<any[]>(apiClient.get("/api/platform/integration-configs")),
     savePlatform: (providerCode: string, data: any) =>

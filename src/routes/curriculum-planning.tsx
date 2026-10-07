@@ -816,7 +816,7 @@ function GenerateDialog({ schoolId, approved, aiConnected, onClose, onCreated }:
           </div>
           <TextField select label="How to draft it" value={mode} onChange={(e) => setMode(e.target.value as "TEMPLATE" | "AI")} size="small" fullWidth
             helperText={mode === "AI"
-              ? (aiConnected ? "Drafted by your school's Anthropic account. Always review before using." : "Connect AI Lesson Drafting on the Integrations page first.")
+              ? (aiConnected ? "Drafted by your school's Anthropic account. Always review before using." : "Connect AI Assistant on the Integrations page first.")
               : "Fills the standard sections directly from the scheme week. No external service is used."}>
             <MenuItem value="TEMPLATE">Template (from the scheme)</MenuItem>
             <MenuItem value="AI" disabled={!aiConnected}>AI draft</MenuItem>

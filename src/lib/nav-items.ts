@@ -175,6 +175,7 @@ export const platformBusiness: NavItem[] = [
   { title: "Revenue Ops", url: "/revenue-ops", icon: BarChart3, module: "revenue-ops" },
   { title: "Contract Center", url: "/contract-center", icon: FileText, module: "contract-center" },
   { title: "Partner Management", url: "/partner-management", icon: Users2, module: "partner-management" },
+  { title: "Tuition Centres", url: "/tuition-centers", icon: GraduationCap, module: "tuition-centers" },
   { title: "Approval Center", url: "/approval-center", icon: ClipboardCheck, module: "approval-center" },
   { title: "Support Desk", url: "/support-desk", icon: LifeBuoy, module: "support-desk" },
 ];

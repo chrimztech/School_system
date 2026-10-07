@@ -13,6 +13,7 @@ import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as VisitorLogRouteImport } from './routes/visitor-log'
 import { Route as VendorManagementRouteImport } from './routes/vendor-management'
 import { Route as UserManagementRouteImport } from './routes/user-management'
+import { Route as TuitionCentersRouteImport } from './routes/tuition-centers'
 import { Route as TransportRouteImport } from './routes/transport'
 import { Route as TimetableRouteImport } from './routes/timetable'
 import { Route as TenantWorkbenchRouteImport } from './routes/tenant-workbench'
@@ -119,6 +120,11 @@ const VendorManagementRoute = VendorManagementRouteImport.update({
 const UserManagementRoute = UserManagementRouteImport.update({
   id: '/user-management',
   path: '/user-management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TuitionCentersRoute = TuitionCentersRouteImport.update({
+  id: '/tuition-centers',
+  path: '/tuition-centers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TransportRoute = TransportRouteImport.update({
@@ -642,6 +648,7 @@ export interface FileRoutesByFullPath {
   '/tenant-workbench': typeof TenantWorkbenchRoute
   '/timetable': typeof TimetableRoute
   '/transport': typeof TransportRoute
+  '/tuition-centers': typeof TuitionCentersRoute
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
@@ -735,6 +742,7 @@ export interface FileRoutesByTo {
   '/tenant-workbench': typeof TenantWorkbenchRoute
   '/timetable': typeof TimetableRoute
   '/transport': typeof TransportRoute
+  '/tuition-centers': typeof TuitionCentersRoute
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
@@ -829,6 +837,7 @@ export interface FileRoutesById {
   '/tenant-workbench': typeof TenantWorkbenchRoute
   '/timetable': typeof TimetableRoute
   '/transport': typeof TransportRoute
+  '/tuition-centers': typeof TuitionCentersRoute
   '/user-management': typeof UserManagementRoute
   '/vendor-management': typeof VendorManagementRoute
   '/visitor-log': typeof VisitorLogRoute
@@ -924,6 +933,7 @@ export interface FileRouteTypes {
     | '/tenant-workbench'
     | '/timetable'
     | '/transport'
+    | '/tuition-centers'
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
@@ -1017,6 +1027,7 @@ export interface FileRouteTypes {
     | '/tenant-workbench'
     | '/timetable'
     | '/transport'
+    | '/tuition-centers'
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
@@ -1110,6 +1121,7 @@ export interface FileRouteTypes {
     | '/tenant-workbench'
     | '/timetable'
     | '/transport'
+    | '/tuition-centers'
     | '/user-management'
     | '/vendor-management'
     | '/visitor-log'
@@ -1204,6 +1216,7 @@ export interface RootRouteChildren {
   TenantWorkbenchRoute: typeof TenantWorkbenchRoute
   TimetableRoute: typeof TimetableRoute
   TransportRoute: typeof TransportRoute
+  TuitionCentersRoute: typeof TuitionCentersRoute
   UserManagementRoute: typeof UserManagementRoute
   VendorManagementRoute: typeof VendorManagementRoute
   VisitorLogRoute: typeof VisitorLogRoute
@@ -1239,6 +1252,13 @@ declare module '@tanstack/react-router' {
       path: '/user-management'
       fullPath: '/user-management'
       preLoaderRoute: typeof UserManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tuition-centers': {
+      id: '/tuition-centers'
+      path: '/tuition-centers'
+      fullPath: '/tuition-centers'
+      preLoaderRoute: typeof TuitionCentersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/transport': {
@@ -1962,6 +1982,7 @@ const rootRouteChildren: RootRouteChildren = {
   TenantWorkbenchRoute: TenantWorkbenchRoute,
   TimetableRoute: TimetableRoute,
   TransportRoute: TransportRoute,
+  TuitionCentersRoute: TuitionCentersRoute,
   UserManagementRoute: UserManagementRoute,
   VendorManagementRoute: VendorManagementRoute,
   VisitorLogRoute: VisitorLogRoute,

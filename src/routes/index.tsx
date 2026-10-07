@@ -34,6 +34,9 @@ import {
   Clock,
   HeartPulse,
   BarChart3,
+  Sparkles,
+  MapPin,
+  Phone,
 } from "lucide-react";
 import {
   Bar,
@@ -149,6 +152,83 @@ function SubjectClassStats({
               style={{ height: `${Math.max(4, (count / maxCount) * 20)}px` }}
             />
             <span className="text-[10px] text-muted-foreground">{grade}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Reads a pupil's published results to flag subjects below half marks and match them to nearby,
+// well-rated tuition centres. The analysis and the matching are both plain data (real averages,
+// real district/rating ranking) — "Explain this" is the only part that calls AI, and only if the
+// school has connected it; it restates these same facts in a warmer, parent-facing paragraph
+// rather than assessing the pupil itself.
+function PerformanceInsightCard({ schoolId, studentId, academicYear }: { schoolId: string; studentId: string; academicYear: string }) {
+  const [narrative, setNarrative] = useState<string | null>(null);
+
+  const { data: insight, isLoading } = useQuery({
+    queryKey: ["performance-insight", schoolId, studentId, academicYear],
+    queryFn: () => api.performanceInsight.get(schoolId, studentId, academicYear),
+    enabled: !!schoolId && !!studentId,
+  });
+  const { data: configs = [] } = useQuery({
+    queryKey: ["integration-configs", schoolId],
+    queryFn: () => api.integrationConfigs.listForSchool(schoolId),
+  });
+  const aiConnected = (configs as any[]).some((c) => c.providerCode === "llm" && c.enabled);
+
+  const narrativeMut = useMutation({
+    mutationFn: () => api.performanceInsight.narrative(schoolId, studentId, academicYear),
+    onSuccess: (res) => setNarrative(res.narrative),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Could not write an explanation right now"),
+  });
+
+  const weak = (insight?.weakSubjects ?? []) as any[];
+  if (isLoading || weak.length === 0) return null;
+  const centres = (insight?.recommendedCentres ?? {}) as Record<string, any[]>;
+
+  return (
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">Where extra help could make a difference</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Based on {academicYear}'s published results — subjects below half marks, with nearby tuition centres if any are listed.
+          </p>
+        </div>
+        <Button size="small" variant="outlined" startIcon={<Sparkles className="h-3.5 w-3.5" />}
+          disabled={!aiConnected || narrativeMut.isPending} onClick={() => narrativeMut.mutate()}
+          title={aiConnected ? undefined : "The school hasn't connected the AI Assistant yet"}>
+          {narrativeMut.isPending ? "Writing…" : "Explain this"}
+        </Button>
+      </div>
+
+      {narrative && (
+        <div className="mt-3 rounded-lg border border-border bg-card p-3 text-sm whitespace-pre-wrap">{narrative}</div>
+      )}
+
+      <div className="mt-4 space-y-3">
+        {weak.map((s) => (
+          <div key={s.subjectName} className="rounded-lg border border-border bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold">{s.subjectName}</p>
+              <span className="text-sm font-semibold text-destructive">{s.average}%</span>
+            </div>
+            {(centres[s.subjectName] ?? []).length === 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">No tuition centres listed for this subject yet.</p>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {(centres[s.subjectName] ?? []).map((c: any) => (
+                  <div key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{c.name}</span>
+                    {c.district && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{c.district}</span>}
+                    {c.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>}
+                    {c.rating != null && <Chip size="small" label={`${c.rating}/5`} sx={badgeSx("success")} />}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -656,6 +736,12 @@ function ChildPanel({ child, schoolId, color }: { child: any; schoolId: string; 
             )}
           </div>
         </Box>
+        )}
+
+        {tab === "performance" && (
+          <div className="mt-4">
+            <PerformanceInsightCard schoolId={schoolId} studentId={child.id} academicYear={academicYear} />
+          </div>
         )}
 
         {/* DISCIPLINE */}
